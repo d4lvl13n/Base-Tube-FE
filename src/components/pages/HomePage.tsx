@@ -25,10 +25,14 @@ const BaseTubeHomepage: React.FC = () => {
       setLoading(true);
       const errors: Record<string, boolean> = {};
 
-      const fetchData = async (apiCall: () => Promise<any>, setter: React.Dispatch<React.SetStateAction<any>>, errorKey: string) => {
+      const fetchData = async (
+        apiCall: () => Promise<any>, 
+        setter: React.Dispatch<React.SetStateAction<any>>, 
+        errorKey: string
+      ) => {
         try {
           const response = await apiCall();
-          setter(response.data);
+          setter(response.data); 
         } catch (err) {
           console.error(`Failed to fetch ${errorKey} data:`, err);
           errors[errorKey] = true;

@@ -1,3 +1,5 @@
+// src/components/common/Home/VideoSection.tsx
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import VideoCard from '../VideoCard';
@@ -18,7 +20,7 @@ const VideoSection: React.FC<VideoSectionProps> = ({ title, videos, linkTo, rend
         <Link to={linkTo} className="text-[#fa7517] hover:underline">View More</Link>
       </div>
       <div className="grid grid-cols-4 gap-4">
-        {videos.length > 0 ? videos.map((video) => (
+        {Array.isArray(videos) && videos.length > 0 ? videos.map((video) => (
           <VideoCard key={video.id} video={video} size="normal" />
         )) : renderPlaceholder()}
       </div>

@@ -8,7 +8,7 @@ interface HeroSectionProps {
 }
 
 const HeroSection: React.FC<HeroSectionProps> = ({ featuredVideos, renderPlaceholder }) => {
-  if (featuredVideos.length === 0) {
+  if (!Array.isArray(featuredVideos) || featuredVideos.length === 0) {
     return <div className="flex gap-4 mb-8 h-[400px]">{renderPlaceholder()}</div>;
   }
 
@@ -21,13 +21,13 @@ const HeroSection: React.FC<HeroSectionProps> = ({ featuredVideos, renderPlaceho
           className="relative flex-1 group overflow-hidden rounded-lg"
         >
           <img 
-            src={video.thumbnailUrl} 
+            src={`${process.env.REACT_APP_API_URL}/${video.thumbnail_path}`} 
             alt={video.title} 
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
+/>
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">
             <h2 className="text-xl font-bold text-white">{video.title}</h2>
-            <p className="text-sm text-gray-300">{video.creator}</p>
+            <p className="text-sm text-gray-300">{video.channel.name}</p>
           </div>
         </Link>
       ))}

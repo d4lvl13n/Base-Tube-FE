@@ -1,3 +1,5 @@
+// src/components/Profile/UserProfileWallet.tsx
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Header from '../common/Header';
@@ -34,7 +36,7 @@ const UserProfileWallet: React.FC = () => {
           getMyProfile(),
           getMyVideos(),
           getMyNFTs(),
-          getMyWallet()
+          getMyWallet(),
         ]);
 
         if (profileData.status === 'fulfilled') setUserProfile(profileData.value);
@@ -60,17 +62,21 @@ const UserProfileWallet: React.FC = () => {
       case 'Content':
         return (
           <div className="grid grid-cols-3 gap-4">
-            {Array(6).fill(null).map((_, index) => (
-              <PlaceholderVideoCard key={index} size="normal" />
-            ))}
+            {Array(6)
+              .fill(null)
+              .map((_, index) => (
+                <PlaceholderVideoCard key={index} size="normal" />
+              ))}
           </div>
         );
       case 'NFTs':
         return (
           <div className="grid grid-cols-3 gap-4">
-            {Array(6).fill(null).map((_, index) => (
-              <div key={index} className="bg-gray-800 rounded-xl h-48 animate-pulse"></div>
-            ))}
+            {Array(6)
+              .fill(null)
+              .map((_, index) => (
+                <div key={index} className="bg-gray-800 rounded-xl h-48 animate-pulse"></div>
+              ))}
           </div>
         );
       case 'Wallet':
@@ -96,7 +102,7 @@ const UserProfileWallet: React.FC = () => {
 
           <TabNav tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
 
-          <motion.div 
+          <motion.div
             className="bg-gray-900 bg-opacity-70 rounded-3xl p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -104,12 +110,16 @@ const UserProfileWallet: React.FC = () => {
             style={{
               boxShadow: `0 0 20px 5px rgba(250, 117, 23, 0.3), 
                           0 0 60px 10px rgba(250, 117, 23, 0.2), 
-                          0 0 100px 20px rgba(250, 117, 23, 0.1)`
+                          0 0 100px 20px rgba(250, 117, 23, 0.1)`,
             }}
           >
-            {loading ? renderPlaceholderContent() : (
+            {loading ? (
+              renderPlaceholderContent()
+            ) : (
               <>
-                {activeTab === 'Overview' && userProfile && <OverviewTab userProfile={userProfile} userWallet={userWallet} />}
+                {activeTab === 'Overview' && userProfile && (
+                  <OverviewTab userProfile={userProfile} userWallet={userWallet} />
+                )}
                 {activeTab === 'Content' && <ContentTab videos={userVideos} />}
                 {activeTab === 'NFTs' && <NFTsTab nfts={userNFTs} />}
                 {activeTab === 'Wallet' && <WalletTab wallet={userWallet} />}
@@ -132,10 +142,10 @@ const UserProfileWallet: React.FC = () => {
 };
 
 const placeholderProfile: UserProfile = {
-  id: '0',
-  name: 'Loading...', // Adjust this based on your UserProfile type
-  avatarUrl: '',
-  handle: 'Loading...',
+  id: 0,
+  name: 'Loading...',
+  email: '',
+  avatar_path: '',
   subscribers: 0,
   totalViews: 0,
   nftCount: 0,
@@ -145,7 +155,7 @@ const placeholderProfile: UserProfile = {
 const placeholderWallet: UserWallet = {
   tubeBalance: 0,
   totalEarnings: '$0',
-  transactions: [], // Add this line
+  transactions: [],
 };
 
 export default UserProfileWallet;

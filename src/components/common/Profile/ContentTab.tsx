@@ -20,10 +20,10 @@ const ContentTab: React.FC<ContentTabProps> = ({ videos }) => {
                         0 0 50px 10px rgba(250, 117, 23, 0.1)`
           }}
         >
-          <img src={video.thumbnailUrl} alt={video.title} className="w-full h-32 object-cover" />
+          <img src={`${process.env.REACT_APP_API_URL}/${video.thumbnail_path}`} alt={video.title} className="w-full h-32 object-cover" />
           <div className="p-4">
             <h3 className="font-semibold">{video.title}</h3>
-            <p className="text-sm text-gray-300">{video.views} views • {video.uploadDate}</p>
+              <p className="text-sm text-gray-300">{video.views} views • {video.createdAt}</p>
           </div>
         </motion.div>
       ))}

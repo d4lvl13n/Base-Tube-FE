@@ -1,11 +1,11 @@
 export interface Channel {
-  id: string;
+  id: number;
   name: string;
-  description: string;
-  avatarUrl: string;
-  bannerUrl: string;
-  subscriberCount: number;
-  videoCount: number;
-  createdAt: string;
-  updatedAt: string;
+  description: string | null;
+  avatar_path?: string;
+  banner_path?: string;
+  subscriber_count?: number;
+  video_count?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }

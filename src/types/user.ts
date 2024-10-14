@@ -1,28 +1,30 @@
-// types/user.ts
+// src/types/user.ts
 
 export interface UserProfile {
-  id: string;
+  id: number;
   name: string;
-  handle: string;
-  avatarUrl: string;
-  subscribers: number;
-  totalViews: number;
-  nftCount: number;
-  videoCount: number;
+  email: string;
+  avatar_path?: string;
+  subscribers?: number;
+  totalViews?: number;
+  nftCount?: number;
+  videoCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UserVideo {
-  id: string;
+  id: number;
   title: string;
-  thumbnailUrl: string;
+  thumbnail_path: string;
   views: number;
-  uploadDate: string;
+  createdAt: string;
 }
 
 export interface UserNFT {
-  id: string;
+  id: number;
   name: string;
-  imageUrl: string;
+  image_path: string;
   rarity: string;
 }
 
@@ -33,7 +35,7 @@ export interface UserWallet {
 }
 
 export interface Transaction {
-  id: string;
+  id: number;
   type: 'send' | 'receive' | 'swap';
   amount: number;
   date: string;

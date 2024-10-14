@@ -20,7 +20,7 @@ const NFTsTab: React.FC<NFTsTabProps> = ({ nfts }) => {
                         0 0 50px 10px rgba(250, 117, 23, 0.1)`
           }}
         >
-          <img src={nft.imageUrl} alt={nft.name} className="w-full h-40 object-cover" />
+          <img src={`${process.env.REACT_APP_API_URL}/${nft.image_path}`} alt={nft.name} className="w-full h-40 object-cover" />
           <div className="p-4">
             <h3 className="font-semibold">{nft.name}</h3>
             <p className="text-sm text-gray-300">Rarity: {nft.rarity}</p>
