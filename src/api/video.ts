@@ -4,8 +4,8 @@ import { Video } from '../types/video';
 export const getAllVideos = (page: number = 1) => 
   api.get(`/api/v1/videos?page=${page}`).then(res => res.data.data);
 
-export const getVideoById = (id: string) => 
-  api.get(`/api/v1/videos/${id}`).then(res => res.data.data);
+export const getVideoById = (id: string) =>
+  api.get(`/api/v1/videos/${id}`).then((res) => res.data.data);
 
 export const getFeaturedVideos = (limit: number = 2) => 
   api.get(`/api/v1/videos/featured?limit=${limit}`).then(res => res.data.data);

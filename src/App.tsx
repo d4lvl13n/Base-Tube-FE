@@ -3,15 +3,17 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import ProtectedRoute from './components/pages/ProtectedRoute';
 import HomePage from './components/pages/HomePage';
-import VideoPage from './components/pages/VideoPage';
+import SingleVideo from './components/pages/SingleVideo';
 import DiscoveryPage from './components/pages/DiscoveryPage';
 import SubscribedChannelPage from './components/pages/SubscribedChannelPage';
 import NFTMarketplace from './components/pages/NFTMarketplace';
 import UserProfileWallet from './components/pages/UserProfileWallet';
 import SignInPage from './components/pages/SignInPage';
 import SignUpPage from './components/pages/SignUpPage';
-import ErrorBoundary from './components/common/ErrorBoundary'; // Ensure this path is correct
+import ErrorBoundary from './components/common/ErrorBoundary';
 import ChannelPage from './components/pages/ChannelPage';
+import ChannelDetailPage from './components/pages/ChannelDetailPage';
+import DefaultVideoPage from './components/pages/DefaultVideoPage';
 
 function App() {
   return (
@@ -20,12 +22,13 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<HomePage />} />
-          <Route path="/video/:id" element={<VideoPage />} />
+          <Route path="/video/:id" element={<SingleVideo />} /> 
           <Route path="/discover" element={<DiscoveryPage />} />
           <Route path="/nft-marketplace" element={<NFTMarketplace />} />
-          <Route path="/channel/:id" element={<ChannelPage />} />
           <Route path="/channel" element={<ChannelPage />} />
-
+          <Route path="/channel/:id" element={<ChannelDetailPage />} />
+          <Route path="/default-video/:id" element={<DefaultVideoPage />} />
+          
           {/* Protected routes */}
           <Route
             path="/profile"

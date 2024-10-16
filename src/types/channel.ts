@@ -22,6 +22,9 @@ export interface Channel {
   updatedAt?: string;
   isOwner?: boolean;
   subscribeStatus?: number;
-  ownerPicture?: string;
+  ownerPicture: string | null;
   User?: User;
+  user?: {
+    picture: string;
+  };
 }

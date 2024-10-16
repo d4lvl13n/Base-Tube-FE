@@ -9,7 +9,8 @@ export interface Video {
   channel_id: number;
   title: string;
   description: string;
-  processed_video_paths: string[];
+  video_path: string;
+  processed_video_paths?: string[] | null;
   thumbnail_path: string;
   views: number;
   likes: number;
@@ -21,5 +22,5 @@ export interface Video {
   createdAt: string;
   updatedAt: string;
   channel?: Channel;
-  user?: User; 
+  user?: User;
 }
