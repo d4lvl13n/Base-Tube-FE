@@ -36,3 +36,14 @@
     transform: rotate(360deg);
   }
 }
+
+/* src/index.css or src/App.css */
+
+body {
+  overflow-x: hidden;
+}
+
+/* Add this to your global CSS or relevant component CSS */
+.max-w-hero {
+  max-width: 800px; /* Adjust as needed */
+}

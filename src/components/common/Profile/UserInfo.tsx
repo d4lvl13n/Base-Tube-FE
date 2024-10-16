@@ -20,7 +20,7 @@ const UserInfo: React.FC<UserInfoProps> = ({ userProfile }) => {
         className="w-32 h-32 bg-gray-700 rounded-full overflow-hidden mr-6"
         whileHover={{ scale: 1.05 }}
       >
-        <img src={`${process.env.REACT_APP_API_URL}/${userProfile.avatar_path}`} alt="User avatar" className="w-full h-full object-cover" />
+        <img src={`${process.env.REACT_APP_API_URL}/${userProfile.picture}`} alt="User avatar" className="w-full h-full object-cover" />
       </motion.div>
       <div>
         <h1 className="text-3xl font-bold mb-2">{userProfile.name}</h1>

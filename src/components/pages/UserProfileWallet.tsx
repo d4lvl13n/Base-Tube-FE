@@ -145,11 +145,13 @@ const placeholderProfile: UserProfile = {
   id: 0,
   name: 'Loading...',
   email: '',
-  avatar_path: '',
+  picture: '',
   subscribers: 0,
   totalViews: 0,
   nftCount: 0,
   videoCount: 0,
+  createdAt: '',
+  updatedAt: '',
 };
 
 const placeholderWallet: UserWallet = {

@@ -11,6 +11,7 @@ import UserProfileWallet from './components/pages/UserProfileWallet';
 import SignInPage from './components/pages/SignInPage';
 import SignUpPage from './components/pages/SignUpPage';
 import ErrorBoundary from './components/common/ErrorBoundary'; // Ensure this path is correct
+import ChannelPage from './components/pages/ChannelPage';
 
 function App() {
   return (
@@ -22,6 +23,8 @@ function App() {
           <Route path="/video/:id" element={<VideoPage />} />
           <Route path="/discover" element={<DiscoveryPage />} />
           <Route path="/nft-marketplace" element={<NFTMarketplace />} />
+          <Route path="/channel/:id" element={<ChannelPage />} />
+          <Route path="/channel" element={<ChannelPage />} />
 
           {/* Protected routes */}
           <Route

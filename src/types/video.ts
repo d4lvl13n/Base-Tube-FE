@@ -1,6 +1,7 @@
 // src/types/video.ts
 
 import { Channel } from './channel';
+import { User } from './user';
 
 export interface Video {
   id: number;
@@ -19,5 +20,6 @@ export interface Video {
   is_nft_content: boolean;
   createdAt: string;
   updatedAt: string;
-  channel: Channel;
+  channel?: Channel;
+  user?: User; 
 }
