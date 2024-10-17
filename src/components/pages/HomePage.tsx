@@ -67,11 +67,12 @@ const BaseTubeHomepage: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className="bg-[#000000] text-white min-h-screen overflow-x-hidden">
-        <Header />
-        <div className="flex flex-col lg:flex-row">
-          <Sidebar />
-          <main className="flex-1 p-2 sm:p-4 md:p-6 pr-16 max-w-[1920px] mx-auto w-full">
+      <div className="bg-[#000000] text-white min-h-screen overflow-hidden">
+        <Header className="fixed top-0 left-0 right-0 z-50" />
+        <div className="flex pt-16"> {/* Add padding-top to account for fixed header */}
+          <Sidebar className="fixed left-0 top-16 bottom-0 z-40" /> {/* Position sidebar below header */}
+          <main className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 ml-16 max-w-[1920px] mx-auto w-full">
+            {/* Content sections */}
             <HeroSection 
               featuredVideos={featuredVideos.slice(0, 2)} 
               renderPlaceholder={() => renderPlaceholders(2, 'large')}

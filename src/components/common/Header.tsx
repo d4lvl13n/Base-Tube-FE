@@ -4,11 +4,11 @@ import { Search, Menu } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 import Button from './Button';
 
-const Header: React.FC = () => {
+const Header: React.FC<{ className?: string }> = ({ className = '' }) => {
   const { isSignedIn, user } = useUser();
 
   return (
-    <header className="bg-[#000000] p-4 flex justify-between items-center">
+    <header className={`bg-[#000000] p-4 flex justify-between items-center ${className}`}>
       <div className="flex items-center space-x-4">
         <Menu className="text-gray-400 cursor-pointer" />
         <Link to="/" className="flex items-center space-x-2">
