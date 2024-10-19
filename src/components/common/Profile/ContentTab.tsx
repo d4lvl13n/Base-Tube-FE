@@ -1,32 +1,25 @@
+// src/components/common/Profile/ContentTab.tsx
+
 import React from 'react';
-import { motion } from 'framer-motion';
-import { UserVideo } from '../../../types/user';
+import { Video } from '../../../types/video'; // Update the import path
+import VideoCard from '../VideoCard';
 
 interface ContentTabProps {
-  videos: UserVideo[];
+  videos: Video[];
 }
 
 const ContentTab: React.FC<ContentTabProps> = ({ videos }) => {
   return (
-    <div className="grid grid-cols-3 gap-4">
-      {videos.map((video) => (
-        <motion.div 
-          key={video.id}
-          className="bg-gray-800 rounded-xl overflow-hidden"
-          whileHover={{ scale: 1.05 }}
-          style={{
-            boxShadow: `0 0 10px 2px rgba(250, 117, 23, 0.3), 
-                        0 0 30px 5px rgba(250, 117, 23, 0.2), 
-                        0 0 50px 10px rgba(250, 117, 23, 0.1)`
-          }}
-        >
-          <img src={`${process.env.REACT_APP_API_URL}/${video.thumbnail_path}`} alt={video.title} className="w-full h-32 object-cover" />
-          <div className="p-4">
-            <h3 className="font-semibold">{video.title}</h3>
-              <p className="text-sm text-gray-300">{video.views} views • {video.createdAt}</p>
-          </div>
-        </motion.div>
-      ))}
+    <div>
+      {videos.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {videos.map((video) => (
+            <VideoCard key={video.id} video={video} size="normal" />
+          ))}
+        </div>
+      ) : (
+        <p>You have not uploaded any videos yet.</p>
+      )}
     </div>
   );
 };

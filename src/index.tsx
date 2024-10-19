@@ -3,11 +3,9 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import { ClerkProvider } from '@clerk/clerk-react';
+import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-react';
 
 const PUBLISHABLE_KEY = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
-
-console.log('Clerk Publishable Key:', PUBLISHABLE_KEY); // Debugging
 
 if (!PUBLISHABLE_KEY) {
   throw new Error('Missing Clerk Publishable Key');
@@ -19,7 +17,9 @@ const root = ReactDOM.createRoot(
 root.render(
   <React.StrictMode>
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
-      <App />
+      <ClerkLoaded>
+        <App />
+      </ClerkLoaded>
     </ClerkProvider>
   </React.StrictMode>,
 );

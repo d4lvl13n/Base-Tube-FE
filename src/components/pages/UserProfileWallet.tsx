@@ -4,14 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
-import FloatingNavigation from '../common/FloatingNavigation';
 import UserInfo from '../common/Profile/UserInfo';
 import OverviewTab from '../common/Profile/OverviewTab';
 import ContentTab from '../common/Profile/ContentTab';
 import NFTsTab from '../common/Profile/NFTsTab';
 import WalletTab from '../common/Profile/WalletTab';
 import SettingsTab from '../common/Profile/SettingsTab';
-import FloatingActionButton from '../common/FloatingActionButton';
 import TabNav from '../common/TabNav';
 import { getMyNFTs, getMyProfile, getMyVideos, getMyWallet } from '../../api/profile';
 import { UserProfile, UserVideo, UserNFT, UserWallet } from '../../types/user';
@@ -32,21 +30,22 @@ const UserProfileWallet: React.FC = () => {
     const fetchUserData = async () => {
       setLoading(true);
       try {
-        const [profileData, videosData, nftsData, walletData] = await Promise.allSettled([
+        const [profileData, videosData, nftsData, walletData] = await Promise.all([
           getMyProfile(),
           getMyVideos(),
           getMyNFTs(),
           getMyWallet(),
         ]);
 
-        if (profileData.status === 'fulfilled') setUserProfile(profileData.value);
-        if (videosData.status === 'fulfilled') setUserVideos(videosData.value);
-        if (nftsData.status === 'fulfilled') setUserNFTs(nftsData.value);
-        if (walletData.status === 'fulfilled') setUserWallet(walletData.value);
+        setUserProfile(profileData);
+        setUserVideos(videosData);
+        setUserNFTs(nftsData);
+        setUserWallet(walletData);
 
-        if (profileData.status === 'rejected') setError('Failed to fetch profile data');
+        setError(null);
       } catch (err) {
-        setError('An error occurred while fetching user data');
+        console.error('Error fetching user data:', err);
+        setError('An error occurred while fetching user data.');
       } finally {
         setLoading(false);
       }
@@ -58,7 +57,7 @@ const UserProfileWallet: React.FC = () => {
   const renderPlaceholderContent = () => {
     switch (activeTab) {
       case 'Overview':
-        return <OverviewTab userProfile={placeholderProfile} userWallet={placeholderWallet} />;
+        return <OverviewTab userProfile={placeholderProfile} userWallet={placeholderWallet} loading />;
       case 'Content':
         return (
           <div className="grid grid-cols-3 gap-4">
@@ -80,9 +79,9 @@ const UserProfileWallet: React.FC = () => {
           </div>
         );
       case 'Wallet':
-        return <WalletTab wallet={placeholderWallet} />;
+        return <WalletTab wallet={placeholderWallet} loading />;
       case 'Settings':
-        return <SettingsTab />;
+        return <SettingsTab loading />;
       default:
         return null;
     }
@@ -135,8 +134,6 @@ const UserProfileWallet: React.FC = () => {
           )}
         </main>
       </div>
-      <FloatingNavigation />
-      <FloatingActionButton />
     </div>
   );
 };
@@ -146,15 +143,18 @@ const placeholderProfile: UserProfile = {
   name: 'Loading...',
   email: '',
   picture: '',
+  bio: '',
   subscribers: 0,
   totalViews: 0,
-  nftCount: 0,
   videoCount: 0,
+  nftCount: 0,
   createdAt: '',
   updatedAt: '',
 };
 
 const placeholderWallet: UserWallet = {
+  walletAddress: '0x0000000000000000000000000000000000000000',
+  balance: 0,
   tubeBalance: 0,
   totalEarnings: '$0',
   transactions: [],

@@ -1,46 +1,78 @@
+// src/components/common/Profile/WalletTab.tsx
+
 import React from 'react';
-import { motion } from 'framer-motion';
 import { UserWallet } from '../../../types/user';
-import Button from '../Button';
 
 interface WalletTabProps {
   wallet: UserWallet | null;
+  loading?: boolean;
 }
 
-const WalletTab: React.FC<WalletTabProps> = ({ wallet }) => {
-  if (!wallet) return <div>Wallet information not available</div>;
+const WalletTab: React.FC<WalletTabProps> = ({ wallet, loading = false }) => {
+  if (loading) {
+    return (
+      <div className="animate-pulse">
+        <div className="bg-gray-800 h-12 rounded mb-4"></div>
+        <div className="bg-gray-800 h-48 rounded"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <motion.div 
-        className="bg-gray-800 rounded-xl p-6"
-        whileHover={{ scale: 1.02 }}
-        style={{
-          boxShadow: `0 0 10px 2px rgba(250, 117, 23, 0.3), 
-                      0 0 30px 5px rgba(250, 117, 23, 0.2), 
-                      0 0 50px 10px rgba(250, 117, 23, 0.1)`
-        }}
-      >
-        <h2 className="text-2xl font-bold mb-4">$TUBE Balance</h2>
-        <p className="text-4xl font-bold text-[#fa7517]">{wallet.tubeBalance} $TUBE</p>
-        <div className="mt-4 flex space-x-4">
-          <Button onClick={() => {/* Handle send */}}>Send</Button>
-          <Button onClick={() => {/* Handle receive */}}>Receive</Button>
-          <Button onClick={() => {/* Handle swap */}}>Swap</Button>
+    <div>
+      {wallet ? (
+        <>
+          <div className="bg-gray-800 p-4 rounded-lg mb-4">
+            <h3 className="text-xl font-bold mb-2">Wallet Address</h3>
+            <p>{wallet.walletAddress}</p>
+            <p>
+              <strong>Balance:</strong> {wallet.balance} ETH
+            </p>
+            <p>
+              <strong>TUBE Balance:</strong> {wallet.tubeBalance} TUBE
+            </p>
+          </div>
+          <div className="bg-gray-800 p-4 rounded-lg">
+            <h3 className="text-xl font-bold mb-2">Transaction History</h3>
+            {wallet.transactions.length > 0 ? (
+              <ul>
+                {wallet.transactions.map((tx) => (
+                  <li key={tx.id} className="mb-2">
+                    <p>
+                      <strong>{tx.type}:</strong> {tx.amount} ETH
+                    </p>
+                    <p>
+                      <strong>Date:</strong> {new Date(tx.date).toLocaleString()}
+                    </p>
+                    <a
+                      href={`https://etherscan.io/tx/${tx.hash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500"
+                    >
+                      View on Etherscan
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No transactions available.</p>
+            )}
+          </div>
+        </>
+      ) : (
+        <div>
+          <p>No wallet connected.</p>
+          <button
+            className="mt-4 px-4 py-2 bg-[#fa7517] text-black rounded"
+            onClick={() => {
+              // Function to connect wallet
+            }}
+          >
+            Connect Wallet
+          </button>
         </div>
-      </motion.div>
-      <motion.div 
-        className="bg-gray-800 rounded-xl p-6"
-        whileHover={{ scale: 1.02 }}
-        style={{
-          boxShadow: `0 0 10px 2px rgba(250, 117, 23, 0.3), 
-                      0 0 30px 5px rgba(250, 117, 23, 0.2), 
-                      0 0 50px 10px rgba(250, 117, 23, 0.1)`
-        }}
-      >
-        <h2 className="text-2xl font-bold mb-4">Transaction History</h2>
-        {/* Implement transaction history list here */}
-      </motion.div>
+      )}
     </div>
   );
 };

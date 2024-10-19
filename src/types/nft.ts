@@ -5,4 +5,5 @@ export interface UserNFT {
   name: string;
   image_path: string;
   rarity: string;
+
 }

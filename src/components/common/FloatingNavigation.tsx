@@ -1,56 +1,64 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, Clock, Star, Zap } from 'lucide-react';
+import { LucideIcon } from 'lucide-react';
 
-interface NavItem {
-  Icon: React.ElementType;
+interface NavigationOption {
+  key: string;
+  icon: LucideIcon;
   label: string;
 }
 
-const navItems: NavItem[] = [
-  { Icon: Flame, label: 'Trending' },
-  { Icon: Clock, label: 'Recent' },
-  { Icon: Star, label: 'Favorites' },
-  { Icon: Zap, label: 'Live' },
-];
+interface FloatingNavigationProps {
+  options: NavigationOption[];
+  activeOption: string;
+  setActiveOption: (option: string) => void;
+}
 
-const FloatingNavigation: React.FC = () => {
+const FloatingNavigation: React.FC<FloatingNavigationProps> = ({ options, activeOption, setActiveOption }) => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsVisible(window.scrollY > 100);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <motion.div 
-      className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-80 rounded-full p-2 backdrop-blur-md"
+    <motion.div
+      className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-80 rounded-full p-2 backdrop-blur-md ${isVisible ? 'block' : 'hidden'}`}
       initial={{ y: 100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
+      animate={{ y: isVisible ? 0 : 100, opacity: isVisible ? 1 : 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 20 }}
     >
       <div className="flex space-x-4">
-        {navItems.map((item, index) => (
-          <FloatingNavItem key={index} {...item} />
+        {options.map(({ key, icon: Icon, label }) => (
+          <motion.div
+            key={key}
+            className="relative group"
+          >
+            <motion.button
+              className={`p-3 rounded-full ${activeOption === key ? 'bg-[#fa7517] text-black' : 'bg-black bg-opacity-50 text-white'}`}
+              whileHover={{ scale: 1.1 }}
+              onClick={(e) => {
+                e.preventDefault();
+                setActiveOption(key);
+              }}
+            >
+              <Icon size={24} />
+            </motion.button>
+            <motion.span
+              className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            >
+              {label}
+            </motion.span>
+          </motion.div>
         ))}
       </div>
     </motion.div>
   );
 };
-
-const FloatingNavItem: React.FC<NavItem> = ({ Icon, label }) => (
-  <motion.div 
-    className="flex flex-col items-center cursor-pointer group"
-    whileHover={{ y: -5 }}
-  >
-    <motion.div 
-      className="bg-[#fa7517] rounded-full p-3 group-hover:bg-opacity-80 transition-all duration-300"
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.9 }}
-    >
-      <Icon size={24} className="text-black" />
-    </motion.div>
-    <motion.span 
-      className="mt-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-      initial={{ y: 10 }}
-      animate={{ y: 0 }}
-    >
-      {label}
-    </motion.span>
-  </motion.div>
-);
 
 export default FloatingNavigation;

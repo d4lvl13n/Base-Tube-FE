@@ -1,8 +1,18 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL, // Ensure this is also set in .env
+  baseURL: process.env.REACT_APP_API_URL, // Ensure this is also set in your .env file
 });
 
-// Remove useAuth and interceptors that use hooks
+api.interceptors.request.use(
+  async (config) => {
+    const token = await window.Clerk?.session?.getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 export default api;

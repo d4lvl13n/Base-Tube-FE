@@ -1,38 +1,67 @@
 // src/components/common/Profile/OverviewTab.tsx
 
 import React from 'react';
-import { DollarSign, Hexagon, BarChart2, Video } from 'lucide-react';
 import { UserProfile, UserWallet } from '../../../types/user';
-import OverviewCard from './OverviewCard';
 
 interface OverviewTabProps {
   userProfile: UserProfile;
   userWallet: UserWallet | null;
+  loading?: boolean;
 }
 
-const OverviewTab: React.FC<OverviewTabProps> = ({ userProfile, userWallet }) => {
+const OverviewTab: React.FC<OverviewTabProps> = ({ userProfile, userWallet, loading = false }) => {
   return (
-    <div className="grid grid-cols-2 gap-6">
-      <OverviewCard
-        title="$TUBE Balance"
-        value={userWallet?.tubeBalance || 0}
-        icon={<DollarSign size={24} />}
-      />
-      <OverviewCard
-        title="NFTs Owned"
-        value={userProfile.nftCount || 0}
-        icon={<Hexagon size={24} />}
-      />
-      <OverviewCard
-        title="Total Earnings"
-        value={userWallet?.totalEarnings || '$0'}
-        icon={<BarChart2 size={24} />}
-      />
-      <OverviewCard
-        title="Content Created"
-        value={`${userProfile.videoCount || 0} videos`}
-        icon={<Video size={24} />}
-      />
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Personal Information */}
+      <div className="bg-gray-800 p-4 rounded-lg">
+        <h3 className="text-xl font-bold mb-2">Personal Information</h3>
+        <p>
+          <strong>Name:</strong> {userProfile.name}
+        </p>
+        <p>
+          <strong>Email:</strong> {userProfile.email}
+        </p>
+        <p>
+          <strong>Bio:</strong> {userProfile.bio || 'No bio available.'}
+        </p>
+      </div>
+
+      {/* Wallet Information */}
+      <div className="bg-gray-800 p-4 rounded-lg">
+        <h3 className="text-xl font-bold mb-2">Wallet</h3>
+        {userWallet ? (
+          <>
+            <p>
+              <strong>Address:</strong> {userWallet.walletAddress}
+            </p>
+            <p>
+              <strong>Balance:</strong> {userWallet.balance} ETH
+            </p>
+            <p>
+              <strong>TUBE Balance:</strong> {userWallet.tubeBalance} TUBE
+            </p>
+          </>
+        ) : (
+          <p>No wallet connected.</p>
+        )}
+      </div>
+
+      {/* Additional Statistics */}
+      <div className="bg-gray-800 p-4 rounded-lg">
+        <h3 className="text-xl font-bold mb-2">Statistics</h3>
+        <p>
+          <strong>Subscribers:</strong> {userProfile.subscribers}
+        </p>
+        <p>
+          <strong>Total Views:</strong> {userProfile.totalViews}
+        </p>
+        <p>
+          <strong>Videos:</strong> {userProfile.videoCount}
+        </p>
+        <p>
+          <strong>NFTs:</strong> {userProfile.nftCount}
+        </p>
+      </div>
     </div>
   );
 };

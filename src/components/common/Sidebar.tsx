@@ -18,7 +18,7 @@ const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
         <Link to="/subscribed" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
           <PlayCircle size={24} />
         </Link>
-        <Link to="/channels" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
+        <Link to="/channel" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
           <Tv size={24} />
         </Link>
         <Link to="/profile" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">

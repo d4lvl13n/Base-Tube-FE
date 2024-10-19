@@ -6,10 +6,12 @@ import { getChannels, subscribeToChannel, unsubscribeFromChannel } from '../../a
 import { Channel } from '../../types/channel';
 import { Users, Video, Clock, TrendingUp, CheckCircle } from 'lucide-react';
 import PlaceholderChannelCard from '../common/PlaceholderChannelCard';
+import InfiniteScroll from 'react-infinite-scroll-component';
+import FloatingNavigation from '../common/FloatingNavigation';
 
 const ChannelPage: React.FC = () => {
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [sort, setSort] = useState('subscribers_count');
@@ -69,10 +71,10 @@ const ChannelPage: React.FC = () => {
 
   return (
     <div className="bg-[#000000] text-white min-h-screen overflow-x-hidden">
-      <Header />
-      <div className="flex flex-col lg:flex-row">
-        <Sidebar />
-        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-[1920px] mx-auto w-full">
+      <Header className="fixed top-0 left-0 right-0 z-50" />
+      <div className="flex pt-16">
+        <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
+        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-[1920px] mx-auto w-full ml-16" id="scrollableDiv">
           <motion.h1 
             className="text-3xl sm:text-4xl font-bold mb-8 text-center lg:text-left"
             initial={{ opacity: 0, y: -20 }}
@@ -119,58 +121,49 @@ const ChannelPage: React.FC = () => {
             )}
           </AnimatePresence>
 
-          {/* Channel grid */}
-          <motion.div 
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-          >
-            {channels.length > 0
-              ? channels.map((channel) => (
-                  <ChannelCard key={channel.id} channel={channel} />
-                ))
-              : !loading &&
-                Array(12)
-                  .fill(null)
-                  .map((_, index) => <PlaceholderChannelCard key={index} />)}
-          </motion.div>
-
-          {/* Load more button */}
-          {!loading && hasMore && (
-            <motion.div 
-              className="flex justify-center mt-12"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.6 }}
-            >
-              <motion.button
-                onClick={handleLoadMore}
-                className="px-8 py-3 bg-gradient-to-r from-[#fa7517] to-[#ffa041] text-black rounded-full font-bold shadow-lg hover:shadow-xl transition-all duration-300"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Discover More Channels
-              </motion.button>
-            </motion.div>
-          )}
-
-          {/* Loading indicator */}
-          <AnimatePresence>
-            {loading && (
+          <InfiniteScroll
+            dataLength={channels.length}
+            next={handleLoadMore}
+            hasMore={hasMore}
+            loader={
               <motion.div 
                 className="flex justify-center mt-12"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.3 }}
               >
                 <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[#fa7517]"></div>
               </motion.div>
-            )}
-          </AnimatePresence>
+            }
+            endMessage={
+              <p style={{ textAlign: 'center', marginTop: '20px' }}>
+                <b>You have seen all channels!</b>
+              </p>
+            }
+          >
+            <motion.div 
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
+              {channels.length > 0
+                ? channels.map((channel) => (
+                    <ChannelCard key={channel.id} channel={channel} />
+                  ))
+                : !loading &&
+                  Array(12)
+                    .fill(null)
+                    .map((_, index) => <PlaceholderChannelCard key={index} />)}
+            </motion.div>
+          </InfiniteScroll>
         </main>
       </div>
+      <FloatingNavigation
+        options={sortOptions}
+        activeOption={sort}
+        setActiveOption={handleSortChange}
+      />
     </div>
   );
 };
