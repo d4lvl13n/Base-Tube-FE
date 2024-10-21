@@ -3,7 +3,7 @@
 import api from './index';
 import { Channel } from '../types/channel';
 import { Video } from '../types/video';
-
+  
 interface ChannelResponse {
   success: boolean;
   channel: Channel;
@@ -66,14 +66,16 @@ export const getPopularChannels = (page: number = 1, limit: number = 15) =>
     .get<ChannelsResponse>(`/api/v1/channels/popular?page=${page}&limit=${limit}`)
     .then((res) => res.data.data); // Extract the 'data' property // Extract the 'data' property which is the array of channels
 
-export const createChannel = (channelData: FormData) =>
-  api
+export const createChannel = async (channelData: FormData, sessionToken: string) => {
+  return api
     .post<ChannelResponse>('/api/v1/channels', channelData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${sessionToken}`,
       },
     })
     .then((res) => res.data);
+};
 
 export const updateChannel = (channelId: string, channelData: FormData) =>
   api

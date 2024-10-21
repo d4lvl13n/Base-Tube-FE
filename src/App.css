@@ -47,3 +47,18 @@ body {
 .max-w-hero {
   max-width: 800px; /* Adjust as needed */
 }
+/* In your CSS file */
+.loader {
+  border-top-color: #3490dc;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}

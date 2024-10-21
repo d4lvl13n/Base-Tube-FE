@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import ProtectedRoute from './components/pages/ProtectedRoute';
 import HomePage from './components/pages/HomePage';
 import SingleVideo from './components/pages/SingleVideo';
@@ -14,6 +16,7 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import ChannelPage from './components/pages/ChannelPage';
 import ChannelDetailPage from './components/pages/ChannelDetailPage';
 import DefaultVideoPage from './components/pages/DefaultVideoPage';
+import CreateChannelPage from './components/pages/CreateChannelPage';
 
 function App() {
   return (
@@ -43,6 +46,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <SubscribedChannelPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/create-channel"
+            element={
+              <ProtectedRoute>
+                <CreateChannelPage />
               </ProtectedRoute>
             }
           />
@@ -76,6 +87,17 @@ function App() {
           />
         </Routes>
       </Router>
+      <ToastContainer 
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </ErrorBoundary>
   );
 }

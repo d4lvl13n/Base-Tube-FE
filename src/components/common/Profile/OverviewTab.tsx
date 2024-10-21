@@ -2,67 +2,73 @@
 
 import React from 'react';
 import { UserProfile, UserWallet } from '../../../types/user';
+import OverviewCard from './OverviewCard';
+import { FaRegEye, FaVideo, FaShapes, FaWallet } from 'react-icons/fa';
+import { motion } from 'framer-motion';
 
 interface OverviewTabProps {
   userProfile: UserProfile;
   userWallet: UserWallet | null;
-  loading?: boolean;
 }
 
-const OverviewTab: React.FC<OverviewTabProps> = ({ userProfile, userWallet, loading = false }) => {
+const OverviewTab: React.FC<OverviewTabProps> = ({
+  userProfile,
+  userWallet,
+}) => {
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Personal Information */}
-      <div className="bg-gray-800 p-4 rounded-lg">
-        <h3 className="text-xl font-bold mb-2">Personal Information</h3>
-        <p>
-          <strong>Name:</strong> {userProfile.name}
-        </p>
-        <p>
-          <strong>Email:</strong> {userProfile.email}
-        </p>
-        <p>
-          <strong>Bio:</strong> {userProfile.bio || 'No bio available.'}
-        </p>
-      </div>
-
-      {/* Wallet Information */}
-      <div className="bg-gray-800 p-4 rounded-lg">
-        <h3 className="text-xl font-bold mb-2">Wallet</h3>
-        {userWallet ? (
-          <>
-            <p>
-              <strong>Address:</strong> {userWallet.walletAddress}
-            </p>
-            <p>
-              <strong>Balance:</strong> {userWallet.balance} ETH
-            </p>
-            <p>
-              <strong>TUBE Balance:</strong> {userWallet.tubeBalance} TUBE
-            </p>
-          </>
-        ) : (
-          <p>No wallet connected.</p>
-        )}
-      </div>
-
-      {/* Additional Statistics */}
-      <div className="bg-gray-800 p-4 rounded-lg">
-        <h3 className="text-xl font-bold mb-2">Statistics</h3>
-        <p>
-          <strong>Subscribers:</strong> {userProfile.subscribers}
-        </p>
-        <p>
-          <strong>Total Views:</strong> {userProfile.totalViews}
-        </p>
-        <p>
-          <strong>Videos:</strong> {userProfile.videoCount}
-        </p>
-        <p>
-          <strong>NFTs:</strong> {userProfile.nftCount}
-        </p>
-      </div>
-    </div>
+    <motion.div
+      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+      initial="hidden"
+      animate="visible"
+      variants={{
+        visible: {
+          transition: {
+            staggerChildren: 0.1,
+          },
+        },
+      }}
+    >
+      <OverviewCard
+        title="Total Views"
+        value={userProfile.totalViews || 0}
+        icon={<FaRegEye className="text-[#fa7517]" size={24} />}
+        variants={cardVariants}
+      />
+      <OverviewCard
+        title="Videos"
+        value={userProfile.videoCount || 0}
+        icon={<FaVideo className="text-[#fa7517]" size={24} />}
+        variants={cardVariants}
+      />
+      <OverviewCard
+        title="NFTs"
+        value={userProfile.nftCount || 0}
+        icon={<FaShapes className="text-[#fa7517]" size={24} />}
+        variants={cardVariants}
+      />
+      <OverviewCard
+        title="Wallet Balance"
+        value={userWallet ? `${userWallet.balance} ETH` : 'N/A'}
+        icon={<FaWallet className="text-[#fa7517]" size={24} />}
+        variants={cardVariants}
+      />
+      <motion.div
+        className="md:col-span-2 lg:col-span-4"
+        variants={cardVariants}
+      >
+        <div className="bg-gray-800 p-6 rounded-xl transition-colors duration-300">
+          <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-[#fa7517] to-[#ff9a5a] text-transparent bg-clip-text">About Me</h3>
+          <p className="text-gray-300">
+            {userProfile.description || 'No bio available.'}
+          </p>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

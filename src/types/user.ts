@@ -1,16 +1,17 @@
-// src/types/user.ts
 import { Video } from './video';
+
 export interface User {
-  id: number;
-  email: string;
+  id: string;
   name: string;
-  dob?: string;
-  picture?: string;
-  description?: string;
-  referralCode?: string;
+  email: string;
+  dob: string;
+  picture: string;
+  description: string;
+  videoCount: number;
+  totalViews: number;
+  nftCount: number;
   createdAt: string;
   updatedAt: string;
-  walletAddress?: string | null; // Added walletAddress to match backend
 }
 
 export interface Channel {
@@ -33,13 +34,10 @@ export interface Channel {
   ownerPicture?: string | null; // Added ownerPicture to match usage in VideoCard
 }
 
-
 export interface UserWallet {
   walletAddress: string;
-  balance: number; // in ETH or Base tokens
-  tubeBalance: number; // in TUBE tokens
-  totalEarnings: string;
-  transactions: Transaction[];
+  balance: number;
+  transactions: Transaction[]; // Updated to use Transaction interface
 }
 
 export interface Transaction {
@@ -51,21 +49,18 @@ export interface Transaction {
   hash?: string; // Transaction hash on blockchain
 }
 
-// Updated UserProfile interface to extend User and include additional fields
+// UserProfile extends User and includes additional fields
 export interface UserProfile extends User {
   subscribers?: number;
-  totalViews?: number;
-  nftCount?: number;
-  videoCount?: number;
   bio?: string;
 }
 
-// Updated UserVideo to include all properties of Video
+// UserVideo extends Video
 export interface UserVideo extends Video {
-  // Optionally, you can add additional properties specific to UserVideo here
+  // Add any additional properties specific to UserVideo here
 }
 
-// Updated UserNFT interface
+// UserNFT interface
 export interface UserNFT {
   id: number;
   name: string;
@@ -75,3 +70,12 @@ export interface UserNFT {
   tokenId: string;
   contractAddress: string;
 }
+
+export interface ProfileSettings {
+    email: string;
+    notificationPreferences: {
+      emailNotifications: boolean;
+      smsNotifications: boolean;
+      // Add other preference fields as needed
+    };
+  }
