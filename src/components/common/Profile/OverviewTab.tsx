@@ -53,7 +53,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       />
       <OverviewCard
         title="Wallet Balance"
-        value={userWallet ? `${userWallet.balance} ETH` : 'N/A'}
+        value={userWallet ? `${userWallet.balance} Tube` : 'N/A'}
         icon={<FaWallet className="text-[#fa7517]" size={24} />}
         variants={cardVariants}
       />

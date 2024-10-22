@@ -6,12 +6,14 @@ import VideoCard from '../VideoCard';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import EmptyState from '../EmptyState';
 import Loader from '../Loader';
+import Error from '../Error';
 
 interface ContentTabProps {
   videos: Video[];
+  error?: string;
 }
 
-const ContentTab: React.FC<ContentTabProps> = ({ videos }) => {
+const ContentTab: React.FC<ContentTabProps> = ({ videos, error }) => {
   const [displayedVideos, setDisplayedVideos] = useState<Video[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const itemsPerPage = 9;
@@ -33,6 +35,10 @@ const ContentTab: React.FC<ContentTabProps> = ({ videos }) => {
       ]);
     }, 500);
   };
+
+  if (error) {
+    return <Error message={error} />;
+  }
 
   if (!videos || videos.length === 0) {
     return (

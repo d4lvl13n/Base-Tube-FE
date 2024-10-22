@@ -11,7 +11,7 @@ const SignUpPage: React.FC = () => {
         appearance={{
           elements: {
             rootBox: "mx-auto",
-            card: "bg-gray-900 text-white",
+            card: "bg-black text-white",
           }
         }}
       />

@@ -17,15 +17,19 @@ Developing core frontend components and integrating with backend API and authent
 - [x] Integrate API to display videos and thumbnails
 - [x] Implement VideoCard component
 - [x] Set up basic routing with React Router
-
-### In Progress (15/10/2023)
 - [X] Complete HomePage design and functionality
 - [X] Implement popular channels section on HomePage
-- [ ] Create ChannelPage component
-- [ ] Connect DiscoveryPage with API for dynamic content
+- [X] Create CreateChannelPage component
+- [X] Connect DiscoveryPage with API for dynamic content
+
+### In Progress (21/10/2023)
+- [ ] Implement video upload functionality
+- [ ] Add commenting system for videos
+- [ ] Finish Polishing ProfilePage
+- [ ] Fetch CHannelOwner Image from Clerk. 
 
 ### Upcoming Tasks
-- [ ] Implement video upload functionality
+- [ ] Design and implement NFT marketplace
 - [ ] Design and implement NFT marketplace
 - [ ] Create user profile page
 - [ ] Implement video player component

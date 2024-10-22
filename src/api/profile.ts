@@ -8,8 +8,8 @@ import {
 import { Video } from '../types/video';
 
 export const getMyProfile = async (): Promise<UserProfile> => {
-  const response = await api.get('/api/v1/profile');
-  return response.data;
+  const response = await api.get<{ success: boolean; data: UserProfile }>('/api/v1/profile');
+  return response.data.data;
 };
 
 export const getMyVideos = async (): Promise<Video[]> => {
@@ -36,8 +36,13 @@ export const updateProfileSettings = async (settingsData: ProfileSettings) => {
   await api.put('/api/v1/profile/settings', settingsData);
 };
 
-export const updateProfile = async (profileData: FormData) => {
-  await api.put('/api/v1/profile/update', profileData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+export const updateProfile = async (profileData: FormData): Promise<UserProfile> => {
+  const response = await api.put<{ success: boolean; message: string; data: UserProfile }>(
+    '/api/v1/profile/update',
+    profileData,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }
+  );
+  return response.data.data;
 };

@@ -2,16 +2,25 @@ import { Video } from './video';
 
 export interface User {
   id: string;
-  name: string;
+  username: string;
   email: string;
-  dob: string;
-  picture: string;
-  description: string;
+  name?: string | null;
+  dob?: string | null;
+  picture?: string | null;
+  description?: string | null;
+  referralCode?: string | null;
+  notificationPreferences?: {
+    emailNotifications: boolean;
+    smsNotifications: boolean;
+  } | null;
   videoCount: number;
-  totalViews: number;
+  totalViews: number | null;
   nftCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UserProfile extends User {
 }
 
 export interface Channel {

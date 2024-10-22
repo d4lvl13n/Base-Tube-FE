@@ -1,98 +1,114 @@
-// src/components/common/Profile/ProfileCompletionForm.tsx
-
-import React, { useState, ChangeEvent, FormEvent } from 'react';
-import api from '../../../api';
+    import React, { useState, ChangeEvent, FormEvent } from 'react';
+import { updateProfile } from '../../../api/profile';
+import { UserProfile } from '../../../types/user';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaUser, FaBirthdayCake, FaImage, FaPen, FaCheckCircle, FaTimes } from 'react-icons/fa';
+import { useUser } from '@clerk/clerk-react';
 
-interface ProfileCompletionFormProps {
+   interface ProfileCompletionFormProps {
   initialData: {
-    name?: string;
-    dob?: string;
-    picture?: string;
-    description?: string;
+    username?: string | null;
+    dob?: string | null;
+    picture?: string | null;
+    description?: string | null;
+    clerkImageUrl?: string | null;
   };
-  onSuccess: () => void;
+  onSuccess: (updatedProfile: UserProfile) => void;
   onClose: () => void;
 }
 
-const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
-  initialData,
-  onSuccess,
-  onClose,
-}) => {
-  const [formData, setFormData] = useState({
-    name: initialData.name || '',
-    dob: initialData.dob || '',
-    picture: null as File | null,
-    description: initialData.description || '',
+   const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
+     initialData,
+     onSuccess,
+     onClose,
+   }) => {
+     const { user: clerkUser } = useUser();
+     const [formData, setFormData] = useState({
+       username: initialData.username || '',
+       dob: initialData.dob || '',
+       picture: null as File | null,
+       description: initialData.description || '',
+       currentPictureUrl: initialData.picture || initialData.clerkImageUrl || '',
+     });
+     const [errors, setErrors] = useState<{ [key: string]: string }>({});
+     const [submitting, setSubmitting] = useState(false);
+     const [successMessage, setSuccessMessage] = useState('');
+
+     const handleChange = (
+       e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+     ) => {
+       const { name, value, files } = e.target as HTMLInputElement;
+       if (name === 'picture' && files) {
+         setFormData((prev) => ({
+           ...prev,
+           picture: files[0],
+           currentPictureUrl: URL.createObjectURL(files[0]),
+         }));
+       } else {
+         setFormData((prev) => ({ ...prev, [name]: value }));
+       }
+     };
+
+     const validate = () => {
+       const newErrors: { [key: string]: string } = {};
+       if (!formData.username.trim()) {
+         newErrors.username = 'Username is required';
+       }
+       if (formData.dob && isNaN(Date.parse(formData.dob))) {
+         newErrors.dob = 'Date of Birth must be a valid date';
+       }
+       if (formData.description && formData.description.length > 500) {
+         newErrors.description = 'Description cannot exceed 500 characters';
+       }
+       setErrors(newErrors);
+       return Object.keys(newErrors).length === 0;
+     };
+
+     const handleSubmit = async (e: FormEvent) => {
+       e.preventDefault();
+       if (!validate()) return;
+
+       setSubmitting(true);
+
+       const payload = new FormData();
+       payload.append('username', formData.username);
+       if (formData.dob) payload.append('dob', formData.dob);
+       if (formData.picture) {
+         payload.append('picture', formData.picture);
+       }
+       if (formData.description) payload.append('description', formData.description);
+
+       try {
+         // Update backend profile
+         const response = await updateProfile(payload);
+         console.log('Profile update response:', response);
+
+         // Update Clerk user data
+         await clerkUser?.update({
+          username: formData.username,
+          });
+
+          if (formData.picture) {
+  await clerkUser?.setProfileImage({
+    file: formData.picture,
   });
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+}
 
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, files } = e.target as HTMLInputElement;
-    if (name === 'picture' && files) {
-      setFormData((prev) => ({ ...prev, picture: files[0] }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const validate = () => {
-    const newErrors: { [key: string]: string } = {};
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-    if (formData.dob && isNaN(Date.parse(formData.dob))) {
-      newErrors.dob = 'Date of Birth must be a valid date';
-    }
-    if (formData.picture && !(formData.picture instanceof File)) {
-      newErrors.picture = 'Profile picture must be a valid file';
-    }
-    if (formData.description && formData.description.length > 500) {
-      newErrors.description = 'Description cannot exceed 500 characters';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
-    setSubmitting(true);
-
-    const payload = new FormData();
-    payload.append('name', formData.name);
-    if (formData.dob) payload.append('dob', formData.dob);
-    if (formData.picture) {
-      payload.append('picture', formData.picture);
-    }
-    if (formData.description) payload.append('description', formData.description);
-
-    try {
-      await api.put('/api/v1/profile/update', payload, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setSuccessMessage('Profile updated successfully!');
-      setTimeout(() => {
-        onSuccess();
-      }, 1500);
-    } catch (error: any) {
-      console.error('Profile update error:', error);
-      setErrors({
-        api:
-          error.response?.data?.message ||
-          'An error occurred while updating your profile.',
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+         setSuccessMessage('Profile updated successfully!');
+         setTimeout(() => {
+           onSuccess(response);
+         }, 1500);
+       } catch (error: any) {
+         console.error('Profile update error:', error.response || error);
+         setErrors({
+           api:
+             error.response?.data?.message ||
+             'An error occurred while updating your profile.',
+         });
+       } finally {
+         setSubmitting(false);
+       }
+     };
 
   return (
     <>
@@ -125,12 +141,12 @@ const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
       <form onSubmit={handleSubmit} className="space-y-6">
         <InputField
           icon={<FaUser />}
-          label="Name"
-          name="name"
+          label="Username"
+          name="username"
           type="text"
-          value={formData.name}
+          value={formData.username}
           onChange={handleChange}
-          error={errors.name}
+          error={errors.username}
           required
         />
 
@@ -148,24 +164,31 @@ const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
           <label htmlFor="picture" className="block text-sm font-medium text-gray-300 mb-1">
             Profile Picture
           </label>
-          <div className="relative">
-            <input
-              type="file"
-              name="picture"
-              id="picture"
-              accept="image/*"
-              onChange={handleChange}
-              className="hidden"
+          <div className="flex items-center space-x-4">
+            <img
+              src={formData.picture ? URL.createObjectURL(formData.picture) : formData.currentPictureUrl}
+              alt="Profile"
+              className="w-16 h-16 rounded-full object-cover"
             />
-            <label
-              htmlFor="picture"
-              className="flex items-center justify-center w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors duration-300"
-            >
-              <FaImage className="mr-2 text-[#fa7517]" />
-              <span className="text-gray-300">
-                {formData.picture ? formData.picture.name : 'Choose file'}
-              </span>
-            </label>
+            <div className="relative flex-1">
+              <input
+                type="file"
+                name="picture"
+                id="picture"
+                accept="image/*"
+                onChange={handleChange}
+                className="hidden"
+              />
+              <label
+                htmlFor="picture"
+                className="flex items-center justify-center w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors duration-300"
+              >
+                <FaImage className="mr-2 text-[#fa7517]" />
+                <span className="text-gray-300">
+                  {formData.picture ? formData.picture.name : 'Choose new picture'}
+                </span>
+              </label>
+            </div>
           </div>
           {errors.picture && <p className="text-red-500 text-sm mt-1">{errors.picture}</p>}
         </div>

@@ -4,12 +4,18 @@ import React from 'react';
 import { UserNFT } from '../../../types/user';
 import EmptyState from '../EmptyState';
 import { motion } from 'framer-motion';
+import Error from '../Error';
 
 interface NFTsTabProps {
   nfts: UserNFT[] | null;
+  error?: string;
 }
 
-const NFTsTab: React.FC<NFTsTabProps> = ({ nfts }) => {
+const NFTsTab: React.FC<NFTsTabProps> = ({ nfts, error }) => {
+  if (error) {
+    return <Error message={error} />;
+  }
+
   if (!nfts || !Array.isArray(nfts) || nfts.length === 0) {
     return (
       <EmptyState

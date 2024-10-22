@@ -1,9 +1,6 @@
-// src/components/pages/UserProfileWallet.tsx
-
 import React, { useState, useEffect } from 'react';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
-import UserInfo from '../common/Profile/UserInfo';
 import OverviewTab from '../common/Profile/OverviewTab';
 import ContentTab from '../common/Profile/ContentTab';
 import NFTsTab from '../common/Profile/NFTsTab';
@@ -27,28 +24,34 @@ import Modal from '../common/Modal';
 import Loader from '../common/Loader';
 import Error from '../common/Error';
 import { motion, AnimatePresence } from 'framer-motion';
+import UserProfileHeader from '../common/Profile/UserProfileHeader';
+import ProfileCompletionBar from '../common/Profile/ProfileCompletionBar';
+import { useUser } from '@clerk/clerk-react';
 
 const UserProfileWallet: React.FC = () => {
+  const { user: clerkUser } = useUser();
   const [activeTab, setActiveTab] = useState('Overview');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userVideos, setUserVideos] = useState<UserVideo[]>([]);
   const [userNFTs, setUserNFTs] = useState<UserNFT[]>([]);
   const [userWallet, setUserWallet] = useState<UserWallet | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   const tabs = ['Overview', 'Content', 'NFTs', 'Wallet', 'Settings'];
 
   const fetchUserData = async () => {
     setLoading(true);
+    const newErrors: { [key: string]: string } = {};
+
     try {
-      const profileData = await getMyProfile();
-      setUserProfile(profileData);
+     const profileData = await getMyProfile();
+      console.log('Fetched profile data:', profileData);
+      setUserProfile(profileData); // Make sure you're setting the data property
     } catch (err) {
       console.error('Error fetching profile data:', err);
-      setUserProfile(null);
-      setError('An error occurred while fetching your profile.');
+      newErrors.profile = 'Failed to load profile data';
     }
 
     try {
@@ -56,6 +59,7 @@ const UserProfileWallet: React.FC = () => {
       setUserVideos(videosData);
     } catch (err) {
       console.error('Error fetching videos:', err);
+      newErrors.videos = 'Failed to load videos';
       setUserVideos([]);
     }
 
@@ -64,6 +68,7 @@ const UserProfileWallet: React.FC = () => {
       setUserNFTs(nftsData);
     } catch (err) {
       console.error('Error fetching NFTs:', err);
+      newErrors.nfts = 'Failed to load NFTs';
       setUserNFTs([]);
     }
 
@@ -75,143 +80,111 @@ const UserProfileWallet: React.FC = () => {
       setUserWallet(walletData);
     } catch (err) {
       console.error('Error fetching wallet data:', err);
+      newErrors.wallet = 'Failed to load wallet data';
       setUserWallet(null);
-    } finally {
-      setLoading(false);
     }
+
+    setErrors(newErrors);
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchUserData();
   }, []);
 
-  const calculateCompletionPercentage = (profile: UserProfile) => {
-    const totalFields = 4; // name, dob, picture, description
-    let completedFields = 0;
+  const handleProfileUpdate = (updatedProfile: UserProfile) => {
+  setUserProfile(updatedProfile);
+  setIsEditingProfile(false);
+  fetchUserData(); // Fetch the latest data from the server
+};
 
-    if (profile.name) completedFields += 1;
-    if (profile.dob) completedFields += 1;
-    if (profile.picture) completedFields += 1;
-    if (profile.description) completedFields += 1;
-
-    return Math.round((completedFields / totalFields) * 100);
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'Overview':
+        return userProfile && userWallet ? (
+          <OverviewTab userProfile={userProfile} userWallet={userWallet} />
+        ) : (
+          <Error message={errors.profile || errors.wallet || 'Failed to load overview data'} />
+        );
+      case 'Content':
+        return <ContentTab videos={userVideos} error={errors.videos} />;
+      case 'NFTs':
+        return <NFTsTab nfts={userNFTs} error={errors.nfts} />;
+      case 'Wallet':
+        return userWallet ? (
+          <WalletTab wallet={userWallet} />
+        ) : (
+          <Error message={errors.wallet || 'Failed to load wallet data'} />
+        );
+      case 'Settings':
+        return <SettingsTab />;
+      default:
+        return null;
+    }
   };
 
+  if (loading) {
+    return <Loader />;
+  }
+
   return (
-    <div className="bg-black text-white min-h-screen">
+    <div className="bg-gradient-to-br from-black to-gray-900 text-white min-h-screen">
       <Header />
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
-          {loading ? (
-            <Loader />
-          ) : error ? (
-            <Error message={error} />
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-                {userProfile ? (
-                  <UserInfo userProfile={userProfile} />
-                ) : (
-                  <div className="text-gray-500">
-                    <p>User profile not available.</p>
-                  </div>
-                )}
-                <motion.button
-                  onClick={() => setIsEditingProfile(true)}
-                  className="mt-4 md:mt-0 px-6 py-2 bg-gradient-to-r from-[#fa7517] to-[#ff9a5a] text-black font-bold rounded-full hover:shadow-lg hover:shadow-[#fa7517]/50 transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {userProfile ? 'Edit Profile' : 'Complete Your Profile'}
-                </motion.button>
-              </div>
-
-              <TabNav tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
-
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="max-w-6xl mx-auto"
+          >
+            {userProfile ? (
+              <UserProfileHeader 
+                userProfile={userProfile} 
+                onEditProfile={() => setIsEditingProfile(true)} 
+                clerkUser={clerkUser} 
+              />
+            ) : (
+              <Error message={errors.profile || 'Failed to load profile data'} />
+            )}
+            <TabNav tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
+            <AnimatePresence mode="wait">
               <motion.div
-                className="bg-black rounded-3xl p-6 shadow-lg"
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
+                key={activeTab}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="bg-gray-800 bg-opacity-50 backdrop-blur-lg rounded-3xl p-6 shadow-lg mt-6"
               >
-                <AnimatePresence mode="wait">
-                  {activeTab === 'Overview' && userProfile && (
-                    <OverviewTab key="overview" userProfile={userProfile} userWallet={userWallet} />
-                  )}
-                  {activeTab === 'Content' && (
-                    <ContentTab key="content" videos={userVideos} />
-                  )}
-                  {activeTab === 'NFTs' && (
-                    <NFTsTab key="nfts" nfts={userNFTs} />
-                  )}
-                  {activeTab === 'Wallet' && (
-                    <WalletTab key="wallet" wallet={userWallet} />
-                  )}
-                  {activeTab === 'Settings' && (
-                    <SettingsTab key="settings" />
-                  )}
-                </AnimatePresence>
+                {renderActiveTab()}
               </motion.div>
-
-              {userProfile && (
-                <motion.div
-                  className="profile-completion mt-8 bg-black rounded-xl p-6"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4, duration: 0.5 }}
-                >
-                  <div className="flex justify-between items-center">
-                    <p className="text-lg font-semibold">
-                      Profile Completion: {calculateCompletionPercentage(userProfile)}%
-                    </p>
-                    {calculateCompletionPercentage(userProfile) < 100 && (
-                      <motion.button
-                        onClick={() => setIsEditingProfile(true)}
-                        className="px-4 py-2 bg-gradient-to-r from-[#fa7517] to-[#ff9a5a] text-black font-bold rounded-full hover:shadow-lg hover:shadow-[#fa7517]/50 transition-all duration-300"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        Complete Profile
-                      </motion.button>
-                    )}
-                  </div>
-                  <div className="mt-4 bg-gray-700 rounded-full h-4 overflow-hidden">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-[#fa7517] to-[#ff9a5a]"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${calculateCompletionPercentage(userProfile)}%` }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                    />
-                  </div>
-                </motion.div>
+            </AnimatePresence>
+            {userProfile && (
+              <ProfileCompletionBar 
+                userProfile={userProfile} 
+                onEditProfile={() => setIsEditingProfile(true)} 
+              />
+            )}
+            <AnimatePresence>
+              {isEditingProfile && (
+                <Modal onClose={() => setIsEditingProfile(false)}>
+                  <ProfileCompletionForm
+                    initialData={{
+                      username: userProfile?.username, // Changed from 'name' to 'username'
+                      dob: userProfile?.dob,
+                      picture: userProfile?.picture,
+                      description: userProfile?.description,
+                      clerkImageUrl: clerkUser?.imageUrl,
+                    }}
+                    onSuccess={handleProfileUpdate}
+                    onClose={() => setIsEditingProfile(false)}
+                  />  
+                </Modal>
               )}
-
-              <AnimatePresence>
-                {isEditingProfile && (
-                  <Modal onClose={() => setIsEditingProfile(false)}>
-                    <ProfileCompletionForm
-                      initialData={{
-                        name: userProfile?.name,
-                        dob: userProfile?.dob,
-                        picture: userProfile?.picture,
-                        description: userProfile?.description,
-                      }}
-                      onSuccess={() => {
-                        fetchUserData();
-                        setIsEditingProfile(false);
-                      }}
-                      onClose={() => setIsEditingProfile(false)}
-                    />
-                  </Modal>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
+            </AnimatePresence>
+          </motion.div>
         </main>
       </div>
     </div>
