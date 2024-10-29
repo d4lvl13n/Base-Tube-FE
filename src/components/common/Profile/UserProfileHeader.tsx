@@ -1,49 +1,94 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { UserProfile } from '../../../types/user';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Edit3, ChevronRight, Camera } from 'lucide-react';
+import { dark } from "@clerk/themes";
+import { useNavigate } from 'react-router-dom';
 
 interface UserProfileHeaderProps {
-  userProfile: UserProfile | null;
-  onEditProfile: () => void;
+  userProfile: any;
   clerkUser: any;
 }
 
-const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({ userProfile, onEditProfile, clerkUser }) => {
-  console.log('UserProfileHeader userProfile:', userProfile);
-  return (
-    <motion.div
-      className="mb-8 p-6 bg-gray-800 bg-opacity-50 backdrop-blur-lg rounded-3xl shadow-lg"
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <div className="flex flex-col md:flex-row items-center">
-        <motion.img
-        src={userProfile?.picture || clerkUser?.imageUrl || '/assets/default-avatar.jpg'}
-        alt={userProfile?.username || 'User'}
-          className="w-32 h-32 rounded-full object-cover border-4 border-[#fa7517]"
-          whileHover={{ scale: 1.05 }}
-          transition={{ duration: 0.2 }}
-        />
-        <div className="md:ml-8 mt-4 md:mt-0 text-center md:text-left">
-          <h1 className="text-4xl font-bold text-[#fa7517]">
-            {userProfile?.username || clerkUser?.username || 'Welcome!'}
-          </h1>
-          <p className="text-xl text-gray-300 mt-2">
-            {userProfile?.description || clerkUser?.description || 'No description available'}
-          </p>
-        </div>
-        <motion.button
-          onClick={onEditProfile}
-          className="mt-4 md:mt-0 md:ml-auto px-6 py-2 bg-gradient-to-r from-[#fa7517] to-[#ff9a5a] text-black font-bold rounded-full hover:shadow-lg hover:shadow-[#fa7517]/50 transition-all duration-300"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Edit Profile
-        </motion.button>
-      </div>
-    </motion.div>
-  );
-};
+export default function UserProfileHeader({ userProfile, clerkUser }: UserProfileHeaderProps) {
+  const navigate = useNavigate();
 
-export default UserProfileHeader;
+  const handleEditProfile = () => {
+    navigate('/profile/settings');
+  };
+
+  return (
+    <>
+      <div className="relative">
+        {/* Background Banner */}
+        <div className="absolute inset-0 h-48 bg-gradient-to-r from-orange-600 to-orange-400 opacity-10 rounded-t-3xl" />
+        
+        <motion.div
+          className="relative z-10 p-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+            {/* Profile Image Section */}
+            <div className="relative group">
+              <motion.div
+                className="relative w-36 h-36 rounded-2xl overflow-hidden border-4 border-orange-500/20 bg-gray-800"
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+              >
+                <img
+                  src={userProfile?.picture || clerkUser?.imageUrl || '/assets/default-avatar.jpg'}
+                  alt={userProfile?.username || 'User'}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera className="w-8 h-8 text-white/80" />
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Profile Info Section */}
+            <div className="flex-1 space-y-4 text-center md:text-left">
+              <div>
+                <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-300">
+                  {userProfile?.username || clerkUser?.username || 'Welcome!'}
+                </h1>
+                <p className="mt-2 text-lg text-gray-400">
+                  {userProfile?.description || clerkUser?.description || 'No description available'}
+                </p>
+              </div>
+
+              {/* Stats Row */}
+              <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-orange-500">1.2K</p>
+                  <p className="text-sm text-gray-400">Followers</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-orange-500">342</p>
+                  <p className="text-sm text-gray-400">Following</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-orange-500">28</p>
+                  <p className="text-sm text-gray-400">Videos</p>
+                </div>
+              </div>
+
+              {/* Edit Profile Button */}
+              <motion.button
+                onClick={handleEditProfile}
+                className="inline-flex items-center px-6 py-2.5 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-colors gap-2 shadow-lg shadow-orange-500/20"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit Profile
+                <ChevronRight className="w-4 h-4" />
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </>
+  );
+}

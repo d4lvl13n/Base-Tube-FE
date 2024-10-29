@@ -17,6 +17,7 @@ import ChannelPage from './components/pages/ChannelPage';
 import ChannelDetailPage from './components/pages/ChannelDetailPage';
 import DefaultVideoPage from './components/pages/DefaultVideoPage';
 import CreateChannelPage from './components/pages/CreateChannelPage';
+import ProfileSettings from './components/pages/ProfileSettings';
 
 function App() {
   return (
@@ -83,6 +84,16 @@ function App() {
               <SignedOut>
                 <RedirectToSignIn />
               </SignedOut>
+            }
+          />
+
+          {/* Profile settings route */}
+          <Route
+            path="/profile/settings"
+            element={
+              <ProtectedRoute>
+                <ProfileSettings />
+              </ProtectedRoute>
             }
           />
         </Routes>

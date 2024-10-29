@@ -1,3 +1,5 @@
+// src/components/common/UserProfileWallet.tsx
+
 import React, { useState, useEffect } from 'react';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
@@ -5,7 +7,6 @@ import OverviewTab from '../common/Profile/OverviewTab';
 import ContentTab from '../common/Profile/ContentTab';
 import NFTsTab from '../common/Profile/NFTsTab';
 import WalletTab from '../common/Profile/WalletTab';
-import SettingsTab from '../common/Profile/SettingsTab';
 import TabNav from '../common/TabNav';
 import {
   getMyProfile,
@@ -19,17 +20,16 @@ import {
   UserNFT,
   UserWallet,
 } from '../../types/user';
-import ProfileCompletionForm from '../common/Profile/ProfileCompletionForm';
-import Modal from '../common/Modal';
 import Loader from '../common/Loader';
 import Error from '../common/Error';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserProfileHeader from '../common/Profile/UserProfileHeader';
 import ProfileCompletionBar from '../common/Profile/ProfileCompletionBar';
 import { useUser } from '@clerk/clerk-react';
+import { toast } from 'react-toastify';
 
 const UserProfileWallet: React.FC = () => {
-  const { user: clerkUser } = useUser();
+  const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
   const [activeTab, setActiveTab] = useState('Overview');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userVideos, setUserVideos] = useState<UserVideo[]>([]);
@@ -39,16 +39,16 @@ const UserProfileWallet: React.FC = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
-  const tabs = ['Overview', 'Content', 'NFTs', 'Wallet', 'Settings'];
+  const tabs = ['Overview', 'Content', 'NFTs', 'Wallet']; // Removed 'Settings'
 
   const fetchUserData = async () => {
     setLoading(true);
     const newErrors: { [key: string]: string } = {};
 
     try {
-     const profileData = await getMyProfile();
+      const profileData = await getMyProfile();
       console.log('Fetched profile data:', profileData);
-      setUserProfile(profileData); // Make sure you're setting the data property
+      setUserProfile(profileData);
     } catch (err) {
       console.error('Error fetching profile data:', err);
       newErrors.profile = 'Failed to load profile data';
@@ -89,14 +89,17 @@ const UserProfileWallet: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
+    if (isClerkLoaded) {
+      fetchUserData();
+    }
+  }, [isClerkLoaded]);
 
   const handleProfileUpdate = (updatedProfile: UserProfile) => {
-  setUserProfile(updatedProfile);
-  setIsEditingProfile(false);
-  fetchUserData(); // Fetch the latest data from the server
-};
+    setUserProfile(updatedProfile);
+    setIsEditingProfile(false);
+    fetchUserData(); // Fetch the latest data from the server
+    toast.success('Profile updated successfully!');
+  };
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -116,14 +119,12 @@ const UserProfileWallet: React.FC = () => {
         ) : (
           <Error message={errors.wallet || 'Failed to load wallet data'} />
         );
-      case 'Settings':
-        return <SettingsTab />;
       default:
         return null;
     }
   };
 
-  if (loading) {
+  if (loading || !isClerkLoaded) {
     return <Loader />;
   }
 
@@ -142,7 +143,6 @@ const UserProfileWallet: React.FC = () => {
             {userProfile ? (
               <UserProfileHeader 
                 userProfile={userProfile} 
-                onEditProfile={() => setIsEditingProfile(true)} 
                 clerkUser={clerkUser} 
               />
             ) : (
@@ -167,23 +167,7 @@ const UserProfileWallet: React.FC = () => {
                 onEditProfile={() => setIsEditingProfile(true)} 
               />
             )}
-            <AnimatePresence>
-              {isEditingProfile && (
-                <Modal onClose={() => setIsEditingProfile(false)}>
-                  <ProfileCompletionForm
-                    initialData={{
-                      username: userProfile?.username, // Changed from 'name' to 'username'
-                      dob: userProfile?.dob,
-                      picture: userProfile?.picture,
-                      description: userProfile?.description,
-                      clerkImageUrl: clerkUser?.imageUrl,
-                    }}
-                    onSuccess={handleProfileUpdate}
-                    onClose={() => setIsEditingProfile(false)}
-                  />  
-                </Modal>
-              )}
-            </AnimatePresence>
+            {/* Remove Profile Editing Modal as Clerk handles it */}
           </motion.div>
         </main>
       </div>
