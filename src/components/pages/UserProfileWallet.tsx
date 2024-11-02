@@ -1,6 +1,4 @@
-// src/components/common/UserProfileWallet.tsx
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 import OverviewTab from '../common/Profile/OverviewTab';
@@ -14,19 +12,19 @@ import {
   getMyNFTs,
   getMyWallet,
 } from '../../api/profile';
+import { getMyChannels } from '../../api/channel';
 import {
   UserProfile,
   UserVideo,
   UserNFT,
   UserWallet,
 } from '../../types/user';
+import { Channel } from '../../types/channel';
 import Loader from '../common/Loader';
 import Error from '../common/Error';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserProfileHeader from '../common/Profile/UserProfileHeader';
-import ProfileCompletionBar from '../common/Profile/ProfileCompletionBar';
 import { useUser } from '@clerk/clerk-react';
-import { toast } from 'react-toastify';
 
 const UserProfileWallet: React.FC = () => {
   const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
@@ -35,71 +33,73 @@ const UserProfileWallet: React.FC = () => {
   const [userVideos, setUserVideos] = useState<UserVideo[]>([]);
   const [userNFTs, setUserNFTs] = useState<UserNFT[]>([]);
   const [userWallet, setUserWallet] = useState<UserWallet | null>(null);
+  const [userChannels, setUserChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
-  const tabs = ['Overview', 'Content', 'NFTs', 'Wallet']; // Removed 'Settings'
+  const tabs = ['Overview', 'Content', 'NFT Content Passes', 'Wallet'];
+
+  const [refreshChannels, setRefreshChannels] = useState<boolean>(false);
+
 
   const fetchUserData = async () => {
-    setLoading(true);
-    const newErrors: { [key: string]: string } = {};
+  setLoading(true);
+  const newErrors: { [key: string]: string } = {};
 
-    try {
-      const profileData = await getMyProfile();
-      console.log('Fetched profile data:', profileData);
-      setUserProfile(profileData);
-    } catch (err) {
-      console.error('Error fetching profile data:', err);
-      newErrors.profile = 'Failed to load profile data';
+  try {
+    const [profileData, videosData, nftsData, walletData, channelsData] = await Promise.all([
+      getMyProfile().catch((err) => {
+        console.error('Error fetching profile data:', err);
+        newErrors.profile = 'Failed to load profile data';
+        return null;
+      }),
+      getMyVideos().catch((err) => {
+        console.error('Error fetching videos:', err);
+        newErrors.videos = 'Failed to load videos';
+        return [];
+      }),
+      getMyNFTs().catch((err) => {
+        console.error('Error fetching NFTs:', err);
+        newErrors.nfts = 'Failed to load NFTs';
+        return [];
+      }),
+      getMyWallet().catch((err) => {
+        console.error('Error fetching wallet data:', err);
+        newErrors.wallet = 'Failed to load wallet data';
+        return null;
+      }),
+      getMyChannels().catch((err) => { // No token parameter needed
+        console.error('Error fetching channels:', err);
+        newErrors.channels = 'Failed to load channels';
+        return [];
+      }),
+    ]);
+
+    // Set states based on the results
+    if (profileData) setUserProfile(profileData);
+    setUserVideos(videosData);
+    setUserNFTs(nftsData);
+    if (walletData) {
+      setUserWallet({
+        ...walletData,
+        transactions: walletData.transactions || [],
+      });
     }
-
-    try {
-      const videosData = await getMyVideos();
-      setUserVideos(videosData);
-    } catch (err) {
-      console.error('Error fetching videos:', err);
-      newErrors.videos = 'Failed to load videos';
-      setUserVideos([]);
-    }
-
-    try {
-      const nftsData = await getMyNFTs();
-      setUserNFTs(nftsData);
-    } catch (err) {
-      console.error('Error fetching NFTs:', err);
-      newErrors.nfts = 'Failed to load NFTs';
-      setUserNFTs([]);
-    }
-
-    try {
-      const walletData = await getMyWallet();
-      if (!walletData.transactions) {
-        walletData.transactions = [];
-      }
-      setUserWallet(walletData);
-    } catch (err) {
-      console.error('Error fetching wallet data:', err);
-      newErrors.wallet = 'Failed to load wallet data';
-      setUserWallet(null);
-    }
-
+    setUserChannels(channelsData); // channelsData is Channel[]
+  } catch (err) {
+    console.error('Error in fetchUserData:', err);
+    newErrors.general = 'Failed to load user data';
+  } finally {
     setErrors(newErrors);
     setLoading(false);
+    }
   };
-
+  
   useEffect(() => {
     if (isClerkLoaded) {
       fetchUserData();
     }
-  }, [isClerkLoaded]);
-
-  const handleProfileUpdate = (updatedProfile: UserProfile) => {
-    setUserProfile(updatedProfile);
-    setIsEditingProfile(false);
-    fetchUserData(); // Fetch the latest data from the server
-    toast.success('Profile updated successfully!');
-  };
+  }, [isClerkLoaded, refreshChannels]);
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -110,7 +110,14 @@ const UserProfileWallet: React.FC = () => {
           <Error message={errors.profile || errors.wallet || 'Failed to load overview data'} />
         );
       case 'Content':
-        return <ContentTab videos={userVideos} error={errors.videos} />;
+        return (
+          <ContentTab 
+            videos={userVideos} 
+            channels={userChannels} 
+            error={errors.videos || errors.channels} 
+            loading={loading}
+          />
+        );
       case 'NFTs':
         return <NFTsTab nfts={userNFTs} error={errors.nfts} />;
       case 'Wallet':
@@ -161,13 +168,6 @@ const UserProfileWallet: React.FC = () => {
                 {renderActiveTab()}
               </motion.div>
             </AnimatePresence>
-            {userProfile && (
-              <ProfileCompletionBar 
-                userProfile={userProfile} 
-                onEditProfile={() => setIsEditingProfile(true)} 
-              />
-            )}
-            {/* Remove Profile Editing Modal as Clerk handles it */}
           </motion.div>
         </main>
       </div>

@@ -1,4 +1,5 @@
 import { Video } from './video';
+import { Channel } from './channel';
 
 export interface User {
   id: string;
@@ -21,26 +22,7 @@ export interface User {
 }
 
 export interface UserProfile extends User {
-}
-
-export interface Channel {
-  id: number;
-  user_id: number;
-  name: string;
-  description?: string | null;
-  channel_image_path?: string | null;
-  subscribers_count: number;
-  isApproved: boolean;
-  status: number;
-  videosCount: number;
-  facebook_link?: string | null;
-  instagram_link?: string | null;
-  twitter_link?: string | null;
-  unique_id: string;
-  categoryName?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  ownerPicture?: string | null; // Added ownerPicture to match usage in VideoCard
+  channels: Channel[];
 }
 
 export interface UserWallet {

@@ -33,10 +33,25 @@ interface ChannelVideosResponse {
   };
 }
 
-export const getMyChannels = (page: number = 1, limit: number = 10, sort: string = 'createdAt') =>
-  api
-    .get<ChannelsResponse>(`/api/v1/channels/my?page=${page}&limit=${limit}&sort=${sort}`)
-    .then((res) => res.data);
+export const getMyChannels = async (
+  page: number = 1,
+  limit: number = 10,
+  sort: string = 'createdAt'
+): Promise<Channel[]> => {
+  try {
+    const response = await api.get<ChannelsResponse>(
+      `/api/v1/channels/my?page=${page}&limit=${limit}&sort=${sort}`
+    );
+    if (response.data.success) {
+      return response.data.data;
+    } else {
+      throw new Error('Failed to fetch channels');
+    }
+  } catch (error: unknown) {
+    console.error('Error fetching my channels:', error);
+    throw error;
+  }
+};
 
 
 export const getChannels = async (page: number = 1, limit: number = 12, sort: string = 'subscribers_count'): Promise<ChannelsResponse> => {

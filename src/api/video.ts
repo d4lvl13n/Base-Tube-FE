@@ -1,5 +1,6 @@
 import api from './index';
 import { Video } from '../types/video';
+import { AxiosProgressEvent } from 'axios';
 
 export const getAllVideos = (page: number = 1, limit: number = 10) =>
   api.get(`/api/v1/videos?page=${page}&limit=${limit}`).then((res) => res.data.data);
@@ -22,9 +23,10 @@ export const getNFTVideos = (limit: number = 4) =>
 export const getVideos = (category: string, limit: number = 4) => 
   api.get<Video[]>(`/api/v1/videos?category=${category}&limit=${limit}`);
 
-export const uploadVideo = (formData: FormData) =>
+export const uploadVideo = (formData: FormData, onUploadProgress?: (progressEvent: AxiosProgressEvent) => void) =>
   api.post('/api/v1/videos/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress,
   });
 
 export const updateVideo = (id: string, formData: FormData) =>

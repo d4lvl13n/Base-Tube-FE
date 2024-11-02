@@ -27,4 +27,7 @@ export interface Channel {
   user?: {
     picture: string;
   };
+  views: number;
+  watchTime: number; // in hours
+  comments: number;
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import VideoGrid from './VideoGrid';
+import VideoGrid from '../../common/Channel/VideoGrid';
 import { Channel } from '../../../types/channel';
 import { Video } from '../../../types/video';
 

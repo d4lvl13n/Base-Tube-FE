@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Flame, Compass, PlayCircle, User, Tv } from 'lucide-react';
+import { Home, Flame, Compass, PlayCircle, User, Tv, Palette } from 'lucide-react';
 
 const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
   return (
@@ -23,6 +23,9 @@ const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
         </Link>
         <Link to="/profile" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
           <User size={24} />
+        </Link>
+        <Link to="/creator-hub" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
+          <Palette size={24} />
         </Link>
       </div>
     </nav>
