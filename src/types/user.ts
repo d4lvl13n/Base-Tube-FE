@@ -1,5 +1,6 @@
 import { Video } from './video';
 import { Channel } from './channel';
+import type { UserResource } from '@clerk/types';
 
 export interface User {
   id: string;
@@ -28,7 +29,7 @@ export interface UserProfile extends User {
 export interface UserWallet {
   walletAddress: string;
   balance: number;
-  transactions: Transaction[]; // Updated to use Transaction interface
+  transactions: Transaction[];
 }
 
 export interface Transaction {
@@ -37,7 +38,7 @@ export interface Transaction {
   amount: number;
   date: string;
   status: 'completed' | 'pending' | 'failed';
-  hash?: string; // Transaction hash on blockchain
+  hash?: string;
 }
 
 // UserProfile extends User and includes additional fields
@@ -70,3 +71,54 @@ export interface ProfileSettings {
       // Add other preference fields as needed
     };
   }
+
+// Extend the Clerk UserResource type with our custom properties
+export interface ExtendedUser extends UserResource {
+  totalViews?: number;
+  videosWatched?: number;
+  likesGiven?: number;
+  commentsCount?: number;
+}
+
+// Add these new interfaces
+export interface UserMetrics {
+  totalViews: number;
+  videosWatched: number;
+  likesGiven: number;
+  commentsCount: number;
+  watchTimeStats: {
+    totalWatchTimeHours: number;
+    activeDays: number;
+    dailyAverage: number;
+  };
+  recentActivity: {
+    timestamp: string;
+    action: 'Watched Video' | 'Liked Video' | 'Commented on Video';
+    details: string;
+    channelName?: string;
+  }[];
+}
+
+
+
+export interface InteractionsHistory {
+  id: number;
+  user_id: string;
+  video_id: number;
+  comment: string;
+  createdAt: string;
+  video: {
+    id: number;
+    title: string;
+    description: string;
+    thumbnail_path: string;
+  };
+}
+
+export interface ReferralInfo {
+  id: number;
+  user_id: string;
+  code: string;
+  referrals_count: number;
+  earnings: number;
+}

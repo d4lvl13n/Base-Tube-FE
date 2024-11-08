@@ -22,7 +22,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
   return (
     <motion.div
-      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
       initial="hidden"
       animate="visible"
       variants={{
@@ -32,42 +31,39 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
           },
         },
       }}
+      className="space-y-6"
     >
-      <OverviewCard
-        title="Total Views"
-        value={userProfile.totalViews || 0}
-        icon={<FaRegEye className="text-[#fa7517]" size={24} />}
-        variants={cardVariants}
-      />
-      <OverviewCard
-        title="Videos"
-        value={userProfile.videoCount || 0}
-        icon={<FaVideo className="text-[#fa7517]" size={24} />}
-        variants={cardVariants}
-      />
-      <OverviewCard
-        title="NFTs"
-        value={userProfile.nftCount || 0}
-        icon={<FaShapes className="text-[#fa7517]" size={24} />}
-        variants={cardVariants}
-      />
-      <OverviewCard
-        title="Wallet Balance"
-        value={userWallet ? `${userWallet.balance} Tube` : 'N/A'}
-        icon={<FaWallet className="text-[#fa7517]" size={24} />}
-        variants={cardVariants}
-      />
       <motion.div
-        className="md:col-span-2 lg:col-span-4"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
         variants={cardVariants}
       >
-        <div className="bg-gray-800 p-6 rounded-xl transition-colors duration-300">
-          <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-[#fa7517] to-[#ff9a5a] text-transparent bg-clip-text">About Me</h3>
-          <p className="text-gray-300">
-            {userProfile.description || 'No bio available.'}
-          </p>
-        </div>
+        {/* OverviewCards */}
+        <OverviewCard
+          title="Total Views"
+          value={userProfile.totalViews || 0}
+          icon={<FaRegEye className="text-[#fa7517]" size={24} />}
+          variants={cardVariants}
+        />
+        <OverviewCard
+          title="Videos"
+          value={userProfile.videoCount || 0}
+          icon={<FaVideo className="text-[#fa7517]" size={24} />}
+          variants={cardVariants}
+        />
+        <OverviewCard
+          title="NFTs"
+          value={userProfile.nftCount || 0}
+          icon={<FaShapes className="text-[#fa7517]" size={24} />}
+          variants={cardVariants}
+        />
+        <OverviewCard
+          title="Wallet Balance"
+          value={userWallet ? `${userWallet.balance} TUBE` : 'N/A'}
+          icon={<FaWallet className="text-[#fa7517]" size={24} />}
+          variants={cardVariants}
+        />
       </motion.div>
+
     </motion.div>
   );
 };

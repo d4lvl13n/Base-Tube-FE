@@ -1,9 +1,26 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Hexagon, Bell, Grid, List, ChevronRight, ChevronLeft, Play, Heart, MessageCircle } from 'lucide-react';
+import { 
+  Hexagon, 
+  Bell, 
+  Grid, 
+  List, 
+  ChevronRight, 
+  ChevronLeft 
+} from 'lucide-react';
+import { useChannelSubscription } from '../../hooks/useChannelSubscription';
 
 const SubscribedChannelPage = () => {
   const [viewMode, setViewMode] = useState('grid');
+  const { unsubscribe, isLoading } = useChannelSubscription();
+
+  const handleUnsubscribe = async (channelId: string) => {
+    try {
+      await unsubscribe.mutateAsync(channelId);
+    } catch (error) {
+      console.error('Failed to unsubscribe:', error);
+    }
+  };
 
   const channels = [
     { name: 'CryptoVision', avatar: '/api/placeholder/50/50', newVideos: 3 },
@@ -78,30 +95,32 @@ const SubscribedChannelPage = () => {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
-          {[...Array(9)].map((_, index) => (
+          {channels.map((channel, index) => (
             <motion.div 
               key={index}
               className={`bg-gray-900 bg-opacity-70 rounded-2xl overflow-hidden ${viewMode === 'list' ? 'flex' : ''}`}
               whileHover={{ scale: 1.05, zIndex: 1 }}
-              style={{
-                boxShadow: `0 0 20px 5px rgba(250, 117, 23, 0.3), 
-                            0 0 60px 10px rgba(250, 117, 23, 0.2), 
-                            0 0 100px 20px rgba(250, 117, 23, 0.1)`
-              }}
             >
-              <img 
-                src={`/api/placeholder/400/225`} 
-                alt={`Video ${index + 1}`} 
-                className={viewMode === 'grid' ? "w-full h-48 object-cover" : "w-48 h-28 object-cover"}
-              />
-              <div className="p-4">
-                <h3 className="font-semibold">New Developments in DeFi</h3>
-                <p className="text-sm text-gray-300">DeFi Masters • 3 hours ago</p>
-                <div className="flex items-center space-x-4 mt-2">
-                  <span className="flex items-center"><Play size={16} className="mr-1 text-[#fa7517]" /> 15K</span>
-                  <span className="flex items-center"><Heart size={16} className="mr-1 text-[#fa7517]" /> 1.2K</span>
-                  <span className="flex items-center"><MessageCircle size={16} className="mr-1 text-[#fa7517]" /> 234</span>
+              {/* Channel content */}
+              <div className="p-4 flex justify-between items-center">
+                <div className="flex items-center space-x-4">
+                  <img src={channel.avatar} alt={channel.name} className="w-12 h-12 rounded-full" />
+                  <div>
+                    <h3 className="font-semibold">{channel.name}</h3>
+                    {channel.newVideos > 0 && (
+                      <span className="text-sm text-[#fa7517]">{channel.newVideos} new videos</span>
+                    )}
+                  </div>
                 </div>
+                <button
+                  onClick={() => handleUnsubscribe(channel.name)}
+                  disabled={isLoading}
+                  className={`px-4 py-2 rounded-full ${
+                    isLoading ? 'bg-gray-600' : 'bg-[#fa7517] hover:bg-[#ff8c3b]'
+                  }`}
+                >
+                  {isLoading ? 'Loading...' : 'Unsubscribe'}
+                </button>
               </div>
             </motion.div>
           ))}

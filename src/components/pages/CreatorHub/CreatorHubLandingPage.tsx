@@ -1,6 +1,5 @@
 // src/components/pages/CreatorHub/CreatorHubLandingPage.tsx
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import { useUser } from '@clerk/clerk-react';
 import CreatorDashboard from './CreatorDashboard';
 import NewCreatorView from './NewCreatorView';
@@ -8,30 +7,33 @@ import Loader from '../../common/Loader';
 import Error from '../../common/Error';
 import WhyCreateChannelSection from '../../common/CreatorHub/WhyCreateChannelSection';
 import ResourcesSection from '../../common/CreatorHub/ResourcesSection';
-import { useChannels } from '../../../context/ChannelContext';
 import { getMyProfile } from '../../../api/profile';
-import { UserProfile } from '../../../types/user';
+import { useQuery } from '@tanstack/react-query';
+import { getMyChannels } from '../../../api/channel';
 
 const CreatorHubLandingPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { channels, loading, error, refreshChannels } = useChannels();
   const { user: clerkUser } = useUser();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  
+  const { 
+    data: userProfile,
+    isLoading: profileLoading 
+  } = useQuery({
+    queryKey: ['userProfile'],
+    queryFn: getMyProfile,
+    staleTime: 5 * 60 * 1000 // 5 minutes
+  });
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const profile = await getMyProfile();
-        setUserProfile(profile);
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-      }
-    };
+  const {
+    data: channels = [],
+    isLoading: channelsLoading,
+    error
+  } = useQuery({
+    queryKey: ['myChannels'],
+    queryFn: () => getMyChannels(1, 10, 'createdAt'),
+    staleTime: 5 * 60 * 1000
+  });
 
-    fetchUserProfile();
-    refreshChannels();
-  }, []);
-
+  const loading = profileLoading || channelsLoading;
   const hasChannel = channels.length > 0;
 
   if (loading) {
@@ -39,7 +41,7 @@ const CreatorHubLandingPage: React.FC = () => {
   }
 
   if (error) {
-    return <Error message={error} />;
+    return <Error message={error.message} />;
   }
 
   return (

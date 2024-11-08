@@ -46,8 +46,8 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setAc
                 {channel.subscribers_count} subscribers
               </span>
               <span className="flex items-center">
-                <Video size={18} className="mr-2 text-[#fa7517]" />
-                {channel.videosCount} videos
+                <Video size={16} className="mr-1 text-[#fa7517]" />
+                {channel.videosCount || 0}
               </span>
             </div>
           </div>

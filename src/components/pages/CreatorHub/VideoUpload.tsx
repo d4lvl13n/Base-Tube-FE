@@ -11,11 +11,12 @@ import {
   Lock,
   Eye,
   AlertCircle,
-  CheckCircle2,
   X,
 } from 'lucide-react';
 import { uploadVideo } from '../../../api/video';
 import { useChannels } from '../../../context/ChannelContext';
+import VideoUploadSuccess from '../../common/ModalScreen/VideoUploadSuccess';
+import { useNavigate } from 'react-router-dom';
 
 interface VisibilityOption {
   id: 'public' | 'unlisted' | 'private';
@@ -36,8 +37,10 @@ const VideoUpload: React.FC = () => {
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
   const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
+  const [uploadedVideoId, setUploadedVideoId] = useState<string | null>(null);
 
   const { channels } = useChannels();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (channels.length > 0 && selectedChannelId === null) {
@@ -120,19 +123,19 @@ const VideoUpload: React.FC = () => {
       setUploadProgress(0);
       setStep(3); // Show upload progress
 
-      await uploadVideo(formData, (progressEvent) => {
+      const response = await uploadVideo(formData, (progressEvent) => {
         if (progressEvent.total) {
           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(progress);
         }
       });
 
-      // Handle success
+      setUploadedVideoId(response.data.id);
       setStep(4);
     } catch (error) {
       console.error('Error uploading video:', error);
       alert('Failed to upload video. Please try again.');
-      setStep(2); // Go back to the details form
+      setStep(2);
     }
   };
 
@@ -424,44 +427,22 @@ const VideoUpload: React.FC = () => {
 
       case 4:
         return (
-          <motion.div
-            key="step4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="w-full text-center"
-          >
-            <CheckCircle2 className="w-16 h-16 text-[#fa7517] mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Upload Successful!</h2>
-            <p className="text-gray-400 mb-6">
-              Your video has been uploaded and is now processing.
-            </p>
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={() => {
-                  setStep(1);
-                  setSelectedFile(null);
-                  setThumbnailFile(null);
-                  setThumbnailPreview(null);
-                  setTitle('');
-                  setDescription('');
-                  setTags('');
-                  setUploadProgress(0);
-                }}
-                className="px-6 py-2 rounded-lg border border-gray-800/30 hover:bg-gray-800/50 transition-colors text-white font-medium"
-              >
-                Upload Another Video
-              </button>
-              <button
-                onClick={() => {
-                  // Navigate to the user's videos or dashboard
-                }}
-                className="px-6 py-2 bg-[#fa7517] hover:bg-[#ff8c3a] transition-colors rounded-lg text-black font-medium"
-              >
-                Go to My Videos
-              </button>
-            </div>
-          </motion.div>
+          <VideoUploadSuccess
+            videoTitle={title}
+            videoId={uploadedVideoId}
+            uploadProgress={uploadProgress}
+            onClose={() => {
+              setStep(1);
+              setSelectedFile(null);
+              setThumbnailFile(null);
+              setThumbnailPreview(null);
+              setTitle('');
+              setDescription('');
+              setTags('');
+              setUploadProgress(0);
+              navigate('/creator-hub/videos');
+            }}
+          />
         );
 
       default:

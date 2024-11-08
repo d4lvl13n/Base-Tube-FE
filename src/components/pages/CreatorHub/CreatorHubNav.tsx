@@ -76,13 +76,12 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
       subItems: [
         { title: 'Videos', path: '/creator/videos' },
         { title: 'Playlists', path: '/creator/playlists' },
-        { title: 'Live Streams', path: '/creator/live' }
       ]
     },
     {
       title: 'Analytics',
       icon: BarChart2,
-      path: '/creator/analytics'
+      path: '/creator-hub/analytics',
     },
     {
       title: 'Community',

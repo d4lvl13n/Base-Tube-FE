@@ -1,142 +1,110 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
-import OverviewTab from '../common/Profile/OverviewTab';
-import ContentTab from '../common/Profile/ContentTab';
-import NFTsTab from '../common/Profile/NFTsTab';
-import WalletTab from '../common/Profile/WalletTab';
 import TabNav from '../common/TabNav';
-import {
-  getMyProfile,
-  getMyVideos,
-  getMyNFTs,
-  getMyWallet,
-} from '../../api/profile';
-import { getMyChannels } from '../../api/channel';
-import {
-  UserProfile,
-  UserVideo,
-  UserNFT,
-  UserWallet,
-} from '../../types/user';
-import { Channel } from '../../types/channel';
 import Loader from '../common/Loader';
 import Error from '../common/Error';
 import { motion, AnimatePresence } from 'framer-motion';
-import UserProfileHeader from '../common/Profile/UserProfileHeader';
 import { useUser } from '@clerk/clerk-react';
+import { ExtendedUser, UserProfile, UserWallet, ProfileSettings } from '../../types/user';
+import DashboardTab from '../common/Profile/DashboardTab';
+import HistoryTab from '../common/Profile/HistoryTab';
+import WalletTab from '../common/Profile/WalletTab';
+import ReferralsTab from '../common/Profile/ReferralsTab';
+import SettingsTab from '../common/Profile/SettingsTab';
+
+import { useQuery } from '@tanstack/react-query';
+import {
+  getMyProfile,
+  getMyWallet,
+  getProfileSettings,
+} from '../../api/profile';
 
 const UserProfileWallet: React.FC = () => {
   const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
-  const [activeTab, setActiveTab] = useState('Overview');
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [userVideos, setUserVideos] = useState<UserVideo[]>([]);
-  const [userNFTs, setUserNFTs] = useState<UserNFT[]>([]);
-  const [userWallet, setUserWallet] = useState<UserWallet | null>(null);
-  const [userChannels, setUserChannels] = useState<Channel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [activeTab, setActiveTab] = useState('Dashboard');
 
-  const tabs = ['Overview', 'Content', 'NFT Content Passes', 'Wallet'];
+  const tabs = ['Dashboard', 'History', 'Wallet', 'Referrals', 'Settings'];
 
-  const [refreshChannels, setRefreshChannels] = useState<boolean>(false);
+  const { 
+    error: profileError,
+    isLoading: isProfileLoading
+  } = useQuery<UserProfile>({
+    queryKey: ['profile'],
+    queryFn: getMyProfile,
+    enabled: isClerkLoaded
+  });
 
+  const {
+    data: userWallet,
+    error: walletError,
+    isLoading: isWalletLoading
+  } = useQuery<UserWallet>({
+    queryKey: ['wallet'],
+    queryFn: getMyWallet,
+    enabled: isClerkLoaded
+  });
 
-  const fetchUserData = async () => {
-  setLoading(true);
-  const newErrors: { [key: string]: string } = {};
+  const {
+    data: userSettings,
+    error: settingsError,
+    isLoading: isSettingsLoading
+  } = useQuery<ProfileSettings>({
+    queryKey: ['settings'],
+    queryFn: getProfileSettings,
+    enabled: isClerkLoaded
+  });
 
-  try {
-    const [profileData, videosData, nftsData, walletData, channelsData] = await Promise.all([
-      getMyProfile().catch((err) => {
-        console.error('Error fetching profile data:', err);
-        newErrors.profile = 'Failed to load profile data';
-        return null;
-      }),
-      getMyVideos().catch((err) => {
-        console.error('Error fetching videos:', err);
-        newErrors.videos = 'Failed to load videos';
-        return [];
-      }),
-      getMyNFTs().catch((err) => {
-        console.error('Error fetching NFTs:', err);
-        newErrors.nfts = 'Failed to load NFTs';
-        return [];
-      }),
-      getMyWallet().catch((err) => {
-        console.error('Error fetching wallet data:', err);
-        newErrors.wallet = 'Failed to load wallet data';
-        return null;
-      }),
-      getMyChannels().catch((err) => { // No token parameter needed
-        console.error('Error fetching channels:', err);
-        newErrors.channels = 'Failed to load channels';
-        return [];
-      }),
-    ]);
-
-    // Set states based on the results
-    if (profileData) setUserProfile(profileData);
-    setUserVideos(videosData);
-    setUserNFTs(nftsData);
-    if (walletData) {
-      setUserWallet({
-        ...walletData,
-        transactions: walletData.transactions || [],
-      });
-    }
-    setUserChannels(channelsData); // channelsData is Channel[]
-  } catch (err) {
-    console.error('Error in fetchUserData:', err);
-    newErrors.general = 'Failed to load user data';
-  } finally {
-    setErrors(newErrors);
-    setLoading(false);
-    }
+  const errors = {
+    profile: profileError?.message || '',
+    wallet: walletError?.message || '',
+    settings: settingsError?.message || ''
   };
-  
-  useEffect(() => {
-    if (isClerkLoaded) {
-      fetchUserData();
-    }
-  }, [isClerkLoaded, refreshChannels]);
 
   const renderActiveTab = () => {
     switch (activeTab) {
-      case 'Overview':
-        return userProfile && userWallet ? (
-          <OverviewTab userProfile={userProfile} userWallet={userWallet} />
+      case 'Dashboard':
+        return clerkUser ? (
+          <DashboardTab
+            userProfile={clerkUser as ExtendedUser}
+            userWallet={userWallet}
+            errors={errors}
+          />
         ) : (
-          <Error message={errors.profile || errors.wallet || 'Failed to load overview data'} />
+          <Error message={errors.profile || 'Failed to load user data'} />
         );
-      case 'Content':
+      case 'History':
+        return <HistoryTab errors={errors} />;
+      case 'Wallet':
         return (
-          <ContentTab 
-            videos={userVideos} 
-            channels={userChannels} 
-            error={errors.videos || errors.channels} 
-            loading={loading}
+          <WalletTab 
+            wallet={userWallet}
+            isLoading={isWalletLoading}
+            error={walletError}
           />
         );
-      case 'NFTs':
-        return <NFTsTab nfts={userNFTs} error={errors.nfts} />;
-      case 'Wallet':
-        return userWallet ? (
-          <WalletTab wallet={userWallet} />
+      case 'Referrals':
+        return <ReferralsTab errors={errors} />;
+      case 'Settings':
+        return userSettings ? (
+          <SettingsTab
+            settings={userSettings}
+            errors={errors}
+          />
         ) : (
-          <Error message={errors.wallet || 'Failed to load wallet data'} />
+          <Error message={errors.settings || 'Failed to load settings data'} />
         );
       default:
         return null;
     }
   };
 
-  if (loading || !isClerkLoaded) {
+  if (!isClerkLoaded || isProfileLoading || isWalletLoading || isSettingsLoading) {
     return <Loader />;
   }
 
   return (
-    <div className="bg-gradient-to-br from-black to-gray-900 text-white min-h-screen">
+    <div className="bg-black text-white min-h-screen">
       <Header />
       <div className="flex">
         <Sidebar />
@@ -145,29 +113,49 @@ const UserProfileWallet: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="max-w-6xl mx-auto"
+            className="max-w-7xl mx-auto space-y-8"
           >
-            {userProfile ? (
-              <UserProfileHeader 
-                userProfile={userProfile} 
-                clerkUser={clerkUser} 
-              />
-            ) : (
-              <Error message={errors.profile || 'Failed to load profile data'} />
-            )}
-            <TabNav tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
-            <AnimatePresence mode="wait">
+            {/* Navigation Tabs with Creator Hub styling */}
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm relative overflow-hidden"
+              style={{
+                boxShadow: `
+                  0 0 20px 5px rgba(250, 117, 23, 0.1),
+                  0 0 40px 10px rgba(250, 117, 23, 0.05),
+                  inset 0 0 60px 15px rgba(250, 117, 23, 0.03)
+                `
+              }}
+            >
+              <div className="relative z-10">
+                <TabNav
+                  tabs={tabs}
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                />
+                
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeTab}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className="mt-6"
+                  >
+                    {renderActiveTab()}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              <div className="absolute inset-0 bg-gradient-to-br from-[#fa751708] to-transparent" />
+              
               <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="bg-gray-800 bg-opacity-50 backdrop-blur-lg rounded-3xl p-6 shadow-lg mt-6"
-              >
-                {renderActiveTab()}
-              </motion.div>
-            </AnimatePresence>
+                className="absolute inset-0 bg-[#fa7517] opacity-0 blur-2xl transition-opacity duration-300"
+                initial={{ opacity: 0 }}
+                whileHover={{ opacity: 0.03 }}
+              />
+            </motion.div>
           </motion.div>
         </main>
       </div>

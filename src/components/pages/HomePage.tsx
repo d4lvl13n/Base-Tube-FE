@@ -19,41 +19,49 @@ const BaseTubeHomepage: React.FC = () => {
   const [popularChannels, setPopularChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [sectionErrors, setSectionErrors] = useState<Record<string, boolean>>({});
+  const [channelsPage] = useState(1);
+  const [channelsLimit] = useState(15);
 
   useEffect(() => {
-  const fetchHomePageData = async () => {
-    setLoading(true);
-    const errors: Record<string, boolean> = {};
+    const fetchHomePageData = async () => {
+      setLoading(true);
+      const errors: Record<string, boolean> = {};
 
-    const fetchData = async (
-      apiCall: () => Promise<any>,
-      setter: React.Dispatch<React.SetStateAction<any>>,
-      errorKey: string
-    ) => {
-      try {
-        const data = await apiCall();
-        setter(data); // Data is now the array of channels
-      } catch (err) {
-        console.error(`Failed to fetch ${errorKey} data:`, err);
-        errors[errorKey] = true;
-      }
+      const fetchData = async (
+        apiCall: () => Promise<any>,
+        setter: React.Dispatch<React.SetStateAction<any>>,
+        errorKey: string
+      ) => {
+        try {
+          const data = await apiCall();
+          setter(data);
+        } catch (err) {
+          console.error(`Failed to fetch ${errorKey} data:`, err);
+          errors[errorKey] = true;
+        }
+      };
+
+      await Promise.all([
+        fetchData(() => getFeaturedVideos(2), setFeaturedVideos, 'featured'),
+        fetchData(() => getRecommendedVideos(4), setRecommendedVideos, 'recommended'),
+        fetchData(() => getTrendingVideos(4), setTrendingVideos, 'trending'),
+        fetchData(() => getNFTVideos(4), setNFTVideos, 'nft'),
+        fetchData(
+          async () => {
+            const channelsData = await getPopularChannels(channelsPage, channelsLimit);
+            return channelsData;
+          },
+          setPopularChannels,
+          'channels'
+        ),
+      ]);
+
+      setSectionErrors(errors);
+      setLoading(false);
     };
 
-    await Promise.all([
-      fetchData(() => getFeaturedVideos(2), setFeaturedVideos, 'featured'),
-      fetchData(() => getRecommendedVideos(4), setRecommendedVideos, 'recommended'),
-      fetchData(() => getTrendingVideos(4), setTrendingVideos, 'trending'),
-      fetchData(() => getNFTVideos(4), setNFTVideos, 'nft'),
-      fetchData(() => getPopularChannels(1, 15), setPopularChannels, 'channels'),
-    ]);
-
-    setSectionErrors(errors);
-    setLoading(false);
-  };
-
-  fetchHomePageData();
-}, []);
-
+    fetchHomePageData();
+  }, [channelsPage, channelsLimit]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;

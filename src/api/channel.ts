@@ -3,6 +3,12 @@
 import api from './index';
 import { Channel } from '../types/channel';
 import { Video } from '../types/video';
+import { 
+  SocialMetrics, 
+  WatchPatterns, 
+  GrowthMetrics, 
+  CreatorWatchHours 
+} from '../types/analytics';
   
 interface ChannelResponse {
   success: boolean;
@@ -30,6 +36,16 @@ interface ChannelVideosResponse {
     page: number;
     limit: number;
     totalPages: number;
+  };
+}
+
+interface ChannelAnalyticsResponse {
+  success: boolean;
+  data: {
+    watchPatterns: WatchPatterns;
+    socialMetrics: SocialMetrics;
+    growthMetrics: GrowthMetrics;
+    creatorWatchHours: CreatorWatchHours;
   };
 }
 
@@ -76,10 +92,19 @@ export const getChannels = async (page: number = 1, limit: number = 12, sort: st
 export const getChannel = (channelId: string) =>
   api.get<ChannelResponse>(`/api/v1/channels/${channelId}`).then((res) => res.data);
 
-export const getPopularChannels = (page: number = 1, limit: number = 15) =>
-  api
-    .get<ChannelsResponse>(`/api/v1/channels/popular?page=${page}&limit=${limit}`)
-    .then((res) => res.data.data); // Extract the 'data' property // Extract the 'data' property which is the array of channels
+// Update the getPopularChannels function in your frontend API
+export const getPopularChannels = async (page: number = 1, limit: number = 15): Promise<Channel[]> => {
+  try {
+    const response = await api.get<ChannelsResponse>(`/api/v1/channels/popular?page=${page}&limit=${limit}`);
+    if (response.data.success) {
+      return response.data.data;
+    }
+    throw new Error('Failed to fetch popular channels');
+  } catch (error) {
+    console.error('Error fetching popular channels:', error);
+    throw error;
+  }
+};
 
 export const createChannel = async (channelData: FormData, sessionToken: string) => {
   return api
@@ -106,15 +131,29 @@ export const deleteChannel = (channelId: string) =>
     .delete<{ success: boolean; message: string }>(`/api/v1/channels/${channelId}`)
     .then((res) => res.data);
 
-export const subscribeToChannel = (channelId: string) =>
-  api
-    .post<ChannelResponse>(`/api/v1/channels/${channelId}/subscribe`)
-    .then((res) => res.data);
+export const subscribeToChannel = async (channelId: string): Promise<ChannelResponse> => {
+  try {
+    const response = await api.post<ChannelResponse>(
+      `/api/v1/channels/${channelId}/subscribe`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error subscribing to channel:', error);
+    throw error;
+  }
+};
 
-export const unsubscribeFromChannel = (channelId: string) =>
-  api
-    .post<ChannelResponse>(`/api/v1/channels/${channelId}/unsubscribe`)
-    .then((res) => res.data);
+export const unsubscribeFromChannel = async (channelId: string): Promise<ChannelResponse> => {
+  try {
+    const response = await api.post<ChannelResponse>(
+      `/api/v1/channels/${channelId}/unsubscribe`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error unsubscribing from channel:', error);
+    throw error;
+  }
+};
 
 export const getChannelDetails = async (channelId: string): Promise<ChannelDetailsResponse> => {
   try {
@@ -132,6 +171,72 @@ export const getChannelVideos = async (channelId: string, page: number = 1, limi
     return response.data;
   } catch (error) {
     console.error('Error fetching channel videos:', error);
+    throw error;
+  }
+};
+
+export const getChannelAnalytics = async (
+  channelId: string,
+  period: '7d' | '30d' = '7d'
+): Promise<ChannelAnalyticsResponse> => {
+  try {
+    const response = await api.get<ChannelAnalyticsResponse>(
+      `/api/v1/channels/${channelId}/analytics?period=${period}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching channel analytics:', error);
+    throw error;
+  }
+};
+
+export const getChannelWatchPatterns = async (channelId: string): Promise<WatchPatterns> => {
+  try {
+    const response = await api.get<{ success: boolean; data: WatchPatterns }>(
+      `/api/v1/analytics/channels/${channelId}/watch-patterns`
+    );
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching channel watch patterns:', error);
+    throw error;
+  }
+};
+
+export const getChannelSocialMetrics = async (channelId: string): Promise<SocialMetrics> => {
+  try {
+    const response = await api.get<{ success: boolean; data: SocialMetrics }>(
+      `/api/v1/analytics/channels/${channelId}/social-metrics`
+    );
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching channel social metrics:', error);
+    throw error;
+  }
+};
+
+export const getChannelGrowthMetrics = async (
+  channelId: string,
+  period: '7d' | '30d'
+): Promise<GrowthMetrics> => {
+  try {
+    const response = await api.get<{ success: boolean; data: GrowthMetrics }>(
+      `/api/v1/analytics/channels/${channelId}/growth?period=${period}`
+    );
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching channel growth metrics:', error);
+    throw error;
+  }
+};
+
+export const getChannelWatchHours = async (channelId: string): Promise<CreatorWatchHours> => {
+  try {
+    const response = await api.get<{ success: boolean; data: CreatorWatchHours }>(
+      `/api/v1/analytics/channels/${channelId}/watch-hours`
+    );
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching channel watch hours:', error);
     throw error;
   }
 };

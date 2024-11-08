@@ -12,6 +12,7 @@ export interface Video {
   video_path: string;
   processed_video_paths?: string[] | null;
   thumbnail_path: string;
+  duration: number;
   views: number;
   likes: number;
   dislikes: number;

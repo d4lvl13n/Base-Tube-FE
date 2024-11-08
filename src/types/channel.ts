@@ -1,33 +1,59 @@
 // src/types/channel.ts
 
-import { User } from './user';
-
 export interface Channel {
   id: number;
-  user_id: number;
+  user_id: string;
+  name: string;
+  description?: string;
+  unique_id: string;
+  channel_image_path?: string;
+  facebook_link?: string;
+  instagram_link?: string;
+  twitter_link?: string;
+  subscribers_count: number;
+  videosCount: number;
+  isApproved: boolean;
+  status: number;
+  createdAt: Date;
+  updatedAt: Date;
+  isOwner?: boolean;
+  ownerUsername?: string;
+  ownerPicture?: string;
+  subscribeStatus?: number;
+  User?: {
+    picture?: string;
+  };
+}
+
+export interface ChannelResponse {
+  success: boolean;
+  channel: Channel;
+  message?: string;
+}
+
+export interface ChannelsResponse {
+  success: boolean;
+  data: Channel[];
+  total: number;
+  totalPages: number;
+}
+
+export interface CreateChannelData {
   name: string;
   description: string;
-  channel_image_path: string;
-  cover_image_path?: string;
-  subscribers_count: number;
-  isApproved: number;
-  status: number;
-  videosCount: number;
-  facebook_link?: string | null;
-  instagram_link?: string | null;
-  twitter_link?: string | null;
-  unique_id: string;
-  categoryName?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  isOwner?: boolean;
-  subscribeStatus?: number;
-  ownerPicture: string | null;
-  User?: User;
-  user?: {
-    picture: string;
-  };
-  views: number;
-  watchTime: number; // in hours
-  comments: number;
+  channel_image?: File;
+  cover_image?: File;
+  facebook_link?: string;
+  instagram_link?: string;
+  twitter_link?: string;
+}
+
+export interface UpdateChannelData extends Partial<Omit<Channel, 'id' | 'user_id' | 'unique_id'>> {
+  channel_image?: File;
+  cover_image?: File;
+}
+
+// Helper type for form data conversion
+export interface ChannelFormData extends FormData {
+  append(name: keyof CreateChannelData | keyof UpdateChannelData, value: string | Blob): void;
 }

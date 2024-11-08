@@ -24,7 +24,12 @@ export const getVideos = (category: string, limit: number = 4) =>
   api.get<Video[]>(`/api/v1/videos?category=${category}&limit=${limit}`);
 
 export const uploadVideo = (formData: FormData, onUploadProgress?: (progressEvent: AxiosProgressEvent) => void) =>
-  api.post('/api/v1/videos/upload', formData, {
+  api.post<{
+    id: string;
+    message: string;
+    video_path: string;
+    thumbnail_path: string;
+  }>('/api/v1/videos/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress,
   });

@@ -4,8 +4,13 @@ import {
   UserNFT,
   UserWallet,
   ProfileSettings,
+  UserMetrics,
+  InteractionsHistory,
+  ReferralInfo,
 } from '../types/user';
 import { Video } from '../types/video';
+import { WatchHistory, LikesHistory } from '../types/history';
+ 
 
 export const getMyProfile = async (): Promise<UserProfile> => {
   const response = await api.get<{ success: boolean; data: UserProfile }>('/api/v1/profile');
@@ -44,5 +49,35 @@ export const updateProfile = async (profileData: FormData): Promise<UserProfile>
       headers: { 'Content-Type': 'multipart/form-data' },
     }
   );
+  return response.data.data;
+};
+
+export const getWatchHistory = async (): Promise<{ data: WatchHistory[] }> => {
+  const response = await api.get('/api/v1/profile/history/watch');
+  return response.data;
+};
+
+export const getLikesHistory = async (): Promise<{ data: LikesHistory[] }> => {
+  const response = await api.get('/api/v1/profile/history/likes');
+  return response.data;
+};
+
+export const getInteractionsHistory = async (): Promise<InteractionsHistory[]> => {
+  const response = await api.get('/api/v1/profile/history/interactions');
+  return response.data.data;
+};
+
+export const getReferralInfo = async (): Promise<ReferralInfo> => {
+  const response = await api.get('/api/v1/referrals');
+  return response.data.data;
+};
+
+export const generateReferralCode = async (): Promise<ReferralInfo> => {
+  const response = await api.post('/api/v1/referrals/generate');
+  return response.data.data;
+};
+
+export const getUserMetrics = async (): Promise<UserMetrics> => {
+  const response = await api.get<{ success: boolean; data: UserMetrics }>('/api/v1/analytics/metrics');
   return response.data.data;
 };
