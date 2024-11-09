@@ -1,21 +1,52 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Megaphone, DollarSign, Users } from 'lucide-react';
+import { BookOpen, Megaphone, DollarSign, Users, ChartBar } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-const ResourceItem = ({ icon: Icon, title, description }: { icon: any, title: string, description: string }) => (
-  <motion.div 
-    whileHover={{ scale: 1.02 }}
-    className="flex items-start space-x-4 p-4 rounded-xl bg-gray-900/50 border border-gray-800/30 backdrop-blur-sm"
-  >
-    <div className="p-2 bg-gray-800/50 rounded-lg">
-      <Icon className="w-5 h-5 text-[#fa7517]" />
-    </div>
-    <div>
-      <h3 className="font-semibold text-white mb-1">{title}</h3>
-      <p className="text-sm text-gray-400">{description}</p>
-    </div>
-  </motion.div>
-);
+const ResourceItem = ({ 
+  icon: Icon, 
+  title, 
+  description, 
+  link 
+}: { 
+  icon: any, 
+  title: string, 
+  description: string,
+  link?: string 
+}) => {
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (link) {
+      navigate(link);
+    }
+  };
+
+  return (
+    <motion.div 
+      onClick={handleClick}
+      whileHover={{ 
+        scale: 1.02,
+        backgroundColor: 'rgba(250, 117, 23, 0.1)',
+      }}
+      whileTap={{ scale: 0.98 }}
+      className={`
+        flex items-start space-x-4 p-4 rounded-xl 
+        bg-gray-900/50 border border-gray-800/30 backdrop-blur-sm
+        transition-colors duration-200
+        ${link ? 'cursor-pointer hover:border-[#fa7517]/30' : ''}
+      `}
+    >
+      <div className="p-2 bg-gray-800/50 rounded-lg">
+        <Icon className="w-5 h-5 text-[#fa7517]" />
+      </div>
+      <div>
+        <h3 className="font-semibold text-white mb-1">{title}</h3>
+        <p className="text-sm text-gray-400">{description}</p>
+      </div>
+    </motion.div>
+  );
+};
 
 const ResourcesSection: React.FC = () => {
   const resources = [
@@ -23,6 +54,12 @@ const ResourcesSection: React.FC = () => {
       icon: BookOpen,
       title: 'Content Creation Tips',
       description: 'Learn best practices for creating engaging Web3 content'
+    },
+    {
+      icon: ChartBar,
+      title: 'Analytics Guide',
+      description: 'Understand your audience and content performance',
+      link: '/creator-hub/resources'
     },
     {
       icon: Megaphone,

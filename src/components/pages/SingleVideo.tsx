@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -22,6 +22,8 @@ import Sidebar from '../common/Sidebar';
 import { VideoInfoOverlay } from '../common/Video/VideoInfoOverlay';
 import { CreatorBox } from '../common/Video/CreatorBox';
 import { ViewCount } from '../common/Video/ViewCount';
+import CommentPanel from '../common/Video/Comments/CommentPanel';
+import { useVideoContext } from '../../contexts/VideoContext';
 
 
 const SingleVideo: React.FC = () => {
@@ -34,6 +36,7 @@ const SingleVideo: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<VideoPlayerRef>(null);
+  const { isCommentsPanelOpen, setIsCommentsPanelOpen } = useVideoContext();
 
   useEffect(() => {
     const fetchVideoAndChannel = async () => {
@@ -60,15 +63,15 @@ const SingleVideo: React.FC = () => {
     fetchVideoAndChannel();
   }, [id, navigate]);
 
-  const handlePlayerReady = useCallback((player: VideoPlayerRef) => {
+  const handlePlayerReady = (player: VideoPlayerRef) => {
     player.on('play', () => setIsPlaying(true));
     player.on('pause', () => setIsPlaying(false));
     player.on('fullscreenchange', () => {
       setIsFullscreen(player.isFullscreen());
     });
-  }, []);
+  };
 
-  const togglePlay = useCallback(() => {
+  const togglePlay = () => {
     if (playerRef.current) {
       if (isPlaying) {
         playerRef.current.pause();
@@ -76,9 +79,9 @@ const SingleVideo: React.FC = () => {
         playerRef.current.play();
       }
     }
-  }, [isPlaying]);
+  };
 
-  const toggleFullscreen = useCallback(() => {
+  const toggleFullscreen = () => {
     if (playerRef.current) {
       if (isFullscreen) {
         playerRef.current.exitFullscreen();
@@ -86,9 +89,9 @@ const SingleVideo: React.FC = () => {
         playerRef.current.requestFullscreen();
       }
     }
-  }, [isFullscreen]);
+  };
 
-   if (error) {
+  if (error) {
     return <div className="text-white text-center mt-10">{error}</div>;
   }
 
@@ -196,17 +199,25 @@ const SingleVideo: React.FC = () => {
       >
         {showInterface ? 'Hide UI' : 'Show UI'}
       </motion.button>
+
+      <CommentPanel 
+        isOpen={isCommentsPanelOpen} 
+        onClose={() => setIsCommentsPanelOpen(false)}
+        videoId={video?.id.toString() || ''}
+      />
     </div>
   );
 };
 
 const RadialMenu: React.FC = () => {
+  const { setIsCommentsPanelOpen } = useVideoContext();
+
   const items = [
-    { Icon: Heart, label: 'Like' },
-    { Icon: MessageCircle, label: 'Comment' },
-    { Icon: Share2, label: 'Share' },
-    { Icon: Coins, label: 'Tip $TUBE' },
-    { Icon: Hexagon, label: 'Mint NFT' },
+    { Icon: Heart, label: 'Like', onClick: () => console.log('Like clicked') },
+    { Icon: MessageCircle, label: 'Comment', onClick: () => setIsCommentsPanelOpen(true) },
+    { Icon: Share2, label: 'Share', onClick: () => console.log('Share clicked') },
+    { Icon: Coins, label: 'Tip $TUBE', onClick: () => console.log('Tip clicked') },
+    { Icon: Hexagon, label: 'Mint NFT', onClick: () => console.log('Mint clicked') },
   ];
 
   return (
@@ -217,6 +228,7 @@ const RadialMenu: React.FC = () => {
           Icon={item.Icon}
           label={item.label}
           angle={(index * 360) / items.length}
+          onClick={item.onClick}
         />
       ))}
     </div>
@@ -227,10 +239,12 @@ const RadialMenuItem = ({
   Icon,
   label,
   angle,
+  onClick
 }: {
   Icon: React.ElementType;
   label: string;
   angle: number;
+  onClick: () => void;
 }) => (
   <motion.div
     className="absolute top-1/2 left-1/2 -mt-6 -ml-6"
@@ -239,6 +253,7 @@ const RadialMenuItem = ({
     }}
   >
     <motion.button
+      onClick={onClick}
       className="bg-black bg-opacity-70 rounded-full p-3 cursor-pointer"
       whileHover={{ scale: 1.2, backgroundColor: '#fa7517' }}
       whileTap={{ scale: 0.9 }}

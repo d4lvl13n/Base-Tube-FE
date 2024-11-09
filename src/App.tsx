@@ -28,6 +28,8 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Optional
 import AnalyticsPage from './components/pages/CreatorHub/Analytics/AnalyticsPage';
 import { GrowthTab } from './components/pages/CreatorHub/Analytics/tabs/GrowthTab';
 import { useAnalyticsContext } from './hooks/useAnalyticsData';
+import CreatorResourcesPage from './components/common/CreatorHub/CreatorResourcesPage';
+import { VideoProvider } from './contexts/VideoContext';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -87,97 +89,106 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ErrorBoundary>
-        <Router>
-          <ChannelProvider>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<HomePage />} />
-              <Route path="/video/:id" element={<SingleVideo />} />
-              <Route path="/discover" element={<DiscoveryPage />} />
-              <Route path="/nft-marketplace" element={<NFTMarketplace />} />
-              <Route path="/channel" element={<ChannelPage />} />
-              <Route path="/channel/:id" element={<ChannelDetailPage />} />
-              <Route path="/default-video/:id" element={<DefaultVideoPage />} />
-              
-              {/* Creator Hub routes with special layout */}
-              <Route
-                path="/creator-hub/*"
-                element={
-                  <CreatorHubRoute
-                    element={<CreatorHubLandingPage />}
-                  />
-                }
-              />
-              <Route
-                path="/creator-hub/upload"
-                element={
-                  <CreatorHubRoute
-                    element={<VideoUpload />}
-                  />
-                }
-              />
-              <Route
-                path="/creator-hub/analytics"
-                element={
-                  <CreatorHubRoute
-                    element={<AnalyticsPage />}
-                  />
-                }
-              />
-              <Route
-                path="/creator-hub/analytics/growth"
-                element={
-                  <CreatorHubRoute
-                    element={<GrowthTab channelId={''} />}
-                  />
-                }
-              />
+    <VideoProvider>
+      <QueryClientProvider client={queryClient}>
+        <ErrorBoundary>
+          <Router>
+            <ChannelProvider>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<HomePage />} />
+                <Route path="/video/:id" element={<SingleVideo />} />
+                <Route path="/discover" element={<DiscoveryPage />} />
+                <Route path="/nft-marketplace" element={<NFTMarketplace />} />
+                <Route path="/channel" element={<ChannelPage />} />
+                <Route path="/channel/:id" element={<ChannelDetailPage />} />
+                <Route path="/default-video/:id" element={<DefaultVideoPage />} />
+                
+                {/* Creator Hub routes with special layout */}
+                <Route
+                  path="/creator-hub/*"
+                  element={
+                    <CreatorHubRoute
+                      element={<CreatorHubLandingPage />}
+                    />
+                  }
+                />
+                <Route
+                  path="/creator-hub/upload"
+                  element={
+                    <CreatorHubRoute
+                      element={<VideoUpload />}
+                    />
+                  }
+                />
+                <Route
+                  path="/creator-hub/analytics"
+                  element={
+                    <CreatorHubRoute
+                      element={<AnalyticsPage />}
+                    />
+                  }
+                />
+                <Route
+                  path="/creator-hub/analytics/growth"
+                  element={
+                    <CreatorHubRoute
+                      element={<GrowthTab channelId={''} />}
+                    />
+                  }
+                />
+                <Route
+                  path="/creator-hub/resources"
+                  element={
+                    <CreatorHubRoute
+                      element={<CreatorResourcesPage />}
+                    />
+                  }
+                />
 
-              {/* Protected routes */}
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <UserProfileWallet />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/subscribed"
-                element={
-                  <ProtectedRoute>
-                    <SubscribedChannelPage />  {/* Page to complete */}
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/create-channel"
-                element={
-                  <ProtectedRoute>
-                    <CreateChannelPage />
-                  </ProtectedRoute>
-                }
-              />
+                {/* Protected routes */}
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <UserProfileWallet />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/subscribed"
+                  element={
+                    <ProtectedRoute>
+                      <SubscribedChannelPage />  {/* Page to complete */}
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/create-channel"
+                  element={
+                    <ProtectedRoute>
+                      <CreateChannelPage />
+                    </ProtectedRoute>
+                  }
+                />
 
-              {/* Auth routes */}
-              <Route
-                path="/sign-in/*"
-                element={
-                  <SignedOut>
-                    <SignInPage />
-                  </SignedOut>
-                }
-              />
-              <Route
-                path="/sign-up/*"
-                element={
-                  <SignedOut>
-                    <SignUpPage />
-                  </SignedOut>
-                }
-              />
+                {/* Auth routes */}
+                <Route
+                  path="/sign-in/*"
+                  element={
+                    <SignedOut>
+                      <SignInPage />
+                    </SignedOut>
+                  }
+                />
+                <Route
+                  path="/sign-up/*"
+                  element={
+                    <SignedOut>
+                      <SignUpPage />
+                    </SignedOut>
+                  }
+                />
 
               {/* Profile settings route */}
               <Route
@@ -189,32 +200,33 @@ function App() {
                 }
               />
 
-              {/* Catch-all redirect to sign-in */}
-              <Route
-                path="*"
-                element={
-                  <SignedOut>
-                    <RedirectToSignIn />
-                  </SignedOut>
-                }
-              />
-            </Routes>
-          </ChannelProvider>
-        </Router>
-        <ToastContainer 
-          position="top-right"
-          autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-        />
-        <ReactQueryDevtools initialIsOpen={false} /> {/* Optional: adds devtools */}
-      </ErrorBoundary>
-    </QueryClientProvider>
+                {/* Catch-all redirect to sign-in */}
+                <Route
+                  path="*"
+                  element={
+                    <SignedOut>
+                      <RedirectToSignIn />
+                    </SignedOut>
+                  }
+                />
+              </Routes>
+            </ChannelProvider>
+          </Router>
+          <ToastContainer 
+            position="top-right"
+            autoClose={5000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+          />
+          <ReactQueryDevtools initialIsOpen={false} /> {/* Optional: adds devtools */}
+        </ErrorBoundary>
+      </QueryClientProvider>
+    </VideoProvider>
   );
 }
 
