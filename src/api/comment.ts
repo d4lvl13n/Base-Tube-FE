@@ -5,7 +5,6 @@ import {
   AddCommentRequest,
   EditCommentRequest,
   PinCommentResponse,
-  UnpinCommentResponse,
   DeleteCommentResponse,
   ApiResponse
 } from '../types/comment';
@@ -86,12 +85,15 @@ export const pinComment = async (
 
 export const unpinComment = async (
   commentId: number
-): Promise<UnpinCommentResponse> => {
-  try {
-    const response = await api.post(`/api/v1/comments/${commentId}/unpin`);
-    return response.data;
-  } catch (error) {
-    console.error('Error unpinning comment:', error);
-    throw error;
+): Promise<ApiResponse<void>> => {
+  const response = await fetch(`/api/comments/${commentId}/unpin`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to unpin comment');
   }
+  
+  return response.json();
 };

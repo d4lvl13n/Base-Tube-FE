@@ -19,6 +19,7 @@ interface CommentsListProps {
   canPinComment: (comment: Comment) => boolean;
   isDeletingComment: boolean;
   isEditingComment: boolean;
+  isPanelExpanded: boolean;
 }
 
 const CommentsList: React.FC<CommentsListProps> = ({
@@ -35,8 +36,12 @@ const CommentsList: React.FC<CommentsListProps> = ({
   canModifyComment,
   canPinComment,
   isDeletingComment,
-  isEditingComment
+  isEditingComment,
+  isPanelExpanded
 }) => {
+  // Only render top-level comments
+  const topLevelComments = comments?.filter(comment => !comment.parent_id) || [];
+
   if (loading && (!comments || comments.length === 0)) {
     return (
       <div className="flex justify-center p-8">
@@ -54,30 +59,77 @@ const CommentsList: React.FC<CommentsListProps> = ({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <AnimatePresence mode="popLayout">
-        {comments.map((comment) => (
-          <CommentCard
-            key={`${comment.id}-${comment.updatedAt}`}
-            comment={comment}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onPin={onPin}
-            onUnpin={onUnpin}
-            onAddReply={onAddReply}
-            canModifyComment={canModifyComment}
-            canPinComment={canPinComment}
-            isDeletingComment={isDeletingComment}
-            isEditingComment={isEditingComment}
-          />
+        {topLevelComments.map((comment) => (
+          <motion.div key={`${comment.id}-${comment.updatedAt}`}>
+            <CommentCard
+              comment={comment}
+              nestingLevel={0}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onPin={onPin}
+              onUnpin={onUnpin}
+              onAddReply={onAddReply}
+              canModifyComment={canModifyComment}
+              canPinComment={canPinComment}
+              isDeletingComment={isDeletingComment}
+              isEditingComment={isEditingComment}
+              isPanelExpanded={isPanelExpanded}
+            />
+            
+            {/* Level 1 replies */}
+            {comment.replies && comment.replies.length > 0 && (
+              <div className="ml-8 space-y-4 border-l-2 border-gray-800 pl-4">
+                {comment.replies.map((reply) => (
+                  <div key={`${reply.id}-${reply.updatedAt}`}>
+                    <CommentCard
+                      comment={reply}
+                      nestingLevel={1}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onPin={onPin}
+                      onUnpin={onUnpin}
+                      onAddReply={onAddReply}
+                      canModifyComment={canModifyComment}
+                      canPinComment={canPinComment}
+                      isDeletingComment={isDeletingComment}
+                      isEditingComment={isEditingComment}
+                      isPanelExpanded={isPanelExpanded}
+                    />
+                    
+                    {/* Level 2 replies */}
+                    {reply.replies && reply.replies.length > 0 && (
+                      <div className="ml-6 space-y-4 border-l-2 border-gray-800/50 pl-4">
+                        {reply.replies.map((nestedReply) => (
+                          <CommentCard
+                            key={`${nestedReply.id}-${nestedReply.updatedAt}`}
+                            comment={nestedReply}
+                            nestingLevel={2}
+                            onEdit={onEdit}
+                            onDelete={onDelete}
+                            onPin={onPin}
+                            onUnpin={onUnpin}
+                            onAddReply={onAddReply}
+                            canModifyComment={canModifyComment}
+                            canPinComment={canPinComment}
+                            isDeletingComment={isDeletingComment}
+                            isEditingComment={isEditingComment}
+                            isPanelExpanded={isPanelExpanded}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
         ))}
       </AnimatePresence>
       
       {hasMore && (
-        <button
-          onClick={() => loadMore()}
-          className="w-full py-2 text-gray-400 hover:text-white transition-colors"
-        >
+        <button onClick={loadMore} className="w-full py-2 text-gray-400 hover:text-white">
           Load more comments
         </button>
       )}

@@ -2,7 +2,8 @@ import { useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as commentsApi from '../api/comment';
-import { Comment, CommentsResponse } from '../types/comment';
+import type { Comment, CommentsResponse, ApiResponse } from '../types/comment';
+
 
 interface UseCommentsProps {
   videoId: string;
@@ -10,13 +11,25 @@ interface UseCommentsProps {
   sortBy?: 'latest' | 'top';
 }
 
-export const useComments = ({ videoId, initialLimit = 10, sortBy }: UseCommentsProps) => {
+const findCommentById = (comments: Comment[], id: number): Comment | null => {
+  for (const comment of comments) {
+    if (comment.id === id) return comment;
+    if (comment.replies) {
+      const found = findCommentById(comment.replies, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+export const useComments = ({ videoId, initialLimit = 20, sortBy }: UseCommentsProps) => {
   const { user } = useUser();
   const queryClient = useQueryClient();
+  
+  // Memoize queryKey to prevent unnecessary re-renders
   const queryKey = useMemo(() => ['comments', videoId, sortBy], [videoId, sortBy]);
 
-  console.log('useComments called with queryKey:', queryKey);
-
+  // Main query for fetching comments
   const {
     data,
     isLoading,
@@ -24,137 +37,89 @@ export const useComments = ({ videoId, initialLimit = 10, sortBy }: UseCommentsP
   } = useQuery<CommentsResponse>({
     queryKey,
     queryFn: async () => {
-      console.log('Fetching comments for videoId:', videoId);
       const response = await commentsApi.getVideoComments(videoId, 1, initialLimit, sortBy);
-      return response;
+      return {
+        ...response,
+        comments: structureComments(response.comments)
+      };
     },
-    staleTime: 1000 * 60, // 1 minute
-    gcTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60,
     refetchOnWindowFocus: false
   });
 
-  const canModifyComment = useCallback((comment: Comment) => {
-    if (!user) return false;
-    return comment.commenter?.id === user.id;
-  }, [user]);
+  // Permission checks
+  const canModifyComment = useCallback((comment: Comment) => 
+    user?.id === comment.commenter?.id, [user]);
 
-  const canPinComment = useCallback((comment: Comment) => {
-    if (!user) return false;
-    return user.id === comment.video_id.toString();
-  }, [user]);
+  const canPinComment = useCallback((comment: Comment) => 
+    user?.id === comment.video_id.toString(), [user]);
 
-  const addCommentMutation = useMutation({
-    mutationFn: (variables: { content: string; parentId?: number }) => 
-      commentsApi.addComment(Number(videoId), variables.content, variables.parentId),
-    onMutate: async (variables) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previousData = queryClient.getQueryData<CommentsResponse>(queryKey);
+  // Mutations
+  const addCommentMutation = useMutation<ApiResponse<Comment>, Error, { content: string; parentId?: number }>({
+    mutationFn: async ({ content, parentId }) => {
+      if (!user) throw new Error('Must be logged in to comment');
 
-      if (user) {
-        queryClient.setQueryData<CommentsResponse>(queryKey, (old) => {
-          const newComment = {
-            id: Number('temp-' + Date.now()),
-            video_id: Number(videoId),
-            user_id: user.id,
-            content: variables.content,
-            parent_id: variables.parentId || null,
-            status: 'approved' as const,
-            isPinned: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            deletedAt: null,
-            commenter: {
-              id: user.id,
-              username: user.username || '',
-              profile_image_url: user.imageUrl || null
-            },
-            replies: []
-          };
+      const parentComment = parentId ? 
+        findCommentById(data?.comments || [], parentId) : null;
 
-          return {
-            ...old!,
-            comments: [newComment, ...(old?.comments || [])],
-            total: (old?.total || 0) + 1,
-            currentPage: old?.currentPage || 1,
-            totalPages: old?.totalPages || 1
-          };
-        });
-      }
+      const effectiveParentId = parentId;
+      const replyingTo = parentComment?.commenter?.username;
 
-      return { previousData };
+      const response = await commentsApi.addComment(
+        Number(videoId), 
+        content, 
+        effectiveParentId
+      );
+
+      return {
+        success: true,
+        data: {
+          ...response.data,
+          replyingTo,
+          replies: []
+        }
+      };
     },
-    onError: (err, variables, context) => {
-      queryClient.setQueryData(queryKey, context?.previousData);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey });
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey })
   });
 
   const editCommentMutation = useMutation({
-    mutationFn: ({ commentId, content }: { commentId: number; content: string }) =>
+    mutationFn: ({ commentId, content }: { commentId: number; content: string }) => 
       commentsApi.editComment(commentId, content),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey })
   });
 
   const deleteCommentMutation = useMutation({
     mutationFn: (commentId: number) => commentsApi.deleteComment(commentId),
-    onMutate: async (commentId) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previousData = queryClient.getQueryData<CommentsResponse>(queryKey);
-
-      queryClient.setQueryData<CommentsResponse>(queryKey, (old) => ({
-        ...old!,
-        comments: old?.comments.filter(c => c.id !== commentId) || [],
-        total: (old?.total || 0) - 1
-      }));
-
-      return { previousData };
-    },
-    onError: (err, commentId, context) => {
-      queryClient.setQueryData(queryKey, context?.previousData);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey });
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey })
   });
 
   const pinCommentMutation = useMutation({
-    mutationFn: (commentId: number) => 
-      commentsApi.pinComment(commentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
-    }
+    mutationFn: (commentId: number) => commentsApi.pinComment(commentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey })
   });
 
   const unpinCommentMutation = useMutation({
-    mutationFn: (commentId: number) => 
-      commentsApi.unpinComment(commentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
-    }
+    mutationFn: (commentId: number) => commentsApi.unpinComment(commentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey })
   });
 
-  const addComment = async (content: string, parentId?: number) => {
-    if (!user) throw new Error('You must be logged in to comment');
-    return addCommentMutation.mutateAsync({ content, parentId });
-  };
+  // Action handlers
+  const addComment = (content: string, parentId?: number): Promise<ApiResponse<Comment>> => 
+    addCommentMutation.mutateAsync({ content, parentId });
 
   const editComment = async (commentId: number, content: string) => {
-    const comment = data?.comments.find((c: Comment) => c.id === commentId);
+    const comment = data?.comments.find(c => c.id === commentId);
     if (!comment || !canModifyComment(comment)) {
-      throw new Error('You do not have permission to edit this comment');
+      throw new Error('Permission denied');
     }
-    const result = await editCommentMutation.mutateAsync({ commentId, content });
-    return result;
+    return editCommentMutation.mutateAsync({ commentId, content });
   };
 
   const deleteComment = async (commentId: number) => {
     const comment = data?.comments.find(c => c.id === commentId);
     if (!comment || !canModifyComment(comment)) {
-      throw new Error('You do not have permission to delete this comment');
+      throw new Error('Permission denied');
     }
     return deleteCommentMutation.mutateAsync(commentId);
   };
@@ -162,41 +127,51 @@ export const useComments = ({ videoId, initialLimit = 10, sortBy }: UseCommentsP
   const pinComment = async (commentId: number) => {
     const comment = data?.comments.find(c => c.id === commentId);
     if (!comment || !canPinComment(comment)) {
-      throw new Error('You do not have permission to pin this comment');
+      throw new Error('Permission denied');
     }
-    const result = await pinCommentMutation.mutateAsync(commentId);
-    return result;
+    return pinCommentMutation.mutateAsync(commentId);
   };
 
   const unpinComment = async (commentId: number) => {
-    const result = await unpinCommentMutation.mutateAsync(commentId);
-    return result;
+    const comment = data?.comments.find(c => c.id === commentId);
+    if (!comment || !canPinComment(comment)) {
+      throw new Error('Permission denied');
+    }
+    return unpinCommentMutation.mutateAsync(commentId);
   };
 
+  // Load more handler
   const loadMore = useCallback(async () => {
-    if (data?.currentPage && data?.currentPage < (data?.totalPages || 0)) {
+    if (data?.currentPage && data.currentPage < (data?.totalPages || 0)) {
       const nextPage = data.currentPage + 1;
-      try {
-        console.log('Loading more comments for page:', nextPage);
-        const newComments = await commentsApi.getVideoComments(videoId, nextPage, initialLimit, sortBy);
-        queryClient.setQueryData<CommentsResponse>(queryKey, (oldData) => ({
-          ...oldData!,
-          comments: [...(oldData?.comments || []), ...(newComments.comments || [])],
-          currentPage: nextPage,
-          total: newComments.total,
-          totalPages: newComments.totalPages
-        }));
-      } catch (error) {
-        console.error('Error loading more comments:', error);
-      }
+      const newComments = await commentsApi.getVideoComments(
+        videoId, 
+        nextPage, 
+        initialLimit, 
+        sortBy
+      );
+      queryClient.setQueryData<CommentsResponse>(queryKey, old => ({
+        ...old!,
+        comments: [...(old?.comments || []), ...newComments.comments],
+        currentPage: nextPage
+      }));
     }
-  }, [data?.currentPage, data?.totalPages, videoId, initialLimit, sortBy, queryClient, queryKey]);
+  }, [
+    data?.currentPage, 
+    data?.totalPages, 
+    videoId, 
+    initialLimit, 
+    sortBy,
+    queryClient,
+    queryKey
+  ]);
 
   return {
     comments: data?.comments || [],
     loading: isLoading,
     error,
     hasMore: data ? data.currentPage < data.totalPages : false,
+    totalComments: data?.totalComments || 0,
     loadMore,
     addComment,
     editComment,
@@ -207,6 +182,34 @@ export const useComments = ({ videoId, initialLimit = 10, sortBy }: UseCommentsP
     canPinComment,
     isDeletingComment: deleteCommentMutation.isPending,
     isEditingComment: editCommentMutation.isPending,
-    isAddingComment: addCommentMutation.isPending
+    isAddingComment: addCommentMutation.isPending,
+    isUnpinningComment: unpinCommentMutation.isPending
   };
+};
+
+// Helper function to structure comments with proper nesting
+const structureComments = (comments: Comment[]): Comment[] => {
+  const commentMap = new Map<number, Comment>();
+  const rootComments: Comment[] = [];
+
+  // First pass: create a map of all comments
+  comments.forEach(comment => {
+    commentMap.set(comment.id, { ...comment, replies: [] });
+  });
+
+  // Second pass: build the tree structure
+  comments.forEach(comment => {
+    const structuredComment = commentMap.get(comment.id)!;
+    if (comment.parent_id) {
+      const parent = commentMap.get(comment.parent_id);
+      if (parent) {
+        parent.replies = parent.replies || [];
+        parent.replies.push(structuredComment);
+      }
+    } else {
+      rootComments.push(structuredComment);
+    }
+  });
+
+  return rootComments;
 };

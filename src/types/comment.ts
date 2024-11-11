@@ -1,25 +1,35 @@
+export interface Commenter {
+  id: string;
+  username: string;
+  profile_image_url: string | null;
+  clerkId: string;
+}
+
 export interface Comment {
   id: number;
   video_id: number;
   user_id: string;
   content: string;
   parent_id: number | null;
-  status: 'pending' | 'approved' | 'flagged' | 'removed';
+  status: 'approved' | 'pending' | 'rejected';
   isPinned: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
-  replies: Comment[];
-  commenter: {
-    id: string;
-    username: string;
-    profile_image_url: string | null;
-  };
+  commenter?: Commenter;
+  replies?: Comment[];
+  replyingTo?: string | null;
+}
+
+export interface ApiResponse<T> {
+  data: T;
+  success: boolean;
+  error?: string;
 }
 
 export interface CommentsResponse {
   comments: Comment[];
-  total: number;
+  totalComments: number;
   currentPage: number;
   totalPages: number;
 }
@@ -51,13 +61,6 @@ export interface ErrorResponse {
     field?: string;
     message: string;
   }>;
-}
-
-// API Response types for type safety
-export type ApiResponse<T> = {
-  success: boolean;
-  data: T;
-  message?: string;
 }
 
 // Mutation types for React Query
