@@ -1,6 +1,7 @@
 import api from './index';
 import { Video } from '../types/video';
 import { AxiosProgressEvent } from 'axios';
+import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
 
 export const getAllVideos = (page: number = 1, limit: number = 10) =>
   api.get(`/api/v1/videos?page=${page}&limit=${limit}`).then((res) => res.data.data);
@@ -41,3 +42,52 @@ export const updateVideo = (id: string, formData: FormData) =>
 
 export const deleteVideo = (id: string) => 
   api.delete(`/api/v1/videos/${id}`);
+
+export const toggleVideoLike = async (videoId: string): Promise<LikeResponse> => {
+  try {
+    const response = await api.post<LikeResponse>(
+      `/api/v1/likes/videos/${videoId}/toggle`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error toggling video like:', error);
+    throw error;
+  }
+};
+
+export const getLikedVideos = async (page: number = 1, limit: number = 10): Promise<LikedVideosResponse> => {
+  try {
+    const response = await api.get<LikedVideosResponse>(
+      `/api/v1/likes/videos?page=${page}&limit=${limit}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching liked videos:', error);
+    throw error;
+  }
+};
+
+export const getBatchLikeStatus = async (videoIds: number[]): Promise<BatchLikeStatusResponse> => {
+  try {
+    const response = await api.post<BatchLikeStatusResponse>(
+      '/api/v1/likes/videos/batch-status',
+      { videoIds }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching batch like status:', error);
+    throw error;
+  }
+};
+
+export const getVideoLikeStatus = async (videoId: string): Promise<LikeStatusResponse> => {
+  try {
+    const response = await api.get<LikeStatusResponse>(
+      `/api/v1/likes/videos/${videoId}/status`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error checking like status:', error);
+    throw error;
+  }
+};

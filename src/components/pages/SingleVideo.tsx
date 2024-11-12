@@ -16,6 +16,7 @@ import CommentPanel from '../common/Video/Comments/CommentPanel';
 import { useVideoContext } from '../../contexts/VideoContext';
 import { RadialMenu } from '../common/Video/RadialMenu/RadialMenu';
 import { useComments } from '../../hooks/useComments';
+import { useLikes } from '../../hooks/useLikes';
 
 
 const SingleVideo: React.FC = () => {
@@ -29,11 +30,40 @@ const SingleVideo: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<VideoPlayerRef>(null);
   const { isCommentsPanelOpen, setIsCommentsPanelOpen } = useVideoContext();
-  const { totalComments } = useComments({
+  const commentsData = useComments({
     videoId: video?.id.toString() || '',
-    initialLimit: 1,  // We only need the count, so minimize data fetch
+    initialLimit: 30,
     sortBy: 'latest'
   });
+
+  const {
+    isLiked,
+    toggleLike,
+    isTogglingLike
+  } = useLikes(id || '');
+
+  const [likesCount, setLikesCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (video?.like_count !== undefined) {
+      setLikesCount(video.like_count);
+    }
+  }, [video?.like_count]);
+
+  const handleLike = async () => {
+    try {
+      setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+      
+      const response = await toggleLike();
+      
+      if (response?.data) {
+        setLikesCount(response.data.likesCount);
+      }
+    } catch (error) {
+      setLikesCount(prev => isLiked ? prev + 1 : prev - 1);
+      console.error('Error toggling like:', error);
+    }
+  };
 
   useEffect(() => {
     const fetchVideoAndChannel = async () => {
@@ -183,8 +213,11 @@ const SingleVideo: React.FC = () => {
 
           <div className="absolute bottom-8 right-8 w-64 h-64 pointer-events-auto">
             <RadialMenu 
-              commentCount={totalComments}
-              likeCount={video?.like_count || 0}
+              commentCount={commentsData.totalComments}
+              likeCount={likesCount}
+              isLiked={isLiked}
+              onLike={handleLike}
+              isTogglingLike={isTogglingLike}
             />
           </div>
         </motion.div>
@@ -206,6 +239,7 @@ const SingleVideo: React.FC = () => {
             isOpen={isCommentsPanelOpen} 
             onClose={() => setIsCommentsPanelOpen(false)}
             videoId={video.id.toString()}
+            commentsData={commentsData}
           />
         )}
       </AnimatePresence>

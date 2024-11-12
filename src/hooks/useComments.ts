@@ -4,13 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as commentsApi from '../api/comment';
 import type { Comment, CommentsResponse, ApiResponse } from '../types/comment';
 
-
-interface UseCommentsProps {
-  videoId: string;
-  initialLimit?: number;
-  sortBy?: 'latest' | 'top';
-}
-
+// Add this helper function at the top of the file, before useComments
 const findCommentById = (comments: Comment[], id: number): Comment | null => {
   for (const comment of comments) {
     if (comment.id === id) return comment;
@@ -22,14 +16,19 @@ const findCommentById = (comments: Comment[], id: number): Comment | null => {
   return null;
 };
 
-export const useComments = ({ videoId, initialLimit = 20, sortBy }: UseCommentsProps) => {
+interface UseCommentsProps {
+  videoId: string;
+  initialLimit?: number;
+  sortBy?: 'latest' | 'top';
+}
+
+export const useComments = ({ videoId, initialLimit = 30, sortBy = 'latest' }: UseCommentsProps) => {
   const { user } = useUser();
   const queryClient = useQueryClient();
   
-  // Memoize queryKey to prevent unnecessary re-renders
+  // Use React Query for caching and state management
   const queryKey = useMemo(() => ['comments', videoId, sortBy], [videoId, sortBy]);
 
-  // Main query for fetching comments
   const {
     data,
     isLoading,
@@ -43,8 +42,9 @@ export const useComments = ({ videoId, initialLimit = 20, sortBy }: UseCommentsP
         comments: structureComments(response.comments)
       };
     },
-    staleTime: 1000 * 60,
-    refetchOnWindowFocus: false
+    staleTime: 1000 * 60, // Cache for 1 minute
+    refetchOnWindowFocus: false,
+    enabled: !!videoId // Only fetch when videoId is available
   });
 
   // Permission checks
@@ -183,7 +183,8 @@ export const useComments = ({ videoId, initialLimit = 20, sortBy }: UseCommentsP
     isDeletingComment: deleteCommentMutation.isPending,
     isEditingComment: editCommentMutation.isPending,
     isAddingComment: addCommentMutation.isPending,
-    isUnpinningComment: unpinCommentMutation.isPending
+    isUnpinningComment: unpinCommentMutation.isPending,
+    sortBy
   };
 };
 

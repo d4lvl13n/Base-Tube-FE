@@ -7,22 +7,28 @@ import RadialMenuItem from './RadialMenuItem';
 interface RadialMenuProps {
   commentCount: number;
   likeCount: number;
+  isLiked: boolean;
+  onLike: () => void;
+  isTogglingLike: boolean;
 }
 
 export const RadialMenu: React.FC<RadialMenuProps> = ({ 
   commentCount = 0,
-  likeCount = 0 
+  likeCount = 0,
+  isLiked,
+  onLike,
+  isTogglingLike
 }) => {
   const { setIsCommentsPanelOpen } = useVideoContext();
-
-  console.log('RadialMenu counts:', { commentCount, likeCount });
 
   const items = [
     { 
       Icon: Heart, 
       label: 'Like', 
-      onClick: () => console.log('Like clicked'),
-      count: likeCount
+      onClick: onLike,
+      count: likeCount,
+      isActive: isLiked,
+      isLoading: isTogglingLike
     },
     { 
       Icon: MessageCircle, 
@@ -49,20 +55,18 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
 
   return (
     <div className="relative w-full h-full">
-      {items.map((item, index) => {
-        console.log(`Rendering item ${item.label}:`, { count: item.count });
-        
-        return (
-          <RadialMenuItem
-            key={item.label}
-            Icon={item.Icon}
-            label={item.label}
-            angle={(index * 360) / items.length}
-            onClick={item.onClick}
-            count={item.count}
-          />
-        );
-      })}
+      {items.map((item, index) => (
+        <RadialMenuItem
+          key={item.label}
+          Icon={item.Icon}
+          label={item.label}
+          angle={(index * 360) / items.length}
+          onClick={item.onClick}
+          count={item.count}
+          isActive={item.isActive}
+          isLoading={item.isLoading}
+        />
+      ))}
     </div>
   );
 };

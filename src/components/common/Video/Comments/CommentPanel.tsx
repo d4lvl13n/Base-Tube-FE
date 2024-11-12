@@ -10,10 +10,11 @@ interface CommentPanelProps {
   isOpen: boolean;
   onClose: () => void;
   videoId: string;
+  commentsData: ReturnType<typeof useComments>;
   pinnedComment?: Comment;
 }
 
-const CommentPanel: React.FC<CommentPanelProps> = ({ isOpen, onClose, videoId }) => {
+const CommentPanel: React.FC<CommentPanelProps> = ({ isOpen, onClose, videoId, commentsData }) => {
   const [sortBy, setSortBy] = React.useState<'latest' | 'top'>('latest');
   const [isExpanded, setIsExpanded] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -35,11 +36,7 @@ const CommentPanel: React.FC<CommentPanelProps> = ({ isOpen, onClose, videoId })
     isEditingComment,
     isAddingComment,
     totalComments
-  } = useComments({
-    videoId,
-    initialLimit: 30,
-    sortBy
-  });
+  } = commentsData;
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
