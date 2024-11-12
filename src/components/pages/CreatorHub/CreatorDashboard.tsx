@@ -5,6 +5,7 @@ import { Users, Play, Clock, MessageCircle } from 'lucide-react';
 import { Channel } from '../../../types/channel';
 import { useAnalyticsData } from '../../../hooks/useAnalyticsData';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
+import { useChannelData } from '../../../hooks/useChannelData';
 
 interface CreatorDashboardProps {
   channels: Channel[];
@@ -22,11 +23,19 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({ channels, userProfi
   const { 
     growthMetrics,
     creatorWatchHours,
-    isLoading 
+    isLoading: analyticsLoading 
   } = useAnalyticsData('7d', activeChannelId);
 
+  const {
+    channel: activeChannel,
+    isLoading: channelLoading
+  } = useChannelData(activeChannelId);
+
+  const isLoading = analyticsLoading || channelLoading;
+
   const formatMetrics = {
-    subscribers: growthMetrics?.metrics.subscribers.total.toLocaleString() ?? '0',
+    subscribers: activeChannel?.subscribers_count.toLocaleString() ?? '0',
+    newSubscribers: growthMetrics?.metrics.subscribers.total.toLocaleString() ?? '0',
     views: growthMetrics?.metrics.views.total.toLocaleString() ?? '0',
     watchTime: creatorWatchHours.toLocaleString(),
     engagement: `${growthMetrics?.metrics.engagement.total.toLocaleString()}%` ?? '0%'
@@ -60,7 +69,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({ channels, userProfi
           value={formatMetrics.subscribers}
           change={growthMetrics?.metrics.subscribers.trend ?? 0}
           loading={isLoading}
-          subtitle="Growth over 7 days"
+          subtitle={`+${formatMetrics.newSubscribers} new in last 7 days`}
         />
         <StatsCard 
           icon={Play} 
@@ -88,7 +97,6 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({ channels, userProfi
         />
       </div>
 
-      {/* Rest of your component... */}
     </motion.div>
   );
 };

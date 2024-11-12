@@ -98,3 +98,27 @@ export interface ContentPerformance {
     completionRate: number;
   }>;
 }
+
+export interface LikeGrowthTrends {
+  trends: Array<{ date: string; likeCount: number }>;
+  totalDays: number;
+  averageLikesPerDay: number;
+}
+
+export interface TopLikedVideo {
+  videoId: number;
+  title: string;
+  thumbnail: string;
+  likeCount: number;
+  viewCount: number;
+  likeToViewRatio: string; 
+}
+
+export type TopLikedVideos = TopLikedVideo[];
+
+export interface LikeViewRatio {
+  videoId: number;
+  likesCount: number;
+  viewsCount: number;
+  likeToViewRatio: string;
+}

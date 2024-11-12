@@ -25,7 +25,7 @@ const AnalyticsPage: React.FC = () => {
     return <Error message={error.message} />;
   }
 
-  if (!channels || channels.length === 0) {
+  if (!Array.isArray(channels) || channels.length === 0) {
     return (
       <div className="p-8 text-center text-gray-400">
         <p>No channels available. Please connect a channel to view analytics.</p>

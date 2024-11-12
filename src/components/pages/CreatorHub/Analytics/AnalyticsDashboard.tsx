@@ -8,6 +8,7 @@ import { AudienceEngagementTab } from './tabs/AudienceEngagementTab';
 import { AlertCircle } from 'lucide-react';
 import { ChannelSelector } from '../../../common/CreatorHub/ChannelSelector';
 import { Channel } from '../../../../types/channel';
+import { LikesAnalyticsTab } from './tabs/LikesAnalyticsTab';
 
 interface AnalyticsDashboardProps {
   channels: Channel[];
@@ -29,6 +30,8 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ channels }) => 
         return <ContentPerformanceTab channelId={activeChannelId} />;
       case 'Engagement':
         return <AudienceEngagementTab channelId={activeChannelId} />;
+      case 'Likes':
+        return <LikesAnalyticsTab channelId={activeChannelId} />;
       default:
         return null;
     }
@@ -70,7 +73,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ channels }) => 
       >
         <div className="relative z-10">
           <TabNav
-            tabs={['Growth', 'Performance', 'Engagement']}
+            tabs={['Growth', 'Performance', 'Engagement', 'Likes']}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
           />

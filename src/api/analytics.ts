@@ -5,7 +5,10 @@ import {
   GrowthMetrics,
   CreatorWatchHours,
   BasicViewMetrics,
-  DetailedViewMetrics
+  DetailedViewMetrics,
+  LikeGrowthTrends,
+  TopLikedVideos,
+  LikeViewRatio
 } from '../types/analytics';
 
 // API creator watch hours
@@ -62,4 +65,28 @@ export const isDetailedViewMetrics = (
   metrics: BasicViewMetrics | DetailedViewMetrics
 ): metrics is DetailedViewMetrics => {
   return 'viewsByPeriod' in metrics;
+};
+
+// Like Growth Over Time
+export const getLikeGrowthTrends = async (channelId: string): Promise<LikeGrowthTrends> => {
+  const response = await api.get<{ success: boolean; data: LikeGrowthTrends }>(
+    `/api/v1/analytics/channels/${channelId}/likes/trends`
+  );
+  return response.data.data;
+};
+
+// Most Liked Videos
+export const getTopLikedVideos = async (channelId: string): Promise<TopLikedVideos> => {
+  const response = await api.get<{ success: boolean; data: TopLikedVideos }>(
+    `/api/v1/analytics/channels/${channelId}/likes/top-videos`
+  );
+  return response.data.data;
+};
+
+// Like-to-View Ratio
+export const getLikeViewRatio = async (creatorId: string, videoId: number): Promise<LikeViewRatio> => {
+  const response = await api.get<{ success: boolean; data: LikeViewRatio }>(
+    `/api/v1/creators/${creatorId}/videos/${videoId}/like-ratio`
+  );
+  return response.data.data;
 };
