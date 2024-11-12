@@ -91,9 +91,19 @@ const CommentCard: React.FC<CommentCardProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
-        className={`group relative p-4 rounded-lg transition-colors duration-200
-                   ${comment.isPinned ? 'bg-[#fa7517]/5' : 'hover:bg-gray-900/30'}`}
+        whileHover={{ scale: 1.002 }}
+        className={`
+          group relative p-4 rounded-lg 
+          transition-all duration-200 ease-out
+          ${comment.isPinned 
+            ? 'bg-[#fa7517]/5 hover:bg-[#fa7517]/10' 
+            : 'hover:bg-gray-900/30'
+          }
+          ${isPanelExpanded ? 'hover:shadow-lg hover:shadow-black/20' : ''}
+        `}
       >
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-[#fa7517]/0 to-[#fa7517]/0 group-hover:from-[#fa7517]/5 group-hover:to-transparent transition-all duration-300" />
+        
         <div className="flex gap-3">
           {/* Enhanced Avatar */}
           <div className="relative">
@@ -152,21 +162,29 @@ const CommentCard: React.FC<CommentCardProps> = ({
               </div>
             )}
 
-            {/* Enhanced Actions */}
-            <div className="mt-2 flex items-center gap-4">
-              <button
+            {/* Enhanced Interaction Buttons */}
+            <div className="flex items-center gap-4 mt-2">
+              <motion.button
+                whileTap={{ scale: 0.9 }}
                 onClick={() => setIsLiked(!isLiked)}
-                className={`text-xs flex items-center gap-1 transition-colors
-                           ${isLiked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
+                aria-label={`${isLiked ? 'Unlike' : 'Like'} comment`}
+                aria-pressed={isLiked}
+                className={`flex items-center gap-1.5 text-xs transition-colors
+                          ${isLiked ? 'text-[#fa7517]' : 'text-gray-400 hover:text-white'}`}
               >
-                <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
-                Like
-              </button>
+                <Heart 
+                  className={`w-4 h-4 transition-colors ${isLiked ? 'fill-[#fa7517]' : ''}`} 
+                />
+                {comment.likes || 0}
+              </motion.button>
+
               <button
-                onClick={() => setIsReplying(!isReplying)}
-                className="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+                onClick={() => setIsReplying(true)}
+                aria-label="Reply to comment"
+                className="flex items-center gap-1.5 text-xs text-gray-400 
+                         hover:text-white transition-colors group"
               >
-                <MessageCircle className="w-3.5 h-3.5" />
+                <MessageCircle className="w-4 h-4 group-hover:scale-110 transition-transform" />
                 Reply
               </button>
             </div>
@@ -194,6 +212,8 @@ const CommentCard: React.FC<CommentCardProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowOptions(!showOptions)}
+              aria-label="Comment options"
+              aria-expanded={showOptions}
               className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/50
                          opacity-0 group-hover:opacity-100 transition-all duration-200"
             >
@@ -266,8 +286,17 @@ const CommentCard: React.FC<CommentCardProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={`ml-11 mt-4 space-y-4 ${nestingLevel >= 2 ? 'ml-8' : ''}`}
+            className={`
+              ml-11 mt-4 space-y-4 relative
+              ${nestingLevel >= 2 ? 'ml-8' : ''}
+            `}
           >
+            {/* Connection Line */}
+            <div 
+              className="absolute left-[-24px] top-0 bottom-0 w-[2px] 
+                bg-gradient-to-b from-gray-800/50 via-gray-800/30 to-transparent"
+            />
+            
             {comment.replies.map((reply) => (
               <CommentCard
                 key={`${reply.id}-${reply.updatedAt}`}

@@ -19,6 +19,7 @@ export interface Comment {
   commenter?: Commenter;
   replies?: Comment[];
   replyingTo?: string | null;
+  likes: number;
 }
 
 export interface ApiResponse<T> {

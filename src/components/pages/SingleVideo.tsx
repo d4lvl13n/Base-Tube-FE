@@ -1,17 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Heart,
-  MessageCircle,
-  Share2,
-  Coins,
-  Hexagon,
-  Play,
-  Pause,
-  Maximize,
-  Minimize,
-} from 'lucide-react';
+import { Play, Pause, Maximize, Minimize } from 'lucide-react';
 import { getVideoById } from '../../api/video';
 import { getChannelDetails } from '../../api/channel';
 import VideoPlayer, { VideoPlayerRef } from '../common/Video/VideoPlayer';
@@ -24,6 +14,8 @@ import { CreatorBox } from '../common/Video/CreatorBox';
 import { ViewCount } from '../common/Video/ViewCount';
 import CommentPanel from '../common/Video/Comments/CommentPanel';
 import { useVideoContext } from '../../contexts/VideoContext';
+import { RadialMenu } from '../common/Video/RadialMenu/RadialMenu';
+import { useComments } from '../../hooks/useComments';
 
 
 const SingleVideo: React.FC = () => {
@@ -37,6 +29,11 @@ const SingleVideo: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<VideoPlayerRef>(null);
   const { isCommentsPanelOpen, setIsCommentsPanelOpen } = useVideoContext();
+  const { totalComments } = useComments({
+    videoId: video?.id.toString() || '',
+    initialLimit: 1,  // We only need the count, so minimize data fetch
+    sortBy: 'latest'
+  });
 
   useEffect(() => {
     const fetchVideoAndChannel = async () => {
@@ -185,7 +182,10 @@ const SingleVideo: React.FC = () => {
           </div>
 
           <div className="absolute bottom-8 right-8 w-64 h-64 pointer-events-auto">
-            <RadialMenu />
+            <RadialMenu 
+              commentCount={totalComments}
+              likeCount={video?.like_count || 0}
+            />
           </div>
         </motion.div>
       )}
@@ -200,70 +200,17 @@ const SingleVideo: React.FC = () => {
         {showInterface ? 'Hide UI' : 'Show UI'}
       </motion.button>
 
-      <CommentPanel 
-        isOpen={isCommentsPanelOpen} 
-        onClose={() => setIsCommentsPanelOpen(false)}
-        videoId={video?.id.toString() || ''}
-      />
+      <AnimatePresence>
+        {isCommentsPanelOpen && video && (
+          <CommentPanel 
+            isOpen={isCommentsPanelOpen} 
+            onClose={() => setIsCommentsPanelOpen(false)}
+            videoId={video.id.toString()}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
-
-const RadialMenu: React.FC = () => {
-  const { setIsCommentsPanelOpen } = useVideoContext();
-
-  const items = [
-    { Icon: Heart, label: 'Like', onClick: () => console.log('Like clicked') },
-    { Icon: MessageCircle, label: 'Comment', onClick: () => setIsCommentsPanelOpen(true) },
-    { Icon: Share2, label: 'Share', onClick: () => console.log('Share clicked') },
-    { Icon: Coins, label: 'Tip $TUBE', onClick: () => console.log('Tip clicked') },
-    { Icon: Hexagon, label: 'Mint NFT', onClick: () => console.log('Mint clicked') },
-  ];
-
-  return (
-    <div className="relative w-full h-full">
-      {items.map((item, index) => (
-        <RadialMenuItem
-          key={item.label}
-          Icon={item.Icon}
-          label={item.label}
-          angle={(index * 360) / items.length}
-          onClick={item.onClick}
-        />
-      ))}
-    </div>
-  );
-};
-
-const RadialMenuItem = ({
-  Icon,
-  label,
-  angle,
-  onClick
-}: {
-  Icon: React.ElementType;
-  label: string;
-  angle: number;
-  onClick: () => void;
-}) => (
-  <motion.div
-    className="absolute top-1/2 left-1/2 -mt-6 -ml-6"
-    style={{
-      transform: `rotate(${angle}deg) translateY(-80px) rotate(-${angle}deg)`,
-    }}
-  >
-    <motion.button
-      onClick={onClick}
-      className="bg-black bg-opacity-70 rounded-full p-3 cursor-pointer"
-      whileHover={{ scale: 1.2, backgroundColor: '#fa7517' }}
-      whileTap={{ scale: 0.9 }}
-    >
-      <Icon size={24} className="text-white" />
-    </motion.button>
-    <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 text-xs font-semibold whitespace-nowrap">
-      {label}
-    </span>
-  </motion.div>
-);
 
 export default SingleVideo;

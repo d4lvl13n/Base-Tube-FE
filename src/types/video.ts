@@ -24,4 +24,6 @@ export interface Video {
   updatedAt: string;
   channel?: Channel;
   user?: User;
+  comment_count: number;
+  like_count: number;
 }

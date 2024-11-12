@@ -1,23 +1,11 @@
 // src/components/Video/ViewCount.tsx
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Video } from '../../../types/video';
+import { formatNumber } from '../../../utils/format';
+import type { Video } from '../../../types/video';
 
 interface ViewCountProps {
   video: Video;
-}
-
-function formatNumber(num: number | undefined | null): string {
-  if (num === undefined || num === null) {
-    return '0';
-  }
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(1)}M`;
-  } else if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}K`;
-  } else {
-    return num.toString();
-  }
 }
 
 export const ViewCount: React.FC<ViewCountProps> = ({ video }) => {
