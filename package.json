@@ -10,6 +10,7 @@
     "@emoji-mart/react": "^1.1.1",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
+    "@fortawesome/fontawesome-free": "^6.7.1",
     "@headlessui/react": "^2.1.10",
     "@mui/icons-material": "^6.1.4",
     "@mui/material": "^6.1.4",

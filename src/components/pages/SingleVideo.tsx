@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Maximize, Minimize } from 'lucide-react';
 import { getVideoById } from '../../api/video';
 import { getChannelDetails } from '../../api/channel';
 import VideoPlayer, { VideoPlayerRef } from '../common/Video/VideoPlayer';
@@ -18,6 +17,7 @@ import { RadialMenu } from '../common/Video/RadialMenu/RadialMenu';
 import { useComments } from '../../hooks/useComments';
 import { useLikes } from '../../hooks/useLikes';
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
 const SingleVideo: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +43,20 @@ const SingleVideo: React.FC = () => {
   } = useLikes(id || '');
 
   const [likesCount, setLikesCount] = useState<number>(0);
+  const [shouldShowOverlay, setShouldShowOverlay] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const videoProps = useMemo(() => {
+    if (!video) {
+      return null;
+    }
+    return {
+      src: `${API_BASE_URL}/${video.video_path}`,
+      thumbnail_path: `${API_BASE_URL}/${video.thumbnail_path}`,
+      duration: video.duration,
+      videoId: video.id.toString(),
+    };
+  }, [video]);
 
   useEffect(() => {
     if (video?.like_count !== undefined) {
@@ -90,44 +104,37 @@ const SingleVideo: React.FC = () => {
     fetchVideoAndChannel();
   }, [id, navigate]);
 
-  const handlePlayerReady = (player: VideoPlayerRef) => {
-    player.on('play', () => setIsPlaying(true));
-    player.on('pause', () => setIsPlaying(false));
+  const handlePlayerReady = useCallback((player: VideoPlayerRef) => {
+    player.on('play', () => {
+      setIsPlaying(true);
+      setShouldShowOverlay(false);
+    });
+    
+    player.on('pause', () => {
+      setIsPlaying(false);
+      setShouldShowOverlay(true);
+    });
+    
     player.on('fullscreenchange', () => {
       setIsFullscreen(player.isFullscreen());
     });
-  };
+  }, []);
 
-  const togglePlay = () => {
-    if (playerRef.current) {
-      if (isPlaying) {
-        playerRef.current.pause();
-      } else {
-        playerRef.current.play();
-      }
-    }
-  };
-
-  const toggleFullscreen = () => {
-    if (playerRef.current) {
-      if (isFullscreen) {
-        playerRef.current.exitFullscreen();
-      } else {
-        playerRef.current.requestFullscreen();
-      }
-    }
+  const handleToggleInterface = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowInterface(!showInterface);
   };
 
   if (error) {
     return <div className="text-white text-center mt-10">{error}</div>;
   }
 
-  if (!video) {
+  if (!video || !videoProps) {
     return <div className="text-white text-center mt-10">Loading...</div>;
   }
 
   return (
-    <div className="bg-black text-white min-h-screen w-screen overflow-hidden relative">
+    <div className="bg-black text-white min-h-screen w-screen relative">
       <AnimatePresence>
         {showInterface && !isFullscreen && (
           <motion.div
@@ -158,9 +165,10 @@ const SingleVideo: React.FC = () => {
           )}
         </AnimatePresence>
 
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 flex items-center justify-center p-8">
           <motion.div
-            className="w-full h-full max-w-7xl max-h-[80vh] bg-gray-900 rounded-3xl overflow-hidden shadow-2xl relative"
+            ref={containerRef}
+            className="w-full max-w-6xl bg-gray-900 rounded-3xl shadow-2xl relative"
             layout
             style={{
               boxShadow: `0 0 20px 5px rgba(250, 117, 23, 0.3), 
@@ -168,70 +176,64 @@ const SingleVideo: React.FC = () => {
                           0 0 100px 20px rgba(250, 117, 23, 0.1)`,
             }}
           >
-            <VideoPlayer
-              ref={playerRef}
-              src={`${process.env.REACT_APP_API_URL}/${video.video_path}`}
-              thumbnail_path={`${process.env.REACT_APP_API_URL}/${video.thumbnail_path}`}
-              onReady={handlePlayerReady}
-            />
-            {showInterface && (
-              <>
-                <VideoInfoOverlay video={video} />
-                {channel && <CreatorBox channel={channel} />}
-                <ViewCount video={video} />
-              </>
-            )}
+            <div className="relative w-full h-full">
+              <VideoPlayer
+                {...videoProps}
+                onReady={handlePlayerReady}
+                ref={playerRef}
+              />
+              
+              <AnimatePresence>
+                {(shouldShowOverlay || !isPlaying) && showInterface && (
+                  <motion.div 
+                    className="absolute inset-0 z-20 pointer-events-none"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <VideoInfoOverlay video={video} />
+                    {channel && <CreatorBox channel={channel} />}
+                    <ViewCount video={video} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </motion.div>
         </main>
       </div>
 
       {showInterface && (
         <motion.div
-          className="absolute inset-0 pointer-events-none"
+          className="fixed bottom-8 right-8 z-50"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center space-x-4 pointer-events-auto">
-            <motion.button
-              onClick={togglePlay}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="bg-[#fa7517] text-black p-3 rounded-full"
-            >
-              {isPlaying ? <Pause size={24} /> : <Play size={24} />}
-            </motion.button>
-            <motion.button
-              onClick={toggleFullscreen}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="bg-[#fa7517] text-black p-3 rounded-full"
-            >
-              {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
-            </motion.button>
-          </div>
-
-          <div className="absolute bottom-8 right-8 w-64 h-64 pointer-events-auto">
-            <RadialMenu 
-              commentCount={commentsData.totalComments}
-              likeCount={likesCount}
-              isLiked={isLiked}
-              onLike={handleLike}
-              isTogglingLike={isTogglingLike}
-            />
-          </div>
+          <RadialMenu 
+            commentCount={commentsData.totalComments}
+            likeCount={likesCount}
+            isLiked={isLiked}
+            onLike={handleLike}
+            isTogglingLike={isTogglingLike}
+          />
         </motion.div>
       )}
 
-      <motion.button
-        className="absolute top-20 right-5 bg-black bg-opacity-70 text-[#fa7517] px-4 py-2 rounded-full z-50"
-        onClick={() => setShowInterface(!showInterface)}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        style={{ top: '100px', right: '20px' }}
+      <div
+        className="parent-container"
+        style={{ pointerEvents: 'none' }}
       >
-        {showInterface ? 'Hide UI' : 'Show UI'}
-      </motion.button>
+        <motion.button
+          className="absolute top-20 right-5 bg-black bg-opacity-70 text-[#fa7517] px-4 py-2 rounded-full"
+          onClick={handleToggleInterface}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          style={{ pointerEvents: 'auto', zIndex: 10 }}
+        >
+          {showInterface ? 'Hide UI' : 'Show UI'}
+        </motion.button>
+      </div>
 
       <AnimatePresence>
         {isCommentsPanelOpen && video && (

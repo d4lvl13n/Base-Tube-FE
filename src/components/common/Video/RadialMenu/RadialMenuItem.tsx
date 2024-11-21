@@ -30,7 +30,10 @@ const RadialMenuItem: React.FC<RadialMenuItemProps> = ({
     <div className="relative group">
       {/* Main Button */}
       <motion.button
-        onClick={onClick}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
         disabled={isLoading}
         className={`bg-black/70 rounded-full p-3 cursor-pointer relative
                    backdrop-blur-sm border border-white/5

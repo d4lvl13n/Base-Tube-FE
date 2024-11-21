@@ -1,7 +1,11 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL, // Ensure this is also set in your .env file
+  baseURL: process.env.REACT_APP_API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true
 });
 
 api.interceptors.request.use(
@@ -10,9 +14,38 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    if (config.headers) {
+      delete config.headers['X-Forwarded-For'];
+      delete config.headers['X-Real-IP'];
+    }
+    console.log('Outgoing request:', {
+      url: config.url,
+      method: config.method,
+      headers: config.headers,
+      data: config.data
+    });
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const errorDetails = {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.response?.data?.message,
+      url: error.config?.url,
+      method: error.config?.method,
+      headers: {
+        ...error.config?.headers,
+        Authorization: 'Bearer [REDACTED]'
+      }
+    };
+    console.error('API Error:', errorDetails);
+    return Promise.reject(error);
+  }
 );
 
 export default api;

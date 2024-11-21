@@ -1,4 +1,4 @@
-// src/components/Video/VideoInfoOverlay.tsx
+// src/components/common/Video/VideoInfoOverlay.tsx
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Video } from '../../../types/video';
@@ -14,6 +14,7 @@ export const VideoInfoOverlay: React.FC<VideoInfoOverlayProps> = ({ video }) => 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5 }}
+      style={{ pointerEvents: 'none' }}
     >
       <h2 className="text-xl font-bold text-white mb-2">{video.title}</h2>
       <p className="text-sm text-gray-300">{video.description}</p>

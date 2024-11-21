@@ -21,11 +21,15 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
 }) => {
   const { setIsCommentsPanelOpen } = useVideoContext();
 
+  const handleLike = () => {
+    onLike();
+  };
+
   const items = [
     { 
       Icon: Heart, 
       label: 'Like', 
-      onClick: onLike,
+      onClick: handleLike,
       count: likeCount,
       isActive: isLiked,
       isLoading: isTogglingLike

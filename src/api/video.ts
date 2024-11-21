@@ -3,6 +3,28 @@ import { Video } from '../types/video';
 import { AxiosProgressEvent } from 'axios';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
 
+
+interface InitViewResponse {
+  success: boolean;
+  message: string;
+  data: {
+    viewId: string;
+  };
+}
+
+interface UpdateViewRequest {
+  watchedDuration: number;
+  completed?: boolean;
+}
+
+interface UpdateViewResponse {
+  success: boolean;
+  message: string;
+  data: {
+    viewId: string;
+  };
+}
+
 export const getAllVideos = (page: number = 1, limit: number = 10) =>
   api.get(`/api/v1/videos?page=${page}&limit=${limit}`).then((res) => res.data.data);
 
@@ -88,6 +110,66 @@ export const getVideoLikeStatus = async (videoId: string): Promise<LikeStatusRes
     return response.data;
   } catch (error) {
     console.error('Error checking like status:', error);
+    throw error;
+  }
+};
+
+export const initializeVideoView = async (
+  videoId: string, 
+  watchedDuration: number
+): Promise<InitViewResponse> => {
+  try {
+    console.debug('Initializing video view:', {
+      videoId,
+      watchedDuration
+    });
+
+    const payload = {
+      watchedDuration
+    };
+
+    const response = await api.post<InitViewResponse>(
+      `/api/v1/videos/${videoId}/views`,
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    console.debug('View initialization response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to initialize view:', error);
+    throw error;
+  }
+};
+
+export const updateVideoView = async (
+  videoId: string,
+  viewId: string,
+  watchedDuration: number,
+  completed?: boolean
+): Promise<UpdateViewResponse> => {
+  try {
+    const payload: UpdateViewRequest = {
+      watchedDuration,
+      completed
+    };
+
+    const response = await api.patch<UpdateViewResponse>(
+      `/api/v1/videos/${videoId}/views/${viewId}`,
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    console.error('Failed to update view:', error);
     throw error;
   }
 };

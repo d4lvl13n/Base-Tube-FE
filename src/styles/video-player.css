@@ -1,0 +1,124 @@
+/* Base container */
+.video-container {
+  width: 100%;
+  max-width: 90%;
+  height: auto;
+  position: relative;
+  background-color: black;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.video-js {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 16/9;
+}
+
+/* Control bar */
+.video-js .vjs-control-bar {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0)) !important;
+  height: 4em !important;
+  opacity: 1;
+  visibility: visible;
+  transition: none !important;
+  pointer-events: auto !important;
+}
+
+
+ .video-js:hover .vjs-control-bar {
+  opacity: 1;
+  visibility: visible;
+} 
+
+/* Ensure controls are clickable */
+.video-js .vjs-control {
+  pointer-events: auto !important;
+}
+
+/* Big play button */
+.video-js .vjs-big-play-button {
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  background-color: rgba(250, 117, 23, 0.8) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 80px !important;
+  height: 80px !important;
+  line-height: 80px !important;
+  font-size: 40px !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  transition: all 0.2s ease !important;
+}
+
+.video-js.vjs-playing .vjs-big-play-button {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Progress bar improvements */
+.video-js .vjs-progress-control {
+  position: absolute !important;
+  width: 100% !important;
+  height: 0.5em !important;
+  top: -0.5em !important;
+  transition: all 0.2s ease !important;
+  pointer-events: auto !important;
+}
+
+.video-js .vjs-progress-control:hover {
+  height: 1em !important;
+  top: -1em !important;
+}
+
+.video-js .vjs-progress-holder {
+  height: 100% !important;
+}
+
+.video-js .vjs-play-progress {
+  background-color: #fa7517 !important;
+}
+
+/* Time display */
+.video-js .vjs-time-control {
+  display: block !important;
+  padding: 0 0.5em !important;
+}
+
+/* Volume control */
+.video-js .vjs-volume-panel {
+  margin-right: 0.5em !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .video-js .vjs-control-bar {
+    height: 3em !important;
+  }
+
+  .video-js .vjs-big-play-button {
+    width: 60px !important;
+    height: 60px !important;
+    line-height: 60px !important;
+    font-size: 30px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .video-js .vjs-time-control {
+    display: none !important;
+  }
+  
+  .video-js .vjs-volume-control {
+    display: none !important;
+  }
+}
+
+
+.video-js .vjs-big-play-button,
+.video-js .vjs-control-bar {
+  pointer-events: auto !important;
+}

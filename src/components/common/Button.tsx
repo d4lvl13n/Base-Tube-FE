@@ -2,14 +2,17 @@ import React from 'react';
 
 interface ButtonProps {
   children: React.ReactNode;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
 }
 
 const Button: React.FC<ButtonProps> = ({ children, onClick, className = '' }) => {
   return (
     <button
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (onClick) onClick(e);
+      }}
       className={`
         px-4 py-2 rounded-full
         bg-gradient-to-r from-[#fa7517] to-[#ff9a5a]
