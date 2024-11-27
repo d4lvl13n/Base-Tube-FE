@@ -134,3 +134,112 @@
     font-size: 30px !important;
   }
 }
+
+/* Remove padding and set height to fill the space */
+.video-content-wrapper {
+  display: flex;
+  flex-direction: row;
+  height: calc(100vh - 4rem); /* 4rem = header height */
+  overflow: hidden;
+  padding: 0; /* Remove padding */
+}
+
+@media (min-width: 768px) {
+  .video-content-wrapper {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .video-content-wrapper {
+    padding-top: 3rem;
+    padding-bottom: 4rem;
+  }
+}
+
+/* Theatre mode styles */
+.theatre-mode-container {
+  position: relative;
+  width: 100%;
+  background-color: #000;
+  min-height: 200px;
+}
+
+.theatre-mode-video-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%; /* Fill the available space */
+  max-height: 100%;
+  padding-bottom: 8rem; /* Increased padding to match new radial menu position */
+  padding-right: 0; /* Removed right padding */
+}
+
+/* Adjust overlay positions */
+.video-info-overlay {
+  position: absolute;
+  bottom: 4rem;
+  left: 2rem;
+  max-width: 50%;
+  z-index: 30;
+}
+
+/* Ensure radial menu stays visible */
+.radial-menu-wrapper {
+  position: absolute;
+  bottom: 8rem; /* Increased significantly from 5rem */
+  right: 6rem; /* Increased from 4rem to 6rem */
+  z-index: 40;
+  margin-bottom: 2rem; /* Increased margin */
+}
+
+/* Add consistent gradient overlays */
+.theatre-mode-video-wrapper::before,
+.theatre-mode-video-wrapper::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.theatre-mode-video-wrapper::before {
+  top: 0;
+  height: 120px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent);
+}
+
+.theatre-mode-video-wrapper::after {
+  bottom: 0;
+  height: 180px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+}
+
+/* Adjust video container for theatre mode */
+.video-container.theatre-mode {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background-color: black;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .theatre-mode-video-wrapper {
+    height: calc(100vh - 8rem - 60px);
+  }
+}
+
+/* Ensure video fills the theatre mode container */
+.theatre-mode .video-js {
+  width: 100% !important;
+  height: 100% !important;
+  background-color: #000;
+}
+
+/* Enhance control bar visibility in theatre mode */
+.theatre-mode .video-js .vjs-control-bar {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent) !important;
+  padding-bottom: 1rem;
+}

@@ -152,94 +152,115 @@ const SingleVideo: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen bg-black text-white">
-        <p>{error}</p>
+      <div className="flex flex-col bg-black text-white h-screen">
+        <Header />
+        <div className="video-content-wrapper flex flex-1 items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-red-500">Video Unavailable</h2>
+            <p className="text-gray-400">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-4 px-6 py-2 bg-[#fa7517] hover:bg-[#fa7517]/80 rounded-full transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!video) {
     return (
-      <div className="flex items-center justify-center h-screen bg-black text-white">
-        <p>Loading...</p>
+      <div className="flex flex-col bg-black text-white h-screen">
+        <Header />
+        <div className="video-content-wrapper flex flex-1 items-center justify-center">
+          <div className="animate-pulse space-y-8 w-full max-w-screen-lg">
+            {/* Video placeholder */}
+            <div className="aspect-w-16 aspect-h-9 bg-gray-800 rounded-lg" />
+            {/* Title placeholder */}
+            <div className="h-8 bg-gray-800 rounded w-3/4" />
+            {/* Description placeholder */}
+            <div className="space-y-3">
+              <div className="h-4 bg-gray-800 rounded w-1/2" />
+              <div className="h-4 bg-gray-800 rounded w-2/3" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex bg-black text-white h-screen overflow-hidden">
-      {/* Sidebar */}
-      {!isFullscreen && (
+    <div className="flex flex-col bg-black text-white h-screen overflow-hidden">
+      {/* Header */}
+      <Header />
+
+      {/* Main content - Theatre mode layout */}
+      <div className="video-content-wrapper flex flex-1">
+        {/* Sidebar */}
         <AnimatePresence>
-          {showInterface && (
-            <motion.div
-              initial={{ x: -250 }}
-              animate={{ x: 0 }}
-              exit={{ x: -250 }}
-              transition={{ duration: 0.3 }}
-              className="absolute top-0 left-0 bottom-0 z-30"
-              style={{ paddingTop: '100px' }}
-            >
-              <Sidebar />
-            </motion.div>
-          )}
+          <motion.div
+            initial={{ x: -250 }}
+            animate={{ x: 0 }}
+            exit={{ x: -250 }}
+            transition={{ duration: 0.3 }}
+            className="z-30"
+          >
+            <Sidebar />
+          </motion.div>
         </AnimatePresence>
-      )}
 
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        {showInterface && !isFullscreen && <Header />}
+        {/* Theatre mode video container */}
+        <main className="flex-1 flex flex-col">
+          <div className="theatre-mode-container" ref={containerRef}>
+            <div className="theatre-mode-video-wrapper">
+              <VideoPlayer
+                src={`${API_BASE_URL}/${video.video_path}`}
+                thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}
+                duration={video.duration}
+                videoId={video.id.toString()}
+                onReady={handlePlayerReady}
+                ref={playerRef}
+              />
 
-        <main className="flex-1 flex items-center justify-center p-4 overflow-auto">
-          <div className="relative w-full max-w-screen-lg" ref={containerRef}>
-            <div className="aspect-w-16 aspect-h-9">
-              <div className="relative w-full h-full">
-                <VideoPlayer
-                  src={`${API_BASE_URL}/${video.video_path}`}
-                  thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}
-                  duration={video.duration}
-                  videoId={video.id.toString()}
-                  onReady={handlePlayerReady}
-                  ref={playerRef}
-                />
+              {/* Overlays and UI elements */}
+              <AnimatePresence>
+                {(shouldShowOverlay || !isPlaying) && (
+                  <motion.div
+                    className="absolute inset-0 z-20 pointer-events-none"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <VideoInfoOverlay video={video} />
+                    {channel && <CreatorBox channel={channel} />}
+                    <ViewCount video={video} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-                {/* Overlays and UI elements */}
-                <AnimatePresence>
-                  {(shouldShowOverlay || !isPlaying) && showInterface && (
-                    <motion.div
-                      className="absolute inset-0 z-20 pointer-events-none"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <VideoInfoOverlay video={video} />
-                      {channel && <CreatorBox channel={channel} />}
-                      <ViewCount video={video} />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Radial Menu */}
-                <AnimatePresence>
-                  {showInterface && (
-                    <motion.div
-                      className="absolute bottom-8 right-8 z-50"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <RadialMenu
-                        commentCount={commentsData.totalComments}
-                        likeCount={likesCount}
-                        isLiked={isLiked}
-                        onLike={handleLike}
-                        isTogglingLike={isTogglingLike}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              {/* Radial Menu */}
+              <AnimatePresence>
+                {showInterface && (
+                  <motion.div
+                    className="absolute bottom-32 right-24 z-50"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <RadialMenu
+                      commentCount={commentsData.totalComments}
+                      likeCount={likesCount}
+                      isLiked={isLiked}
+                      onLike={handleLike}
+                      isTogglingLike={isTogglingLike}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </main>

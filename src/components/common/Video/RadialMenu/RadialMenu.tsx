@@ -58,19 +58,21 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   ];
 
   return (
-    <div className="radial-menu relative w-[64px] h-[64px]">
-      {items.map((item, index) => (
-        <RadialMenuItem
-          key={item.label}
-          Icon={item.Icon}
-          label={item.label}
-          angle={(index * 360) / items.length}
-          onClick={item.onClick}
-          count={item.count}
-          isActive={item.isActive}
-          isLoading={item.isLoading}
-        />
-      ))}
+    <div className="radial-menu-wrapper p-4">
+      <div className="radial-menu relative w-[64px] h-[64px]">
+        {items.map((item, index) => (
+          <RadialMenuItem
+            key={item.label}
+            Icon={item.Icon}
+            label={item.label}
+            angle={(index * 360) / items.length}
+            onClick={item.onClick}
+            count={item.count}
+            isActive={item.isActive}
+            isLoading={item.isLoading}
+          />
+        ))}
+      </div>
     </div>
   );
 };

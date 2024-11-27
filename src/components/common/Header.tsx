@@ -22,7 +22,7 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <header className={`
       bg-black/50 backdrop-blur-sm border-b border-gray-800/30
-      p-4 flex justify-between items-center ${className}
+      p-4 flex justify-between items-center w-full h-16 z-50 ${className}
     `}>
       <div className="flex items-center space-x-4">
         <motion.button
