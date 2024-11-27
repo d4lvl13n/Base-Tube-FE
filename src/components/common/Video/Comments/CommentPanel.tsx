@@ -82,6 +82,7 @@ const CommentPanel: React.FC<CommentPanelProps> = ({ isOpen, onClose, videoId, c
               }
             }}
             className="fixed right-0 top-0 h-full z-50 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Panel Container with width animation */}
             <motion.div

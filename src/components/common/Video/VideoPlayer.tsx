@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, forwardRef } from 'react';
+// src/components/common/Video/VideoPlayer.tsx
+import React, { useEffect, useRef, forwardRef, MutableRefObject } from 'react';
 import videojs from 'video.js';
 import type Player from 'video.js/dist/types/player';
 import 'video.js/dist/video-js.css';
@@ -28,6 +29,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
     const videoRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<Player | null>(null);
 
+    // Initialize view tracking
     const viewTracking = useViewTracking({
       videoId,
       videoDuration: duration,
@@ -35,6 +37,8 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
 
     useEffect(() => {
       if (!videoRef.current || playerRef.current) return;
+
+      console.log('Initializing VideoPlayer');
 
       const videoElement = document.createElement('video');
       videoElement.className = 'video-js vjs-big-play-centered';
@@ -49,14 +53,15 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         poster: thumbnail_path,
         userActions: {
           hotkeys: true,
-          doubleClick: false,
-          click: false,
-          clickToggle: false,
+          doubleClick: true,
+          click: true,
         },
-        sources: [{ 
-          src, 
-          type: 'video/mp4'
-        }],
+        sources: [
+          {
+            src,
+            type: 'video/mp4',
+          },
+        ],
         controlBar: {
           children: [
             'playToggle',
@@ -65,84 +70,88 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
             'durationDisplay',
             'volumePanel',
             'playbackRateMenuButton',
-            'fullscreenToggle'
-          ]
-        }
+            'fullscreenToggle',
+          ],
+        },
       });
 
       playerRef.current = player;
 
-      player.ready(() => {
-        // Keep view tracking setup
-        player.on('playing', () => {
-          console.log('▶️ Starting view tracking');
-          viewTracking.startTracking();
-        });
-
-        player.on('pause', () => {
-          console.log('⏸️ Pausing view tracking');
-          viewTracking.pauseTracking();
-        });
-
-        player.on('timeupdate', () => {
-          const currentTime = player.currentTime();
-          if (typeof currentTime === 'number') {
-            viewTracking.updateWatchedDuration(currentTime);
-          }
-        });
-
-        player.on('ended', () => {
-          console.log('🎬 Video ended');
-          void viewTracking.finalize();
-        });
-
-        const playerInterface: VideoPlayerRef = {
-          play: async () => {
-            try {
-              await player.play();
-            } catch (error) {
-              console.error('Error playing video:', error);
-              throw error;
-            }
-          },
-          pause: () => {
-            player.pause();
-          },
-          currentTime: (time?: number) => {
-            if (typeof time === 'number') {
-              player.currentTime(time);
-            }
-            return player.currentTime() || 0;
-          },
-          on: (event: string, callback: () => void) => {
-            player.on(event, callback);
-          },
-          isFullscreen: () => player.isFullscreen() || false,
-          requestFullscreen: () => player.requestFullscreen(),
-          exitFullscreen: () => player.exitFullscreen(),
-        };
-
-        if (ref) {
-          if (typeof ref === 'function') ref(playerInterface);
-          else (ref as React.MutableRefObject<VideoPlayerRef>).current = playerInterface;
-        }
-
-        if (onReady) onReady(playerInterface);
+      // Event listeners for view tracking
+      player.on('playing', () => {
+        console.log('▶️ Starting view tracking');
+        viewTracking.startTracking();
       });
 
+      player.on('pause', () => {
+        console.log('⏸️ Pausing view tracking');
+        viewTracking.pauseTracking();
+      });
+
+      player.on('timeupdate', () => {
+        const currentTime = player.currentTime();
+        if (typeof currentTime === 'number') {
+          viewTracking.updateWatchedDuration(currentTime);
+        }
+      });
+
+      player.on('ended', () => {
+        console.log('🎬 Video ended');
+        void viewTracking.finalize();
+      });
+
+      // Ensure ref is set
+      const playerInterface: VideoPlayerRef = {
+        play: async () => {
+          try {
+            await player.play();
+          } catch (error) {
+            console.error('Error playing video:', error);
+            throw error;
+          }
+        },
+        pause: () => {
+          player.pause();
+        },
+        currentTime: (time?: number) => {
+          if (typeof time === 'number') {
+            player.currentTime(time);
+          }
+          return player.currentTime() || 0;
+        },
+        on: (event: string, callback: () => void) => {
+          player.on(event, callback);
+        },
+        isFullscreen: () => player.isFullscreen() || false,
+        requestFullscreen: () => player.requestFullscreen(),
+        exitFullscreen: () => player.exitFullscreen(),
+      };
+
+      if (ref) {
+        if (typeof ref === 'function') {
+          ref(playerInterface);
+        } else if ('current' in ref) {
+          (ref as MutableRefObject<VideoPlayerRef | null>).current = playerInterface;
+        }
+      }
+
+      if (onReady) onReady(playerInterface);
+
       return () => {
+        console.log('Disposing VideoPlayer');
         if (playerRef.current) {
           void viewTracking.finalize();
           playerRef.current.dispose();
           playerRef.current = null;
         }
       };
-    }, [src, thumbnail_path, videoId, duration, onReady, ref, viewTracking]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Empty dependency array to run only once on mount
 
     return (
-      <div className="video-container aspect-video">
-        <div data-vjs-player className="h-full">
-          <div ref={videoRef} className="h-full" />
+      <div className="video-container w-full h-full">
+        <div data-vjs-player className="w-full h-full">
+          <div ref={videoRef} className="w-full h-full" />
         </div>
       </div>
     );

@@ -22,9 +22,9 @@ const RadialMenuItem: React.FC<RadialMenuItemProps> = ({
   isLoading
 }) => (
   <motion.div
-    className="absolute top-1/2 left-1/2 -mt-6 -ml-6"
+    className="absolute top-1/2 left-1/2"
     style={{
-      transform: `rotate(${angle}deg) translateY(-80px) rotate(-${angle}deg)`,
+      transform: `rotate(${angle}deg) translate(0, -80px) rotate(-${angle}deg)`,
     }}
   >
     <div className="relative group">

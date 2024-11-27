@@ -58,7 +58,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   ];
 
   return (
-    <div className="relative w-full h-full">
+    <div className="radial-menu relative w-[64px] h-[64px]">
       {items.map((item, index) => (
         <RadialMenuItem
           key={item.label}

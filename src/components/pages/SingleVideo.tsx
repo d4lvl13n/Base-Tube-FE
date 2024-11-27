@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, MutableRefObject } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getVideoById } from '../../api/video';
@@ -25,38 +25,34 @@ const SingleVideo: React.FC = () => {
   const [video, setVideo] = useState<Video | null>(null);
   const [channel, setChannel] = useState<Channel | null>(null);
   const [showInterface, setShowInterface] = useState(true);
+  const [shouldShowOverlay, setShouldShowOverlay] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const playerRef = useRef<VideoPlayerRef>(null);
+  const playerRef = useRef<VideoPlayerRef | null>(null) as MutableRefObject<VideoPlayerRef | null>;
   const { isCommentsPanelOpen, setIsCommentsPanelOpen } = useVideoContext();
   const commentsData = useComments({
     videoId: video?.id.toString() || '',
     initialLimit: 30,
-    sortBy: 'latest'
+    sortBy: 'latest',
   });
 
-  const {
-    isLiked,
-    toggleLike,
-    isTogglingLike
-  } = useLikes(id || '');
+  const { isLiked, toggleLike, isTogglingLike } = useLikes(id || '');
 
   const [likesCount, setLikesCount] = useState<number>(0);
-  const [shouldShowOverlay, setShouldShowOverlay] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const videoProps = useMemo(() => {
-    if (!video) {
-      return null;
-    }
-    return {
-      src: `${API_BASE_URL}/${video.video_path}`,
-      thumbnail_path: `${API_BASE_URL}/${video.thumbnail_path}`,
-      duration: video.duration,
-      videoId: video.id.toString(),
+  // Throttle function
+  function throttle(func: (...args: any[]) => void, limit: number) {
+    let inThrottle: boolean;
+    return function (this: any, ...args: any[]) {
+      if (!inThrottle) {
+        func.apply(this, args);
+        inThrottle = true;
+        setTimeout(() => (inThrottle = false), limit);
+      }
     };
-  }, [video]);
+  }
 
   useEffect(() => {
     if (video?.like_count !== undefined) {
@@ -64,20 +60,21 @@ const SingleVideo: React.FC = () => {
     }
   }, [video?.like_count]);
 
-  const handleLike = async () => {
+  const handleLike = useCallback(async () => {
     try {
-      setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
-      
+      setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1));
+
       const response = await toggleLike();
-      
+
       if (response?.data) {
         setLikesCount(response.data.likesCount);
       }
     } catch (error) {
-      setLikesCount(prev => isLiked ? prev + 1 : prev - 1);
+      setLikesCount((prev) => (isLiked ? prev + 1 : prev - 1));
       console.error('Error toggling like:', error);
+      // Optionally, display an error message to the user
     }
-  };
+  }, [isLiked, toggleLike]);
 
   useEffect(() => {
     const fetchVideoAndChannel = async () => {
@@ -96,62 +93,85 @@ const SingleVideo: React.FC = () => {
           setChannel(channelData.channel);
         }
       } catch (error) {
-        console.error('Error fetching video or channel:', error);
-        setError('Failed to load video. Please try again later.');
+        console.error('Error fetching video or channel data:', error);
+        setError('Failed to load video.');
       }
     };
 
     fetchVideoAndChannel();
   }, [id, navigate]);
 
+  // Handle mouse and touch events for UI visibility
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const handleUserInteraction = throttle(() => {
+      setShowInterface(true);
+      setShouldShowOverlay(true);
+
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setShowInterface(false);
+        setShouldShowOverlay(false);
+      }, 3000);
+    }, 100);
+
+    const videoContainer = containerRef.current;
+
+    if (videoContainer) {
+      videoContainer.addEventListener('pointermove', handleUserInteraction);
+      videoContainer.addEventListener('pointerdown', handleUserInteraction);
+      videoContainer.addEventListener('focusin', handleUserInteraction);
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (videoContainer) {
+        videoContainer.removeEventListener('pointermove', handleUserInteraction);
+        videoContainer.removeEventListener('pointerdown', handleUserInteraction);
+        videoContainer.removeEventListener('focusin', handleUserInteraction);
+      }
+    };
+  }, [containerRef]);
+
   const handlePlayerReady = useCallback((player: VideoPlayerRef) => {
+    playerRef.current = player;
+
     player.on('play', () => {
       setIsPlaying(true);
-      setShouldShowOverlay(false);
     });
-    
+
     player.on('pause', () => {
       setIsPlaying(false);
-      setShouldShowOverlay(true);
     });
-    
+
     player.on('fullscreenchange', () => {
       setIsFullscreen(player.isFullscreen());
     });
   }, []);
 
-  const handleToggleInterface = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowInterface(!showInterface);
-  };
-
   if (error) {
-    return <div className="text-white text-center mt-10">{error}</div>;
+    return (
+      <div className="flex items-center justify-center h-screen bg-black text-white">
+        <p>{error}</p>
+      </div>
+    );
   }
 
-  if (!video || !videoProps) {
-    return <div className="text-white text-center mt-10">Loading...</div>;
+  if (!video) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-black text-white">
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="bg-black text-white min-h-screen w-screen relative">
-      <AnimatePresence>
-        {showInterface && !isFullscreen && (
-          <motion.div
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            transition={{ duration: 0.3 }}
-            className="absolute top-0 left-0 right-0 z-40"
-          >
-            <Header />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="flex h-screen">
+    <div className="flex bg-black text-white h-screen overflow-hidden">
+      {/* Sidebar */}
+      {!isFullscreen && (
         <AnimatePresence>
-          {showInterface && !isFullscreen && (
+          {showInterface && (
             <motion.div
               initial={{ x: -250 }}
               animate={{ x: 0 }}
@@ -164,81 +184,72 @@ const SingleVideo: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
+      )}
 
-        <main className="flex-1 flex items-center justify-center p-8">
-          <motion.div
-            ref={containerRef}
-            className="w-full max-w-6xl bg-gray-900 rounded-3xl shadow-2xl relative"
-            layout
-            style={{
-              boxShadow: `0 0 20px 5px rgba(250, 117, 23, 0.3), 
-                          0 0 60px 10px rgba(250, 117, 23, 0.2), 
-                          0 0 100px 20px rgba(250, 117, 23, 0.1)`,
-            }}
-          >
-            <div className="relative w-full h-full">
-              <VideoPlayer
-                {...videoProps}
-                onReady={handlePlayerReady}
-                ref={playerRef}
-              />
-              
-              <AnimatePresence>
-                {(shouldShowOverlay || !isPlaying) && showInterface && (
-                  <motion.div 
-                    className="absolute inset-0 z-20 pointer-events-none"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <VideoInfoOverlay video={video} />
-                    {channel && <CreatorBox channel={channel} />}
-                    <ViewCount video={video} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        {showInterface && !isFullscreen && <Header />}
+
+        <main className="flex-1 flex items-center justify-center p-4 overflow-auto">
+          <div className="relative w-full max-w-screen-lg" ref={containerRef}>
+            <div className="aspect-w-16 aspect-h-9">
+              <div className="relative w-full h-full">
+                <VideoPlayer
+                  src={`${API_BASE_URL}/${video.video_path}`}
+                  thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}
+                  duration={video.duration}
+                  videoId={video.id.toString()}
+                  onReady={handlePlayerReady}
+                  ref={playerRef}
+                />
+
+                {/* Overlays and UI elements */}
+                <AnimatePresence>
+                  {(shouldShowOverlay || !isPlaying) && showInterface && (
+                    <motion.div
+                      className="absolute inset-0 z-20 pointer-events-none"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <VideoInfoOverlay video={video} />
+                      {channel && <CreatorBox channel={channel} />}
+                      <ViewCount video={video} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Radial Menu */}
+                <AnimatePresence>
+                  {showInterface && (
+                    <motion.div
+                      className="absolute bottom-8 right-8 z-50"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <RadialMenu
+                        commentCount={commentsData.totalComments}
+                        likeCount={likesCount}
+                        isLiked={isLiked}
+                        onLike={handleLike}
+                        isTogglingLike={isTogglingLike}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
-          </motion.div>
+          </div>
         </main>
       </div>
 
-      {showInterface && (
-        <motion.div
-          className="fixed bottom-8 right-8 z-50"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <RadialMenu 
-            commentCount={commentsData.totalComments}
-            likeCount={likesCount}
-            isLiked={isLiked}
-            onLike={handleLike}
-            isTogglingLike={isTogglingLike}
-          />
-        </motion.div>
-      )}
-
-      <div
-        className="parent-container"
-        style={{ pointerEvents: 'none' }}
-      >
-        <motion.button
-          className="absolute top-20 right-5 bg-black bg-opacity-70 text-[#fa7517] px-4 py-2 rounded-full"
-          onClick={handleToggleInterface}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          style={{ pointerEvents: 'auto', zIndex: 10 }}
-        >
-          {showInterface ? 'Hide UI' : 'Show UI'}
-        </motion.button>
-      </div>
-
+      {/* Comment Panel */}
       <AnimatePresence>
         {isCommentsPanelOpen && video && (
-          <CommentPanel 
-            isOpen={isCommentsPanelOpen} 
+          <CommentPanel
+            isOpen={isCommentsPanelOpen}
             onClose={() => setIsCommentsPanelOpen(false)}
             videoId={video.id.toString()}
             commentsData={commentsData}
