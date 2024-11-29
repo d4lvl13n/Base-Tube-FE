@@ -1,0 +1,169 @@
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+
+:root {
+  --primary-color: #fa7517;
+  --progress-bar-height: 3px;
+  --control-bar-height: 4rem;
+  --control-bar-background: rgba(0, 0, 0, 0.7);
+}
+
+/* Base player styles */
+.video-js {
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  background-color: #000;
+}
+
+/* Progress bar container */
+.video-js .vjs-progress-control {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 95%;
+  height: var(--progress-bar-height);
+  margin: 0;
+  transition: height 0.2s;
+}
+
+.video-js .vjs-progress-holder {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.video-js .vjs-play-progress {
+  background-color: var(--primary-color);
+  border-radius: 2px;
+}
+
+.video-js .vjs-progress-holder .vjs-play-progress:before {
+  display: none;
+}
+
+.video-js .vjs-load-progress {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Control bar */
+.video-js .vjs-control-bar {
+  display: flex;
+  align-items: center;
+  background: var(--control-bar-background);
+  height: var(--control-bar-height);
+  padding: 1rem;
+  margin-top: var(--progress-bar-height);
+}
+
+/* Control buttons */
+.video-js .vjs-control {
+  width: 40px;
+  height: 40px;
+  margin: 0 2px;
+}
+
+.video-js .vjs-control:hover {
+  color: var(--primary-color);
+}
+
+/* Play/Pause button */
+.video-js .vjs-play-control {
+  order: 1;
+}
+
+/* Volume control */
+.video-js .vjs-volume-panel {
+  order: 2;
+  display: flex;
+  align-items: center;
+  width: 100px;
+  margin-right: 8px;
+}
+
+.video-js .vjs-volume-control {
+  width: 60px;
+  margin: 0 4px;
+}
+
+.video-js .vjs-volume-bar {
+  margin: 1.35em 0.45em;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.video-js .vjs-volume-level {
+  background: #fff;
+}
+
+/* Time display */
+.video-js .vjs-time-control {
+  order: 3;
+  display: flex !important;
+  align-items: center;
+  padding: 0 4px;
+  font-size: 14px;
+  min-width: auto;
+}
+
+.video-js .vjs-current-time {
+  margin-right: 0;
+  padding-right: 1px;
+}
+
+.video-js .vjs-time-divider {
+  padding: 0 2px;
+  min-width: auto;
+}
+
+.video-js .vjs-duration {
+  padding-left: 1px;
+  margin-left: 0;
+}
+
+/* Right controls */
+.video-js .vjs-playback-rate {
+  order: 4;
+  margin-left: auto;
+}
+
+.video-js .vjs-picture-in-picture-control {
+  order: 5;
+}
+
+.video-js .vjs-fullscreen-control {
+  order: 6;
+}
+
+/* Quality selector (HD button) */
+.video-js .vjs-quality-selector {
+  order: 7;
+}
+
+.vjs-quality-selector .vjs-menu-button {
+  margin: 0;
+  padding: 0;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .video-js .vjs-time-control,
+  .video-js .vjs-volume-panel {
+    display: none !important;
+  }
+
+  .video-js .vjs-control-bar {
+    padding: 0 0.5rem;
+  }
+}
+
+/* Hide big play button */
+.video-js .vjs-big-play-button {
+  display: none;
+}
+
+/* Loading spinner */
+.vjs-loading-spinner {
+  border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.vjs-loading-spinner:before {
+  border-top-color: var(--primary-color);
+}

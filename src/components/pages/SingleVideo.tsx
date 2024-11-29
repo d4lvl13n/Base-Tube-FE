@@ -214,65 +214,50 @@ const SingleVideo: React.FC = () => {
 
         {/* Main Area */}
         <main className="flex-1 flex flex-col items-center pt-16" ref={containerRef}>
-          {/* Video Container with Aspect Ratio */}
-          <div className="w-full max-w-screen-xl">
+          {/* Video Container */}
+          <div className="w-full max-w-screen-xl relative">
+            {/* Aspect Ratio Box */}
             <div className="relative" style={{ paddingTop: '56.25%' }}>
-              {/* This div maintains a 16:9 aspect ratio */}
+              {/* Video Player Container */}
               <div className="absolute top-0 left-0 w-full h-full">
-                <VideoPlayer
-                  src={`${API_BASE_URL}/${video.video_path}`}
-                  thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}
-                  duration={video.duration}
-                  videoId={video.id.toString()}
-                  onReady={handlePlayerReady}
-                  ref={playerRef}
-                />
+                {/* Positioning context for overlays */}
+                <div className="relative w-full h-full">
+                  <VideoPlayer
+                    src={`${API_BASE_URL}/${video.video_path}`}
+                    thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}
+                    duration={video.duration}
+                    videoId={video.id.toString()}
+                    onReady={handlePlayerReady}
+                    ref={playerRef}
+                  />
+
+                  {/* Overlays */}
+                  {(shouldShowOverlay || !isPlaying) && (
+                    <>
+                      <VideoInfoOverlay video={video} />
+                      {channel && <CreatorBox channel={channel} />}
+                      <ViewCount video={video} />
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Space below the video player */}
           <div className="w-full mt-4 px-4">
-            {/* Placeholder for additional content */}
-            {/* You can add video title, description, etc., here */}
+            {/* Additional content */}
           </div>
         </main>
       </div>
 
-      {/* Comment Panel */}
-      <AnimatePresence>
-        {isCommentsPanelOpen && video && (
-          <CommentPanel
-            isOpen={isCommentsPanelOpen}
-            onClose={() => setIsCommentsPanelOpen(false)}
-            videoId={video.id.toString()}
-            commentsData={commentsData}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Overlays and UI elements */}
-      <AnimatePresence>
-        {(shouldShowOverlay || !isPlaying) && (
-          <motion.div
-            className="absolute inset-0 z-20 pointer-events-none"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <VideoInfoOverlay video={video} />
-            {channel && <CreatorBox channel={channel} />}
-            <ViewCount video={video} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Radial Menu */}
+      {/* Positioning Radial Menu relative to video player */}
       <AnimatePresence>
         {showInterface && (
           <motion.div
-            className="absolute bottom-32 right-24 z-50"
+            className="absolute z-50"
+            style={{ bottom: 'calc(100vh - (56.25vw + 16px))', right: '24px' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -285,6 +270,18 @@ const SingleVideo: React.FC = () => {
               isTogglingLike={isTogglingLike}
             />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Comment Panel */}
+      <AnimatePresence>
+        {isCommentsPanelOpen && video && (
+          <CommentPanel
+            isOpen={isCommentsPanelOpen}
+            onClose={() => setIsCommentsPanelOpen(false)}
+            videoId={video.id.toString()}
+            commentsData={commentsData}
+          />
         )}
       </AnimatePresence>
     </div>

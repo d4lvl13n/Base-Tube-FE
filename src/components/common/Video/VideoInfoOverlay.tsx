@@ -10,14 +10,14 @@ interface VideoInfoOverlayProps {
 export const VideoInfoOverlay: React.FC<VideoInfoOverlayProps> = ({ video }) => {
   return (
     <motion.div
-      className="video-info-overlay bg-black/70 rounded-lg p-4 backdrop-blur-sm"
+      className="video-overlay video-info-overlay bg-black bg-opacity-70 rounded-lg p-4 backdrop-blur-sm"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       transition={{ delay: 0.2 }}
     >
       <h2 className="text-xl font-bold text-white mb-2">{video.title}</h2>
-      <p className="text-sm text-gray-300">{video.description}</p>
+      <p className="text-sm text-gray-300 line-clamp-3">{video.description}</p>
     </motion.div>
   );
 };

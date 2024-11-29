@@ -3,6 +3,7 @@ import React, { useEffect, useRef, forwardRef, MutableRefObject } from 'react';
 import videojs from 'video.js';
 import type Player from 'video.js/dist/types/player';
 import 'video.js/dist/video-js.css';
+import '../../../styles/videojs-skin.css';
 import '../../../styles/video-player.css';
 import { useViewTracking } from '../../../hooks/useViewTracking';
 
@@ -57,6 +58,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         responsive: true,
         aspectRatio: '16:9',
         poster: thumbnail_path,
+        playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2], // Available playback speeds
         userActions: {
           hotkeys: true,
           doubleClick: true,
@@ -70,16 +72,43 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         ],
         controlBar: {
           children: [
-            'playToggle',
-            'currentTimeDisplay',
-            'progressControl',
-            'durationDisplay',
-            'volumePanel',
-            'playbackRateMenuButton',
-            'fullscreenToggle',
+            // Left Group
+            {
+              name: 'playToggle',
+            },
+            {
+              name: 'volumePanel',
+              inline: true,
+            },
+            {
+              name: 'currentTimeDisplay',
+            },
+            {
+              name: 'timeDivider',
+            },
+            {
+              name: 'durationDisplay',
+            },
+            
+            // Center - Progress Bar
+            {
+              name: 'progressControl',
+            },
+            
+            // Right Group
+            {
+              name: 'playbackRateMenuButton',
+            },
+            {
+              name: 'pictureInPictureToggle',
+            },
+            {
+              name: 'fullscreenToggle',
+            },
           ],
         },
-        inactivityTimeout: isTouchDevice ? 0 : 3000, // Adjust inactivity timeout based on device
+        inactivityTimeout: isTouchDevice ? 0 : 3000,
+        techOrder: ['html5'],
       };
 
       const player = videojs(videoElement, playerOptions);
@@ -109,7 +138,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         void viewTracking.finalize();
       });
 
-      // Ensure ref is set
+      // Expose player methods via ref
       const playerInterface: VideoPlayerRef = {
         play: async () => {
           try {
@@ -154,7 +183,6 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
           playerRef.current = null;
         }
       };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []); // Empty dependency array to run only once on mount
 
     return (
