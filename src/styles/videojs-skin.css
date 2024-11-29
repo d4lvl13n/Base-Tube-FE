@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
-
 :root {
   --primary-color: #fa7517;
   --progress-bar-height: 3px;
@@ -13,70 +11,102 @@
   background-color: #000;
 }
 
-/* Progress bar container */
+/* Progress bar - Complete overhaul of positioning */
 .video-js .vjs-progress-control {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 95%;
-  height: var(--progress-bar-height);
-  margin: 0;
-  transition: height 0.2s;
+  position: absolute !important;
+  width: 95% !important;
+  left: 2.5% !important;
+  top: 0 !important;
+  height: var(--progress-bar-height) !important;
+  margin: 0 !important;
+  z-index: 2;
+  transform: none !important;
 }
 
 .video-js .vjs-progress-holder {
+  position: absolute;
+  width: 100%;
   height: 100%;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  margin: 0;
+  border-radius: 0;
 }
 
 .video-js .vjs-play-progress {
   background-color: var(--primary-color);
-  border-radius: 2px;
-}
-
-.video-js .vjs-progress-holder .vjs-play-progress:before {
-  display: none;
 }
 
 .video-js .vjs-load-progress {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Control bar */
+/* Remove progress circle handle */
+.video-js .vjs-progress-holder .vjs-play-progress:before,
+.video-js .vjs-progress-holder .vjs-load-progress:before {
+  display: none;
+}
+
+/* Control bar - Final adjustments */
 .video-js .vjs-control-bar {
   display: flex;
   align-items: center;
   background: var(--control-bar-background);
   height: var(--control-bar-height);
-  padding: 1rem;
-  margin-top: var(--progress-bar-height);
+  padding: 0 1.5rem;
+}
+
+/* Left side group */
+.video-js .vjs-control-bar > .vjs-play-control {
+  order: 1;
+  margin-right: 1rem;
+}
+
+.video-js .vjs-volume-panel {
+  order: 2;
+  margin-right: 1rem;
+}
+
+.video-js .vjs-time-control,
+.video-js .vjs-time-divider {
+  order: 3;
+  display: inline-block !important;
+  padding: 0;
+  min-width: auto;
+}
+
+/* Add space after the time to push everything else right */
+.video-js .vjs-duration {
+  margin-right: auto;
+}
+
+/* Right side group */
+.video-js .vjs-playback-rate {
+  order: 4;
+}
+
+.video-js .vjs-picture-in-picture-control {
+  order: 5;
+}
+
+.video-js .vjs-fullscreen-control {
+  order: 6;
+}
+
+.video-js .vjs-playback-rate,
+.video-js .vjs-picture-in-picture-control,
+.video-js .vjs-fullscreen-control {
+  margin-left: 1.5rem;
 }
 
 /* Control buttons */
 .video-js .vjs-control {
   width: 40px;
   height: 40px;
-  margin: 0 2px;
 }
 
-.video-js .vjs-control:hover {
-  color: var(--primary-color);
-}
-
-/* Play/Pause button */
-.video-js .vjs-play-control {
-  order: 1;
-}
-
-/* Volume control */
+/* Volume panel */
 .video-js .vjs-volume-panel {
-  order: 2;
-  display: flex;
-  align-items: center;
   width: 100px;
-  margin-right: 8px;
 }
 
 .video-js .vjs-volume-control {
@@ -93,62 +123,13 @@
   background: #fff;
 }
 
-/* Time display */
-.video-js .vjs-time-control {
-  order: 3;
-  display: flex !important;
-  align-items: center;
-  padding: 0 4px;
-  font-size: 14px;
-  min-width: auto;
-}
-
-.video-js .vjs-current-time {
-  margin-right: 0;
-  padding-right: 1px;
-}
-
-.video-js .vjs-time-divider {
-  padding: 0 2px;
-  min-width: auto;
-}
-
-.video-js .vjs-duration {
-  padding-left: 1px;
-  margin-left: 0;
-}
-
-/* Right controls */
-.video-js .vjs-playback-rate {
-  order: 4;
-  margin-left: auto;
-}
-
-.video-js .vjs-picture-in-picture-control {
-  order: 5;
-}
-
-.video-js .vjs-fullscreen-control {
-  order: 6;
-}
-
-/* Quality selector (HD button) */
-.video-js .vjs-quality-selector {
-  order: 7;
-}
-
-.vjs-quality-selector .vjs-menu-button {
-  margin: 0;
-  padding: 0;
-}
-
 /* Mobile optimizations */
 @media (max-width: 768px) {
   .video-js .vjs-time-control,
   .video-js .vjs-volume-panel {
     display: none !important;
   }
-
+  
   .video-js .vjs-control-bar {
     padding: 0 0.5rem;
   }
@@ -159,11 +140,106 @@
   display: none;
 }
 
+/* Restore and style big play button */
+.video-js .vjs-big-play-button {
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  opacity: 0.9;
+  transition: all 0.3s ease;
+}
+
+.video-js .vjs-big-play-button:hover {
+  background-color: var(--primary-color);
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.video-js .vjs-big-play-button .vjs-icon-placeholder:before {
+  font-size: 40px;
+  line-height: 80px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhance control buttons */
+.video-js .vjs-control {
+  opacity: 0.85;
+  transition: all 0.2s ease;
+}
+
+.video-js .vjs-control:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Style play/pause button */
+.video-js .vjs-play-control {
+  color: var(--primary-color);
+}
+
+/* Style volume slider */
+.video-js .vjs-volume-bar.vjs-slider-horizontal {
+  height: 4px;
+  border-radius: 2px;
+}
+
+.video-js .vjs-volume-level {
+  background: var(--primary-color);
+  border-radius: 2px;
+}
+
+.video-js .vjs-volume-panel:hover .vjs-volume-control.vjs-volume-horizontal {
+  height: 8px;
+  transition: all 0.2s ease;
+}
+
+/* Progress bar enhancements */
+.video-js .vjs-play-progress {
+  background: linear-gradient(to right, var(--primary-color), #ff9f4d);
+}
+
+.video-js .vjs-progress-holder {
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.video-js .vjs-progress-control:hover .vjs-progress-holder {
+  height: 8px;
+}
+
+/* Time display */
+.video-js .vjs-time-control {
+  color: #fff;
+  font-weight: 500;
+}
+
+/* Control bar hover effect */
+.video-js .vjs-control-bar {
+  transition: all 0.3s ease;
+  background: linear-gradient(to top, var(--control-bar-background), rgba(0, 0, 0, 0));
+}
+
+.video-js:hover .vjs-control-bar {
+  background: var(--control-bar-background);
+}
+
+/* Right-side controls highlight */
+.video-js .vjs-playback-rate:hover,
+.video-js .vjs-picture-in-picture-control:hover,
+.video-js .vjs-fullscreen-control:hover {
+  color: var(--primary-color);
+}
+
 /* Loading spinner */
 .vjs-loading-spinner {
   border: 3px solid rgba(255, 255, 255, 0.2);
-}
-
-.vjs-loading-spinner:before {
   border-top-color: var(--primary-color);
+  border-radius: 50%;
 }
