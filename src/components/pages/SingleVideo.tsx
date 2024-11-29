@@ -152,7 +152,7 @@ const SingleVideo: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex flex-col bg-black text-white h-screen">
+      <div className="flex flex-col bg-black text-white min-h-screen">
         <Header />
         <div className="video-content-wrapper flex flex-1 items-center justify-center">
           <div className="text-center space-y-4">
@@ -173,10 +173,10 @@ const SingleVideo: React.FC = () => {
 
   if (!video) {
     return (
-      <div className="flex flex-col bg-black text-white h-screen">
+      <div className="flex flex-col bg-black text-white min-h-screen">
         <Header />
         <div className="video-content-wrapper flex flex-1 items-center justify-center">
-          <div className="animate-pulse space-y-8 w-full max-w-screen-lg">
+          <div className="animate-pulse space-y-8 w-full max-w-screen-xl">
             {/* Video placeholder */}
             <div className="aspect-w-16 aspect-h-9 bg-gray-800 rounded-lg" />
             {/* Title placeholder */}
@@ -193,12 +193,12 @@ const SingleVideo: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col bg-black text-white h-screen overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-black text-white">
       {/* Header */}
       <Header />
 
-      {/* Main content - Theatre mode layout */}
-      <div className="video-content-wrapper flex flex-1">
+      {/* Main content */}
+      <div className="flex-1 flex">
         {/* Sidebar */}
         <AnimatePresence>
           <motion.div
@@ -212,56 +212,29 @@ const SingleVideo: React.FC = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Theatre mode video container */}
-        <main className="flex-1 flex flex-col">
-          <div className="theatre-mode-container" ref={containerRef}>
-            <div className="theatre-mode-video-wrapper">
-              <VideoPlayer
-                src={`${API_BASE_URL}/${video.video_path}`}
-                thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}
-                duration={video.duration}
-                videoId={video.id.toString()}
-                onReady={handlePlayerReady}
-                ref={playerRef}
-              />
-
-              {/* Overlays and UI elements */}
-              <AnimatePresence>
-                {(shouldShowOverlay || !isPlaying) && (
-                  <motion.div
-                    className="absolute inset-0 z-20 pointer-events-none"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <VideoInfoOverlay video={video} />
-                    {channel && <CreatorBox channel={channel} />}
-                    <ViewCount video={video} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Radial Menu */}
-              <AnimatePresence>
-                {showInterface && (
-                  <motion.div
-                    className="absolute bottom-32 right-24 z-50"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <RadialMenu
-                      commentCount={commentsData.totalComments}
-                      likeCount={likesCount}
-                      isLiked={isLiked}
-                      onLike={handleLike}
-                      isTogglingLike={isTogglingLike}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+        {/* Main Area */}
+        <main className="flex-1 flex flex-col items-center pt-16" ref={containerRef}>
+          {/* Video Container with Aspect Ratio */}
+          <div className="w-full max-w-screen-xl">
+            <div className="relative" style={{ paddingTop: '56.25%' }}>
+              {/* This div maintains a 16:9 aspect ratio */}
+              <div className="absolute top-0 left-0 w-full h-full">
+                <VideoPlayer
+                  src={`${API_BASE_URL}/${video.video_path}`}
+                  thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}
+                  duration={video.duration}
+                  videoId={video.id.toString()}
+                  onReady={handlePlayerReady}
+                  ref={playerRef}
+                />
+              </div>
             </div>
+          </div>
+
+          {/* Space below the video player */}
+          <div className="w-full mt-4 px-4">
+            {/* Placeholder for additional content */}
+            {/* You can add video title, description, etc., here */}
           </div>
         </main>
       </div>
@@ -275,6 +248,43 @@ const SingleVideo: React.FC = () => {
             videoId={video.id.toString()}
             commentsData={commentsData}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Overlays and UI elements */}
+      <AnimatePresence>
+        {(shouldShowOverlay || !isPlaying) && (
+          <motion.div
+            className="absolute inset-0 z-20 pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <VideoInfoOverlay video={video} />
+            {channel && <CreatorBox channel={channel} />}
+            <ViewCount video={video} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Radial Menu */}
+      <AnimatePresence>
+        {showInterface && (
+          <motion.div
+            className="absolute bottom-32 right-24 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <RadialMenu
+              commentCount={commentsData.totalComments}
+              likeCount={likesCount}
+              isLiked={isLiked}
+              onLike={handleLike}
+              isTogglingLike={isTogglingLike}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

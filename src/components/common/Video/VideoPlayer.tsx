@@ -42,14 +42,20 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
 
       const videoElement = document.createElement('video');
       videoElement.className = 'video-js vjs-big-play-centered';
+      videoElement.setAttribute('role', 'application');
+      videoElement.setAttribute('aria-label', 'Video Player');
       videoRef.current.appendChild(videoElement);
 
-      const player = videojs(videoElement, {
+      // Detect if the device is a touch device
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+      const playerOptions = {
         controls: true,
         autoplay: false,
         preload: 'auto',
         fluid: true,
         responsive: true,
+        aspectRatio: '16:9',
         poster: thumbnail_path,
         userActions: {
           hotkeys: true,
@@ -73,7 +79,10 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
             'fullscreenToggle',
           ],
         },
-      });
+        inactivityTimeout: isTouchDevice ? 0 : 3000, // Adjust inactivity timeout based on device
+      };
+
+      const player = videojs(videoElement, playerOptions);
 
       playerRef.current = player;
 
@@ -149,8 +158,8 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
     }, []); // Empty dependency array to run only once on mount
 
     return (
-      <div className="video-container theatre-mode">
-        <div data-vjs-player className="w-full h-full rounded-lg overflow-hidden">
+      <div className="w-full h-full">
+        <div data-vjs-player className="w-full h-full">
           <div ref={videoRef} className="w-full h-full" />
         </div>
       </div>
