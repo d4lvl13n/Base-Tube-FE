@@ -16,6 +16,7 @@ import { useVideoContext } from '../../contexts/VideoContext';
 import { RadialMenu } from '../common/Video/RadialMenu/RadialMenu';
 import { useComments } from '../../hooks/useComments';
 import { useLikes } from '../../hooks/useLikes';
+import { useWindowSize } from '../../hooks/useWindowSize';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
@@ -41,6 +42,37 @@ const SingleVideo: React.FC = () => {
 
   const [likesCount, setLikesCount] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Constants for header height and desired bottom space
+  const HEADER_HEIGHT = 64; // Adjust this value to match your header's actual height
+  const BOTTOM_SPACE = 120; // Desired space below the video in pixels
+
+  // Get the window dimensions
+  const { width: windowWidth, height: windowHeight } = useWindowSize();
+
+  // Maximum height available for the video player
+  const maxVideoHeight = windowHeight - HEADER_HEIGHT - BOTTOM_SPACE;
+
+  // Maximum allowed video width (updated to match YouTube's theatre mode)
+  const maxVideoWidth = 1960; // YouTube's theatre mode max width
+
+  // Aspect ratio of the video (16:9)
+  const aspectRatio = 16 / 9;
+
+  // Calculate the ideal video width and height based on the window size
+  let videoWidth = Math.min(windowWidth, maxVideoWidth);
+  let videoHeight = videoWidth / aspectRatio;
+
+  // If the calculated height exceeds the maximum available height, adjust the width and height
+  if (videoHeight > maxVideoHeight) {
+    videoHeight = maxVideoHeight;
+    videoWidth = videoHeight * aspectRatio;
+  }
+
+  // Style to offset the main content by the header's height
+  const mainContentStyle = {
+    marginTop: `${HEADER_HEIGHT}px`,
+  };
 
   // Throttle function
   function throttle(func: (...args: any[]) => void, limit: number) {
@@ -198,7 +230,7 @@ const SingleVideo: React.FC = () => {
       <Header />
 
       {/* Main content */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex" style={mainContentStyle}>
         {/* Sidebar */}
         <AnimatePresence>
           <motion.div
@@ -213,40 +245,42 @@ const SingleVideo: React.FC = () => {
         </AnimatePresence>
 
         {/* Main Area */}
-        <main className="flex-1 flex flex-col items-center pt-16" ref={containerRef}>
+        <main className="flex-1 flex flex-col items-center w-full overflow-x-hidden">
           {/* Video Container */}
-          <div className="w-full max-w-screen-xl relative">
-            {/* Aspect Ratio Box */}
-            <div className="relative" style={{ paddingTop: '56.25%' }}>
-              {/* Video Player Container */}
-              <div className="absolute top-0 left-0 w-full h-full">
-                {/* Positioning context for overlays */}
-                <div className="relative w-full h-full">
-                  <VideoPlayer
-                    src={`${API_BASE_URL}/${video.video_path}`}
-                    thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}
-                    duration={video.duration}
-                    videoId={video.id.toString()}
-                    onReady={handlePlayerReady}
-                    ref={playerRef}
-                  />
+          <div
+            className="relative bg-black mx-auto"
+            style={{
+              width: videoWidth,
+              height: videoHeight,
+            }}
+          >
+            <div className="relative w-full h-full">
+              <VideoPlayer
+                src={`${API_BASE_URL}/${video.video_path}`}
+                thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}
+                duration={video.duration}
+                videoId={video.id.toString()}
+                onReady={handlePlayerReady}
+                ref={playerRef}
+              />
 
-                  {/* Overlays */}
-                  {(shouldShowOverlay || !isPlaying) && (
-                    <>
-                      <VideoInfoOverlay video={video} />
-                      {channel && <CreatorBox channel={channel} />}
-                      <ViewCount video={video} />
-                    </>
-                  )}
-                </div>
-              </div>
+              {/* Overlays */}
+              {(shouldShowOverlay || !isPlaying) && (
+                <>
+                  <VideoInfoOverlay video={video} />
+                  {channel && <CreatorBox channel={channel} />}
+                  <ViewCount video={video} />
+                </>
+              )}
             </div>
           </div>
 
-          {/* Space below the video player */}
-          <div className="w-full mt-4 px-4">
-            {/* Additional content */}
+          {/* Reserved bottom space */}
+          <div
+            className="w-full max-w-[1280px] px-4 mt-6"
+            style={{ height: `${BOTTOM_SPACE}px` }}
+          >
+            {/* Additional content or empty space */}
           </div>
         </main>
       </div>

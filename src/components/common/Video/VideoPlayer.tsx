@@ -186,7 +186,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
     }, []); // Empty dependency array to run only once on mount
 
     return (
-      <div className="w-full h-full">
+      <div className="video-player-container w-full h-full">
         <div data-vjs-player className="w-full h-full">
           <div ref={videoRef} className="w-full h-full" />
         </div>

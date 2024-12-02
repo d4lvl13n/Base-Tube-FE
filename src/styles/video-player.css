@@ -2,12 +2,10 @@
 .video-container {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
   width: 100%;
   height: 100%;
   position: relative;
   background-color: black;
-  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -19,11 +17,12 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 0;
 }
 
 .theatre-mode-video-wrapper {
   width: 100%;
-  max-width: 100%;
+  max-width: 1280px;
   margin: 0 auto;
   aspect-ratio: 16 / 9;
   display: flex;
@@ -62,14 +61,19 @@
 
 /* Video player container sizing */
 .video-player-container {
-  max-height: 50vh;
   width: 100%;
+  height: 100%;
   position: relative;
 }
 
 [data-vjs-player] {
   width: 100%;
   height: 100%;
+}
+
+.video-js {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* Mobile adjustments */
@@ -89,6 +93,11 @@
   .radial-menu-wrapper {
     bottom: 8rem;
     right: 2rem;
+  }
+
+  .theatre-mode-video-wrapper {
+    max-width: 100%;
+    padding: 0 2rem;
   }
 }
 
