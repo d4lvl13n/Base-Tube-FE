@@ -11,16 +11,15 @@
   background-color: #000;
 }
 
-/* Progress bar - Complete overhaul of positioning */
+/* Progress bar - Full width positioning */
 .video-js .vjs-progress-control {
   position: absolute !important;
-  width: 95% !important;
-  left: 2.5% !important;
+  width: 100% !important;
+  left: 0 !important;
   top: 0 !important;
   height: var(--progress-bar-height) !important;
   margin: 0 !important;
   z-index: 2;
-  transform: none !important;
 }
 
 .video-js .vjs-progress-holder {
@@ -50,9 +49,14 @@
 .video-js .vjs-control-bar {
   display: flex;
   align-items: center;
-  background: var(--control-bar-background);
-  height: var(--control-bar-height);
-  padding: 0 1.5rem;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.6) 60%,
+    transparent 100%
+  );
+  height: calc(var(--control-bar-height) + 20px);
+  padding-top: 20px;
 }
 
 /* Left side group */
@@ -242,4 +246,41 @@
   border: 3px solid rgba(255, 255, 255, 0.2);
   border-top-color: var(--primary-color);
   border-radius: 50%;
+}
+
+/* Enhanced hover area for progress bar */
+.video-js .vjs-progress-control:hover {
+  height: 16px !important;
+  transform: translateY(-6px);
+  transition: all 0.2s ease;
+}
+
+/* Add preview thumbnail on hover (if supported) */
+.video-js .vjs-progress-control .vjs-mouse-display {
+  background-color: rgba(0, 0, 0, 0.8);
+  border-radius: 4px;
+  padding: 4px;
+}
+
+/* Hover state for entire player */
+.video-js:hover .vjs-progress-control {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* Time tooltip on progress bar */
+.video-js .vjs-time-tooltip {
+  background-color: rgba(0, 0, 0, 0.8);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* Chapter markers if needed */
+.video-js .vjs-progress-holder .vjs-play-progress::after {
+  content: '';
+  position: absolute;
+  height: 100%;
+  width: 2px;
+  background-color: rgba(255, 255, 255, 0.5);
 }
