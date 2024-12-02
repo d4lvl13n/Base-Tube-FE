@@ -33,30 +33,38 @@
 /* Video info overlay */
 .video-info-overlay {
   position: absolute;
-  bottom: 4rem;
+  bottom: 7rem;
   left: 3rem;
   max-width: 50%;
   z-index: 30;
+  pointer-events: none;
 }
 
 /* View count positioning */
 .view-count {
   position: absolute;
   top: 1rem;
-  right: 1rem;
+  right: 5rem;
   z-index: 30;
   background: rgba(0, 0, 0, 0.6);
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   backdrop-filter: blur(4px);
+  pointer-events: none;
 }
 
 /* Radial menu positioning */
 .radial-menu-wrapper {
   position: absolute;
-  bottom: 14rem;
+  bottom: 10rem;
   right: 4rem;
   z-index: 40;
+  pointer-events: none;
+}
+
+/* Enable pointer events for interactive elements within the Radial Menu */
+.radial-menu-wrapper .radial-menu {
+  pointer-events: auto;
 }
 
 /* Video player container sizing */
@@ -79,9 +87,9 @@
 /* Mobile adjustments */
 @media (max-width: 768px) {
   .video-info-overlay {
-    bottom: 2rem;
-    left: 1rem;
-    max-width: 80%;
+    bottom: 1rem;
+    left: 0.5rem;
+    max-width: 90%;
   }
 
   .view-count {
@@ -92,12 +100,24 @@
 
   .radial-menu-wrapper {
     bottom: 8rem;
-    right: 2rem;
+    right: 1rem;
   }
 
-  .theatre-mode-video-wrapper {
-    max-width: 100%;
-    padding: 0 2rem;
+  /* Adjust video container */
+  .video-player-container {
+    width: 100%;
+    height: auto;
   }
+
+  /* Ensure video.js player fits the container */
+  .video-js {
+    width: 100% !important;
+    height: auto !important;
+  }
+}
+
+/* Creator box overlay */
+.creator-box-overlay {
+  pointer-events: none;
 }
 

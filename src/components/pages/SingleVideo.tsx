@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback, MutableRefObject } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  MutableRefObject,
+} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getVideoById } from '../../api/video';
@@ -50,17 +56,20 @@ const SingleVideo: React.FC = () => {
   // Get the window dimensions
   const { width: windowWidth, height: windowHeight } = useWindowSize();
 
+  // Detect if the device is mobile based on screen width
+  const isMobile = windowWidth <= 768; // Adjust breakpoint as needed
+
   // Maximum height available for the video player
   const maxVideoHeight = windowHeight - HEADER_HEIGHT - BOTTOM_SPACE;
 
   // Maximum allowed video width (updated to match YouTube's theatre mode)
-  const maxVideoWidth = 1960; // YouTube's theatre mode max width
+  const maxVideoWidth = 3440; // YouTube's theatre mode max width
 
   // Aspect ratio of the video (16:9)
   const aspectRatio = 16 / 9;
 
   // Calculate the ideal video width and height based on the window size
-  let videoWidth = Math.min(windowWidth, maxVideoWidth);
+  let videoWidth = isMobile ? windowWidth : Math.min(windowWidth, maxVideoWidth);
   let videoHeight = videoWidth / aspectRatio;
 
   // If the calculated height exceeds the maximum available height, adjust the width and height
@@ -191,7 +200,7 @@ const SingleVideo: React.FC = () => {
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
             <h2 className="text-2xl font-bold text-red-500">Video Unavailable</h2>
             <p className="text-gray-400">{error}</p>
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="mt-4 px-6 py-2 bg-[#fa7517] hover:bg-[#fa7517]/80 rounded-full transition-colors"
             >
@@ -230,24 +239,27 @@ const SingleVideo: React.FC = () => {
       <Header />
 
       {/* Main content */}
-      <div className="flex-1 flex" style={mainContentStyle}>
+      <div className={`flex-1 flex ${isMobile ? 'flex-col' : ''}`} style={mainContentStyle}>
         {/* Sidebar */}
-        <AnimatePresence>
-          <motion.div
-            initial={{ x: -250 }}
-            animate={{ x: 0 }}
-            exit={{ x: -250 }}
-            transition={{ duration: 0.3 }}
-            className="z-30"
-          >
-            <Sidebar />
-          </motion.div>
-        </AnimatePresence>
+        {!isMobile && (
+          <AnimatePresence>
+            <motion.div
+              initial={{ x: -250 }}
+              animate={{ x: 0 }}
+              exit={{ x: -250 }}
+              transition={{ duration: 0.3 }}
+              className="z-30"
+            >
+              <Sidebar />
+            </motion.div>
+          </AnimatePresence>
+        )}
 
         {/* Main Area */}
         <main className="flex-1 flex flex-col items-center w-full overflow-x-hidden">
           {/* Video Container */}
           <div
+            ref={containerRef}
             className="relative bg-black mx-auto"
             style={{
               width: videoWidth,
@@ -265,13 +277,15 @@ const SingleVideo: React.FC = () => {
               />
 
               {/* Overlays */}
-              {(shouldShowOverlay || !isPlaying) && (
-                <>
-                  <VideoInfoOverlay video={video} />
-                  {channel && <CreatorBox channel={channel} />}
-                  <ViewCount video={video} />
-                </>
-              )}
+              <AnimatePresence>
+                {(shouldShowOverlay || !isPlaying) && (
+                  <>
+                    <VideoInfoOverlay video={video} />
+                    {channel && <CreatorBox channel={channel} />}
+                    <ViewCount video={video} />
+                  </>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -286,12 +300,10 @@ const SingleVideo: React.FC = () => {
       </div>
 
       {/* Radial Menu */}
-      {/* Positioning Radial Menu relative to video player */}
       <AnimatePresence>
         {showInterface && (
           <motion.div
-            className="absolute z-50"
-            style={{ bottom: 'calc(100vh - (56.25vw + 16px))', right: '24px' }}
+            className="radial-menu-wrapper"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

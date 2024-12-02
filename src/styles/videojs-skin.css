@@ -139,10 +139,6 @@
   }
 }
 
-/* Hide big play button */
-.video-js .vjs-big-play-button {
-  display: none;
-}
 
 /* Restore and style big play button */
 .video-js .vjs-big-play-button {
@@ -273,7 +269,7 @@
   background-color: rgba(0, 0, 0, 0.8);
   border-radius: 4px;
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 /* Chapter markers if needed */
@@ -283,4 +279,15 @@
   height: 100%;
   width: 2px;
   background-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Hide big play button when video is playing */
+.video-js.vjs-playing .vjs-big-play-button {
+  display: none !important;
+}
+
+/* Show big play button when video is paused or ended */
+.video-js.vjs-paused .vjs-big-play-button,
+.video-js.vjs-ended .vjs-big-play-button {
+  display: block !important;
 }
