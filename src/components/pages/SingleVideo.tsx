@@ -34,7 +34,6 @@ const SingleVideo: React.FC = () => {
   const [showInterface, setShowInterface] = useState(true);
   const [shouldShowOverlay, setShouldShowOverlay] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<VideoPlayerRef | null>(null) as MutableRefObject<VideoPlayerRef | null>;
   const { isCommentsPanelOpen, setIsCommentsPanelOpen } = useVideoContext();
@@ -50,7 +49,7 @@ const SingleVideo: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Constants for header height and desired bottom space
-  const HEADER_HEIGHT = 64; // Adjust this value to match your header's actual height
+  const HEADER_HEIGHT = 64; // Adjust this value to match the header's actual height
   const BOTTOM_SPACE = 120; // Desired space below the video in pixels
 
   // Get the window dimensions
@@ -62,8 +61,8 @@ const SingleVideo: React.FC = () => {
   // Maximum height available for the video player
   const maxVideoHeight = windowHeight - HEADER_HEIGHT - BOTTOM_SPACE;
 
-  // Maximum allowed video width (updated to match YouTube's theatre mode)
-  const maxVideoWidth = 3440; // YouTube's theatre mode max width
+  // Maximum allowed video width 
+  const maxVideoWidth = 3440; 
 
   // Aspect ratio of the video (16:9)
   const aspectRatio = 16 / 9;
@@ -147,33 +146,47 @@ const SingleVideo: React.FC = () => {
     let timeoutId: NodeJS.Timeout;
 
     const handleUserInteraction = throttle(() => {
+      console.log('User interaction detected');
       setShowInterface(true);
       setShouldShowOverlay(true);
 
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        setShowInterface(false);
-        setShouldShowOverlay(false);
+        // Only hide interface if video is playing
+        if (isPlaying) {
+          console.log('Hiding overlays due to inactivity');
+          setShowInterface(false);
+          setShouldShowOverlay(false);
+        }
       }, 3000);
     }, 100);
 
     const videoContainer = containerRef.current;
+    const playerContainer = document.querySelector('.video-player-container');
 
-    if (videoContainer) {
-      videoContainer.addEventListener('pointermove', handleUserInteraction);
-      videoContainer.addEventListener('pointerdown', handleUserInteraction);
-      videoContainer.addEventListener('focusin', handleUserInteraction);
+    if (videoContainer && playerContainer) {
+      // Add listeners to both containers
+      [videoContainer, playerContainer].forEach(element => {
+        element.addEventListener('mousemove', handleUserInteraction);
+        element.addEventListener('touchstart', handleUserInteraction);
+        element.addEventListener('click', handleUserInteraction);
+      });
+
+      // Initial trigger to show interface
+      handleUserInteraction();
     }
 
     return () => {
       clearTimeout(timeoutId);
-      if (videoContainer) {
-        videoContainer.removeEventListener('pointermove', handleUserInteraction);
-        videoContainer.removeEventListener('pointerdown', handleUserInteraction);
-        videoContainer.removeEventListener('focusin', handleUserInteraction);
+      if (videoContainer && playerContainer) {
+        [videoContainer, playerContainer].forEach(element => {
+          element.removeEventListener('mousemove', handleUserInteraction);
+          element.removeEventListener('touchstart', handleUserInteraction);
+          element.removeEventListener('click', handleUserInteraction);
+        });
       }
     };
-  }, [containerRef]);
+  }, [containerRef, isPlaying]);
 
   const handlePlayerReady = useCallback((player: VideoPlayerRef) => {
     playerRef.current = player;
@@ -184,10 +197,6 @@ const SingleVideo: React.FC = () => {
 
     player.on('pause', () => {
       setIsPlaying(false);
-    });
-
-    player.on('fullscreenchange', () => {
-      setIsFullscreen(player.isFullscreen());
     });
   }, []);
 
@@ -260,13 +269,13 @@ const SingleVideo: React.FC = () => {
           {/* Video Container */}
           <div
             ref={containerRef}
-            className="relative bg-black mx-auto"
+            className="relative bg-black mx-auto w-full"
             style={{
-              width: videoWidth,
-              height: videoHeight,
+              maxWidth: videoWidth,
             }}
           >
-            <div className="relative w-full h-full">
+            {/* Video Player */}
+            <div className="relative w-full h-0" style={{ paddingBottom: '56.25%' /* 16:9 Aspect Ratio */ }}>
               <VideoPlayer
                 src={`${API_BASE_URL}/${video.video_path}`}
                 thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}

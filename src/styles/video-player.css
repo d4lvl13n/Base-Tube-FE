@@ -34,7 +34,7 @@
 .video-info-overlay {
   position: absolute;
   bottom: 7rem;
-  left: 3rem;
+  left: 1rem;
   max-width: 50%;
   z-index: 30;
   pointer-events: none;

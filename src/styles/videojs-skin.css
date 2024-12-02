@@ -57,6 +57,9 @@
   );
   height: calc(var(--control-bar-height) + 20px);
   padding-top: 20px;
+  width: 95vw;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 /* Left side group */
@@ -291,3 +294,12 @@
 .video-js.vjs-ended .vjs-big-play-button {
   display: block !important;
 }
+
+/* Progress bar styling */
+.video-js .vjs-progress-control,
+.video-js .vjs-progress-holder,
+.video-js .vjs-progress-bar {
+  width: 100%;
+}
+
+/* Adjust other controls as needed */
