@@ -169,8 +169,7 @@ const ChannelPage: React.FC = () => {
 };
 
 const ChannelCard: React.FC<{ channel: Channel }> = ({ channel }) => {
-  const [isSubscribed, setIsSubscribed] = useState(channel.subscribeStatus === 1)
-
+  const [isSubscribed, setIsSubscribed] = useState(channel.isSubscribed);
 
   const handleSubscribe = async () => {
     try {

@@ -2,7 +2,6 @@
 
 export interface Channel {
   id: number;
-  user_id: string;
   name: string;
   description?: string;
   unique_id: string;
@@ -11,18 +10,13 @@ export interface Channel {
   instagram_link?: string;
   twitter_link?: string;
   subscribers_count: number;
-  videosCount: number;
-  isApproved: boolean;
-  status: number;
-  createdAt: Date;
-  updatedAt: Date;
-  isOwner?: boolean;
-  ownerUsername?: string;
+  isOwner: boolean;
+  isSubscribed: boolean;
+  ownerUsername: string;
   ownerPicture?: string;
-  subscribeStatus?: number;
-  User?: {
-    picture?: string;
-  };
+  createdAt: string;
+  updatedAt: string;
+  videosCount?: number;
 }
 
 export interface ChannelResponse {

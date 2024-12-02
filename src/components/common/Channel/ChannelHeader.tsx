@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Channel } from '../../../types/channel';
 import { Facebook, Twitter, Instagram, Users, Video } from 'lucide-react';
+import { SubscribeButton } from '../buttons/SubscribeButton';
 
 interface ChannelHeaderProps {
   channel: Channel;
@@ -14,17 +15,25 @@ interface ChannelHeaderProps {
 const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setActiveTab }) => {
   const tabs = ['Videos', 'About', 'Community'];
 
+  const coverImageUrl = channel.channel_image_path
+    ? `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
+    : '/assets/default-cover.jpg';
+
+  const avatarUrl = channel.ownerPicture
+    ? `${process.env.REACT_APP_API_URL}/${channel.ownerPicture}`
+    : '/assets/default-avatar.jpg';
+
   return (
-    <motion.div 
-      className="relative overflow-hidden"
+    <motion.div
+      className="relative overflow-hidden pt-16"
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
       {/* Banner Image */}
-      <div className="h-80 overflow-hidden"> {/* Increased height */}
-        <img 
-          src={`${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`} 
+      <div className="h-80 overflow-hidden">
+        <img
+          src={coverImageUrl}
           alt={`${channel.name} cover`}
           className="w-full h-full object-cover"
         />
@@ -33,21 +42,21 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setAc
       {/* Channel Info Overlay */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
         <div className="flex items-end space-x-6 mb-4">
-          <img 
-            src={`${process.env.REACT_APP_API_URL}/${channel.ownerPicture}`} 
+          <img
+            src={avatarUrl}
             alt={channel.name}
-            className="w-28 h-28 rounded-full border-4 border-white shadow-lg" 
+            className="w-28 h-28 rounded-full border-4 border-white shadow-lg"
           />
           <div className="flex-grow">
             <h1 className="text-4xl font-bold text-white mb-2">{channel.name}</h1>
             <div className="flex items-center space-x-4 text-gray-300">
               <span className="flex items-center">
                 <Users size={18} className="mr-2 text-[#fa7517]" />
-                {channel.subscribers_count} subscribers
+                {channel.subscribers_count?.toLocaleString() || 0} subscribers
               </span>
               <span className="flex items-center">
                 <Video size={16} className="mr-1 text-[#fa7517]" />
-                {channel.videosCount || 0}
+                {channel.videosCount || 0} videos
               </span>
             </div>
           </div>
@@ -69,13 +78,10 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setAc
             )}
           </div>
           {!channel.isOwner && (
-            <motion.button 
-              className="bg-[#fa7517] text-black px-6 py-2 rounded-full font-bold hover:bg-[#ff8c3a] transition-colors"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Subscribe
-            </motion.button>
+            <SubscribeButton
+              channelId={channel.id.toString()}
+              className="ml-4"
+            />
           )}
         </div>
 
@@ -88,8 +94,8 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setAc
             <motion.button
               key={tab}
               className={`px-4 py-2 rounded-full ${
-                activeTab === tab.toLowerCase() 
-                  ? 'bg-[#fa7517] text-black' 
+                activeTab === tab.toLowerCase()
+                  ? 'bg-[#fa7517] text-black'
                   : 'bg-gray-800 text-white hover:bg-gray-700'
               } transition-colors`}
               onClick={() => setActiveTab(tab.toLowerCase())}

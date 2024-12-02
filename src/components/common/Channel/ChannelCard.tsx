@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Users, Video, CheckCircle } from 'lucide-react';
+import { Users, Video } from 'lucide-react';
+import { useChannelData } from '../../../hooks/useChannelData';
+import { SubscribeButton } from '../buttons/SubscribeButton';
 import { Channel } from '../../../types/channel';
-import { subscribeToChannel, unsubscribeFromChannel } from '../../../api/channel';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -11,26 +12,12 @@ interface ChannelCardProps {
   className?: string;
 }
 
-const ChannelCard: React.FC<ChannelCardProps> = ({ 
-  channel, 
+const ChannelCard: React.FC<ChannelCardProps> = ({
+  channel,
   variant = 'default',
   className = ''
 }) => {
-  const [isSubscribed, setIsSubscribed] = useState(channel.subscribeStatus === 1);
-
-  const handleSubscribe = async (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent navigation when clicking subscribe button
-    try {
-      if (isSubscribed) {
-        await unsubscribeFromChannel(channel.id.toString());
-      } else {
-        await subscribeToChannel(channel.id.toString());
-      }
-      setIsSubscribed(!isSubscribed);
-    } catch (error) {
-      console.error('Subscription error:', error);
-    }
-  };
+  const { channel: channelData, isLoading } = useChannelData(channel.id.toString());
 
   const coverImageUrl = channel.channel_image_path
     ? `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
@@ -57,25 +44,10 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
             {channel.subscribers_count?.toLocaleString()} subscribers
           </p>
         </div>
-        <motion.button
-          onClick={handleSubscribe}
-          className={`px-4 py-2 rounded-full font-bold ${
-            isSubscribed
-              ? 'bg-gray-700 text-white hover:bg-gray-600'
-              : 'bg-[#fa7517] text-black hover:bg-[#ff8c3a]'
-          }`}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          {isSubscribed ? (
-            <>
-              <CheckCircle className="inline-block mr-2" size={18} />
-              Subscribed
-            </>
-          ) : (
-            'Subscribe'
-          )}
-        </motion.button>
+        <SubscribeButton
+          channelId={channel.id.toString()}
+          className="px-4 py-2 rounded-full font-bold"
+        />
       </Link>
     );
   }
@@ -114,25 +86,10 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
               {channel.videosCount || 0}
             </span>
           </div>
-          <motion.button
-            onClick={handleSubscribe}
-            className={`w-full py-2 rounded-full font-bold transition-all duration-300 ${
-              isSubscribed
-                ? 'bg-gray-700 text-white hover:bg-gray-600'
-                : 'bg-gradient-to-r from-[#fa7517] to-[#ffa041] text-black hover:shadow-lg'
-            }`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {isSubscribed ? (
-              <>
-                <CheckCircle className="inline-block mr-2" size={18} />
-                Subscribed
-              </>
-            ) : (
-              'Subscribe'
-            )}
-          </motion.button>
+          <SubscribeButton
+            channelId={channel.id.toString()}
+            className="w-full"
+          />
         </div>
       </Link>
     </motion.div>

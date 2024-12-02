@@ -42,9 +42,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({ featuredVideos, renderPlaceho
               <h3 className="text-lg font-bold text-white line-clamp-2">{video.title}</h3>
               {video.channel && (
                 <div className="flex items-center mt-2">
-                  {(video.channel.ownerPicture || video.channel.User?.picture) && (
+                  {video.channel.ownerPicture && (
                     <img
-                      src={`${process.env.REACT_APP_API_URL}/${video.channel.ownerPicture || video.channel.User?.picture}`}
+                      src={`${process.env.REACT_APP_API_URL}/${video.channel.ownerPicture}`}
                       alt={video.channel.name}
                       className="w-6 h-6 rounded-full object-cover mr-2"
                     />

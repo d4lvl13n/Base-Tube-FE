@@ -90,7 +90,10 @@ export const getChannels = async (page: number = 1, limit: number = 12, sort: st
 };
 
 export const getChannel = (channelId: string) =>
-  api.get<ChannelResponse>(`/api/v1/channels/${channelId}`).then((res) => res.data);
+  api.get<ChannelResponse>(`/api/v1/channels/${channelId}`).then((res) => {
+    console.log('Channel Response:', res.data.channel);
+    return res.data;
+  });
 
 // Update the getPopularChannels function in your frontend API
 export const getPopularChannels = async (page: number = 1, limit: number = 15): Promise<Channel[]> => {
