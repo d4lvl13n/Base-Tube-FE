@@ -10,11 +10,24 @@ import {
 } from 'lucide-react';
 import { useChannelSubscription } from '../../hooks/useChannelSubscription';
 
+interface Channel {
+  id: number;
+  name: string;
+  ownerProfileImage: string;
+  subscribers_count: number;
+  isOwner: boolean;
+  isSubscribed: boolean;
+  unique_id: string;
+  createdAt: string;
+  updatedAt: string;
+  newVideos: number;
+}
+
 const SubscribedChannelPage = () => {
   const [viewMode, setViewMode] = useState('grid');
   const { unsubscribe, isLoading } = useChannelSubscription();
 
-  const handleUnsubscribe = async (channelId: string) => {
+  const handleUnsubscribe = async (channelId: number) => {
     try {
       await unsubscribe.mutateAsync(channelId);
     } catch (error) {
@@ -22,12 +35,67 @@ const SubscribedChannelPage = () => {
     }
   };
 
-  const channels = [
-    { name: 'CryptoVision', avatar: '/api/placeholder/50/50', newVideos: 3 },
-    { name: 'Web3 Explorers', avatar: '/api/placeholder/50/50', newVideos: 1 },
-    { name: 'DeFi Masters', avatar: '/api/placeholder/50/50', newVideos: 2 },
-    { name: 'NFT Creatives', avatar: '/api/placeholder/50/50', newVideos: 0 },
-    { name: 'Blockchain Basics', avatar: '/api/placeholder/50/50', newVideos: 5 },
+  const channels: Channel[] = [
+    { 
+      id: 1,
+      name: 'CryptoVision',
+      ownerProfileImage: '/api/placeholder/50/50',
+      subscribers_count: 0,
+      isOwner: false,
+      isSubscribed: true,
+      unique_id: 'crypto-vision',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      newVideos: 3
+    },
+    { 
+      id: 2,
+      name: 'Web3 Explorers',
+      ownerProfileImage: '/api/placeholder/50/50',
+      subscribers_count: 0,
+      isOwner: false,
+      isSubscribed: true,
+      unique_id: 'web3-explorers',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      newVideos: 1
+    },
+    { 
+      id: 3,
+      name: 'DeFi Masters',
+      ownerProfileImage: '/api/placeholder/50/50',
+      subscribers_count: 0,
+      isOwner: false,
+      isSubscribed: true,
+      unique_id: 'defi-masters',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      newVideos: 2
+    },
+    { 
+      id: 4,
+      name: 'NFT Creatives',
+      ownerProfileImage: '/api/placeholder/50/50',
+      subscribers_count: 0,
+      isOwner: false,
+      isSubscribed: true,
+      unique_id: 'nft-creatives',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      newVideos: 0
+    },
+    { 
+      id: 5,
+      name: 'Blockchain Basics',
+      ownerProfileImage: '/api/placeholder/50/50',
+      subscribers_count: 0,
+      isOwner: false,
+      isSubscribed: true,
+      unique_id: 'blockchain-basics',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      newVideos: 5
+    },
   ];
 
   return (
@@ -57,7 +125,7 @@ const SubscribedChannelPage = () => {
             whileHover={{ scale: 1.1 }}
           >
             <div className="relative">
-              <img src={channel.avatar} alt={channel.name} className="w-12 h-12 rounded-full" />
+              <img src={channel.ownerProfileImage} alt={channel.name} className="w-12 h-12 rounded-full" />
               {channel.newVideos > 0 && (
                 <div className="absolute -top-1 -right-1 bg-[#fa7517] text-black rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                   {channel.newVideos}
@@ -104,7 +172,7 @@ const SubscribedChannelPage = () => {
               {/* Channel content */}
               <div className="p-4 flex justify-between items-center">
                 <div className="flex items-center space-x-4">
-                  <img src={channel.avatar} alt={channel.name} className="w-12 h-12 rounded-full" />
+                  <img src={channel.ownerProfileImage} alt={channel.name} className="w-12 h-12 rounded-full" />
                   <div>
                     <h3 className="font-semibold">{channel.name}</h3>
                     {channel.newVideos > 0 && (
@@ -113,7 +181,7 @@ const SubscribedChannelPage = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => handleUnsubscribe(channel.name)}
+                  onClick={() => handleUnsubscribe(channel.id)}
                   disabled={isLoading}
                   className={`px-4 py-2 rounded-full ${
                     isLoading ? 'bg-gray-600' : 'bg-[#fa7517] hover:bg-[#ff8c3b]'

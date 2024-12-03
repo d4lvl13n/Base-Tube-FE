@@ -8,7 +8,7 @@ import React, {
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getVideoById } from '../../api/video';
-import { getChannelDetails } from '../../api/channel';
+import { getChannelById, getChannelByHandle } from '../../api/channel';
 import VideoPlayer, { VideoPlayerRef } from '../common/Video/VideoPlayer';
 import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';
@@ -129,7 +129,7 @@ const SingleVideo: React.FC = () => {
         setVideo(videoData);
 
         if (videoData.channel_id) {
-          const channelData = await getChannelDetails(videoData.channel_id.toString());
+          const channelData = await getChannelById(videoData.channel_id);
           setChannel(channelData.channel);
         }
       } catch (error) {

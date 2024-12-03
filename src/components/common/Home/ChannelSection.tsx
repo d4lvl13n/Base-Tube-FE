@@ -8,7 +8,6 @@ interface ChannelSectionProps {
   renderPlaceholder: () => React.ReactNode;
 }
 
-
 const ChannelSection: React.FC<ChannelSectionProps> = ({ channels, renderPlaceholder }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -84,7 +83,7 @@ const ChannelSection: React.FC<ChannelSectionProps> = ({ channels, renderPlaceho
           {channels.map((channel) => (
             <Link
               key={channel.id}
-              to={`/channel/${channel.id}`}
+              to={`/channel/${channel.handle || channel.id}`}
               className="flex-shrink-0 group"
             >
               <div className="relative w-20 h-20 sm:w-24 sm:h-24 mb-2">

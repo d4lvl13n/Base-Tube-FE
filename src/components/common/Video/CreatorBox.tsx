@@ -12,13 +12,15 @@ interface CreatorBoxProps {
 export const CreatorBox: React.FC<CreatorBoxProps> = ({ channel }) => {
   const navigate = useNavigate();
 
-  const avatarUrl = channel.ownerPicture
-    ? `${process.env.REACT_APP_API_URL}/${channel.ownerPicture}`
+  const avatarUrl = channel.ownerProfileImage
+    ? channel.ownerProfileImage.startsWith('http')
+      ? channel.ownerProfileImage
+      : `${process.env.REACT_APP_API_URL}/${channel.ownerProfileImage}`
     : '/assets/default-avatar.jpg';
 
   const handleChannelClick = (event: React.MouseEvent) => {
     event.stopPropagation();
-    navigate(`/channel/${channel.id}`);
+    navigate(`/channel/${channel.handle || channel.id}`);
   };
 
   return (
@@ -47,7 +49,7 @@ export const CreatorBox: React.FC<CreatorBoxProps> = ({ channel }) => {
         </p>
       </div>
       <SubscribeButton 
-        channelId={channel.id.toString()}
+        channelId={channel.id}
         className="pointer-events-auto"
       />
     </motion.div>

@@ -16,11 +16,15 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setAc
   const tabs = ['Videos', 'About', 'Community'];
 
   const coverImageUrl = channel.channel_image_path
-    ? `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
+    ? channel.channel_image_path.startsWith('http')
+      ? channel.channel_image_path
+      : `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
     : '/assets/default-cover.jpg';
 
-  const avatarUrl = channel.ownerPicture
-    ? `${process.env.REACT_APP_API_URL}/${channel.ownerPicture}`
+  const avatarUrl = channel.ownerProfileImage
+    ? channel.ownerProfileImage.startsWith('http')
+      ? channel.ownerProfileImage
+      : `${process.env.REACT_APP_API_URL}/${channel.ownerProfileImage}`
     : '/assets/default-avatar.jpg';
 
   return (
@@ -79,7 +83,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setAc
           </div>
           {!channel.isOwner && (
             <SubscribeButton
-              channelId={channel.id.toString()}
+              channelId={channel.id}
               className="ml-4"
             />
           )}

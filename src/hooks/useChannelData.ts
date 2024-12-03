@@ -1,35 +1,42 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getChannelDetails } from '../api/channel';
+import { getChannelById, getChannelByHandle } from '../api/channel';
 import type { Channel } from '../types/channel';
 
-export const useChannelData = (channelId?: string) => {
+export const useChannelData = (identifier?: number | string | null) => {
   const queryClient = useQueryClient();
 
+  const isHandle = typeof identifier === 'string' && isNaN(Number(identifier));
+
   const query = useQuery<Channel>({
-    queryKey: ['channel', channelId],
+    queryKey: ['channel', identifier],
     queryFn: async () => {
-      if (!channelId) throw new Error('Channel ID is required');
-      const response = await getChannelDetails(channelId);
-      return response.channel;
+      if (!identifier) throw new Error('Channel identifier is required');
+
+      if (isHandle) {
+        const response = await getChannelByHandle(identifier as string);
+        return response.channel;
+      } else {
+        const response = await getChannelById(identifier as number);
+        return response.channel;
+      }
     },
-    enabled: !!channelId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    retry: 2
+    enabled: identifier !== null && identifier !== undefined,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 2,
   });
 
-  // Helper function to update subscription status in cache
   const updateSubscriptionStatus = (newStatus: boolean) => {
-    if (!channelId) return;
-    
-    queryClient.setQueryData(['channel', channelId], (oldData: Channel | undefined) => {
+    if (!identifier) return;
+
+    queryClient.setQueryData(['channel', identifier], (oldData: Channel | undefined) => {
       if (!oldData) return oldData;
       return {
         ...oldData,
         isSubscribed: newStatus,
-        subscribers_count: newStatus 
-          ? (oldData.subscribers_count || 0) + 1 
-          : (oldData.subscribers_count || 1) - 1
+        subscribers_count: newStatus
+          ? (oldData.subscribers_count || 0) + 1
+          : (oldData.subscribers_count || 1) - 1,
       };
     });
   };
@@ -38,6 +45,6 @@ export const useChannelData = (channelId?: string) => {
     channel: query.data,
     isLoading: query.isLoading,
     error: query.error,
-    updateSubscriptionStatus
+    updateSubscriptionStatus,
   };
 };

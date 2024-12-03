@@ -98,10 +98,10 @@ function App() {
                   {/* Public routes */}
                   <Route path="/" element={<HomePage />} />
                   <Route path="/video/:id" element={<SingleVideo />} />
+                  <Route path="/channel/:identifier" element={<ChannelDetailPage />} />
                   <Route path="/discover" element={<DiscoveryPage />} />
                   <Route path="/nft-marketplace" element={<NFTMarketplace />} />
                   <Route path="/channel" element={<ChannelPage />} />
-                  <Route path="/channel/:id" element={<ChannelDetailPage />} />
                   
                   {/* Creator Hub routes with special layout */}
                   <Route

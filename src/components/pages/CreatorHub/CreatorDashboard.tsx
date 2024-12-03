@@ -29,7 +29,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({ channels, userProfi
   const {
     channel: activeChannel,
     isLoading: channelLoading
-  } = useChannelData(activeChannelId);
+  } = useChannelData(activeChannelId ? parseInt(activeChannelId) : undefined);
 
   const isLoading = analyticsLoading || channelLoading;
 

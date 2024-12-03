@@ -134,38 +134,25 @@ export const deleteChannel = (channelId: string) =>
     .delete<{ success: boolean; message: string }>(`/api/v1/channels/${channelId}`)
     .then((res) => res.data);
 
-export const subscribeToChannel = async (channelId: string): Promise<ChannelResponse> => {
-  try {
-    const response = await api.post<ChannelResponse>(
-      `/api/v1/channels/${channelId}/subscribe`
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Error subscribing to channel:', error);
-    throw error;
-  }
+export const subscribeToChannel = async (channelIdentifier: string | number) => {
+  const response = await api.post(`/api/v1/channels/${channelIdentifier}/subscribe`);
+  return response.data;
 };
 
-export const unsubscribeFromChannel = async (channelId: string): Promise<ChannelResponse> => {
-  try {
-    const response = await api.post<ChannelResponse>(
-      `/api/v1/channels/${channelId}/unsubscribe`
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Error unsubscribing from channel:', error);
-    throw error;
-  }
+export const unsubscribeFromChannel = async (channelIdentifier: string | number) => {
+  const response = await api.post(`/api/v1/channels/${channelIdentifier}/unsubscribe`);
+  return response.data;
 };
 
-export const getChannelDetails = async (channelId: string): Promise<ChannelDetailsResponse> => {
-  try {
-    const response = await api.get<ChannelDetailsResponse>(`/api/v1/channels/${channelId}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching channel details:', error);
-    throw error;
+export const getChannelDetails = async (identifier: number | string): Promise<ChannelResponse> => {
+  let endpoint: string;
+  if (typeof identifier === 'number') {
+    endpoint = `/api/v1/channels/${identifier}`;
+  } else {
+    endpoint = `/api/v1/channels/handle/${identifier}`;
   }
+  const response = await api.get(endpoint);
+  return response.data;
 };
 
 export const getChannelVideos = async (channelId: string, page: number = 1, limit: number = 12): Promise<ChannelVideosResponse> => {
@@ -242,4 +229,25 @@ export const getChannelWatchHours = async (channelId: string): Promise<CreatorWa
     console.error('Error fetching channel watch hours:', error);
     throw error;
   }
+};
+
+export const getChannelByHandle = async (handle: string): Promise<ChannelResponse> => {
+  const response = await api.get(`/api/v1/channels/handle/${handle}`);
+  return response.data;
+};
+
+export const checkHandleAvailability = async (handle: string): Promise<{ available: boolean }> => {
+  const response = await api.get(`/api/v1/channels/handle-check/${handle}`);
+  return response.data;
+};
+
+export const getHandleSuggestions = async (name: string): Promise<{ suggestions: string[] }> => {
+  const response = await api.get(`/api/v1/channels/handle-suggestions?name=${name}`);
+  return response.data;
+};
+
+// Fetch channel by ID
+export const getChannelById = async (id: string | number): Promise<ChannelDetailsResponse> => {
+  const response = await api.get(`/api/v1/channels/${id}`);
+  return response.data;
 };

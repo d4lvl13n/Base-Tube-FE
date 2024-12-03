@@ -174,9 +174,9 @@ const ChannelCard: React.FC<{ channel: Channel }> = ({ channel }) => {
   const handleSubscribe = async () => {
     try {
       if (isSubscribed) {
-        await unsubscribeFromChannel(channel.id.toString());
+        await unsubscribeFromChannel(channel.id);
       } else {
-        await subscribeToChannel(channel.id.toString());
+        await subscribeToChannel(channel.id);
       }
       setIsSubscribed(!isSubscribed);
     } catch (error) {
@@ -188,8 +188,8 @@ const ChannelCard: React.FC<{ channel: Channel }> = ({ channel }) => {
     ? `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
     : '/assets/default-cover.jpg';
 
-  const avatarUrl = channel.ownerPicture
-    ? `${process.env.REACT_APP_API_URL}/${channel.ownerPicture}`
+  const avatarUrl = channel.ownerProfileImage
+    ? `${process.env.REACT_APP_API_URL}/${channel.ownerProfileImage}`
     : '/assets/default-avatar.jpg';
 
   return (

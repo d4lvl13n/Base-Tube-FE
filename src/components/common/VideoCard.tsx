@@ -31,9 +31,9 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, size }) => {
         </div>
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black to-transparent group-hover:opacity-0 transition-opacity duration-300">
           <div className="flex items-center space-x-2 mb-2">
-            {video.channel && video.channel.ownerPicture && (
+            {video.channel && video.channel.ownerProfileImage && (
               <img
-                src={`${process.env.REACT_APP_API_URL}/${video.channel.ownerPicture}`}
+                src={`${process.env.REACT_APP_API_URL}/${video.channel.ownerProfileImage}`}
                 alt={video.channel.name}
                 className="w-6 h-6 rounded-full object-cover"
               />

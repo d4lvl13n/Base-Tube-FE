@@ -17,20 +17,22 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
   variant = 'default',
   className = ''
 }) => {
-  const { channel: channelData, isLoading } = useChannelData(channel.id.toString());
+  const { channel: channelData, isLoading } = useChannelData(channel.id);
 
   const coverImageUrl = channel.channel_image_path
     ? `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
     : '/assets/default-cover.jpg';
 
-  const avatarUrl = channel.ownerPicture
-    ? `${process.env.REACT_APP_API_URL}/${channel.ownerPicture}`
+  const avatarUrl = channel.ownerProfileImage
+    ? `${process.env.REACT_APP_API_URL}/${channel.ownerProfileImage}`
     : '/assets/default-avatar.jpg';
+
+  const channelLink = `/channel/${channel.handle || channel.id}`;
 
   if (variant === 'compact') {
     return (
       <Link
-        to={`/channel/${channel.id}`}
+        to={channelLink}
         className={`flex items-center space-x-4 p-4 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors ${className}`}
       >
         <img
@@ -45,7 +47,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
           </p>
         </div>
         <SubscribeButton
-          channelId={channel.id.toString()}
+          channelId={channel.id}
           className="px-4 py-2 rounded-full font-bold"
         />
       </Link>
@@ -58,7 +60,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
       whileHover={{ scale: 1.03, y: -5 }}
       transition={{ type: 'spring', stiffness: 300, damping: 10 }}
     >
-      <Link to={`/channel/${channel.id}`}>
+      <Link to={channelLink}>
         <div className="relative aspect-video">
           <img
             src={coverImageUrl}
@@ -87,7 +89,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
             </span>
           </div>
           <SubscribeButton
-            channelId={channel.id.toString()}
+            channelId={channel.id}
             className="w-full"
           />
         </div>
