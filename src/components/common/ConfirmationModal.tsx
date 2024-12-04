@@ -22,13 +22,15 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   const handleConfirm = async () => {
     setIsConfirming(true);
-    await onConfirm();
-    setIsConfirming(false);
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
+    try {
+      await onConfirm();
+      setIsSuccess(true);
+    } catch (error) {
+      console.error('Confirmation error:', error);
       onClose();
-    }, 7000); // Increased from 3000 to 7000 milliseconds (7 seconds)
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   return (

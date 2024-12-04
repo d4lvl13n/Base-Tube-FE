@@ -236,13 +236,10 @@ export const getChannelByHandle = async (handle: string): Promise<ChannelRespons
   return response.data;
 };
 
-export const checkHandleAvailability = async (handle: string): Promise<{ available: boolean }> => {
+export const checkHandleAvailability = async (
+  handle: string
+): Promise<{ isAvailable: boolean; message?: string }> => {
   const response = await api.get(`/api/v1/channels/handle-check/${handle}`);
-  return response.data;
-};
-
-export const getHandleSuggestions = async (name: string): Promise<{ suggestions: string[] }> => {
-  const response = await api.get(`/api/v1/channels/handle-suggestions?name=${name}`);
   return response.data;
 };
 
@@ -251,3 +248,52 @@ export const getChannelById = async (id: string | number): Promise<ChannelDetail
   const response = await api.get(`/api/v1/channels/${id}`);
   return response.data;
 };
+
+export const getHandleSuggestions = async (
+  name: string,
+  context?: { type?: string; description?: string }
+): Promise<{ success: boolean; suggestions: string[]; message?: string }> => {
+  const params = new URLSearchParams(context as Record<string, string>);
+  const response = await api.get(
+    `/api/v1/channels/handle-suggestions/${encodeURIComponent(name)}?${params.toString()}`
+  );
+  return response.data;
+};
+
+export const getChannelDescription = async (
+  name: string,
+  context?: {
+    type?: string;
+    keywords?: string[];
+    additionalInfo?: string;
+  }
+): Promise<{
+  success: boolean;
+  description: string;
+  originalName: string;
+  message?: string;
+}> => {
+  const params = new URLSearchParams();
+
+  if (context?.type && context.type.trim()) {
+    params.append('type', context.type.trim());
+  }
+  if (context?.keywords && context.keywords.length > 0) {
+    const keywords = context.keywords
+      .map((kw) => kw.trim())
+      .filter((kw) => kw);
+    if (keywords.length > 0) {
+      params.append('keywords', keywords.join(','));
+    }
+  }
+  if (context?.additionalInfo && context.additionalInfo.trim()) {
+    params.append('additionalInfo', context.additionalInfo.trim());
+  }
+
+  const response = await api.get(
+    `/api/v1/channels/description/${encodeURIComponent(name)}?${params.toString()}`
+  );
+
+  return response.data;
+};
+

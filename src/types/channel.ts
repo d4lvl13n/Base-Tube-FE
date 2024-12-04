@@ -35,6 +35,7 @@ export interface ChannelsResponse {
 
 export interface CreateChannelData {
   name: string;
+  handle?: string;
   description: string;
   channel_image?: File;
   cover_image?: File;
@@ -44,6 +45,7 @@ export interface CreateChannelData {
 }
 
 export interface UpdateChannelData extends Partial<Omit<Channel, 'id' | 'user_id' | 'unique_id'>> {
+  handle?: string;
   channel_image?: File;
   cover_image?: File;
 }
