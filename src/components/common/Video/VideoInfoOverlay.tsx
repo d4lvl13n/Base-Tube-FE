@@ -2,6 +2,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Video } from '../../../types/video';
+import RichTextDisplay from '../RichTextDisplay';
 
 interface VideoInfoOverlayProps {
   video: Video;
@@ -17,7 +18,9 @@ export const VideoInfoOverlay: React.FC<VideoInfoOverlayProps> = ({ video }) => 
       transition={{ delay: 0.2 }}
     >
       <h2 className="text-xl font-bold text-white mb-2">{video.title}</h2>
-      <p className="text-sm text-gray-300 line-clamp-3">{video.description}</p>
+      <div className="text-sm text-gray-300 line-clamp-3">
+        <RichTextDisplay content={video.description || ''} />
+      </div>
     </motion.div>
   );
 };

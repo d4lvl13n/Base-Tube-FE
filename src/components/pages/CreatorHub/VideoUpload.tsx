@@ -12,11 +12,15 @@ import {
   Eye,
   AlertCircle,
   X,
+  Sparkles,
+  Wand2,
 } from 'lucide-react';
-import { uploadVideo } from '../../../api/video';
+import { uploadVideo, generateVideoDescription } from '../../../api/video';
 import { useChannels } from '../../../context/ChannelContext';
 import VideoUploadSuccess from '../../common/ModalScreen/VideoUploadSuccess';
 import { useNavigate } from 'react-router-dom';
+import AIAssistantPanel from '../../common/AIAssistantPanel';
+import RichTextEditor from '../../common/RichTextEditor';
 
 interface VisibilityOption {
   id: 'public' | 'unlisted' | 'private';
@@ -38,6 +42,13 @@ const VideoUpload: React.FC = () => {
   const [tags, setTags] = useState('');
   const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
   const [uploadedVideoId, setUploadedVideoId] = useState<string | null>(null);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [keywords, setKeywords] = useState('');
+  const [additionalInfo, setAdditionalInfo] = useState('');
+  const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
+  const [suggestedTitle, setSuggestedTitle] = useState<string | undefined>();
+  const [generatedDescription, setGeneratedDescription] = useState<string | undefined>();
 
   const { channels } = useChannels();
   const navigate = useNavigate();
@@ -136,6 +147,27 @@ const VideoUpload: React.FC = () => {
       console.error('Error uploading video:', error);
       alert('Failed to upload video. Please try again.');
       setStep(2);
+    }
+  };
+
+  const handleGenerateDescription = async () => {
+    if (!title.trim()) {
+      alert('Please enter a video title first');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { description: generated, suggestedTitle } = 
+        await generateVideoDescription(title, keywords, additionalInfo);
+      
+      setGeneratedDescription(generated);
+      setSuggestedTitle(suggestedTitle);
+    } catch (error) {
+      console.error('Failed to generate description:', error);
+      alert('Failed to generate description. Please try again.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -265,17 +297,29 @@ const VideoUpload: React.FC = () => {
                   />
                 </div>
 
-                {/* Description */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-900/50 border border-gray-800/30 rounded-lg focus:outline-none focus:border-[#fa7517] text-white"
-                    placeholder="Enter video description"
+                {/* Description section with AI assistant */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-sm font-medium text-gray-200">
+                      Description
+                    </label>
+                    <motion.button
+                      type="button"
+                      onClick={() => setIsAIPanelOpen(true)}
+                      className="flex items-center space-x-2 text-[#fa7517] hover:text-[#ff8c3a] transition-colors"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span className="text-sm">AI Assistant</span>
+                    </motion.button>
+                  </div>
+
+                  <RichTextEditor
+                    content={description}
+                    onChange={setDescription}
+                    placeholder="Tell viewers about your video..."
+                    minHeight="200px"
                   />
                 </div>
 
@@ -464,6 +508,26 @@ const VideoUpload: React.FC = () => {
       </motion.div>
 
       <AnimatePresence mode="wait">{renderStep()}</AnimatePresence>
+
+      {/* Move AIAssistantPanel here, at the root level */}
+      <AIAssistantPanel
+        isOpen={isAIPanelOpen}
+        onClose={() => setIsAIPanelOpen(false)}
+        title={title}
+        keywords={keywords}
+        additionalInfo={additionalInfo}
+        onKeywordsChange={setKeywords}
+        onAdditionalInfoChange={setAdditionalInfo}
+        onGenerate={handleGenerateDescription}
+        isGenerating={isGenerating}
+        suggestedTitle={suggestedTitle}
+        generatedDescription={generatedDescription}
+        onAcceptTitle={() => {
+          setTitle(suggestedTitle || '');
+          setSuggestedTitle(undefined);
+        }}
+        mode="video"
+      />
     </div>
   );
 };

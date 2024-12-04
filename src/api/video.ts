@@ -25,6 +25,11 @@ interface UpdateViewResponse {
   };
 }
 
+interface GenerateVideoDescriptionResponse {
+  description: string;
+  suggestedTitle: string;
+}
+
 export const getAllVideos = (page: number = 1, limit: number = 10) =>
   api.get(`/api/v1/videos?page=${page}&limit=${limit}`).then((res) => res.data.data);
 
@@ -170,6 +175,29 @@ export const updateVideoView = async (
     return response.data;
   } catch (error) {
     console.error('Failed to update view:', error);
+    throw error;
+  }
+};
+
+export const generateVideoDescription = async (
+  title: string,
+  keywords?: string,
+  additionalInfo?: string
+): Promise<GenerateVideoDescriptionResponse> => {
+  try {
+    const params = new URLSearchParams({
+      title,
+      ...(keywords && { keywords }),
+      ...(additionalInfo && { additionalInfo })
+    });
+
+    const response = await api.get<GenerateVideoDescriptionResponse>(
+      `/api/v1/videos/description?${params.toString()}`
+    );
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error generating video description:', error);
     throw error;
   }
 };

@@ -27,8 +27,10 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { handleValidation, isValidHandle } from '../../types/channel';
-import { formatHandleForDisplay, stripHandleSuffix } from '../../utils/handleUtils';
+import { stripHandleSuffix } from '../../utils/handleUtils';
 import { useChannelAI } from '../../hooks/useChannelAI';
+import RichTextEditor from '../common/RichTextEditor';
+import AIAssistantPanel from '../common/AIAssistantPanel';
 
 interface FormData {
   name: string;
@@ -50,11 +52,9 @@ const CreateChannelPage: React.FC = () => {
   const [handleError, setHandleError] = useState<string | null>(null);
   const [isCheckingHandle, setIsCheckingHandle] = useState(false);
   const [shouldFetchSuggestions, setShouldFetchSuggestions] = useState(false);
-  const [descriptionKeywords, setDescriptionKeywords] = useState<string>('');
-  const [additionalInfo, setAdditionalInfo] = useState<string>('');
-  const [showAIDescriptionFields, setShowAIDescriptionFields] = useState(false);
-  const [showHelpModal, setShowHelpModal] = useState(false);
   const [showHandleHelpModal, setShowHandleHelpModal] = useState(false);
+  const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
+  const [showDescriptionHelpModal, setShowDescriptionHelpModal] = useState(false);
   
   const {
     register,
@@ -78,10 +78,8 @@ const CreateChannelPage: React.FC = () => {
 
   const {
     isGeneratingHandle,
-    isGeneratingDescription,
     suggestions: aiHandleSuggestions,
     generateHandleSuggestions,
-    generateDescription,
     clearSuggestions,
   } = useChannelAI();
 
@@ -497,17 +495,35 @@ const CreateChannelPage: React.FC = () => {
             exit={{ opacity: 0, x: -50 }}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">Tell viewers about your channel</h2>
+              <div className="flex items-center space-x-2">
+                <h2 className="text-2xl font-bold">Tell viewers about your channel</h2>
+                <motion.button
+                  type="button"
+                  onClick={() => setShowDescriptionHelpModal(true)}
+                  className="text-gray-400 hover:text-[#fa7517] transition-colors"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <HelpCircle size={20} />
+                </motion.button>
+              </div>
               <motion.button
                 type="button"
-                onClick={() => setShowHelpModal(true)}
-                className="text-gray-400 hover:text-[#fa7517] transition-colors"
-                whileHover={{ scale: 1.1 }}
+                onClick={() => setIsAIPanelOpen(true)}
+                className="flex items-center space-x-2 text-[#fa7517] hover:text-[#ff8c3a] transition-colors px-4 py-2 rounded-lg bg-[#fa7517]/10"
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <HelpCircle size={24} />
+                <Sparkles className="w-4 h-4" />
+                <span className="text-sm">AI Assistant</span>
               </motion.button>
             </div>
+
+            <p className="text-gray-300 mb-4">
+              This is your chance to shine! Craft a compelling story that captures the essence of your channel. 
+              Tell viewers what makes your content unique, what they'll discover, and why they should hit that subscribe button. 
+              Remember, a great description not only attracts viewers but helps them find your amazing content.
+            </p>
 
             {/* Description Input */}
             <Controller
@@ -518,11 +534,11 @@ const CreateChannelPage: React.FC = () => {
                 minLength: { value: 20, message: 'Description must be at least 20 characters' }
               }}
               render={({ field }) => (
-                <textarea
-                  {...field}
-                  className="w-full px-3 py-2 bg-gray-800 rounded-lg focus:ring-2 focus:ring-[#fa7517] focus:outline-none mb-4"
+                <RichTextEditor
+                  content={field.value}
+                  onChange={field.onChange}
                   placeholder="Enter your channel description"
-                  rows={5}
+                  minHeight="300px"
                 />
               )}
             />
@@ -537,126 +553,9 @@ const CreateChannelPage: React.FC = () => {
               </motion.span>
             )}
 
-            {/* AI Description Generation */}
-            <div className="mt-6 space-y-4">
-              {!showAIDescriptionFields ? (
-                <motion.button
-                  type="button"
-                  onClick={() => setShowAIDescriptionFields(true)}
-                  className="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black font-semibold 
-                    flex items-center justify-center space-x-3 shadow-lg hover:shadow-[#fa7517]/50 transition-all duration-300
-                    relative overflow-hidden group"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#ff8c3a] to-[#fa7517] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative flex items-center space-x-3">
-                    <Sparkles className="w-6 h-6" />
-                    <span className="text-lg">Use AI Assistant</span>
-                    <Bot className="w-6 h-6" />
-                  </div>
-                </motion.button>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-4 bg-gray-900/50 p-6 rounded-xl border border-[#fa7517]/30"
-                >
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-[#fa7517]">AI Description Assistant</h3>
-                    <motion.button
-                      type="button"
-                      onClick={() => setShowAIDescriptionFields(false)}
-                      className="text-gray-400 hover:text-[#fa7517] transition-colors"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <X size={20} />
-                    </motion.button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Keywords</label>
-                      <input
-                        type="text"
-                        value={descriptionKeywords}
-                        onChange={(e) => setDescriptionKeywords(e.target.value)}
-                        className="w-full px-4 py-3 bg-gray-800 rounded-lg focus:ring-2 focus:ring-[#fa7517] focus:outline-none
-                          border border-gray-700 hover:border-[#fa7517]/50 transition-colors"
-                        placeholder="gaming, tutorials, tech reviews..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Additional Details</label>
-                      <textarea
-                        value={additionalInfo}
-                        onChange={(e) => setAdditionalInfo(e.target.value)}
-                        className="w-full px-4 py-3 bg-gray-800 rounded-lg focus:ring-2 focus:ring-[#fa7517] focus:outline-none
-                          border border-gray-700 hover:border-[#fa7517]/50 transition-colors"
-                        placeholder="Tell us more about your channel's focus and style..."
-                        rows={3}
-                      />
-                    </div>
-
-                    <motion.button
-                      type="button"
-                      onClick={async () => {
-                        const keywordsArray = descriptionKeywords
-                          .split(',')
-                          .map((kw) => kw.trim())
-                          .filter((kw) => kw);
-
-                        const context = {
-                          type: 'channel',
-                          ...(keywordsArray.length > 0 && { keywords: keywordsArray }),
-                          ...(additionalInfo.trim() && { additionalInfo: additionalInfo.trim() }),
-                        };
-
-                        const description = await generateDescription(watchedName, context);
-                        if (description) {
-                          setValue('description', description, { shouldValidate: true });
-                        }
-                      }}
-                      disabled={isGeneratingDescription}
-                      className={`w-full px-6 py-4 rounded-xl font-semibold
-                        flex items-center justify-center space-x-3 shadow-lg transition-all duration-300
-                        ${isGeneratingDescription 
-                          ? 'bg-gray-700 cursor-not-allowed' 
-                          : 'bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] hover:shadow-[#fa7517]/50'
-                        }`}
-                      whileHover={!isGeneratingDescription ? { scale: 1.02 } : {}}
-                      whileTap={!isGeneratingDescription ? { scale: 0.98 } : {}}
-                    >
-                      {isGeneratingDescription ? (
-                        <>
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="w-6 h-6"
-                          >
-                            ⟳
-                          </motion.div>
-                          <span>Generating Description...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 className="w-6 h-6" />
-                          <span>Generate Description</span>
-                          <Sparkles className="w-6 h-6" />
-                        </>
-                      )}
-                    </motion.button>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-
-            {/* Help Modal */}
+            {/* Description Help Modal */}
             <AnimatePresence>
-              {showHelpModal && (
+              {showDescriptionHelpModal && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -668,26 +567,41 @@ const CreateChannelPage: React.FC = () => {
                     animate={{ scale: 1, y: 0 }}
                     exit={{ scale: 0.9, y: 20 }}
                     className="bg-gray-900 rounded-2xl p-8 w-full max-w-md relative border border-[#fa7517]"
+                    style={{
+                      boxShadow: '0 0 20px rgba(250, 117, 23, 0.5), 0 0 60px rgba(250, 117, 23, 0.3)',
+                    }}
                   >
                     <button
-                      onClick={() => setShowHelpModal(false)}
+                      onClick={() => setShowDescriptionHelpModal(false)}
                       className="absolute top-4 right-4 text-gray-400 hover:text-white"
                     >
                       <X size={24} />
                     </button>
-                    <h3 className="text-2xl font-bold text-[#fa7517] mb-4">AI Description Assistant</h3>
+                    <h3 className="text-2xl font-bold text-[#fa7517] mb-4">Crafting Your Channel Description</h3>
                     <div className="space-y-4 text-gray-300">
                       <p>
-                        Our AI Assistant can help you create an engaging channel description by:
+                        Your channel description is more than just text - it's your channel's story and your first impression on potential subscribers.
                       </p>
                       <ul className="list-disc list-inside space-y-2">
-                        <li>Analyzing your channel name and keywords</li>
-                        <li>Understanding your channel's focus and target audience</li>
-                        <li>Generating a professional and appealing description</li>
-                        <li>Maintaining your unique voice and style</li>
+                        <li>Helps viewers discover your content through search</li>
+                        <li>Showcases your channel's unique value proposition</li>
+                        <li>Builds trust with your audience</li>
+                        <li>Improves your channel's SEO</li>
                       </ul>
+                      <div className="mt-4 p-4 bg-gray-800 rounded-lg">
+                        <p className="text-sm font-medium text-[#fa7517] mb-2">AI Assistant:</p>
+                        <p className="text-gray-400">
+                          Need help? Our AI Assistant can help you craft the perfect description by:
+                        </p>
+                        <ul className="list-disc list-inside text-gray-400 mt-2">
+                          <li>Generating engaging content based on your keywords</li>
+                          <li>Optimizing for search visibility</li>
+                          <li>Maintaining your unique voice and style</li>
+                          <li>Suggesting improvements to your existing description</li>
+                        </ul>
+                      </div>
                       <p className="text-sm text-gray-400 mt-4">
-                        You can always edit the generated description to better match your vision.
+                        Click the AI Assistant button to get started with AI-powered description generation!
                       </p>
                     </div>
                   </motion.div>
@@ -902,6 +816,19 @@ const CreateChannelPage: React.FC = () => {
         }}
         title="Create Your Channel"
         message="Are you ready to create your Base.Tube channel?"
+      />
+      <AIAssistantPanel
+        isOpen={isAIPanelOpen}
+        onClose={() => setIsAIPanelOpen(false)}
+        title={watch('name')}
+        keywords=""
+        additionalInfo=""
+        onKeywordsChange={() => {}}
+        onAdditionalInfoChange={() => {}}
+        onGenerate={() => {}}
+        isGenerating={false}
+        generatedDescription={watch('description')}
+        mode="channel"
       />
     </div>
   );

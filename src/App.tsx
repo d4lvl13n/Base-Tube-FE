@@ -30,6 +30,7 @@ import { useAnalyticsContext } from './hooks/useAnalyticsData';
 import CreatorResourcesPage from './components/common/CreatorHub/CreatorResourcesPage';
 import { VideoProvider } from './contexts/VideoContext';
 import { ConfigProvider } from './contexts/ConfigContext';
+import './styles/prosemirror.css';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {

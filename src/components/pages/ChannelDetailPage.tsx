@@ -10,6 +10,7 @@ import VideoGrid from '../common/Channel/VideoGrid';
 import { getChannelVideos } from '../../api/channel';
 import { Video } from '../../types/video';
 import { useChannelData } from '../../hooks/useChannelData';
+import RichTextDisplay from '../common/RichTextDisplay';
 
 const ChannelDetailPage: React.FC = () => {
   const { identifier } = useParams<{ identifier: string }>();
@@ -116,7 +117,7 @@ const ChannelDetailPage: React.FC = () => {
                 {activeTab === 'about' && (
                   <div>
                     <h2 className="text-2xl font-bold mb-4">About</h2>
-                    <p>{channel.description}</p>
+                    <RichTextDisplay content={channel.description || ''} />
                   </div>
                 )}
                 {activeTab === 'community' && (

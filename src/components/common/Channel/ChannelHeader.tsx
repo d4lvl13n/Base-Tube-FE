@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Channel } from '../../../types/channel';
 import { Facebook, Twitter, Instagram, Users, Video } from 'lucide-react';
 import { SubscribeButton } from '../buttons/SubscribeButton';
+import RichTextDisplay from '../RichTextDisplay';
 
 interface ChannelHeaderProps {
   channel: Channel;
@@ -90,7 +91,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setAc
         </div>
 
         {/* Channel Description */}
-        <p className="text-gray-300 mt-4 max-w-3xl">{channel.description}</p>
+        <div className="text-gray-300 mt-4 max-w-3xl">
+          <RichTextDisplay content={channel.description || ''} />
+        </div>
 
         {/* Tabs */}
         <div className="flex space-x-4 mt-6">
