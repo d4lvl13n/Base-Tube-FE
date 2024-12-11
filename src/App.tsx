@@ -31,28 +31,31 @@ import CreatorResourcesPage from './components/common/CreatorHub/CreatorResource
 import { VideoProvider } from './contexts/VideoContext';
 import { ConfigProvider } from './contexts/ConfigContext';
 import './styles/prosemirror.css';
+import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isNavOpen, setIsNavOpen] = useState(true);
-  
+
   return (
-    <div className="min-h-screen bg-[#09090B]">
-      <Header 
-        isNavOpen={isNavOpen} 
-        onNavToggle={() => setIsNavOpen(!isNavOpen)}
-        className="sticky top-0 z-50" 
-      />
-      <div className="flex">
-        <CreatorHubNav 
-          isCollapsed={!isNavOpen} 
-          onToggle={() => setIsNavOpen(!isNavOpen)} 
+    <ChannelSelectionProvider>
+      <div className="min-h-screen bg-[#09090B]">
+        <Header 
+          isNavOpen={isNavOpen} 
+          onNavToggle={() => setIsNavOpen(!isNavOpen)}
+          className="sticky top-0 z-50" 
         />
-        <main className="flex-1 overflow-x-hidden">
-          {children}
-        </main>
+        <div className="flex">
+          <CreatorHubNav 
+            isCollapsed={!isNavOpen} 
+            onToggle={() => setIsNavOpen(!isNavOpen)}
+          />
+          <main className="flex-1 overflow-x-hidden">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </ChannelSelectionProvider>
   );
 };
 

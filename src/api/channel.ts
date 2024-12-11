@@ -1,90 +1,83 @@
 // src/api/channel.ts
 
 import api from './index';
-import { Channel } from '../types/channel';
-import { Video } from '../types/video';
+import { 
+  Channel, 
+  ChannelResponse, 
+  ChannelsResponse, 
+  ChannelDetailsResponse,
+  ChannelVideosResponse,
+  ChannelAnalyticsResponse,
+  ChannelQueryOptions,
+  GetChannelsOptions,
+  GetChannelsResponse
+} from '../types/channel';
 import { 
   SocialMetrics, 
   WatchPatterns, 
   GrowthMetrics, 
   CreatorWatchHours 
 } from '../types/analytics';
-  
-interface ChannelResponse {
-  success: boolean;
-  channel: Channel;
-  message?: string;
-}
-
-interface ChannelsResponse {
-  success: boolean;
-  data: Channel[];
-  total: number;
-  totalPages: number;
-}
-
-interface ChannelDetailsResponse {
-  success: boolean;
-  channel: Channel;
-}
-
-interface ChannelVideosResponse {
-  success: boolean;
-  data: Video[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
-
-interface ChannelAnalyticsResponse {
-  success: boolean;
-  data: {
-    watchPatterns: WatchPatterns;
-    socialMetrics: SocialMetrics;
-    growthMetrics: GrowthMetrics;
-    creatorWatchHours: CreatorWatchHours;
-  };
-}
 
 export const getMyChannels = async (
-  page: number = 1,
-  limit: number = 10,
-  sort: string = 'createdAt'
+  options: ChannelQueryOptions = {}
 ): Promise<Channel[]> => {
+  const { page = 1, limit = 10, sort = 'createdAt' } = options;
+  
   try {
     const response = await api.get<ChannelsResponse>(
-      `/api/v1/channels/my?page=${page}&limit=${limit}&sort=${sort}`
+      `/api/v1/channels/my`, {
+        params: { page, limit, sort, include: 'owner' }
+      }
     );
-    if (response.data.success) {
-      return response.data.data;
-    } else {
-      throw new Error('Failed to fetch channels');
-    }
+    return response.data.data;
   } catch (error: unknown) {
     console.error('Error fetching my channels:', error);
     throw error;
   }
 };
 
+export const getChannels = async (options: GetChannelsOptions = {}): Promise<GetChannelsResponse> => {
+  const { 
+    page = 1, 
+    limit = 24,
+    sort = 'subscribers_count',
+    minSubscribers,
+    search 
+  } = options;
 
-export const getChannels = async (page: number = 1, limit: number = 12, sort: string = 'subscribers_count'): Promise<ChannelsResponse> => {
   try {
-    console.log(`Fetching channels: page=${page}, limit=${limit}, sort=${sort}`);
-    const response = await api.get<ChannelsResponse>(`/api/v1/channels?page=${page}&limit=${limit}&sort=${sort}`);
-    console.log('API response:', response.data);
-    return response.data;
+    const pageNumber = typeof page === 'string' ? parseInt(page, 10) : page;
+    
+    const queryParams = new URLSearchParams({
+      page: pageNumber.toString(),
+      limit: limit.toString(),
+      sort
+    });
+
+    if (minSubscribers) {
+      queryParams.append('minSubscribers', minSubscribers.toString());
+    }
+    if (search) {
+      queryParams.append('search', search);
+    }
+
+    const url = `/api/v1/channels?${queryParams.toString()}`;
+    console.log('Fetching channels:', url); // Debug log
+
+    const response = await api.get<GetChannelsResponse>(url);
+    console.log('Channels response:', response.data); // Debug log
+    
+    return {
+      success: true,
+      channels: response.data.channels || [],
+      total: response.data.total || 0,
+      hasMore: response.data.hasMore || false,
+      currentPage: response.data.currentPage || 1,
+      itemsPerPage: response.data.itemsPerPage || limit
+    };
   } catch (error: unknown) {
     console.error('Error fetching channels:', error);
-    if (error instanceof Error && 'response' in error) {
-      const axiosError = error as any;
-      if (axiosError.response) {
-        console.error('Response data:', axiosError.response.data);
-        console.error('Response status:', axiosError.response.status);
-      }
-    }
     throw error;
   }
 };
@@ -96,9 +89,14 @@ export const getChannel = (channelId: string) =>
   });
 
 // Update the getPopularChannels function in your frontend API
-export const getPopularChannels = async (page: number = 1, limit: number = 15): Promise<Channel[]> => {
+export const getPopularChannels = async (
+  page: number = 1, 
+  limit: number = 15
+): Promise<Channel[]> => {
   try {
-    const response = await api.get<ChannelsResponse>(`/api/v1/channels/popular?page=${page}&limit=${limit}`);
+    const response = await api.get<ChannelsResponse>(
+      `/api/v1/channels/popular?page=${page}&limit=${limit}`
+    );
     if (response.data.success) {
       return response.data.data;
     }
@@ -231,9 +229,9 @@ export const getChannelWatchHours = async (channelId: string): Promise<CreatorWa
   }
 };
 
-export const getChannelByHandle = async (handle: string): Promise<ChannelResponse> => {
-  const response = await api.get(`/api/v1/channels/handle/${handle}`);
-  return response.data;
+export const getChannelByHandle = async (handle: string): Promise<Channel> => {
+  const response = await api.get<ChannelResponse>(`/api/v1/channels/handle/${handle}`);
+  return response.data.channel;
 };
 
 export const checkHandleAvailability = async (
@@ -296,4 +294,3 @@ export const getChannelDescription = async (
 
   return response.data;
 };
-

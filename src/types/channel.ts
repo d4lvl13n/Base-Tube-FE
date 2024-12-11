@@ -1,4 +1,6 @@
 // src/types/channel.ts
+import { Video } from "./video";
+import { WatchPatterns, SocialMetrics, GrowthMetrics, CreatorWatchHours } from "./analytics";
 
 export interface Channel {
   id: number;
@@ -17,22 +19,70 @@ export interface Channel {
   createdAt: string;
   updatedAt: string;
   videosCount?: number;
-  ownerProfileImage?: string;
+  ownerProfileImage?: string | null;
 }
 
+// Response Types
 export interface ChannelResponse {
   success: boolean;
   channel: Channel;
   message?: string;
 }
 
-export interface ChannelsResponse {
+// Base response interface
+export interface BaseChannelsResponse {
   success: boolean;
-  data: Channel[];
   total: number;
-  totalPages: number;
+  totalPages?: number;
+  hasMore?: boolean;    
+  currentPage?: number;
+  itemsPerPage?: number;
 }
 
+// Specific response for getChannels endpoint
+export interface GetChannelsResponse extends BaseChannelsResponse {
+  channels: Channel[];
+}
+
+// Keep existing interface for backward compatibility
+export interface ChannelsResponse extends BaseChannelsResponse {
+  data: Channel[];
+}
+
+export interface ChannelDetailsResponse {
+  success: boolean;
+  channel: Channel;
+}
+
+export interface ChannelVideosResponse {
+  success: boolean;
+  data: Video[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface ChannelAnalyticsResponse {
+  success: boolean;
+  data: {
+    watchPatterns: WatchPatterns;
+    socialMetrics: SocialMetrics;
+    growthMetrics: GrowthMetrics;
+    creatorWatchHours: CreatorWatchHours;
+  };
+}
+
+// Query Types
+export interface ChannelQueryOptions {
+  page?: number;
+  limit?: number;
+  sort?: string;
+}
+
+// Form Data Types
 export interface CreateChannelData {
   name: string;
   handle?: string;
@@ -55,7 +105,7 @@ export interface ChannelFormData extends FormData {
   append(name: keyof CreateChannelData | keyof UpdateChannelData, value: string | Blob): void;
 }
 
-// Add handle validation utilities
+// Handle validation utilities
 export const handleValidation = {
   minLength: 3,
   maxLength: 29,
@@ -71,3 +121,14 @@ export const isValidHandle = (handle: string): boolean => {
     !handleValidation.reservedHandles.includes(handle.toLowerCase())
   );
 };
+
+// Add options interface to match backend
+export type ChannelSortOption = 'subscribers_count' | 'updatedAt' | 'createdAt';
+
+export interface GetChannelsOptions {
+  page?: number;
+  limit?: number;
+  sort?: ChannelSortOption;
+  minSubscribers?: number;
+  search?: string;
+}

@@ -14,6 +14,7 @@ import InfiniteScroll from 'react-infinite-scroll-component';
 import axiosRetry from 'axios-retry';
 import api from '../../api/index'; // Your axios instance
 import { TrendingUp, Clock, Star, User, Circle } from 'lucide-react';
+import { ChannelSortOption } from '../../types/channel';
 
 const categories = ['Trending', 'New', 'NFT Content Pass', 'For You'];
 
@@ -114,8 +115,8 @@ const DiscoveryPage: React.FC = () => {
   return (
     <div className="bg-black text-white min-h-screen">
       <Header className="fixed top-0 left-0 right-0 z-50" />
-      <div className="flex pt-16"> {/* Add padding-top to account for fixed header */}
-        <Sidebar className="fixed left-0 top-16 bottom-0 z-40" /> {/* Position sidebar below header */}
+      <div className="flex pt-16">
+        <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
         <main className="flex-1 p-8 overflow-auto main-content ml-16" id="scrollableDiv">
           <CategoryNav
             categories={categories}
@@ -160,11 +161,13 @@ const DiscoveryPage: React.FC = () => {
           </InfiniteScroll>
         </main>
       </div>
+      {/* Temporarily commented out until revamp
       <FloatingNavigation
         options={categoryOptions}
-        activeOption={activeCategory}
+        activeOption={activeCategory as ChannelSortOption}
         setActiveOption={handleCategoryChange}
       />
+      */}
     </div>
   );
 };

@@ -13,8 +13,7 @@ export const useChannelData = (identifier?: number | string | null) => {
       if (!identifier) throw new Error('Channel identifier is required');
 
       if (isHandle) {
-        const response = await getChannelByHandle(identifier as string);
-        return response.channel;
+        return getChannelByHandle(identifier as string);
       } else {
         const response = await getChannelById(identifier as number);
         return response.channel;

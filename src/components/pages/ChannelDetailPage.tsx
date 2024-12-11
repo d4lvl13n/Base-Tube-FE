@@ -92,7 +92,7 @@ const ChannelDetailPage: React.FC = () => {
   return (
     <div className="bg-black text-white min-h-screen">
       <Header />
-      <div className="flex">
+      <div className="flex pt-16">
         <Sidebar />
         <main className="flex-1 overflow-x-hidden">
           <AnimatePresence>
@@ -115,15 +115,19 @@ const ChannelDetailPage: React.FC = () => {
                   />
                 )}
                 {activeTab === 'about' && (
-                  <div>
+                  <div className="max-w-4xl mx-auto">
                     <h2 className="text-2xl font-bold mb-4">About</h2>
-                    <RichTextDisplay content={channel.description || ''} />
+                    <div className="bg-gray-900/30 rounded-xl p-6 backdrop-blur-sm border border-gray-800/30">
+                      <RichTextDisplay content={channel.description || ''} />
+                    </div>
                   </div>
                 )}
                 {activeTab === 'community' && (
-                  <div>
+                  <div className="max-w-4xl mx-auto text-center">
                     <h2 className="text-2xl font-bold mb-4">Community</h2>
-                    <p>Community features coming soon!</p>
+                    <div className="bg-gray-900/30 rounded-xl p-6 backdrop-blur-sm border border-gray-800/30">
+                      <p className="text-gray-400">Community features coming soon!</p>
+                    </div>
                   </div>
                 )}
               </div>

@@ -8,7 +8,7 @@ import React, {
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getVideoById } from '../../api/video';
-import { getChannelById, getChannelByHandle } from '../../api/channel';
+import { getChannelById } from '../../api/channel';
 import VideoPlayer, { VideoPlayerRef } from '../common/Video/VideoPlayer';
 import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';

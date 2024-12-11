@@ -1,35 +1,35 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import StatsCard from './StatsCard';
 import { Users, Play, Clock, MessageCircle } from 'lucide-react';
 import { Channel } from '../../../types/channel';
 import { useAnalyticsData } from '../../../hooks/useAnalyticsData';
-import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 import { useChannelData } from '../../../hooks/useChannelData';
 
 interface CreatorDashboardProps {
   channels: Channel[];
   userProfile: any;
   clerkUser: any;
+  selectedChannelId: string;
 }
 
-const CreatorDashboard: React.FC<CreatorDashboardProps> = ({ channels, userProfile, clerkUser }) => {
+const CreatorDashboard: React.FC<CreatorDashboardProps> = ({ 
+  userProfile, 
+  clerkUser,
+  selectedChannelId 
+}) => {
   const username = userProfile?.username || clerkUser?.username || 'Creator';
-  
-  const [activeChannelId, setActiveChannelId] = useState<string>(
-    channels[0]?.id.toString() || ''
-  );
   
   const { 
     growthMetrics,
     creatorWatchHours,
     isLoading: analyticsLoading 
-  } = useAnalyticsData('7d', activeChannelId);
+  } = useAnalyticsData('7d', selectedChannelId);
 
   const {
     channel: activeChannel,
     isLoading: channelLoading
-  } = useChannelData(activeChannelId ? parseInt(activeChannelId) : undefined);
+  } = useChannelData(selectedChannelId ? parseInt(selectedChannelId) : undefined);
 
   const isLoading = analyticsLoading || channelLoading;
 
@@ -39,10 +39,6 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({ channels, userProfi
     views: growthMetrics?.metrics.views.total.toLocaleString() ?? '0',
     watchTime: creatorWatchHours.toLocaleString(),
     engagement: `${growthMetrics?.metrics.engagement.total.toLocaleString()}%` ?? '0%'
-  };
-
-  const handleChannelChange = (channelId: string) => {
-    setActiveChannelId(channelId);
   };
 
   return (
@@ -55,12 +51,17 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({ channels, userProfi
         <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#fa7517] to-orange-400 mb-3">
           Welcome back, {username}!
         </h1>
-        <ChannelSelector 
-          channels={channels} 
-          onChannelChange={handleChannelChange}
-        />
         <p className="text-gray-400 text-lg">Here's how your content is performing</p>
       </div>
+
+      {activeChannel && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-12"
+        >
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         <StatsCard 
@@ -96,7 +97,6 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({ channels, userProfi
           subtitle="Growth over 7 days"
         />
       </div>
-
     </motion.div>
   );
 };

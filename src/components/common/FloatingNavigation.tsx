@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
+import { ChannelSortOption } from '../../types/channel';
 
 interface NavigationOption {
-  key: string;
+  key: ChannelSortOption;
   icon: LucideIcon;
   label: string;
 }
 
 interface FloatingNavigationProps {
   options: NavigationOption[];
-  activeOption: string;
-  setActiveOption: (option: string) => void;
+  activeOption: ChannelSortOption;
+  setActiveOption: (option: ChannelSortOption) => void;
 }
 
 const FloatingNavigation: React.FC<FloatingNavigationProps> = ({ options, activeOption, setActiveOption }) => {

@@ -14,6 +14,15 @@ interface ChannelHeaderProps {
 }
 
 const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setActiveTab }) => {
+  console.log('ChannelHeader - channel data:', {
+    ownerProfileImage: channel.ownerProfileImage,
+    fullAvatarUrl: channel.ownerProfileImage
+      ? channel.ownerProfileImage.startsWith('http')
+        ? channel.ownerProfileImage
+        : `${process.env.REACT_APP_API_URL}/${channel.ownerProfileImage}`
+      : '/assets/default-avatar.jpg'
+  });
+
   const tabs = ['Videos', 'About', 'Community'];
 
   const coverImageUrl = channel.channel_image_path

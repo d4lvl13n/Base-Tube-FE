@@ -20,18 +20,36 @@ export const useChannelAI = ({ onError = (msg) => toast.error(msg) }: UseChannel
         return [];
       }
 
+      // Clean up context to remove undefined values
+      const cleanContext = {
+        type: context?.type?.trim(),
+        description: context?.description?.trim()
+      };
+
+      // Remove undefined or empty string properties
+      Object.keys(cleanContext).forEach(key => {
+        if (!cleanContext[key as keyof typeof cleanContext]) {
+          delete cleanContext[key as keyof typeof cleanContext];
+        }
+      });
+
       setIsGeneratingHandle(true);
       try {
-        const response = await getHandleSuggestions(name, context);
-        if (response.success && response.suggestions) {
+        const response = await getHandleSuggestions(name, cleanContext);
+        console.log('Handle suggestions response:', response);
+
+        if (response.success && Array.isArray(response.suggestions)) {
           setSuggestions(response.suggestions);
           return response.suggestions;
         } else {
-          throw new Error(response.message || 'Failed to get suggestions');
+          console.warn('Invalid suggestions format:', response);
+          setSuggestions([]);
+          return [];
         }
       } catch (error) {
         console.error('Handle suggestion error:', error);
         onError('Failed to generate handle suggestions');
+        setSuggestions([]);
         return [];
       } finally {
         setIsGeneratingHandle(false);

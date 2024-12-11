@@ -257,150 +257,159 @@ const CreateChannelPage: React.FC = () => {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
+            className="space-y-12"
           >
-            <h2 className="text-2xl font-bold mb-4">
-              Let's start with your channel name
-            </h2>
-            <input
-              {...register('name', { required: 'Channel name is required' })}
-              className="w-full px-3 py-2 bg-gray-800 rounded focus:ring-2 focus:ring-[#fa7517] focus:outline-none"
-              placeholder="Enter your channel name"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.preventDefault();
-              }}
-            />
-            {errors.name && (
-              <span className="text-red-500 mt-1">{errors.name.message}</span>
-            )}
+            <div className="flex flex-col lg:flex-row lg:space-x-12">
+              <div className="space-y-6 flex-1">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                  Let's start with your channel name
+                </h2>
+                <div className="relative">
+                  <input
+                    {...register('name', { required: 'Channel name is required' })}
+                    className="w-full px-4 py-3 bg-gray-900/50 rounded-lg border border-gray-800/30 
+                      focus:ring-2 focus:ring-[#fa7517] focus:outline-none focus:border-transparent
+                      text-lg text-white transition-all duration-300"
+                    placeholder="Enter your channel name"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.preventDefault();
+                    }}
+                  />
+                  {errors.name && (
+                    <span className="text-red-500 mt-2 block text-sm">{errors.name.message}</span>
+                  )}
+                </div>
+              </div>
 
-            {/* Handle Input */}
-            <div className="mt-8">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center space-x-2">
-                  <h2 className="text-2xl font-bold">Choose your channel handle</h2>
+              <div className="space-y-6 flex-1">
+                <div className="flex justify-between items-center">
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-3">
+                      <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                        Choose your channel handle
+                      </h2>
+                      <motion.button
+                        type="button"
+                        onClick={() => setShowHandleHelpModal(true)}
+                        className="text-gray-400 hover:text-[#fa7517] transition-colors"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <HelpCircle size={24} />
+                      </motion.button>
+                    </div>
+                    <p className="text-gray-400 text-lg">
+                      Your unique identifier on Base.Tube
+                    </p>
+                  </div>
                   <motion.button
                     type="button"
-                    onClick={() => setShowHandleHelpModal(true)}
-                    className="text-gray-400 hover:text-[#fa7517] transition-colors"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
+                    onClick={() => generateHandleSuggestions(watchedName, { description: watch('description') })}
+                    disabled={!watchedName || isGeneratingHandle}
+                    className={`
+                      flex items-center space-x-2 text-[#fa7517] 
+                      hover:text-[#ff8c3a] transition-colors 
+                      px-4 py-2 rounded-lg bg-[#fa7517]/10
+                      ${!watchedName || isGeneratingHandle ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                    whileHover={!isGeneratingHandle && watchedName ? { scale: 1.05 } : {}}
+                    whileTap={!isGeneratingHandle && watchedName ? { scale: 0.95 } : {}}
                   >
-                    <HelpCircle size={20} />
+                    {isGeneratingHandle ? (
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="w-4 h-4"
+                        >
+                          ⟳
+                        </motion.div>
+                        <span className="text-sm">Getting Suggestions...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span className="text-sm">AI Suggestions</span>
+                        <Bot className="w-4 h-4" />
+                      </>
+                    )}
                   </motion.button>
                 </div>
-                <motion.button
-                  type="button"
-                  onClick={() => generateHandleSuggestions(watchedName, { description: watch('description') })}
-                  disabled={!watchedName || isGeneratingHandle}
-                  className={`
-                    px-4 py-2 rounded-lg font-medium
-                    flex items-center space-x-2
-                    transition-all duration-300
-                    ${isGeneratingHandle 
-                      ? 'bg-gray-700 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] hover:shadow-[#fa7517]/50 shadow-lg'
-                    }
-                    ${!watchedName ? 'opacity-50 cursor-not-allowed' : ''}
-                  `}
-                  whileHover={!isGeneratingHandle && watchedName ? { scale: 1.02 } : {}}
-                  whileTap={!isGeneratingHandle && watchedName ? { scale: 0.98 } : {}}
-                >
-                  {isGeneratingHandle ? (
-                    <>
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-5 h-5"
+
+                <div className="relative">
+                  <div className="flex items-center">
+                    <span className="text-gray-400 text-lg mr-3">channel/</span>
+                    <div className="relative flex-1">
+                      <input
+                        {...register('handle', {
+                          required: 'Handle is required',
+                          validate: {
+                            format: (value) => isValidHandle(stripHandleSuffix(value)) || 'Invalid handle format',
+                            length: (value) => {
+                              const stripped = stripHandleSuffix(value);
+                              return (stripped.length >= 3 && stripped.length <= 29) || 
+                                'Handle must be between 3 and 29 characters';
+                            }
+                          }
+                        })}
+                        className={`w-full px-4 py-3 bg-gray-900/50 rounded-lg border
+                          text-lg transition-all duration-300
+                          ${handleAvailable === true 
+                            ? 'border-green-500/30 focus:ring-green-500' 
+                            : 'border-gray-800/30 focus:ring-[#fa7517]'}
+                          ${handleError ? 'border-red-500/50' : ''}
+                          focus:outline-none focus:ring-2
+                        `}
+                        placeholder="your-channel-handle"
+                      />
+                      <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg">
+                        .base
+                      </span>
+                      {isCheckingHandle && (
+                        <motion.div
+                          className="absolute right-16 top-1/2 transform -translate-y-1/2"
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        >
+                          ⟳
+                        </motion.div>
+                      )}
+                    </div>
+                  </div>
+
+                  <AnimatePresence>
+                    {handleError ? (
+                      <motion.span
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="text-red-500 mt-2 block text-sm"
                       >
-                        ⟳
-                      </motion.div>
-                      <span className="text-white">Getting Suggestions...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5" />
-                      <span className="text-black">Get AI Suggestions</span>
-                      <Bot className="w-5 h-5" />
-                    </>
-                  )}
-                </motion.button>
-              </div>
-
-              <p className="text-gray-300 mb-4">
-                Your handle is your unique identifier on Base.Tube. It's how others will find and mention you.
-              </p>
-
-              <div className="flex items-center">
-                <span className="text-gray-300 mr-2">channel/</span>
-                <div className="relative flex-1">
-                  <input
-                    {...register('handle', {
-                      required: 'Handle is required',
-                      validate: {
-                        format: (value) => isValidHandle(stripHandleSuffix(value)) || 'Invalid handle format',
-                        length: (value) => {
-                          const stripped = stripHandleSuffix(value);
-                          return (stripped.length >= 3 && stripped.length <= 29) || 
-                            'Handle must be between 3 and 29 characters';
-                        }
-                      }
-                    })}
-                    className={`w-full px-3 py-2 bg-gray-800 rounded focus:ring-2 focus:outline-none
-                      ${handleAvailable === true ? 'focus:ring-green-500' : 'focus:ring-[#fa7517]'}
-                      ${handleError ? 'border-red-500' : ''}
-                    `}
-                    placeholder="your-channel-handle"
-                  />
-                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                    .base
-                  </span>
-                  {isCheckingHandle && (
-                    <motion.div
-                      className="absolute right-12 top-1/2 transform -translate-y-1/2"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    >
-                      ⟳
-                    </motion.div>
-                  )}
+                        {handleError}
+                      </motion.span>
+                    ) : handleAvailable === true ? (
+                      <motion.span
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="text-green-500 mt-2 block text-sm"
+                      >
+                        Handle is available!
+                      </motion.span>
+                    ) : null}
+                  </AnimatePresence>
                 </div>
-              </div>
 
-              {/* Handle Status Messages */}
-              <AnimatePresence mode="wait">
-                {handleError ? (
-                  <motion.span
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="text-red-500 mt-1 block"
-                  >
-                    {handleError}
-                  </motion.span>
-                ) : handleAvailable === true ? (
-                  <motion.span
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="text-green-500 mt-1 block"
-                  >
-                    Handle is available!
-                  </motion.span>
-                ) : null}
-              </AnimatePresence>
-
-              {/* Handle Suggestions */}
-              <div className="mt-2">
                 <AnimatePresence>
                   {aiHandleSuggestions.length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="mt-2 p-4 bg-gray-900/50 rounded-xl border border-[#fa7517]/30"
+                      className="mt-6 p-6 bg-gray-900/50 rounded-xl border border-[#fa7517]/30"
                     >
-                      <p className="text-[#fa7517] font-medium mb-2">AI Suggested handles:</p>
-                      <div className="flex flex-wrap gap-2">
+                      <p className="text-[#fa7517] font-medium mb-4 text-lg">AI Suggested handles:</p>
+                      <div className="flex flex-wrap gap-3">
                         {aiHandleSuggestions.map((suggestion) => (
                           <motion.button
                             type="button"
@@ -408,7 +417,7 @@ const CreateChannelPage: React.FC = () => {
                             onClick={() => {
                               setValue('handle', stripHandleSuffix(suggestion), { shouldValidate: true });
                             }}
-                            className="px-3 py-1.5 bg-gray-800 text-gray-300 rounded-lg 
+                            className="px-4 py-2 bg-gray-800/50 text-gray-300 rounded-lg 
                               hover:bg-gray-700 hover:text-white hover:shadow-lg hover:shadow-[#fa7517]/20 
                               border border-gray-700 hover:border-[#fa7517]/50
                               transition-all duration-300"
@@ -420,15 +429,6 @@ const CreateChannelPage: React.FC = () => {
                         ))}
                       </div>
                     </motion.div>
-                  )}
-                  {aiHandleSuggestions.length === 0 && !isGeneratingHandle && (
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-gray-400 mt-2 italic"
-                    >
-                      No suggestions available at this time.
-                    </motion.p>
                   )}
                 </AnimatePresence>
               </div>
@@ -461,23 +461,28 @@ const CreateChannelPage: React.FC = () => {
                     <h3 className="text-2xl font-bold text-[#fa7517] mb-4">About Channel Handles</h3>
                     <div className="space-y-4 text-gray-300">
                       <p>
-                        Your channel handle is a unique identifier that:
+                        Your channel handle is your unique identifier on Base.Tube. It's how viewers will find and share your channel.
                       </p>
-                      <ul className="list-disc list-inside space-y-2">
-                        <li>Makes your channel easy to find and share</li>
-                        <li>Appears in your channel's URL</li>
-                        <li>Can be used to mention your channel</li>
-                        <li>Must be between 3 and 29 characters</li>
-                      </ul>
-                      <div className="mt-4 p-4 bg-gray-800 rounded-lg">
-                        <p className="text-sm font-medium text-[#fa7517] mb-2">Example:</p>
-                        <p className="text-gray-400">
-                          Handle: <span className="text-white">gaming_with_sara</span><br />
-                          URL: base.tube/<span className="text-white">gaming_with_sara</span>
-                        </p>
+                      <div className="bg-gray-800/50 p-4 rounded-lg">
+                        <h4 className="font-medium text-[#fa7517] mb-2">Handle Requirements:</h4>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                          <li>3-29 characters long</li>
+                          <li>Can contain letters, numbers, and underscores</li>
+                          <li>Cannot contain spaces or special characters</li>
+                          <li>Must be unique across Base.Tube</li>
+                        </ul>
+                      </div>
+                      <div className="bg-gray-800/50 p-4 rounded-lg">
+                        <h4 className="font-medium text-[#fa7517] mb-2">Tips:</h4>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                          <li>Keep it simple and memorable</li>
+                          <li>Use your brand name if possible</li>
+                          <li>Avoid numbers unless part of your brand</li>
+                          <li>Consider using AI suggestions for ideas</li>
+                        </ul>
                       </div>
                       <p className="text-sm text-gray-400 mt-4">
-                        You can use letters, numbers, and underscores. Choose something memorable that represents your channel!
+                        Your handle will appear as: <span className="text-white">channel/your-handle.base</span>
                       </p>
                     </div>
                   </motion.div>
@@ -619,7 +624,7 @@ const CreateChannelPage: React.FC = () => {
             exit={{ opacity: 0, x: -50 }}
           >
             <h2 className="text-2xl font-bold mb-4">Connect your social media</h2>
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex items-center">
                 <Facebook className="mr-2" />
                 <Controller
@@ -742,59 +747,88 @@ const CreateChannelPage: React.FC = () => {
       <Header />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-12 lg:p-16">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="max-w-2xl mx-auto"
+            className="max-w-6xl mx-auto"
           >
-            <h1 className="text-4xl font-bold mb-8 text-center text-[#fa7517]">
-              Create Your Channel
-            </h1>
-            <StepIndicator
-              steps={navigationSteps}
-              activeStep={step.toString()}
-              onStepClick={(stepKey) => setStep(parseInt(stepKey))}
-            />
-            <form onSubmit={handleSubmit(handleCreateChannel)}>
-              <AnimatePresence mode="wait">{renderStep()}</AnimatePresence>
-              <div className="mt-8 flex justify-between">
-                {step > 1 && (
-                  <motion.button
-                    type="button"
-                    onClick={() => setStep(step - 1)}
-                    className="bg-gray-700 text-white px-6 py-3 rounded-full flex items-center transition-all duration-300 hover:bg-gray-600"
-                    whileHover={{ scale: 1.05, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <ArrowLeft className="mr-2" /> Previous
-                  </motion.button>
-                )}
-                {step < totalSteps && (
-                  <motion.button
-                    type="button"
-                    onClick={() => setStep(step + 1)}
-                    className="bg-[#fa7517] text-black px-6 py-3 rounded-full flex items-center transition-all duration-300 hover:bg-orange-400"
-                    whileHover={{ scale: 1.05, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    Next <ArrowRight className="ml-2" />
-                  </motion.button>
-                )}
-                {step === totalSteps && (
-                  <motion.button
-                    type="submit"
-                    disabled={isLoading}
-                    className="bg-[#fa7517] text-black px-6 py-3 rounded-full flex items-center ml-auto transition-all duration-300 hover:bg-[#ff8c3a]"
-                    whileHover={{ scale: 1.05, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {isLoading ? 'Creating...' : 'Create Channel'}
-                  </motion.button>
-                )}
-              </div>
-            </form>
+            <div className="mb-16 text-center space-y-4">
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] bg-clip-text text-transparent">
+                Create Your Channel
+              </h1>
+              <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+                Let's build something amazing together. Your journey starts here.
+              </p>
+            </div>
+
+            <div className="mb-16">
+              <StepIndicator
+                steps={navigationSteps}
+                activeStep={step.toString()}
+                onStepClick={(stepKey) => setStep(parseInt(stepKey))}
+              />
+            </div>
+
+            <div className="bg-gray-900/30 rounded-2xl p-8 lg:p-12 backdrop-blur-sm border border-gray-800/50">
+              <form onSubmit={handleSubmit(handleCreateChannel)}>
+                <AnimatePresence mode="wait">{renderStep()}</AnimatePresence>
+                
+                <div className="mt-12 flex justify-between items-center">
+                  {step > 1 && (
+                    <motion.button
+                      type="button"
+                      onClick={() => setStep(step - 1)}
+                      className="bg-gray-800/80 text-white px-8 py-4 rounded-xl flex items-center 
+                        transition-all duration-300 hover:bg-gray-700 border border-gray-700"
+                      whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.2)' }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <ArrowLeft className="mr-3" /> Previous Step
+                    </motion.button>
+                  )}
+                  {step < totalSteps ? (
+                    <motion.button
+                      type="button"
+                      onClick={() => setStep(step + 1)}
+                      className="bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black px-8 py-4 
+                        rounded-xl flex items-center ml-auto font-medium"
+                      whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Next Step <ArrowRight className="ml-3" />
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      type="submit"
+                      disabled={isLoading}
+                      className="bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black px-8 py-4 
+                        rounded-xl flex items-center ml-auto font-medium"
+                      whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      {isLoading ? (
+                        <span className="flex items-center">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            className="mr-3"
+                          >
+                            ⟳
+                          </motion.div>
+                          Creating Channel...
+                        </span>
+                      ) : (
+                        <span className="flex items-center">
+                          Launch Channel <Wand2 className="ml-3" />
+                        </span>
+                      )}
+                    </motion.button>
+                  )}
+                </div>
+              </form>
+            </div>
           </motion.div>
         </main>
       </div>

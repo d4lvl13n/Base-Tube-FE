@@ -18,6 +18,7 @@ import {
   LucideIcon,
   Upload
 } from 'lucide-react';
+import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 
 interface SubItem {
   title: string;
@@ -67,7 +68,7 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
     {
       title: 'Upload',
       icon: Upload,
-      path: '/creator-hub/upload',
+      path: '/creator-hub/upload-video',
     },
     {
       title: 'Content',
@@ -109,7 +110,7 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
     <motion.div 
       initial={false}
       animate={{ width: isCollapsed ? '80px' : '256px' }}
-      className="relative h-screen bg-black/50 border-r border-gray-800/30 backdrop-blur-sm overflow-hidden"
+      className="relative h-screen flex flex-col bg-black/50 border-r border-gray-800/30 backdrop-blur-sm overflow-hidden"
       style={{
         boxShadow: `
           0 0 20px 5px rgba(250, 117, 23, 0.1),
@@ -159,12 +160,13 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
             icon={VideoIcon}
             label={!isCollapsed ? "Upload Video" : undefined}
             className="w-full bg-[#fa7517] hover:bg-[#ff8c3a] text-black"
+            onClick={() => navigate('/creator-hub/upload')}
           />
         </div>
       </div>
 
       {/* Navigation Items */}
-      <nav className="p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
         {navigationItems.map((item) => (
           <NavItem
             key={item.title}
@@ -176,6 +178,15 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
           />
         ))}
       </nav>
+
+      {/* Channel Selector at the bottom */}
+      {!isCollapsed && (
+        <div className="px-4 pb-4 border-t border-gray-800/30 mt-auto">
+          <div className="pt-4">
+            <ChannelSelector />
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

@@ -6,32 +6,30 @@ import { GrowthTab } from './tabs/GrowthTab';
 import { ContentPerformanceTab } from './tabs/ContentPerformanceTab';
 import { AudienceEngagementTab } from './tabs/AudienceEngagementTab';
 import { AlertCircle } from 'lucide-react';
-import { ChannelSelector } from '../../../common/CreatorHub/ChannelSelector';
-import { Channel } from '../../../../types/channel';
+import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
 import { LikesAnalyticsTab } from './tabs/LikesAnalyticsTab';
+import ChannelPreviewCard from '../../../common/CreatorHub/ChannelPreviewCard';
 
-interface AnalyticsDashboardProps {
-  channels: Channel[];
-}
-
-const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ channels }) => {
+const AnalyticsDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Growth');
-  const [activeChannelId, setActiveChannelId] = useState<string>(
-    channels[0]?.id.toString() || ''
-  );
+  const { selectedChannelId, selectedChannel } = useChannelSelection();
   
-  const { isError } = useAnalyticsData('7d', activeChannelId);
+  const { isError } = useAnalyticsData('7d', selectedChannelId);
+
+  if (!selectedChannel) {
+    return null;
+  }
 
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'Growth':
-        return <GrowthTab channelId={activeChannelId} />;
+        return <GrowthTab channelId={selectedChannelId} />;
       case 'Performance':
-        return <ContentPerformanceTab channelId={activeChannelId} />;
+        return <ContentPerformanceTab channelId={selectedChannelId} />;
       case 'Engagement':
-        return <AudienceEngagementTab channelId={activeChannelId} />;
+        return <AudienceEngagementTab channelId={selectedChannelId} />;
       case 'Likes':
-        return <LikesAnalyticsTab channelId={activeChannelId} />;
+        return <LikesAnalyticsTab channelId={selectedChannelId} />;
       default:
         return null;
     }
@@ -45,10 +43,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ channels }) => 
       className="max-w-7xl mx-auto space-y-8"
     >
       <div className="mb-12">
-        <ChannelSelector 
-          channels={channels} 
-          onChannelChange={(channelId) => setActiveChannelId(channelId)}
-        />
+        <ChannelPreviewCard channel={selectedChannel} />
       </div>
 
       {/* Error Banner */}
