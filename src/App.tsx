@@ -8,7 +8,7 @@ import CreatorHubNav from './components/pages/CreatorHub/CreatorHubNav';
 import ProtectedRoute from './components/pages/ProtectedRoute';
 import HomePage from './components/pages/HomePage';
 import SingleVideo from './components/pages/SingleVideo';
-import DiscoveryPage from './components/pages/DiscoveryPage';
+import DiscoveryPage from './components/pages/DiscoveryPage/index';
 import SubscribedChannelPage from './components/pages/SubscribedChannelPage';
 import NFTMarketplace from './components/pages/NFTMarketplace';
 import UserProfileWallet from './components/pages/UserProfileWallet';
@@ -23,7 +23,7 @@ import CreatorHubLandingPage from './components/pages/CreatorHub/CreatorHubLandi
 import { ChannelProvider } from './context/ChannelContext';
 import VideoUpload from './components/pages/CreatorHub/VideoUpload';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Optional but helpful for development
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import AnalyticsPage from './components/pages/CreatorHub/Analytics/AnalyticsPage';
 import { GrowthTab } from './components/pages/CreatorHub/Analytics/tabs/GrowthTab';
 import { useAnalyticsContext } from './hooks/useAnalyticsData';
@@ -99,17 +99,19 @@ function App() {
             <Router>
               <ChannelProvider>
                 <Routes>
-                  {/* Public routes */}
+                  {/* Public routes that don't need channel context */}
                   <Route path="/" element={<HomePage />} />
-                  <Route path="/video/:id" element={<SingleVideo />} />
-                  <Route path="/channel/:identifier" element={<ChannelDetailPage />} />
                   <Route path="/discover" element={<DiscoveryPage />} />
+                  <Route path="/video/:id" element={<SingleVideo />} />
                   <Route path="/nft-marketplace" element={<NFTMarketplace />} />
+
+                  {/* Channel-related routes */}
+                  <Route path="/channel/:identifier" element={<ChannelDetailPage />} />
                   <Route path="/channel" element={<ChannelPage />} />
                   
                   {/* Creator Hub routes with special layout */}
                   <Route
-                    path="/creator-hub/*"
+                    path="/creator-hub"
                     element={
                       <CreatorHubRoute
                         element={<CreatorHubLandingPage />}
@@ -162,7 +164,7 @@ function App() {
                     path="/subscribed"
                     element={
                       <ProtectedRoute>
-                        <SubscribedChannelPage />  {/* Page to complete */}
+                        <SubscribedChannelPage />
                       </ProtectedRoute>
                     }
                   />
@@ -193,15 +195,15 @@ function App() {
                     }
                   />
 
-                {/* Profile settings route */}
-                <Route
-                  path="/profile/settings"
-                  element={
-                    <ProtectedRoute>
-                      <ProfileSettings />
-                    </ProtectedRoute>
-                  }
-                />
+                  {/* Profile settings route */}
+                  <Route
+                    path="/profile/settings"
+                    element={
+                      <ProtectedRoute>
+                        <ProfileSettings />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* Catch-all redirect to sign-in */}
                   <Route
@@ -214,19 +216,19 @@ function App() {
                   />
                 </Routes>
               </ChannelProvider>
+              <ToastContainer 
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+              />
+              <ReactQueryDevtools initialIsOpen={false} />
             </Router>
-            <ToastContainer 
-              position="top-right"
-              autoClose={5000}
-              hideProgressBar={false}
-              newestOnTop={false}
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-            />
-            <ReactQueryDevtools initialIsOpen={false} />
           </VideoProvider>
         </ConfigProvider>
       </QueryClientProvider>

@@ -1,5 +1,8 @@
 // src/context/ChannelContext.tsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useUser } from '@clerk/clerk-react';
+import { useLocation } from 'react-router-dom';
 import { getMyChannels } from '../api/channel';
 import { Channel } from '../types/channel';
 
@@ -12,36 +15,46 @@ interface ChannelContextProps {
 
 const ChannelContext = createContext<ChannelContextProps | undefined>(undefined);
 
+const shouldFetchChannels = (pathname: string, isSignedIn: boolean | undefined): boolean => {
+  const protectedPaths = [
+    '/creator-hub',
+    '/channel',
+    '/profile',
+    '/subscribed'
+  ];
+  
+  return Boolean(isSignedIn && protectedPaths.some(path => pathname.startsWith(path)));
+};
+
 export const ChannelProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshToggle, setRefreshToggle] = useState<boolean>(false);
+  const { isSignedIn } = useUser();
+  const { pathname } = useLocation();
+  
+  const { 
+    data: channels = [], 
+    isLoading: loading,
+    error: queryError,
+    refetch: refreshChannels
+  } = useQuery({
+    queryKey: ['myChannels'],
+    queryFn: () => getMyChannels(),
+    enabled: shouldFetchChannels(pathname, isSignedIn),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000,   // 10 minutes
+    retry: 2
+  });
 
-  const fetchChannels = async () => {
-    setLoading(true);
-    try {
-      const fetchedChannels = await getMyChannels();
-      setChannels(fetchedChannels);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching channels:', err);
-      setError('Failed to load your channels.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchChannels();
-  }, [refreshToggle]);
-
-  const refreshChannels = () => {
-    setRefreshToggle((prev) => !prev);
-  };
+  const error = queryError instanceof Error ? queryError.message : 
+                typeof queryError === 'string' ? queryError : 
+                'Failed to load your channels.';
 
   return (
-    <ChannelContext.Provider value={{ channels, loading, error, refreshChannels }}>
+    <ChannelContext.Provider value={{ 
+      channels, 
+      loading, 
+      error, 
+      refreshChannels 
+    }}>
       {children}
     </ChannelContext.Provider>
   );

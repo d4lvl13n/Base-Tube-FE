@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Video } from '../../../types/video';
-import { Play, Eye, Heart } from 'lucide-react';
+import { Play, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface HeroSectionProps {
@@ -14,6 +14,24 @@ const HeroSection: React.FC<HeroSectionProps> = ({ featuredVideos, renderPlaceho
     return <div className="flex flex-wrap gap-4 mb-8">{renderPlaceholder()}</div>;
   }
 
+  const formatViews = (views: number | undefined): string => {
+    if (!views) return '0';
+    if (views >= 1_000_000) return `${(views / 1_000_000).toFixed(1)}M`;
+    if (views >= 1_000) return `${(views / 1_000).toFixed(1)}K`;
+    return views.toString();
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="mb-8 mr-16">
       <h2 className="text-xl sm:text-2xl font-bold mb-4">Featured</h2>
@@ -22,14 +40,38 @@ const HeroSection: React.FC<HeroSectionProps> = ({ featuredVideos, renderPlaceho
           <Link 
             key={video.id} 
             to={`/video/${video.id}`} 
-            className="relative group overflow-hidden rounded-lg aspect-video"
+            className="relative group overflow-hidden rounded-xl aspect-video"
           >
+            {/* Thumbnail */}
             <img 
               src={`${process.env.REACT_APP_API_URL}/${video.thumbnail_path}`} 
               alt={video.title} 
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+
+            {/* Initial View Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent">
+              {/* Title and Stats */}
+              <div className="absolute bottom-0 left-0 right-0 p-6">
+                <h3 className="text-xl font-semibold text-white line-clamp-2 mb-3">
+                  {video.title}
+                </h3>
+                <div className="flex items-center justify-between text-sm text-gray-300">
+                  <div className="flex items-center space-x-2">
+                    <Eye size={16} className="text-[#fa7517]" />
+                    <span>{formatViews(video.views)}</span>
+                  </div>
+                  <div className="px-2 py-1 bg-black/50 rounded-md">
+                    {formatDuration(video.duration)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Hover Overlay */}
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 
+                         transition-all duration-300 flex items-center justify-center">
+              {/* Play Button */}
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -37,31 +79,33 @@ const HeroSection: React.FC<HeroSectionProps> = ({ featuredVideos, renderPlaceho
               >
                 <Play className="text-white w-16 h-16" />
               </motion.div>
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black to-transparent group-hover:opacity-0 transition-opacity duration-300">
-              <h3 className="text-lg font-bold text-white line-clamp-2">{video.title}</h3>
-              {video.channel && (
-                <div className="flex items-center mt-2">
-                  {video.channel.ownerProfileImage && (
+
+              {/* Channel Banner */}
+              {video.channel?.name && (
+                <motion.div
+                  className="absolute bottom-6 left-6 right-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <div className="relative w-full h-20 rounded-lg overflow-hidden">
                     <img
-                      src={`${process.env.REACT_APP_API_URL}/${video.channel.ownerProfileImage}`}
+                      src={video.channel.channel_image_path 
+                        ? `${process.env.REACT_APP_API_URL}/${video.channel.channel_image_path}`
+                        : '/assets/default-cover.jpg'}
                       alt={video.channel.name}
-                      className="w-6 h-6 rounded-full object-cover mr-2"
+                      className="w-full h-full object-cover"
                     />
-                  )}
-                  <p className="text-sm text-gray-300">{video.channel.name}</p>
-                </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent">
+                      <div className="absolute bottom-0 left-0 right-0 p-3 text-center">
+                        <p className="text-white text-base font-medium tracking-wide">
+                          {video.channel.name}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
               )}
-              <div className="flex items-center space-x-4 text-xs text-gray-300 mt-2">
-                <span className="flex items-center">
-                  <Eye size={14} className="mr-1" />
-                  {formatNumber(video.views)}
-                </span>
-                <span className="flex items-center">
-                  <Heart size={14} className="mr-1" />
-                  {formatNumber(video.likes)}
-                </span>
-              </div>
             </div>
           </Link>
         ))}
@@ -69,18 +113,5 @@ const HeroSection: React.FC<HeroSectionProps> = ({ featuredVideos, renderPlaceho
     </div>
   );
 };
-
-function formatNumber(num: number | undefined | null): string {
-  if (num === undefined || num === null) {
-    return '0';
-  }
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(1)}M`;
-  } else if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}K`;
-  } else {
-    return num.toString();
-  }
-}
 
 export default HeroSection;

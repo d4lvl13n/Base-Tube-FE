@@ -1,7 +1,7 @@
 // src/components/ChannelPage/styles.tsx
 import React, { memo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Video, ExternalLink } from 'lucide-react';
+import { Users, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '../../common/Header';
 import Sidebar from '../../common/Sidebar';
@@ -20,7 +20,7 @@ export const ChannelPageLayout: React.FC<ChannelPageStylesProps> = memo(({
   sort,
   handleLoadMore,
   handleSortChange,
-  sortOptions,
+  navigationOptions,
   isLoadingMore
 }) => {
   const showInitialLoader = loading && channels.length === 0 && !error;
@@ -37,22 +37,6 @@ export const ChannelPageLayout: React.FC<ChannelPageStylesProps> = memo(({
           >
             Discover Amazing Channels
           </motion.h1>
-
-          <motion.div 
-            className="flex flex-wrap justify-center lg:justify-start space-x-2 sm:space-x-4 mb-8"
-            {...ANIMATIONS.sortOptions}
-          >
-            {sortOptions.map(({ key, icon: Icon, label }) => (
-              <button
-                key={key}
-                onClick={() => handleSortChange(key)}
-                className={TAILWIND_CLASSES.sortButton(sort === key)}
-              >
-                <Icon className="inline-block mr-2" size={18} />
-                {label}
-              </button>
-            ))}
-          </motion.div>
 
           <AnimatePresence>
             {error && (
@@ -113,7 +97,7 @@ export const ChannelPageLayout: React.FC<ChannelPageStylesProps> = memo(({
       </div>
 
       <FloatingNavigation
-        options={sortOptions}
+        options={navigationOptions}
         activeOption={sort}
         setActiveOption={handleSortChange}
       />
@@ -137,57 +121,70 @@ export const ChannelCard: React.FC<ChannelCardProps> = memo(({ channel }) => {
   return (
     <motion.div
       {...ANIMATIONS.card}
-      className={TAILWIND_CLASSES.channelCard}
+      className={`${TAILWIND_CLASSES.channelCard} group`}
     >
-      <div className="h-40 relative">
+      <div className="h-48 sm:h-56 relative overflow-hidden">
         <motion.img 
           src={coverImageUrl}
           alt={`${channel.name} cover`}
-          className={`w-full h-full object-cover transition-opacity duration-300
+          className={`w-full h-full object-cover transition-all duration-500
+                     group-hover:scale-110 group-hover:brightness-75
                      ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setImageLoaded(true)}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent">
+        
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent">
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <div className="flex items-end space-x-4">
-              <img
-                src={avatarUrl}
-                alt={channel.name}
-                className="w-16 h-16 rounded-full border-2 border-white shadow-lg"
-              />
-              <div className="flex-grow">
-                <h3 className="text-xl font-bold text-white mb-1">{channel.name}</h3>
-                <p className="text-gray-300">@{channel.handle}</p>
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#fa7517] to-[#fa9517] opacity-0 
+                              group-hover:opacity-100 blur-md transition-opacity duration-300" />
+                <img
+                  src={avatarUrl}
+                  alt={channel.name}
+                  className="relative w-16 h-16 rounded-full border-2 border-white shadow-lg 
+                           transform transition-transform duration-300 group-hover:scale-105"
+                />
               </div>
+              
+              <motion.div 
+                className="flex-grow"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+              >
+                <h3 className="text-xl font-bold text-white mb-1 line-clamp-1">{channel.name}</h3>
+                <p className="text-gray-300">@{channel.handle}</p>
+              </motion.div>
             </div>
           </div>
         </div>
 
-        <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 
-                      transition-opacity duration-300 flex flex-col justify-between p-4">
+        <div className="absolute inset-0 bg-gradient-to-b from-black/90 to-black/70 
+                      opacity-0 group-hover:opacity-100 transition-all duration-300
+                      flex flex-col justify-between p-6 transform translate-y-2 
+                      group-hover:translate-y-0">
           <div className="flex justify-end">
             <Link
               to={`/channel/${channel.handle}`}
-              className="p-2 bg-[#fa7517]/10 rounded-lg transition-colors 
-                       text-white hover:text-[#fa7517]"
+              className="p-2 bg-[#fa7517] rounded-lg transition-all duration-300
+                       text-white hover:bg-[#fa9517] hover:scale-110"
             >
               <ExternalLink className="w-5 h-5" />
             </Link>
           </div>
+          
           <div className="space-y-4">
             {channel.description && (
-              <p className="text-gray-300 text-sm line-clamp-2">
+              <p className="text-gray-100 text-sm line-clamp-2 
+                         transform transition-all duration-300">
                 {channel.description}
               </p>
             )}
-            <div className="flex items-center space-x-4 text-gray-300">
-              <span className="flex items-center">
-                <Users size={14} className="mr-1 text-[#fa7517]" />
-                {channel.subscribers_count.toLocaleString()} subscribers
-              </span>
-              <span className="flex items-center">
-                <Video size={14} className="mr-1 text-[#fa7517]" />
-                {channel.videosCount?.toLocaleString() || '0'} videos
+            <div className="flex items-center text-gray-100">
+              <span className="flex items-center group-hover:text-[#fa7517] transition-colors">
+                <Users size={16} className="mr-2" />
+                {channel.subscribers_count.toLocaleString()}
               </span>
             </div>
           </div>
@@ -198,5 +195,4 @@ export const ChannelCard: React.FC<ChannelCardProps> = memo(({ channel }) => {
 });
 
 // Add display names for better debugging
-ChannelPageLayout.displayName = 'ChannelPageLayout';
-ChannelCard.displayName = 'ChannelCard';
+ChannelPageLayout.displayName = 'ChannelPageLayout';ChannelCard.displayName = 'ChannelCard';

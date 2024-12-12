@@ -1,16 +1,14 @@
-// ChannelPage.tsx
 import React, { useState, useCallback } from 'react';
 import { Users, Clock, TrendingUp } from 'lucide-react';
 import { useChannels } from '../../../hooks/useChannels';
 import { ChannelPageLayout } from './styles';
-import { SortOption } from './types';
+import { NavigationOption } from './types';
 import { ChannelSortOption } from '../../../types/channel';
-import { useInView } from 'react-intersection-observer'; // Add this
+import { useInView } from 'react-intersection-observer';
 
 const ChannelPage: React.FC = () => {
   const [sort, setSort] = useState<ChannelSortOption>('subscribers_count');
   
-  // Add intersection observer for automatic infinite scroll
   const { ref, inView } = useInView({
     threshold: 0.1
   });
@@ -23,11 +21,10 @@ const ChannelPage: React.FC = () => {
     fetchNextPage,
     isFetchingNextPage
   } = useChannels({
-    limit: 24, // Increased from 12 for better initial load
+    limit: 24,
     sort,
-    }) || {}; // Add fallback empty object
+  }) || {};
 
-  // Memoize handlers
   const handleLoadMore = useCallback(() => {
     if (!isLoading && !isFetchingNextPage && hasMore) {
       fetchNextPage();
@@ -40,17 +37,31 @@ const ChannelPage: React.FC = () => {
     }
   }, [sort]);
 
-  // Add automatic infinite scroll
   React.useEffect(() => {
     if (inView) {
       handleLoadMore();
     }
   }, [inView, handleLoadMore]);
 
-  const sortOptions: SortOption[] = React.useMemo(() => [
-    { key: 'subscribers_count', icon: Users, label: 'Most Subscribers' },
-    { key: 'updatedAt', icon: Clock, label: 'Recently Active' },
-    { key: 'createdAt', icon: TrendingUp, label: 'New Channels' },
+  const navigationOptions: NavigationOption[] = React.useMemo(() => [
+    { 
+      key: 'subscribers_count', 
+      icon: Users, 
+      label: 'Most Subscribers',
+      description: 'Channels ranked by subscriber count'
+    },
+    { 
+      key: 'updatedAt', 
+      icon: Clock, 
+      label: 'Recently Active',
+      description: 'Channels that have posted new content recently'
+    },
+    { 
+      key: 'createdAt', 
+      icon: TrendingUp, 
+      label: 'New Channels',
+      description: 'Recently created channels'
+    },
   ], []);
 
   return (
@@ -65,10 +76,9 @@ const ChannelPage: React.FC = () => {
         isFetchingNextPage={isFetchingNextPage}
         handleLoadMore={handleLoadMore}
         handleSortChange={handleSortChange}
-        sortOptions={sortOptions}
+        navigationOptions={navigationOptions}
         isLoadingMore={isFetchingNextPage}
       />
-      {/* Infinite scroll trigger */}
       <div ref={ref} style={{ height: '20px', margin: '20px 0' }} />
     </>
   );
