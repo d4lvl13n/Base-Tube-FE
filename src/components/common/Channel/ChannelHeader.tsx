@@ -9,11 +9,9 @@ import RichTextDisplay from '../RichTextDisplay';
 
 interface ChannelHeaderProps {
   channel: Channel;
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
 }
 
-const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setActiveTab }) => {
+const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel }) => {
   console.log('ChannelHeader - channel data:', {
     ownerProfileImage: channel.ownerProfileImage,
     fullAvatarUrl: channel.ownerProfileImage
@@ -22,8 +20,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setAc
         : `${process.env.REACT_APP_API_URL}/${channel.ownerProfileImage}`
       : '/assets/default-avatar.jpg'
   });
-
-  const tabs = ['Videos', 'About', 'Community'];
 
   const coverImageUrl = channel.channel_image_path
     ? channel.channel_image_path.startsWith('http')
@@ -102,25 +98,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, activeTab, setAc
         {/* Channel Description */}
         <div className="text-gray-300 mt-4 max-w-3xl">
           <RichTextDisplay content={channel.description || ''} />
-        </div>
-
-        {/* Tabs */}
-        <div className="flex space-x-4 mt-6">
-          {tabs.map((tab) => (
-            <motion.button
-              key={tab}
-              className={`px-4 py-2 rounded-full ${
-                activeTab === tab.toLowerCase()
-                  ? 'bg-[#fa7517] text-black'
-                  : 'bg-gray-800 text-white hover:bg-gray-700'
-              } transition-colors`}
-              onClick={() => setActiveTab(tab.toLowerCase())}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {tab}
-            </motion.button>
-          ))}
         </div>
       </div>
     </motion.div>

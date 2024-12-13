@@ -1,5 +1,5 @@
 import api from './index';
-import { Video } from '../types/video';
+import { TrendingVideoResponse, Video } from '../types/video';
 import { AxiosProgressEvent } from 'axios';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
 
@@ -42,8 +42,40 @@ export const getFeaturedVideos = (limit: number = 2) =>
 export const getRecommendedVideos = (page: number = 1, limit: number = 10) =>
   api.get(`/api/v1/videos/recommended?page=${page}&limit=${limit}`).then((res) => res.data.data);
 
-export const getTrendingVideos = (page: number = 1, limit: number = 10) =>
-  api.get(`/api/v1/videos/trending?page=${page}&limit=${limit}`).then((res) => res.data.data);
+export type TimeFrame = 'today' | 'week' | 'month' | 'all';
+export type SortOption = 'trending' | 'latest' | 'popular' | 'random';
+
+export interface GetTrendingVideosParams {
+  page?: number;
+  limit?: number;
+  timeFrame?: TimeFrame;
+  sort?: SortOption;
+}
+
+export const getTrendingVideos = async ({
+  page = 1,
+  limit = 10,
+  timeFrame = 'week',
+  sort = 'trending'
+}: GetTrendingVideosParams = {}): Promise<TrendingVideoResponse> => {
+  try {
+    const response = await api.get<TrendingVideoResponse>(
+      `/api/v1/videos/trending`,
+      {
+        params: {
+          page,
+          limit,
+          timeFrame,
+          sort
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching trending videos:', error);
+    throw error;
+  }
+};
 
 export const getNFTVideos = (limit: number = 4) =>
   api.get(`/api/v1/videos/nft?limit=${limit}`).then((res) => res.data.data);

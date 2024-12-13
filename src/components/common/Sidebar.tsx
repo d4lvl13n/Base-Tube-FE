@@ -1,8 +1,18 @@
 import React from 'react';
+import { useNavigation } from '../../contexts/NavigationContext';
+import FloatingSidebar from './FloatingSidebar';
 import { Link } from 'react-router-dom';
 import { Home, Flame, Compass, PlayCircle, User, Tv, Palette } from 'lucide-react';
 
 const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
+  const { navStyle } = useNavigation();
+
+  // If floating style is selected, render FloatingSidebar
+  if (navStyle === 'floating') {
+    return <FloatingSidebar />;
+  }
+
+  // Otherwise render classic sidebar
   return (
     <nav className={`bg-[#000000] w-16 h-full flex flex-col items-center py-16 ${className}`}>
       <div className="flex-1 flex flex-col space-y-8">

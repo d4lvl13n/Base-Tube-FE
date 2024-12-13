@@ -26,4 +26,17 @@ export interface Video {
   user?: User;
   comment_count: number;
   like_count: number;
+  engagement_score?: number;
+  time_category: 'today' | 'this_week' | 'this_month' | 'older';
+}
+
+export interface TrendingVideoResponse {
+  success: boolean;
+  data: {
+    videos: Video[];
+    total: number;
+    hasMore: boolean;
+    timeFrame: 'today' | 'week' | 'month' | 'all';
+    sort: 'trending' | 'latest' | 'popular' | 'random';
+  }
 }

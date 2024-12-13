@@ -6,21 +6,37 @@ import VideoSection from '../common/Home/VideoSection';
 import ChannelSection from '../common/Home/ChannelSection';
 import ErrorBoundary from '../common/ErrorBoundary';
 import PlaceholderVideoCard from '../common/PlaceHolderVideoCard';
-import { getFeaturedVideos, getRecommendedVideos, getTrendingVideos, getNFTVideos } from '../../api/video';
+import { getFeaturedVideos, getRecommendedVideos, getNFTVideos } from '../../api/video';
 import { getPopularChannels } from '../../api/channel';
+import { useTrendingVideos } from '../../hooks/useTrendingVideos';
 import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';
 
 const BaseTubeHomepage: React.FC = () => {
   const [featuredVideos, setFeaturedVideos] = useState<Video[]>([]);
   const [recommendedVideos, setRecommendedVideos] = useState<Video[]>([]);
-  const [trendingVideos, setTrendingVideos] = useState<Video[]>([]);
   const [nftVideos, setNFTVideos] = useState<Video[]>([]);
   const [popularChannels, setPopularChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [sectionErrors, setSectionErrors] = useState<Record<string, boolean>>({});
   const [channelsPage] = useState(1);
   const [channelsLimit] = useState(15);
+
+  const { 
+    videos: trendingVideos,
+    loading: trendingLoading,
+    error: trendingError
+  } = useTrendingVideos({ 
+    limit: 4,
+    timeFrame: 'week' as const,
+    sort: 'trending' as const
+  });
+
+  console.log('HomePage - Trending Videos:', {
+    videos: trendingVideos,
+    loading: trendingLoading,
+    error: trendingError
+  });
 
   useEffect(() => {
     const fetchHomePageData = async () => {
@@ -44,7 +60,6 @@ const BaseTubeHomepage: React.FC = () => {
       await Promise.all([
         fetchData(() => getFeaturedVideos(2), setFeaturedVideos, 'featured'),
         fetchData(() => getRecommendedVideos(4), setRecommendedVideos, 'recommended'),
-        fetchData(() => getTrendingVideos(4), setTrendingVideos, 'trending'),
         fetchData(() => getNFTVideos(4), setNFTVideos, 'nft'),
         fetchData(
           async () => {
@@ -63,7 +78,7 @@ const BaseTubeHomepage: React.FC = () => {
     fetchHomePageData();
   }, [channelsPage, channelsLimit]);
 
-  if (loading) {
+  if (loading || trendingLoading) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
 
@@ -77,10 +92,9 @@ const BaseTubeHomepage: React.FC = () => {
     <ErrorBoundary>
       <div className="bg-[#000000] text-white min-h-screen overflow-hidden">
         <Header className="fixed top-0 left-0 right-0 z-50" />
-        <div className="flex pt-16"> {/* Add padding-top to account for fixed header */}
-          <Sidebar className="fixed left-0 top-16 bottom-0 z-40" /> {/* Position sidebar below header */}
+        <div className="flex pt-16">
+          <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
           <main className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 ml-16 max-w-[1920px] mx-auto w-full">
-            {/* Content sections */}
             <HeroSection 
               featuredVideos={featuredVideos.slice(0, 2)} 
               renderPlaceholder={() => renderPlaceholders(2, 'large')}
@@ -93,7 +107,7 @@ const BaseTubeHomepage: React.FC = () => {
             />
             <VideoSection 
               title="Trending Now" 
-              videos={sectionErrors['trending'] ? [] : trendingVideos} 
+              videos={trendingVideos || []}
               linkTo="/discover?tab=trending"
               renderPlaceholder={() => renderPlaceholders(4)}
             />

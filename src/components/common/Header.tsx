@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Menu, X } from 'lucide-react';
+import { Search, Layout, LayoutDashboard } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
+import { useNavigation } from '../../contexts/NavigationContext';
 
 interface HeaderProps {
   className?: string;
@@ -13,11 +14,17 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ 
   className = '', 
-  isNavOpen = false, 
-  onNavToggle 
+  isNavOpen = false,
+  onNavToggle
 }) => {
   const { isSignedIn, user } = useUser();
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
+  const { navStyle, setNavStyle } = useNavigation();
+
+  const handleNavStyleToggle = () => {
+    if (onNavToggle) onNavToggle();
+    setNavStyle(navStyle === 'classic' ? 'floating' : 'classic');
+  };
 
   return (
     <header className={`
@@ -28,21 +35,21 @@ const Header: React.FC<HeaderProps> = ({
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={onNavToggle}
+          onClick={handleNavStyleToggle}
           className="p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
         >
           <AnimatePresence mode="wait">
             <motion.div
-              key={isNavOpen ? 'open' : 'closed'}
+              key={navStyle}
               initial={{ opacity: 0, rotate: -90 }}
               animate={{ opacity: 1, rotate: 0 }}
               exit={{ opacity: 0, rotate: 90 }}
               transition={{ duration: 0.2 }}
             >
-              {isNavOpen ? (
-                <X className="w-5 h-5 text-[#fa7517]" />
+              {navStyle === 'classic' ? (
+                <LayoutDashboard className="w-5 h-5 text-gray-400 hover:text-[#fa7517] transition-colors" />
               ) : (
-                <Menu className="w-5 h-5 text-gray-400 hover:text-[#fa7517] transition-colors" />
+                <Layout className="w-5 h-5 text-[#fa7517] transition-colors" />
               )}
             </motion.div>
           </AnimatePresence>

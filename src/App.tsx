@@ -9,7 +9,7 @@ import ProtectedRoute from './components/pages/ProtectedRoute';
 import HomePage from './components/pages/HomePage';
 import SingleVideo from './components/pages/SingleVideo';
 import DiscoveryPage from './components/pages/DiscoveryPage/index';
-import SubscribedChannelPage from './components/pages/SubscribedChannelPage';
+import SubscribedChannelPage from './components/pages/SubscribedChannelPage/index';
 import NFTMarketplace from './components/pages/NFTMarketplace';
 import UserProfileWallet from './components/pages/UserProfileWallet';
 import SignInPage from './components/pages/SignInPage';
@@ -32,6 +32,7 @@ import { VideoProvider } from './contexts/VideoContext';
 import { ConfigProvider } from './contexts/ConfigContext';
 import './styles/prosemirror.css';
 import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
+import { NavigationProvider } from './contexts/NavigationContext';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -98,123 +99,125 @@ function App() {
           <VideoProvider>
             <Router>
               <ChannelProvider>
-                <Routes>
-                  {/* Public routes that don't need channel context */}
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/discover" element={<DiscoveryPage />} />
-                  <Route path="/video/:id" element={<SingleVideo />} />
-                  <Route path="/nft-marketplace" element={<NFTMarketplace />} />
+                <NavigationProvider>
+                  <Routes>
+                    {/* Public routes that don't need channel context */}
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/discover" element={<DiscoveryPage />} />
+                    <Route path="/video/:id" element={<SingleVideo />} />
+                    <Route path="/nft-marketplace" element={<NFTMarketplace />} />
 
-                  {/* Channel-related routes */}
-                  <Route path="/channel/:identifier" element={<ChannelDetailPage />} />
-                  <Route path="/channel" element={<ChannelPage />} />
-                  
-                  {/* Creator Hub routes with special layout */}
-                  <Route
-                    path="/creator-hub"
-                    element={
-                      <CreatorHubRoute
-                        element={<CreatorHubLandingPage />}
-                      />
-                    }
-                  />
-                  <Route
-                    path="/creator-hub/upload"
-                    element={
-                      <CreatorHubRoute
-                        element={<VideoUpload />}
-                      />
-                    }
-                  />
-                  <Route
-                    path="/creator-hub/analytics"
-                    element={
-                      <CreatorHubRoute
-                        element={<AnalyticsPage />}
-                      />
-                    }
-                  />
-                  <Route
-                    path="/creator-hub/analytics/growth"
-                    element={
-                      <CreatorHubRoute
-                        element={<GrowthTab channelId={''} />}
-                      />
-                    }
-                  />
-                  <Route
-                    path="/creator-hub/resources"
-                    element={
-                      <CreatorHubRoute
-                        element={<CreatorResourcesPage />}
-                      />
-                    }
-                  />
+                    {/* Channel-related routes */}
+                    <Route path="/channel/:identifier" element={<ChannelDetailPage />} />
+                    <Route path="/channel" element={<ChannelPage />} />
+                    
+                    {/* Creator Hub routes with special layout */}
+                    <Route
+                      path="/creator-hub"
+                      element={
+                        <CreatorHubRoute
+                          element={<CreatorHubLandingPage />}
+                        />
+                      }
+                    />
+                    <Route
+                      path="/creator-hub/upload"
+                      element={
+                        <CreatorHubRoute
+                          element={<VideoUpload />}
+                        />
+                      }
+                    />
+                    <Route
+                      path="/creator-hub/analytics"
+                      element={
+                        <CreatorHubRoute
+                          element={<AnalyticsPage />}
+                        />
+                      }
+                    />
+                    <Route
+                      path="/creator-hub/analytics/growth"
+                      element={
+                        <CreatorHubRoute
+                          element={<GrowthTab channelId={''} />}
+                        />
+                      }
+                    />
+                    <Route
+                      path="/creator-hub/resources"
+                      element={
+                        <CreatorHubRoute
+                          element={<CreatorResourcesPage />}
+                        />
+                      }
+                    />
 
-                  {/* Protected routes */}
-                  <Route
-                    path="/profile"
-                    element={
-                      <ProtectedRoute>
-                        <UserProfileWallet />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/subscribed"
-                    element={
-                      <ProtectedRoute>
-                        <SubscribedChannelPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/create-channel"
-                    element={
-                      <ProtectedRoute>
-                        <CreateChannelPage />
-                      </ProtectedRoute>
-                    }
-                  />
+                    {/* Protected routes */}
+                    <Route
+                      path="/profile"
+                      element={
+                        <ProtectedRoute>
+                          <UserProfileWallet />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/subscribed"
+                      element={
+                        <ProtectedRoute>
+                          <SubscribedChannelPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/create-channel"
+                      element={
+                        <ProtectedRoute>
+                          <CreateChannelPage />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                  {/* Auth routes */}
-                  <Route
-                    path="/sign-in/*"
-                    element={
-                      <SignedOut>
-                        <SignInPage />
-                      </SignedOut>
-                    }
-                  />
-                  <Route
-                    path="/sign-up/*"
-                    element={
-                      <SignedOut>
-                        <SignUpPage />
-                      </SignedOut>
-                    }
-                  />
+                    {/* Auth routes */}
+                    <Route
+                      path="/sign-in/*"
+                      element={
+                        <SignedOut>
+                          <SignInPage />
+                        </SignedOut>
+                      }
+                    />
+                    <Route
+                      path="/sign-up/*"
+                      element={
+                        <SignedOut>
+                          <SignUpPage />
+                        </SignedOut>
+                      }
+                    />
 
-                  {/* Profile settings route */}
-                  <Route
-                    path="/profile/settings"
-                    element={
-                      <ProtectedRoute>
-                        <ProfileSettings />
-                      </ProtectedRoute>
-                    }
-                  />
+                    {/* Profile settings route */}
+                    <Route
+                      path="/profile/settings"
+                      element={
+                        <ProtectedRoute>
+                          <ProfileSettings />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                  {/* Catch-all redirect to sign-in */}
-                  <Route
-                    path="*"
-                    element={
-                      <SignedOut>
-                        <RedirectToSignIn />
-                      </SignedOut>
-                    }
-                  />
-                </Routes>
+                    {/* Catch-all redirect to sign-in */}
+                    <Route
+                      path="*"
+                      element={
+                        <SignedOut>
+                          <RedirectToSignIn />
+                        </SignedOut>
+                      }
+                    />
+                  </Routes>
+                </NavigationProvider>
               </ChannelProvider>
               <ToastContainer 
                 position="top-right"

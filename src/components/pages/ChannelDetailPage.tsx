@@ -11,14 +11,14 @@ import { getChannelVideos } from '../../api/channel';
 import { Video } from '../../types/video';
 import { useChannelData } from '../../hooks/useChannelData';
 import RichTextDisplay from '../common/RichTextDisplay';
+import ChannelTabs from '../common/Channel/ChannelTabs';
 
 const ChannelDetailPage: React.FC = () => {
   const { identifier } = useParams<{ identifier: string }>();
-  console.log('Identifier:', identifier); // For debugging
-
+  
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [activeTab, setActiveTab] = useState('videos');
@@ -30,17 +30,7 @@ const ChannelDetailPage: React.FC = () => {
   } = useChannelData(identifier);
 
   useEffect(() => {
-    if (channelError) {
-      setError('Failed to load channel data. Please try again.');
-    } else {
-      setError(null);
-    }
-  }, [channelError]);
-
-  useEffect(() => {
-    if (!channel || !channel.id) {
-      return; // Wait until channel data is available
-    }
+    if (!channel?.id) return;
 
     const fetchChannelVideos = async () => {
       setLoading(true);
@@ -49,19 +39,19 @@ const ChannelDetailPage: React.FC = () => {
         setVideos(videosData.data);
         setHasMore(videosData.pagination.page < videosData.pagination.totalPages);
         setPage(1);
-        setError(null); // Clear any previous errors
+        setVideoError(null);
       } catch (err) {
-        console.error(err);
-        setError('Failed to load channel videos. Please try again.');
+        console.error('Error fetching videos:', err);
+        setVideoError('Unable to load videos at this time. Please try again later.');
       }
       setLoading(false);
     };
 
     fetchChannelVideos();
-  }, [channel]);
+  }, [channel?.id]);
 
   const loadMoreVideos = async () => {
-    if (!hasMore || loading || !channel || !channel.id) return;
+    if (!hasMore || loading || !channel?.id) return;
 
     setLoading(true);
     try {
@@ -71,16 +61,30 @@ const ChannelDetailPage: React.FC = () => {
       setPage(nextPage);
       setHasMore(videosData.pagination.page < videosData.pagination.totalPages);
     } catch (err) {
-      console.error(err);
-      setError('Failed to load more videos. Please try again.');
+      console.error('Error loading more videos:', err);
+      setVideoError('Failed to load more videos. Please try again.');
     }
     setLoading(false);
   };
 
-  if (error) {
-    return <div className="text-center text-red-500 mt-10">{error}</div>;
+  // If there's an error loading the channel itself, show that error
+  if (channelError) {
+    return (
+      <div className="bg-black text-white min-h-screen">
+        <Header />
+        <div className="flex pt-16">
+          <Sidebar />
+          <main className="flex-1 p-8">
+            <div className="text-center text-red-500 mt-10">
+              Failed to load channel. Please try again.
+            </div>
+          </main>
+        </div>
+      </div>
+    );
   }
 
+  // Show loading state for the channel
   if (isChannelLoading || !channel) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -101,18 +105,50 @@ const ChannelDetailPage: React.FC = () => {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
             >
-              <ChannelHeader
-                channel={channel}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
+              <ChannelHeader channel={channel} />
+              <ChannelTabs 
+                activeTab={activeTab} 
+                setActiveTab={setActiveTab} 
               />
               <div className="p-6">
                 {activeTab === 'videos' && (
-                  <VideoGrid
-                    videos={videos}
-                    loadMore={loadMoreVideos}
-                    hasMore={hasMore}
-                  />
+                  <>
+                    {videoError ? (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 backdrop-blur-sm">
+                        <p className="text-red-400 text-center">{videoError}</p>
+                        <button 
+                          onClick={() => {
+                            setVideoError(null);
+                            if (channel?.id) {
+                              const fetchVideos = async () => {
+                                setLoading(true);
+                                try {
+                                  const videosData = await getChannelVideos(channel.id.toString(), 1);
+                                  setVideos(videosData.data);
+                                  setHasMore(videosData.pagination.page < videosData.pagination.totalPages);
+                                  setPage(1);
+                                  setVideoError(null);
+                                } catch (err) {
+                                  setVideoError('Unable to load videos. Please try again later.');
+                                }
+                                setLoading(false);
+                              };
+                              fetchVideos();
+                            }
+                          }}
+                          className="mt-4 px-4 py-2 bg-[#fa7517] text-black rounded-lg hover:bg-[#fa9517] transition-colors"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    ) : (
+                      <VideoGrid
+                        videos={videos}
+                        loadMore={loadMoreVideos}
+                        hasMore={hasMore}
+                      />
+                    )}
+                  </>
                 )}
                 {activeTab === 'about' && (
                   <div className="max-w-4xl mx-auto">

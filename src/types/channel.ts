@@ -20,6 +20,8 @@ export interface Channel {
   updatedAt: string;
   videosCount?: number;
   ownerProfileImage?: string | null;
+  last_video_at?: string;
+  hasNewContent?: boolean;
 }
 
 // Response Types
@@ -131,4 +133,48 @@ export interface GetChannelsOptions {
   sort?: ChannelSortOption;
   minSubscribers?: number;
   search?: string;
+}
+
+export interface SubscribedChannelResponse {
+  success: boolean;
+  data: Channel[];
+  pagination: {
+    total: number;
+    hasMore: boolean;
+    currentPage: number;
+    itemsPerPage: number;
+  };
+}
+
+export interface GetSubscribedChannelsOptions {
+  page?: number;
+  limit?: number;
+  sort?: string;
+}
+
+export interface SubscribedChannel {
+  id: number;
+  user_id: string;
+  name: string;
+  description: string;
+  unique_id: string;
+  channel_image_path: string;
+  facebook_link: string | null;
+  instagram_link: string | null;
+  twitter_link: string | null;
+  subscribers_count: number;
+  isApproved: boolean;
+  status: number;
+  handle: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    username: string;
+    profile_image_url: string | null;
+  };
+  isSubscribed: boolean;
+  isOwner: boolean;
+  ownerUsername: string | null;
+  ownerProfileImage: string | null;
+  newVideos?: number;
 }

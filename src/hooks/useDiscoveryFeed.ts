@@ -38,7 +38,9 @@ const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
     channel: discoveryVideo.channel,
     comment_count: 0,
     like_count: discoveryVideo.likes_count,
-    user: undefined
+    user: undefined,
+    time_category: discoveryVideo.time_category || 'older',
+    engagement_score: discoveryVideo.engagement_score || 0
   };
 };
 

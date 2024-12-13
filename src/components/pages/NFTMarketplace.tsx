@@ -1,142 +1,295 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { Hexagon, Search, Filter, Tag, Clock, Zap, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, Sparkles, ChevronLeft, ChevronRight, DollarSign, Clock, Tag, GamepadIcon } from 'lucide-react';
+import { useNavigation } from '../../contexts/NavigationContext';
+import Header from '../common/Header';
+import Sidebar from '../common/Sidebar';
 
-const NFTMarketplace = () => {
-  const [activeCategory, setActiveCategory] = useState('All');
-  const categories = ['All', 'Trending', 'New Releases', 'Ending Soon', 'Exclusive Content'];
+const getCategoryStyle = (category: string) => {
+  const styles = {
+    Crypto: 'bg-[#fa7517]/20 text-[#fa7517] border border-[#fa7517]/30',
+    Gaming: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
+    Education: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+    Sports: 'bg-green-500/20 text-green-400 border border-green-500/30',
+    Music: 'bg-pink-500/20 text-pink-400 border border-pink-500/30',
+    Technology: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
+    Art: 'bg-rose-500/20 text-rose-400 border border-rose-500/30',
+    Fitness: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+  };
+  
+  return styles[category as keyof typeof styles] || 'bg-gray-500/20 text-gray-400 border border-gray-500/30';
+};
 
-  const nfts = [
-    { id: 1, title: "Crypto Explorers S1", creator: "Web3 Visionaries", price: "50 $TUBE", timeLeft: "2d 5h", exclusive: true },
-    { id: 2, title: "DeFi Mastery Course", creator: "FinTech Gurus", price: "75 $TUBE", timeLeft: "4d 12h", exclusive: false },
-    { id: 3, title: "NFT Art Showcase", creator: "Digital Picassos", price: "30 $TUBE", timeLeft: "1d 3h", exclusive: true },
-    { id: 4, title: "Blockchain Basics", creator: "Crypto 101", price: "25 $TUBE", timeLeft: "6d 8h", exclusive: false },
-    { id: 5, title: "Web3 Gaming Pass", creator: "MetaGamers", price: "60 $TUBE", timeLeft: "3d 7h", exclusive: true },
-    { id: 6, title: "Decentralized Future", creator: "DAOists", price: "45 $TUBE", timeLeft: "5d 9h", exclusive: false },
+const NFTMarketplace: React.FC = () => {
+  const { navStyle } = useNavigation();
+  
+  const mockNFTs = [
+    {
+      id: 1,
+      title: "Premium Creator Pass",
+      creator: "Base.Tube Studios",
+      price: "7,485.00 TUBE",
+      category: "Crypto",
+      verified: true,
+      priceChange: "+2.78%",
+      positive: true
+    },
+    {
+      id: 2,
+      title: "Gaming Bundle Pass",
+      creator: "CBC Gaming",
+      price: "2,584.00 TUBE",
+      category: "Gaming",
+      verified: true,
+      priceChange: "+1.2%",
+      positive: true
+    },
+    {
+      id: 3,
+      title: "Educational Content Pass",
+      creator: "CryptoTeach",
+      price: "3,250.00 TUBE",
+      category: "Education",
+      verified: true,
+      priceChange: "-0.5%",
+      positive: false
+    },
+    {
+      id: 4,
+      title: "Sports Premium Access",
+      creator: "SportsFi",
+      price: "5,100.00 TUBE",
+      category: "Sports",
+      verified: true,
+      priceChange: "+4.2%",
+      positive: true
+    },
+    {
+      id: 5,
+      title: "Music Creator Bundle",
+      creator: "SoundBase",
+      price: "4,750.00 TUBE",
+      category: "Music",
+      verified: true,
+      priceChange: "+1.8%",
+      positive: true
+    },
+    {
+      id: 6,
+      title: "Tech Insider Pass",
+      creator: "TechBase",
+      price: "6,300.00 TUBE",
+      category: "Technology",
+      verified: true,
+      priceChange: "-1.2%",
+      positive: false
+    },
+    {
+      id: 7,
+      title: "Art Collection Pass",
+      creator: "ArtBase",
+      price: "8,900.00 TUBE",
+      category: "Art",
+      verified: true,
+      priceChange: "+5.4%",
+      positive: true
+    },
+    {
+      id: 8,
+      title: "Fitness Premium Pass",
+      creator: "FitTube",
+      price: "3,800.00 TUBE",
+      category: "Fitness",
+      verified: false,
+      priceChange: "+0.8%",
+      positive: true
+    }
   ];
 
   return (
-    <div className="bg-black text-white h-screen w-screen overflow-hidden relative">
-      {/* Deep black background */}
-      <div className="absolute inset-0 bg-black" />
-
-      {/* Header */}
-      <header className="absolute top-0 left-0 right-0 flex justify-between items-center p-4 z-10">
-        <motion.div whileHover={{ scale: 1.1 }}>
-          <Hexagon size={40} className="text-[#fa7517]" />
-        </motion.div>
-        <div className="flex-1 max-w-2xl mx-4">
-          <div className="relative">
-            <input 
-              className="w-full bg-gray-800 bg-opacity-50 rounded-full px-4 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-[#fa7517]" 
-              placeholder="Search NFT Content Passes" 
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          </div>
-        </div>
-        <motion.button 
-          className="bg-[#fa7517] text-black px-4 py-2 rounded-full font-bold"
-          whileHover={{ scale: 1.05 }}
-        >
-          Connect Wallet
-        </motion.button>
-      </header>
-
-      {/* Category Navigation */}
-      <nav className="absolute top-20 left-0 right-0 flex justify-center space-x-4 z-10">
-        {categories.map((category) => (
-          <motion.button
-            key={category}
-            className={`px-4 py-2 rounded-full ${activeCategory === category ? 'bg-[#fa7517] text-black' : 'bg-black bg-opacity-50 text-white'}`}
-            whileHover={{ scale: 1.1 }}
-            onClick={() => setActiveCategory(category)}
+    <div className="min-h-screen bg-gradient-to-b from-black to-gray-900">
+      <Header />
+      <div className="flex">
+        {navStyle === 'classic' && <Sidebar />}
+        
+        <div className={`flex-1 ${navStyle === 'classic' ? 'ml-16' : ''} pt-16`}>
+          {/* Development Banner */}
+          <motion.div 
+            className="bg-[#fa7517]/10 border border-[#fa7517]/20 rounded-lg m-4 p-4"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
           >
-            {category}
-          </motion.button>
-        ))}
-      </nav>
+            <div className="flex items-center space-x-2 text-[#fa7517]">
+              <AlertCircle size={20} />
+              <span className="font-semibold">Development in Progress</span>
+            </div>
+            <p className="text-gray-300 mt-2">
+              The NFT Marketplace is currently under development. Features will be available soon.
+            </p>
+          </motion.div>
 
-      {/* Main content area */}
-      <main className="absolute inset-0 mt-32 p-8 overflow-hidden">
-        <motion.div 
-          className="grid grid-cols-3 gap-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          {nfts.map((nft) => (
-            <motion.div 
-              key={nft.id}
-              className="bg-gray-900 bg-opacity-70 rounded-2xl overflow-hidden relative"
-              whileHover={{ scale: 1.05, zIndex: 1 }}
-              style={{
-                boxShadow: `0 0 20px 5px rgba(250, 117, 23, 0.3), 
-                            0 0 60px 10px rgba(250, 117, 23, 0.2), 
-                            0 0 100px 20px rgba(250, 117, 23, 0.1)`
-              }}
-            >
-              <img src={`/api/placeholder/400/225`} alt={nft.title} className="w-full h-48 object-cover" />
-              <div className="p-4">
-                <h3 className="font-semibold text-lg">{nft.title}</h3>
-                <p className="text-sm text-gray-300 mb-2">by {nft.creator}</p>
-                <div className="flex justify-between items-center">
-                  <span className="flex items-center">
+          {/* Featured Pass Section */}
+          <motion.div 
+            className="mx-4 mb-6 p-6 rounded-2xl bg-gradient-to-r from-[#fa7517]/20 to-black/60 
+                       border border-[#fa7517]/20 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div className="flex items-start space-x-6">
+              <div className="w-1/3">
+                <motion.div 
+                  className="relative rounded-lg overflow-hidden"
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <img 
+                    src="/assets/mockup/featured-nft.jpg" 
+                    alt="Featured NFT"
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                </motion.div>
+              </div>
+              <div className="flex-1 space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="text-[#fa7517]" size={20} />
+                  <span className="text-[#fa7517] font-semibold">Featured Pass</span>
+                </div>
+                <h2 className="text-2xl font-bold text-white">Ultimate Creator Bundle</h2>
+                <p className="text-gray-300">
+                  Get exclusive access to premium content and special features with our Ultimate Creator Bundle.
+                  Includes early access to new features and premium support.
+                </p>
+                <div className="flex items-center space-x-4">
+                  <span className="text-white flex items-center">
                     <DollarSign size={16} className="text-[#fa7517] mr-1" />
-                    {nft.price}
+                    10,000 TUBE
                   </span>
-                  <span className="flex items-center">
+                  <span className="text-white flex items-center">
                     <Clock size={16} className="text-[#fa7517] mr-1" />
-                    {nft.timeLeft}
+                    24h left
                   </span>
+                </div>
+                <motion.button
+                  className="bg-[#fa7517] text-black px-6 py-2 rounded-full font-semibold"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Place Bid
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Market List Section */}
+          <div className="mx-4 rounded-xl bg-black/40 backdrop-blur-sm border border-gray-800/50">
+            {/* Header */}
+            <div className="p-4 border-b border-gray-800/50">
+              <div className="flex items-center justify-between">
+                <div className="flex space-x-4">
+                  <button className="text-[#fa7517] font-semibold px-4 py-2 rounded-full 
+                                   bg-[#fa7517]/10 hover:bg-[#fa7517]/20">
+                    Trending
+                  </button>
+                  <button className="text-gray-400 px-4 py-2 rounded-full 
+                                   hover:bg-gray-800/50">
+                    Most Popular
+                  </button>
+                  <button className="text-gray-400 px-4 py-2 rounded-full 
+                                   hover:bg-gray-800/50">
+                    New Releases
+                  </button>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="text"
+                    placeholder="Search for creator..."
+                    className="bg-black/50 border border-gray-800 rounded-full px-4 py-2
+                             text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#fa7517]"
+                  />
                 </div>
               </div>
-              {nft.exclusive && (
-                <div className="absolute top-2 right-2 bg-[#fa7517] text-black px-2 py-1 rounded-full text-xs font-bold">
-                  Exclusive
-                </div>
-              )}
-              <motion.button 
-                className="absolute bottom-4 right-4 bg-[#fa7517] text-black px-4 py-2 rounded-full font-bold"
-                whileHover={{ scale: 1.1 }}
-              >
-                Bid Now
-              </motion.button>
-            </motion.div>
-          ))}
-        </motion.div>
-      </main>
+            </div>
 
-      {/* Floating action buttons */}
-      <motion.div 
-        className="absolute bottom-8 right-8 flex space-x-4"
-      >
-        <motion.div 
-          className="bg-[#fa7517] rounded-full p-4"
-          whileHover={{ scale: 1.1 }}
-        >
-          <Filter size={24} className="text-black" />
-        </motion.div>
-        <motion.div 
-          className="bg-[#fa7517] rounded-full p-4"
-          whileHover={{ scale: 1.1 }}
-        >
-          <Tag size={24} className="text-black" />
-        </motion.div>
-      </motion.div>
+            {/* List Header */}
+            <div className="grid grid-cols-12 gap-4 px-6 py-3 text-sm text-gray-400 border-b border-gray-800/50">
+              <div className="col-span-4">Creator Details</div>
+              <div className="col-span-2">Category</div>
+              <div className="col-span-3">NFT Content Pass Price</div>
+              <div className="col-span-3">Price Evolution (7 Days)</div>
+            </div>
 
-      {/* Side navigation arrows */}
-      <motion.div 
-        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 rounded-full p-2"
-        whileHover={{ scale: 1.1 }}
-      >
-        <ChevronLeft size={32} className="text-[#fa7517]" />
-      </motion.div>
-      <motion.div 
-        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 rounded-full p-2"
-        whileHover={{ scale: 1.1 }}
-      >
-        <ChevronRight size={32} className="text-[#fa7517]" />
-      </motion.div>
+            {/* List Items */}
+            <div className="divide-y divide-gray-800/50">
+              {mockNFTs.map((nft) => (
+                <motion.div
+                  key={nft.id}
+                  className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-800/20 cursor-pointer"
+                  whileHover={{ scale: 1.002 }}
+                >
+                  <div className="col-span-4 flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-800/50 flex items-center justify-center">
+                      <img 
+                        src={`/assets/mockup/avatar${nft.id}.jpg`} 
+                        alt={nft.creator}
+                        className="w-10 h-10 rounded-full"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-white font-medium flex items-center">
+                        {nft.creator}
+                        {nft.verified && (
+                          <Sparkles size={14} className="ml-1 text-[#fa7517]" />
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-400">{nft.title}</div>
+                    </div>
+                  </div>
+                  <div className="col-span-2 flex items-center">
+                    <motion.span 
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm
+                        ${getCategoryStyle(nft.category)}
+                      `}
+                      whileHover={{ scale: 1.05 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    >
+                      <div className="flex items-center space-x-1">
+                        {nft.category === 'Crypto' && <Tag size={12} />}
+                        {nft.category === 'Gaming' && <GamepadIcon size={12} />}
+                        {/* Add more category-specific icons */}
+                        <span>{nft.category}</span>
+                      </div>
+                    </motion.span>
+                  </div>
+                  <div className="col-span-3 flex items-center text-white font-medium">
+                    {nft.price}
+                  </div>
+                  <div className="col-span-3 flex items-center">
+                    <span className={`flex items-center ${nft.positive ? 'text-green-400' : 'text-red-400'}`}>
+                      {nft.priceChange}
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-800/50">
+              <div className="text-sm text-gray-400">
+                Rows per page: <span className="text-white">30</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-400">1-6 of 25</span>
+                <button className="p-1 rounded-full hover:bg-gray-800/50">
+                  <ChevronLeft size={20} className="text-gray-400" />
+                </button>
+                <button className="p-1 rounded-full hover:bg-gray-800/50">
+                  <ChevronRight size={20} className="text-gray-400" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

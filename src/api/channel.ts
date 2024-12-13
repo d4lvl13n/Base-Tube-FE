@@ -10,7 +10,9 @@ import {
   ChannelAnalyticsResponse,
   ChannelQueryOptions,
   GetChannelsOptions,
-  GetChannelsResponse
+  GetChannelsResponse,
+  SubscribedChannelResponse,
+  GetSubscribedChannelsOptions
 } from '../types/channel';
 import { 
   SocialMetrics, 
@@ -18,6 +20,7 @@ import {
   GrowthMetrics, 
   CreatorWatchHours 
 } from '../types/analytics';
+import axios from 'axios';
 
 export const getMyChannels = async (
   options: ChannelQueryOptions = {}
@@ -293,4 +296,54 @@ export const getChannelDescription = async (
   );
 
   return response.data;
+};
+
+export const getSubscribedChannels = async (
+  options: GetSubscribedChannelsOptions = {}
+): Promise<SubscribedChannelResponse> => {
+  const { 
+    page = 1, 
+    limit = 24, 
+    sort = 'subscribers_count' 
+  } = options;
+
+  try {
+    const response = await api.get<SubscribedChannelResponse>(
+      '/api/v1/channels/subscribed',
+      {
+        params: {
+          page,
+          limit,
+          sort
+        }
+      }
+    );
+
+    return {
+      success: true,
+      data: response.data.data || [],
+      pagination: response.data.pagination || {
+        total: 0,
+        hasMore: false,
+        currentPage: 1,
+        itemsPerPage: limit
+      }
+    };
+  } catch (error) {
+    // If it's a 404, return empty data instead of throwing
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return {
+        success: true,
+        data: [],
+        pagination: {
+          total: 0,
+          hasMore: false,
+          currentPage: 1,
+          itemsPerPage: limit
+        }
+      };
+    }
+    console.error('Error fetching subscribed channels:', error);
+    throw error;
+  }
 };
