@@ -13,6 +13,7 @@ interface VideoCardProps {
 
 const VideoCard: React.FC<VideoCardProps> = ({ video, size, className = '' }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -32,10 +33,26 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, size, className = '' }) =>
     return views.toString();
   };
 
+  // Helper function to get the correct thumbnail URL
+  const getThumbnailUrl = (video: Video): string => {
+    // If thumbnail_url exists (Storj URL), use it directly
+    if (video.thumbnail_url) {
+      return video.thumbnail_url;
+    }
+
+    // If thumbnail_path is a full URL, use it directly
+    if (video.thumbnail_path?.startsWith('http')) {
+      return video.thumbnail_path;
+    }
+
+    // Otherwise, construct the local URL
+    return `${API_BASE_URL}/${video.thumbnail_path}`;
+  };
+
   const channelImageUrl = video.channel?.channel_image_path
     ? video.channel.channel_image_path.startsWith('http')
       ? video.channel.channel_image_path
-      : `${process.env.REACT_APP_API_URL}/${video.channel.channel_image_path}`
+      : `${API_BASE_URL}/${video.channel.channel_image_path}`
     : '/assets/default-cover.jpg';
 
   return (
@@ -49,12 +66,12 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, size, className = '' }) =>
         transition={{ duration: 0.3 }}
       >
         {/* Fixed Aspect Ratio Container */}
-        <div className="relative w-full pt-[56.25%]"> {/* 16:9 aspect ratio */}
+        <div className="relative w-full pt-[56.25%]">
           {/* Thumbnail Container - Absolute Position */}
           <div className="absolute inset-0">
             {/* Main Thumbnail */}
             <img
-              src={`${process.env.REACT_APP_API_URL}/${video.thumbnail_path}`}
+              src={getThumbnailUrl(video)}
               alt={video.title}
               loading="lazy"
               className={`w-full h-full object-cover transition-opacity duration-500

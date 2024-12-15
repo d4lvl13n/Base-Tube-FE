@@ -1,5 +1,4 @@
-// src/components/common/Video/VideoPlayer.tsx
-import React, { useEffect, useRef, forwardRef, MutableRefObject } from 'react';
+import React, { useEffect, useRef, forwardRef } from 'react';
 import videojs from 'video.js';
 import type Player from 'video.js/dist/types/player';
 import 'video.js/dist/video-js.css';
@@ -9,7 +8,10 @@ import { useViewTracking } from '../../../hooks/useViewTracking';
 
 interface VideoPlayerProps {
   src: string;
+  video_url?: string;
+  video_urls?: Record<string, string>;
   thumbnail_path: string;
+  thumbnail_url?: string;
   onReady?: (player: VideoPlayerRef) => void;
   videoId: string;
   duration: number;
@@ -26,7 +28,7 @@ export interface VideoPlayerRef {
 }
 
 const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
-  ({ src, thumbnail_path, onReady, videoId, duration }, ref) => {
+  ({ src, video_url, video_urls, thumbnail_path, thumbnail_url, onReady, videoId, duration }, ref) => {
     const videoRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<Player | null>(null);
 
@@ -50,6 +52,10 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       // Detect if the device is a touch device
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
+      // Determine video source (prefer Storj URL if available)
+      const videoSource = video_url || src;
+      const thumbnailSource = thumbnail_url || thumbnail_path;
+
       const playerOptions = {
         controls: true,
         autoplay: false,
@@ -57,8 +63,8 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         fluid: true,
         responsive: true,
         aspectRatio: '16:9',
-        poster: thumbnail_path,
-        playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2], // Available playback speeds
+        poster: thumbnailSource,
+        playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2],
         userActions: {
           hotkeys: true,
           doubleClick: true,
@@ -66,13 +72,12 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         },
         sources: [
           {
-            src,
+            src: videoSource,
             type: 'video/mp4',
           },
         ],
         controlBar: {
           children: [
-            // Left Group
             {
               name: 'playToggle',
             },
@@ -89,13 +94,9 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
             {
               name: 'durationDisplay',
             },
-            
-            // Center - Progress Bar
             {
               name: 'progressControl',
             },
-            
-            // Right Group
             {
               name: 'playbackRateMenuButton',
             },
@@ -112,7 +113,6 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       };
 
       const player = videojs(videoElement, playerOptions);
-
       playerRef.current = player;
 
       // Event listeners for view tracking
@@ -136,6 +136,11 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       player.on('ended', () => {
         console.log('🎬 Video ended');
         void viewTracking.finalize();
+      });
+
+      // Add error event listener
+      player.on('error', () => {
+        console.error('Video.js Error:', player.error());
       });
 
       // Expose player methods via ref
@@ -168,12 +173,14 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       if (ref) {
         if (typeof ref === 'function') {
           ref(playerInterface);
-        } else if ('current' in ref) {
-          (ref as MutableRefObject<VideoPlayerRef | null>).current = playerInterface;
+        } else {
+          ref.current = playerInterface;
         }
       }
 
-      if (onReady) onReady(playerInterface);
+      if (onReady) {
+        onReady(playerInterface);
+      }
 
       return () => {
         console.log('Disposing VideoPlayer');
@@ -195,4 +202,6 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
   }
 );
 
-export default VideoPlayer; 
+VideoPlayer.displayName = 'VideoPlayer';
+
+export default VideoPlayer;

@@ -9,9 +9,33 @@ export interface Video {
   channel_id: number;
   title: string;
   description: string;
-  video_path: string;
+  
+  // Video paths and URLs
+  video_path: string;           // Local path (for development)
+  video_url?: string;          // Full Storj URL
+  video_urls?: {               // Different quality versions
+    '240p'?: string;
+    '360p'?: string;
+    '480p'?: string;
+    '720p'?: string;
+    '1080p'?: string;
+    '1440p'?: string;
+    '2160p'?: string;
+    'original'?: string;
+  };
   processed_video_paths?: string[] | null;
-  thumbnail_path: string;
+  
+  // Thumbnail paths and URLs
+  thumbnail_path: string;       // Local path (for development)
+  thumbnail_url?: string;      // Full Storj URL
+  thumbnail_urls?: {           // Different thumbnail sizes
+    small?: string;
+    medium?: string;
+    large?: string;
+    original?: string;
+  };
+
+  // Video metadata
   duration: number;
   views: number;
   likes: number;
@@ -20,12 +44,20 @@ export interface Video {
   is_featured: boolean;
   trending_score: number;
   is_nft_content: boolean;
+  
+  // Timestamps
   createdAt: string;
   updatedAt: string;
+  
+  // Relations
   channel?: Channel;
   user?: User;
+  
+  // Counts
   comment_count: number;
   like_count: number;
+  
+  // Additional metadata
   engagement_score?: number;
   time_category: 'today' | 'this_week' | 'this_month' | 'older';
 }
@@ -38,5 +70,19 @@ export interface TrendingVideoResponse {
     hasMore: boolean;
     timeFrame: 'today' | 'week' | 'month' | 'all';
     sort: 'trending' | 'latest' | 'popular' | 'random';
+  }
+}
+
+export interface VideoResponse {
+  success: boolean;
+  data: Video;
+}
+
+export interface VideosResponse {
+  success: boolean;
+  data: {
+    videos: Video[];
+    total: number;
+    hasMore: boolean;
   }
 }

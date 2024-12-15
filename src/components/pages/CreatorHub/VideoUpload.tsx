@@ -13,7 +13,6 @@ import {
   AlertCircle,
   X,
   Sparkles,
-  Wand2,
 } from 'lucide-react';
 import { uploadVideo, generateVideoDescription } from '../../../api/video';
 import { useChannels } from '../../../context/ChannelContext';
@@ -80,17 +79,39 @@ const VideoUpload: React.FC = () => {
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type.startsWith('video/')) {
+    if (file) {
+      console.log('File selected:', {
+        name: file.name,
+        size: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
+        type: file.type
+      });
+
+      if (!file.type.startsWith('video/')) {
+        console.error('Invalid file type:', file.type);
+        alert('Please upload a valid video file.');
+        return;
+      }
+
       setSelectedFile(file);
       setStep(2);
-    } else {
-      alert('Please upload a valid video file.');
     }
   };
 
   const handleThumbnailChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
+    if (file) {
+      console.log('Thumbnail selected:', {
+        name: file.name,
+        size: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
+        type: file.type
+      });
+
+      if (!file.type.startsWith('image/')) {
+        console.error('Invalid thumbnail type:', file.type);
+        alert('Please upload a valid image file for the thumbnail.');
+        return;
+      }
+
       setThumbnailFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -100,24 +121,38 @@ const VideoUpload: React.FC = () => {
         }
       };
       reader.readAsDataURL(file);
-    } else {
-      alert('Please upload a valid image file for the thumbnail.');
     }
   };
 
   const handlePublish = async () => {
+    console.log('Starting video upload process...');
+    
     if (!selectedFile) {
+      console.error('Upload failed: No video file selected');
       alert('Please select a video file.');
       return;
     }
+    
     if (!selectedChannelId) {
+      console.error('Upload failed: No channel selected');
       alert('Please select a channel.');
       return;
     }
+    
     if (!title.trim()) {
+      console.error('Upload failed: No title provided');
       alert('Please enter a title for your video.');
       return;
     }
+
+    console.log('Upload preparation:', {
+      fileName: selectedFile.name,
+      fileSize: `${(selectedFile.size / (1024 * 1024)).toFixed(2)}MB`,
+      fileType: selectedFile.type,
+      channelId: selectedChannelId,
+      hasThumbnail: !!thumbnailFile,
+      visibility
+    });
 
     const formData = new FormData();
     formData.append('video', selectedFile);
@@ -131,6 +166,7 @@ const VideoUpload: React.FC = () => {
     }
 
     try {
+      console.log('Starting upload to server...');
       setUploadProgress(0);
       setStep(3); // Show upload progress
 
@@ -138,33 +174,72 @@ const VideoUpload: React.FC = () => {
         if (progressEvent.total) {
           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(progress);
+          console.log(`Upload progress: ${progress}%`);
         }
+      });
+
+      console.log('Upload completed successfully:', {
+        videoId: response.data.id,
+        status: response.status
       });
 
       setUploadedVideoId(response.data.id);
       setStep(4);
-    } catch (error) {
-      console.error('Error uploading video:', error);
-      alert('Failed to upload video. Please try again.');
+    } catch (error: any) {
+      console.error('Upload failed with error:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+
+      // More specific error messages based on error type
+      let errorMessage = 'Failed to upload video. Please try again.';
+      
+      if (error.response?.status === 413) {
+        errorMessage = 'Video file is too large. Maximum size is 2GB.';
+      } else if (error.response?.status === 415) {
+        errorMessage = 'Unsupported video format. Please use MP4, MOV, or AVI.';
+      } else if (error.message.includes('Network Error')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      }
+
+      alert(errorMessage);
       setStep(2);
     }
   };
 
   const handleGenerateDescription = async () => {
     if (!title.trim()) {
+      console.error('Description generation failed: No title provided');
       alert('Please enter a video title first');
       return;
     }
+
+    console.log('Starting AI description generation:', {
+      title,
+      keywordsLength: keywords.length,
+      additionalInfoLength: additionalInfo.length
+    });
 
     setIsGenerating(true);
     try {
       const { description: generated, suggestedTitle } = 
         await generateVideoDescription(title, keywords, additionalInfo);
       
+      console.log('Description generated successfully:', {
+        descriptionLength: generated.length,
+        hasSuggestedTitle: !!suggestedTitle
+      });
+
       setGeneratedDescription(generated);
       setSuggestedTitle(suggestedTitle);
-    } catch (error) {
-      console.error('Failed to generate description:', error);
+    } catch (error: any) {
+      console.error('Description generation failed:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
       alert('Failed to generate description. Please try again.');
     } finally {
       setIsGenerating(false);

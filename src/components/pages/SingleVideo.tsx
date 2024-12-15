@@ -278,7 +278,10 @@ const SingleVideo: React.FC = () => {
             <div className="relative w-full h-0" style={{ paddingBottom: '56.25%' /* 16:9 Aspect Ratio */ }}>
               <VideoPlayer
                 src={`${API_BASE_URL}/${video.video_path}`}
+                video_url={video.video_url}
+                video_urls={video.video_urls}
                 thumbnail_path={`${API_BASE_URL}/${video.thumbnail_path}`}
+                thumbnail_url={video.thumbnail_url}
                 duration={video.duration}
                 videoId={video.id.toString()}
                 onReady={handlePlayerReady}

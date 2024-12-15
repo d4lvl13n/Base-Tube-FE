@@ -83,16 +83,103 @@ export const getNFTVideos = (limit: number = 4) =>
 export const getVideos = (category: string, limit: number = 4) => 
   api.get<Video[]>(`/api/v1/videos?category=${category}&limit=${limit}`);
 
-export const uploadVideo = (formData: FormData, onUploadProgress?: (progressEvent: AxiosProgressEvent) => void) =>
-  api.post<{
-    id: string;
-    message: string;
-    video_path: string;
-    thumbnail_path: string;
-  }>('/api/v1/videos/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    onUploadProgress,
-  });
+export const uploadVideo = async (formData: FormData, onUploadProgress?: (progressEvent: AxiosProgressEvent) => void) => {
+  try {
+    // Log the FormData contents
+    console.log('Upload API - FormData contents:', {
+      hasVideo: formData.has('video'),
+      videoFile: formData.get('video'),
+      hasTitle: formData.has('title'),
+      hasDescription: formData.has('description'),
+      hasThumbnail: formData.has('thumbnail'),
+      hasChannelId: formData.has('channel_id'),
+      hasVisibility: formData.has('is_public'),
+    });
+
+    // Log request configuration
+    console.log('Upload API - Request configuration:', {
+      endpoint: '/api/v1/videos/upload',
+      contentType: 'multipart/form-data',
+      formDataSize: Array.from(formData.entries()).reduce((total, [_, value]) => {
+        if (value instanceof File) {
+          return total + value.size;
+        }
+        return total + new Blob([String(value)]).size;
+      }, 0) / (1024 * 1024), // Size in MB
+    });
+
+    const response = await api.post<{
+      id: string;
+      message: string;
+      video_path: string;
+      thumbnail_path: string;
+    }>('/api/v1/videos/upload', formData, {
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+        console.log('Upload API - Progress:', {
+          loaded: `${(progressEvent.loaded / (1024 * 1024)).toFixed(2)}MB`,
+          total: progressEvent.total ? `${(progressEvent.total / (1024 * 1024)).toFixed(2)}MB` : 'unknown',
+          progress: progressEvent.total ? `${Math.round((progressEvent.loaded * 100) / progressEvent.total)}%` : 'calculating...'
+        });
+        
+        if (onUploadProgress) {
+          onUploadProgress(progressEvent);
+        }
+      },
+      // Add timeout and max content length configurations
+      timeout: 300000, // 5 minutes
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
+    });
+
+    console.log('Upload API - Success:', {
+      status: response.status,
+      statusText: response.statusText,
+      data: response.data
+    });
+
+    return response;
+  } catch (error: any) {
+    console.error('Upload API - Error details:', {
+      name: error.name,
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      responseData: error.response?.data,
+      requestConfig: {
+        url: error.config?.url,
+        method: error.config?.method,
+        headers: error.config?.headers,
+        timeout: error.config?.timeout,
+      }
+    });
+
+    // Log specific error types
+    if (error.response) {
+      // Server responded with error
+      console.error('Upload API - Server error:', {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers
+      });
+    } else if (error.request) {
+      // Request made but no response
+      console.error('Upload API - Network error:', {
+        request: error.request,
+        message: 'No response received from server'
+      });
+    } else {
+      // Error in request configuration
+      console.error('Upload API - Request configuration error:', {
+        message: error.message
+      });
+    }
+
+    throw error;
+  }
+};
 
 export const updateVideo = (id: string, formData: FormData) =>
   api.put(`/api/v1/videos/${id}`, formData, {
