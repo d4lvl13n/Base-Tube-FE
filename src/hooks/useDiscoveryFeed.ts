@@ -25,6 +25,7 @@ const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
     video_path: '',
     processed_video_paths: discoveryVideo.processed_video_paths,
     thumbnail_path: discoveryVideo.thumbnail_path,
+    thumbnail_url: discoveryVideo.thumbnail_url,
     duration: discoveryVideo.duration,
     views: discoveryVideo.views_count,
     likes: discoveryVideo.likes_count,
@@ -40,7 +41,8 @@ const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
     like_count: discoveryVideo.likes_count,
     user: undefined,
     time_category: discoveryVideo.time_category || 'older',
-    engagement_score: discoveryVideo.engagement_score || 0
+    engagement_score: discoveryVideo.engagement_score || 0,
+    video_urls: discoveryVideo.video_urls || {}
   };
 };
 

@@ -35,18 +35,15 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, size, className = '' }) =>
 
   // Helper function to get the correct thumbnail URL
   const getThumbnailUrl = (video: Video): string => {
-    // If thumbnail_url exists (Storj URL), use it directly
     if (video.thumbnail_url) {
       return video.thumbnail_url;
     }
-
-    // If thumbnail_path is a full URL, use it directly
+    
     if (video.thumbnail_path?.startsWith('http')) {
       return video.thumbnail_path;
     }
-
-    // Otherwise, construct the local URL
-    return `${API_BASE_URL}/${video.thumbnail_path}`;
+    
+    return video.thumbnail_path ? `${API_BASE_URL}/${video.thumbnail_path}` : '/assets/default-thumbnail.jpg';
   };
 
   const channelImageUrl = video.channel?.channel_image_path

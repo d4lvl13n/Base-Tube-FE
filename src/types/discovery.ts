@@ -15,6 +15,12 @@ export interface DiscoveryVideo {
   description: string | null;
   processed_video_paths?: string[] | null;
   thumbnail_path: string;
+  thumbnail_url: string;
+  video_urls: {
+    '480p'?: string;
+    '720p'?: string;
+    '1080p'?: string;
+  } | null;
   is_public: boolean;
   is_featured: boolean;
   trending_score: number;

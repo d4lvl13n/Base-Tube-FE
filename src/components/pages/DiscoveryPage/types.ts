@@ -15,6 +15,7 @@ export interface DiscoveryVideo {
   description: string | null;
   processed_video_paths?: string[] | null;
   thumbnail_path: string;
+  thumbnail_url: string;
   is_public: boolean;
   is_featured: boolean;
   trending_score: number;
@@ -26,6 +27,11 @@ export interface DiscoveryVideo {
   engagement_score: number;
   time_category: 'today' | 'this_week' | 'this_month' | 'older';
   channel: Channel;
+  video_urls: {
+    '480p'?: string;
+    '720p'?: string;
+    '1080p'?: string;
+  } | null;
 }
 
 export interface DiscoveryPagination {

@@ -35,6 +35,8 @@ const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
     video_path: '',  // Default empty as it's not provided in discovery
     processed_video_paths: discoveryVideo.processed_video_paths,
     thumbnail_path: discoveryVideo.thumbnail_path,
+    thumbnail_url: discoveryVideo.thumbnail_url,
+    video_urls: discoveryVideo.video_urls || {},
     duration: discoveryVideo.duration,
     views: discoveryVideo.views_count,
     likes: discoveryVideo.likes_count,

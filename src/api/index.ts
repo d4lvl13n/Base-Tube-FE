@@ -30,7 +30,19 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.data?.data?.thumbnail_url || response.data?.data?.video_url) {
+      console.log('Media URLs in response:', {
+        thumbnail: response.data.data.thumbnail_url,
+        video: response.data.data.video_url,
+        isStorj: {
+          thumbnail: response.data.data.thumbnail_url?.includes('storjshare.io'),
+          video: response.data.data.video_url?.includes('storjshare.io')
+        }
+      });
+    }
+    return response;
+  },
   (error) => {
     const errorDetails = {
       status: error.response?.status,
