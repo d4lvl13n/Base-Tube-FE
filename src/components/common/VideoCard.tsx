@@ -92,7 +92,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, size, className = '' }) =>
                 <div className="flex items-center justify-between text-xs text-gray-300">
                   <div className="flex items-center space-x-1">
                     <Eye size={14} className="text-[#fa7517]" />
-                    <span>{formatViews(video.views)}</span>
+                    <span>{formatViews(video.views_count ?? video.views ?? 0)}</span>
                   </div>
                   <div className="px-2 py-1 bg-black/50 rounded-md">
                     {formatDuration(video.duration)}

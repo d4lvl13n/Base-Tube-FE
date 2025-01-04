@@ -91,7 +91,14 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
   const updateWatchedDuration = useCallback((currentTime: number) => {
     if (!isTrackingRef.current) return;
     
-    watchedDurationRef.current = Math.max(watchedDurationRef.current, currentTime);
+    // Ensure currentTime doesn't exceed video duration
+    const validatedTime = Math.min(currentTime, videoDuration);
+    
+    // Update the watched duration, but don't let it exceed video duration
+    watchedDurationRef.current = Math.min(
+      Math.max(watchedDurationRef.current, validatedTime),
+      videoDuration
+    );
     
     // Check if we've met the threshold
     if (!hasMetThresholdRef.current && hasMetViewThreshold(currentTime)) {
@@ -104,7 +111,7 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
     if (viewIdRef.current) {
       void updateView();
     }
-  }, [hasMetViewThreshold, initializeView, updateView]);
+  }, [hasMetViewThreshold, initializeView, updateView, videoDuration]);
 
   // Reset refs when video changes
   useEffect(() => {

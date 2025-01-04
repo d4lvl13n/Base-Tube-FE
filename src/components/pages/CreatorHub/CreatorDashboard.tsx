@@ -23,6 +23,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
   const { 
     growthMetrics,
     creatorWatchHours,
+    viewMetrics,
     isLoading: analyticsLoading 
   } = useAnalyticsData('7d', selectedChannelId);
 
@@ -36,9 +37,13 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
   const formatMetrics = {
     subscribers: activeChannel?.subscribers_count.toLocaleString() ?? '0',
     newSubscribers: growthMetrics?.metrics.subscribers.total.toLocaleString() ?? '0',
-    views: growthMetrics?.metrics.views.total.toLocaleString() ?? '0',
-    watchTime: creatorWatchHours.toLocaleString(),
-    engagement: `${growthMetrics?.metrics.engagement.total.toLocaleString()}%` ?? '0%'
+    subscribersTrend: growthMetrics?.metrics.subscribers.trend ?? 0,
+    views: viewMetrics?.totalViews.toLocaleString() ?? '0',
+    viewsTrend: growthMetrics?.metrics.views.total ?? 0,
+    watchTime: creatorWatchHours.formattedHours,
+    watchTimeTrend: creatorWatchHours.periodTotal,
+    engagement: `${growthMetrics?.metrics.engagement.total.toLocaleString()}%` ?? '0%',
+    engagementTrend: growthMetrics?.metrics.engagement.trend ?? 0
   };
 
   return (
@@ -68,31 +73,31 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
           icon={Users} 
           title="Total Subscribers" 
           value={formatMetrics.subscribers}
-          change={growthMetrics?.metrics.subscribers.trend ?? 0}
+          change={formatMetrics.subscribersTrend}
           loading={isLoading}
-          subtitle={`+${formatMetrics.newSubscribers} new in last 7 days`}
+          subtitle={`${formatMetrics.newSubscribers} new in last 7 days`}
         />
         <StatsCard 
           icon={Play} 
           title="Total Views" 
           value={formatMetrics.views}
-          change={growthMetrics?.metrics.views.trend ?? 0}
+          change={formatMetrics.viewsTrend}
           loading={isLoading}
-          subtitle="Growth over 7 days"
+          subtitle={`Growth over 7 days`}
         />
         <StatsCard 
           icon={Clock} 
-          title="Watch Time" 
+          title="Total Watch Time" 
           value={formatMetrics.watchTime}
-          change={0}
+          change={formatMetrics.watchTimeTrend}
           loading={isLoading}
-          subtitle="Total hours watched"
+          subtitle="Total hours watched (7d growth)"
         />
         <StatsCard 
           icon={MessageCircle} 
           title="Engagement Rate" 
           value={formatMetrics.engagement}
-          change={growthMetrics?.metrics.engagement.trend ?? 0}
+          change={formatMetrics.engagementTrend}
           loading={isLoading}
           subtitle="Growth over 7 days"
         />

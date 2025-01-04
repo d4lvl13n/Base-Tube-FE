@@ -30,6 +30,7 @@ export interface WatchPatterns {
 export interface CreatorWatchHours {
   totalWatchHours: number;
   formattedHours: string;
+  trend?: number;
 }
 
 export interface SocialMetrics {

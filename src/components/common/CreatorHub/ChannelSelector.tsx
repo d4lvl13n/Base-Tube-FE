@@ -6,7 +6,41 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import '../../../styles/creatorHub.css';
 
 export const ChannelSelector = () => {
-  const { channels, selectedChannelId, setSelectedChannelId, selectedChannel } = useChannelSelection();
+  const { 
+    channels, 
+    selectedChannelId, 
+    setSelectedChannelId, 
+    selectedChannel,
+    isLoading 
+  } = useChannelSelection();
+
+  // Add loading state handling
+  if (isLoading) {
+    return (
+      <div className="w-full rounded-xl overflow-hidden border border-gray-800/30 h-[84px] animate-pulse">
+        <div className="h-full bg-gray-900/50" />
+      </div>
+    );
+  }
+
+  // Ensure we have channels before rendering
+  if (!channels.length) {
+    return (
+      <div className="w-full rounded-xl overflow-hidden border border-gray-800/30">
+        <div className="h-[84px] relative bg-gray-900">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-gray-400">No channels available</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleChannelSelect = (channelId: string) => {
+    setSelectedChannelId(channelId);
+    // Optionally invalidate queries when changing channels
+    // queryClient.invalidateQueries(['channel', channelId]);
+  };
 
   const getImageUrl = (imagePath: string | null | undefined) => {
     if (!imagePath) return '/assets/default-cover.jpg';
@@ -62,7 +96,7 @@ export const ChannelSelector = () => {
             {channels.map((channel) => (
               <DropdownMenu.Item
                 key={channel.id}
-                onSelect={() => setSelectedChannelId(channel.id.toString())}
+                onSelect={() => handleChannelSelect(channel.id.toString())}
                 className="outline-none"
               >
                 <div className="relative h-[84px] cursor-default group bg-gray-900">

@@ -9,6 +9,8 @@ interface ViewCountProps {
 }
 
 export const ViewCount: React.FC<ViewCountProps> = ({ video }) => {
+  const viewCount = video.views_count ?? video.views ?? 0;
+  
   return (
     <motion.div
       className="video-overlay view-count bg-black bg-opacity-70 rounded-lg px-4 py-2"
@@ -17,7 +19,7 @@ export const ViewCount: React.FC<ViewCountProps> = ({ video }) => {
       transition={{ delay: 0.5 }}
     >
       <p className="text-white font-semibold text-sm">
-        {formatNumber(video.views)} views
+        {formatNumber(viewCount)} views
       </p>
     </motion.div>
   );

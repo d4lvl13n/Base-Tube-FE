@@ -37,8 +37,10 @@ export interface Video {
 
   // Video metadata
   duration: number;
-  views: number;
+  views_count: number;  
+  likes_count: number;
   likes: number;
+  views: number;
   dislikes: number;
   is_public: boolean;
   is_featured: boolean;

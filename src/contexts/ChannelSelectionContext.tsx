@@ -32,22 +32,40 @@ export const ChannelSelectionProvider: React.FC<{ children: React.ReactNode }> =
     staleTime: 5 * 60 * 1000
   });
 
-  // Set initial channel if none selected
+  // Set initial channel if none selected and validate existing selection
   useEffect(() => {
-    if (channels.length > 0 && !selectedChannelId) {
-      setSelectedChannelId(channels[0].id.toString());
+    if (channels.length > 0) {
+      // If no channel is selected or the selected channel is not in the list
+      const isValidSelection = channels.some(
+        channel => channel.id.toString() === selectedChannelId
+      );
+      
+      if (!selectedChannelId || !isValidSelection) {
+        setSelectedChannelId(channels[0].id.toString());
+      }
     }
   }, [channels, selectedChannelId, setSelectedChannelId]);
 
-  const selectedChannel = channels.find(
-    (channel: Channel) => channel.id.toString() === selectedChannelId
+  // Ensure selectedChannel is always valid
+  const selectedChannel = React.useMemo(() => 
+    channels.find((channel: Channel) => channel.id.toString() === selectedChannelId),
+    [channels, selectedChannelId]
   );
+
+  // Validate channel ID before setting
+  const setValidatedChannelId = (id: string) => {
+    if (channels.some(channel => channel.id.toString() === id)) {
+      setSelectedChannelId(id);
+    } else {
+      console.warn('Attempted to set invalid channel ID');
+    }
+  };
 
   return (
     <ChannelSelectionContext.Provider 
       value={{
         selectedChannelId,
-        setSelectedChannelId,
+        setSelectedChannelId: setValidatedChannelId, // Use validated setter
         channels,
         selectedChannel,
         isLoading

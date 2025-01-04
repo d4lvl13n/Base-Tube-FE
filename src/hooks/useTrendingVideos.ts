@@ -27,32 +27,51 @@ interface UseTrendingVideosReturn {
 // but our app components expect Video format
 const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
   return {
+    // Basic info
     id: discoveryVideo.id,
-    user_id: Number(discoveryVideo.user_id),  // Convert string to number for consistency
+    user_id: Number(discoveryVideo.user_id),
     channel_id: discoveryVideo.channel_id,
     title: discoveryVideo.title,
     description: discoveryVideo.description || '',
-    video_path: '',  // Default empty as it's not provided in discovery
+    
+    // Video paths and URLs
+    video_path: '',
+    video_urls: discoveryVideo.video_urls || {},
     processed_video_paths: discoveryVideo.processed_video_paths,
+    
+    // Thumbnail info
     thumbnail_path: discoveryVideo.thumbnail_path,
     thumbnail_url: discoveryVideo.thumbnail_url,
-    video_urls: discoveryVideo.video_urls || {},
+    
+    // Stats - including both old and new property names
     duration: discoveryVideo.duration,
+    views_count: discoveryVideo.views_count,
     views: discoveryVideo.views_count,
+    likes_count: discoveryVideo.likes_count,
     likes: discoveryVideo.likes_count,
-    dislikes: 0,    // Default value as it's not in discovery
+    dislikes: 0,
+    like_count: discoveryVideo.likes_count,
+    comment_count: 0,
+    
+    // Flags
     is_public: discoveryVideo.is_public,
     is_featured: discoveryVideo.is_featured,
+    is_nft_content: false,
+    
+    // Scores
     trending_score: discoveryVideo.trending_score,
-    is_nft_content: false,  // Default value
+    engagement_score: discoveryVideo.engagement_score || 0,
+    
+    // Timestamps
     createdAt: discoveryVideo.createdAt,
     updatedAt: discoveryVideo.updatedAt,
+    
+    // Relations
     channel: discoveryVideo.channel,
-    comment_count: 0,       // Default value
-    like_count: discoveryVideo.likes_count,
-    user: undefined,        // Not provided in discovery
-    time_category: discoveryVideo.time_category || 'older',
-    engagement_score: discoveryVideo.engagement_score || 0
+    user: undefined,
+    
+    // Categories
+    time_category: discoveryVideo.time_category || 'older'
   };
 };
 
