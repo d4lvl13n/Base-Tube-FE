@@ -85,7 +85,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
             </span>
             <span className="text-sm text-gray-300 flex items-center">
               <Video size={16} className="mr-1 text-[#fa7517]" />
-              {channel.videosCount || 0}
+              {channel.videos_count || 0}
             </span>
           </div>
           <SubscribeButton

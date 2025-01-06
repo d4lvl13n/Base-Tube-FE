@@ -33,6 +33,7 @@ import { ConfigProvider } from './contexts/ConfigContext';
 import './styles/prosemirror.css';
 import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
 import { NavigationProvider } from './contexts/NavigationContext';
+import VideosManagement from './components/pages/CreatorHub/VideosManagement';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -149,6 +150,14 @@ function App() {
                       element={
                         <CreatorHubRoute
                           element={<CreatorResourcesPage />}
+                        />
+                      }
+                    />
+                    <Route
+                      path="/creator-hub/videos"
+                      element={
+                        <CreatorHubRoute
+                          element={<VideosManagement />}
                         />
                       }
                     />

@@ -19,11 +19,11 @@ const ChannelInfo: React.FC<ChannelInfoProps> = ({ channel }) => {
         <div className="flex space-x-4">
           <div className="flex items-center">
             <Users className="mr-2 text-[#fa7517]" />
-            <span>{channel.subscribers_count} subscribers</span>
+            <span>{(channel.subscribers_count ?? 0).toLocaleString()} subscribers</span>
           </div>
           <div className="flex items-center">
             <Video className="mr-2 text-[#fa7517]" />
-            <span>{channel.videosCount} videos</span>
+            <span>{(channel.videos_count ?? 0).toLocaleString()} videos</span>
           </div>
         </div>
         {!channel.isOwner && (

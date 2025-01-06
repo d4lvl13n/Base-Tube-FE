@@ -35,23 +35,18 @@ export interface CreatorWatchHours {
 
 export interface SocialMetrics {
   interactions: {
-    commentsGiven: number;
     commentsReceived: number;
     responseRate: number;
     averageResponseTime: number;
+    recentEngagement: {
+      total: number;
+      likes: number;
+      comments: number;
+    };
   };
-  commentTrends: Array<{
-    date: string;
-    comments: number;
-    replies: number;
-    responseRate: number;
-  }>;
   community: {
-    mostInteractedChannels: Array<{
-      id: string;
-      name: string;
-      interactionCount: number;
-    }>;
+    subscriberCount: number;
+    recentSubscribers: number;
   };
 }
 

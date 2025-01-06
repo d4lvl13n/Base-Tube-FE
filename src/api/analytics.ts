@@ -39,9 +39,11 @@ export const getSocialMetrics = async (channelId: string): Promise<SocialMetrics
     const response = await api.get<{ success: boolean; data: SocialMetrics }>(
       `/api/v1/analytics/channels/${channelId}/social-metrics`
     );
+    
     if (!response.data.success) {
       throw new Error(`Failed to fetch social metrics for channel ${channelId}`);
     }
+
     return response.data.data;
   } catch (error) {
     console.error('Failed to fetch social metrics:', error);

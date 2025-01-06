@@ -24,6 +24,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
     growthMetrics,
     creatorWatchHours,
     viewMetrics,
+    socialMetrics,
     isLoading: analyticsLoading 
   } = useAnalyticsData('7d', selectedChannelId);
 
@@ -39,11 +40,14 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
     newSubscribers: growthMetrics?.metrics.subscribers.total.toLocaleString() ?? '0',
     subscribersTrend: growthMetrics?.metrics.subscribers.trend ?? 0,
     views: viewMetrics?.totalViews.toLocaleString() ?? '0',
-    viewsTrend: growthMetrics?.metrics.views.total ?? 0,
+    viewsTrend: growthMetrics?.metrics.views.trend ?? 0,
     watchTime: creatorWatchHours.formattedHours,
     watchTimeTrend: creatorWatchHours.periodTotal,
-    engagement: `${growthMetrics?.metrics.engagement.total.toLocaleString()}%` ?? '0%',
-    engagementTrend: growthMetrics?.metrics.engagement.trend ?? 0
+    engagement: socialMetrics && viewMetrics
+      ? `${((socialMetrics.interactions.recentEngagement.total / viewMetrics.totalViews) * 100).toFixed(1)}%`
+      : '0%',
+    engagementTrend: growthMetrics?.metrics.engagement.trend ?? 0,
+    responseRate: socialMetrics?.interactions.responseRate ?? 0,
   };
 
   return (
@@ -58,15 +62,6 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
         </h1>
         <p className="text-gray-400 text-lg">Here's how your content is performing</p>
       </div>
-
-      {activeChannel && (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-12"
-        >
-        </motion.div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         <StatsCard 
@@ -99,7 +94,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
           value={formatMetrics.engagement}
           change={formatMetrics.engagementTrend}
           loading={isLoading}
-          subtitle="Growth over 7 days"
+          subtitle={`Response Rate: ${formatMetrics.responseRate}%`}
         />
       </div>
     </motion.div>

@@ -73,7 +73,11 @@ export const getChannels = async (options: GetChannelsOptions = {}): Promise<Get
     
     return {
       success: true,
-      channels: response.data.channels || [],
+      channels: response.data.channels?.map(channel => ({
+        ...channel,
+        videos_count: channel.videos_count ?? 0,
+        subscribers_count: channel.subscribers_count ?? 0
+      })) || [],
       total: response.data.total || 0,
       hasMore: response.data.hasMore || false,
       currentPage: response.data.currentPage || 1,
@@ -234,7 +238,12 @@ export const getChannelWatchHours = async (channelId: string): Promise<CreatorWa
 
 export const getChannelByHandle = async (handle: string): Promise<Channel> => {
   const response = await api.get<ChannelResponse>(`/api/v1/channels/handle/${handle}`);
-  return response.data.channel;
+  
+  return {
+    ...response.data.channel,
+    videos_count: response.data.channel?.videos_count ?? 0,
+    subscribers_count: response.data.channel?.subscribers_count ?? 0
+  };
 };
 
 export const checkHandleAvailability = async (
@@ -247,7 +256,16 @@ export const checkHandleAvailability = async (
 // Fetch channel by ID
 export const getChannelById = async (id: string | number): Promise<ChannelDetailsResponse> => {
   const response = await api.get(`/api/v1/channels/${id}`);
-  return response.data;
+  
+  const channel = {
+    ...response.data.channel,
+    videos_count: response.data.channel.videos_count ?? 0
+  };
+  
+  return {
+    ...response.data,
+    channel
+  };
 };
 
 export const getHandleSuggestions = async (

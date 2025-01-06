@@ -79,9 +79,9 @@ export const useAnalyticsData = (period: '7d' | '30d' = '7d', channelId?: string
       return result;
     },
     enabled: !!channelId,
-    staleTime: Infinity,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
     retry: 2
   });
 
@@ -96,9 +96,9 @@ export const useAnalyticsData = (period: '7d' | '30d' = '7d', channelId?: string
       return result;
     },
     enabled: !!channelId,
-    staleTime: Infinity,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
     retry: 2
   });
 
@@ -107,9 +107,9 @@ export const useAnalyticsData = (period: '7d' | '30d' = '7d', channelId?: string
     queryKey: ['channel', channelId, 'watchPatterns'],
     queryFn: () => getWatchPatterns(),
     enabled: !!channelId,
-    staleTime: Infinity,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
     retry: 2
   });
 
@@ -118,9 +118,9 @@ export const useAnalyticsData = (period: '7d' | '30d' = '7d', channelId?: string
     queryKey: ['channel', channelId, 'socialMetrics'],
     queryFn: () => getSocialMetrics(channelId!),
     enabled: !!channelId,
-    staleTime: Infinity,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
     retry: 2
   });
 
@@ -129,9 +129,9 @@ export const useAnalyticsData = (period: '7d' | '30d' = '7d', channelId?: string
     queryKey: ['channel', channelId, 'growthMetrics', validPeriod],
     queryFn: () => getGrowthMetrics(validPeriod, channelId!),
     enabled: !!channelId,
-    staleTime: Infinity,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
     retry: 2
   });
 
@@ -145,9 +145,9 @@ export const useAnalyticsData = (period: '7d' | '30d' = '7d', channelId?: string
       return getChannelWatchHours(channelId); // No period means all-time
     },
     enabled: !!channelId,
-    staleTime: Infinity,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
     retry: 2
   });
 
@@ -160,9 +160,9 @@ export const useAnalyticsData = (period: '7d' | '30d' = '7d', channelId?: string
       return getChannelWatchHours(channelId, validPeriod);
     },
     enabled: !!channelId,
-    staleTime: Infinity,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
     retry: 2
   });
 
@@ -207,9 +207,9 @@ export const useChannelWatchHours = (channelId: string, period: '7d' | '30d' = '
       return getChannelWatchHours(channelId, period);
     },
     enabled: !!channelId,
-    staleTime: Infinity,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
     retry: 2
   });
 

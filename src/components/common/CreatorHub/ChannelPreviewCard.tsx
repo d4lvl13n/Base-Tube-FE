@@ -59,11 +59,11 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel }) => {
               <div className="flex items-center space-x-4 mt-2 text-gray-300">
                 <span className="flex items-center">
                   <Users size={14} className="mr-1 text-[#fa7517]" />
-                  {channel.subscribers_count.toLocaleString()} subscribers
+                  {(channel.subscribers_count ?? 0).toLocaleString()} subscribers
                 </span>
                 <span className="flex items-center">
                   <Video size={14} className="mr-1 text-[#fa7517]" />
-                  {channel.videosCount?.toLocaleString() || '0'} videos
+                  {(channel.videos_count ?? 0).toLocaleString()} videos
                 </span>
               </div>
             </div>

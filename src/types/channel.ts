@@ -13,12 +13,12 @@ export interface Channel {
   instagram_link?: string;
   twitter_link?: string;
   subscribers_count: number;
+  videos_count: number;
   isOwner: boolean;
   isSubscribed: boolean;
   ownerUsername: string;
   createdAt: string;
   updatedAt: string;
-  videosCount?: number;
   ownerProfileImage?: string | null;
   last_video_at?: string;
   hasNewContent?: boolean;
