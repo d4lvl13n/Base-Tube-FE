@@ -19,9 +19,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
 }) => {
   const { channel: channelData, isLoading } = useChannelData(channel.id);
 
-  const coverImageUrl = channel.channel_image_path
-    ? `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
-    : '/assets/default-cover.jpg';
+ const coverImageUrl = channel.channel_image_url || '/assets/default-cover.jpg';
 
   const avatarUrl = channel.ownerProfileImage
     ? `${process.env.REACT_APP_API_URL}/${channel.ownerProfileImage}`

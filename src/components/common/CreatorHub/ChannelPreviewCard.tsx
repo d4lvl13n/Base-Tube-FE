@@ -9,11 +9,12 @@ interface ChannelPreviewCardProps {
 }
 
 const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel }) => {
-  const coverImageUrl = channel.channel_image_path
-    ? channel.channel_image_path.startsWith('http')
-      ? channel.channel_image_path
-      : `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
-    : '/assets/default-cover.jpg';
+  const coverImageUrl = channel.channel_image_url || 
+    (channel.channel_image_path
+      ? channel.channel_image_path.startsWith('http')
+        ? channel.channel_image_path
+        : `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
+      : '/assets/default-cover.jpg');
 
   return (
     <div className="w-full bg-black/50 rounded-xl p-6">

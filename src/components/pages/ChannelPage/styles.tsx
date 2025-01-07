@@ -21,7 +21,6 @@ export const ChannelPageLayout: React.FC<ChannelPageStylesProps> = memo(({
   handleLoadMore,
   handleSortChange,
   navigationOptions,
-  isLoadingMore
 }) => {
   const showInitialLoader = loading && channels.length === 0 && !error;
 
@@ -108,10 +107,12 @@ export const ChannelPageLayout: React.FC<ChannelPageStylesProps> = memo(({
 export const ChannelCard: React.FC<ChannelCardProps> = memo(({ channel }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   
-  const coverImageUrl = processImageUrl(
-    channel.channel_image_path, 
-    '/assets/default-cover.jpg'
-  );
+  const coverImageUrl = channel.channel_image_url || 
+    (channel.channel_image_path
+      ? channel.channel_image_path.startsWith('http')
+        ? channel.channel_image_path
+        : `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
+      : '/assets/default-cover.jpg');
   
   const avatarUrl = processImageUrl(
     channel.ownerProfileImage, 
@@ -184,7 +185,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = memo(({ channel }) => {
             <div className="flex items-center text-gray-100">
               <span className="flex items-center group-hover:text-[#fa7517] transition-colors">
                 <Users size={16} className="mr-2" />
-                {channel.subscribers_count.toLocaleString()}
+                {channel.subscribers_count?.toLocaleString() || 0}
               </span>
             </div>
           </div>

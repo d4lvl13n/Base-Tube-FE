@@ -1,8 +1,16 @@
 import React from 'react';
-import { Search, Filter } from 'lucide-react';
-import { VideoFiltersProps } from '../types';
+import { Search } from 'lucide-react';
+import { VideoFiltersProps, VideoSortOption, VideoVisibilityOption } from '../types';
 
 const VideoFilters: React.FC<VideoFiltersProps> = ({ filters, onFilterChange }) => {
+  const handleSortChange = (value: VideoSortOption) => {
+    onFilterChange({ ...filters, sortBy: value });
+  };
+
+  const handleVisibilityChange = (value: VideoVisibilityOption) => {
+    onFilterChange({ ...filters, visibility: value });
+  };
+
   return (
     <div className="mb-6 flex flex-wrap gap-4 items-center">
       <div className="flex-1 min-w-[200px]">
@@ -22,7 +30,7 @@ const VideoFilters: React.FC<VideoFiltersProps> = ({ filters, onFilterChange }) 
         <select
           className="px-4 py-2 bg-gray-900/30 border border-gray-800/30 rounded-lg focus:outline-none focus:border-[#fa7517] text-white"
           value={filters.sortBy || 'newest'}
-          onChange={(e) => onFilterChange({ ...filters, sortBy: e.target.value as any })}
+          onChange={(e) => handleSortChange(e.target.value as VideoSortOption)}
         >
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
@@ -33,7 +41,7 @@ const VideoFilters: React.FC<VideoFiltersProps> = ({ filters, onFilterChange }) 
         <select
           className="px-4 py-2 bg-gray-900/30 border border-gray-800/30 rounded-lg focus:outline-none focus:border-[#fa7517] text-white"
           value={filters.visibility || 'all'}
-          onChange={(e) => onFilterChange({ ...filters, visibility: e.target.value as any })}
+          onChange={(e) => handleVisibilityChange(e.target.value as VideoVisibilityOption)}
         >
           <option value="all">All Videos</option>
           <option value="public">Public</option>

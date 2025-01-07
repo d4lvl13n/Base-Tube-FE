@@ -171,33 +171,43 @@ const CreateChannelPage: React.FC = () => {
     }
   }, [shouldFetchSuggestions, watchedName, generateHandleSuggestions, watch]);
 
-  const handleCreateChannel = async (data: FormData) => {
-    if (!session) {
-      toast.error('You must be logged in to create a channel.');
+  // Helper to check if we're on the final step
+  const isLastStep = step === totalSteps;
+
+  // Handle next step click
+  const handleNextStep = () => {
+    // Validate current step before proceeding
+    switch (step) {
+      case 1:
+        // Validate name and handle
+        if (!errors.name && !errors.handle) {
+          setStep(step + 1);
+        }
+        break;
+      case 2:
+        // Validate description
+        if (!errors.description) {
+          setStep(step + 1);
+        }
+        break;
+      case 3:
+        // Social media links are optional, so just proceed
+        setStep(step + 1);
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Handle form submission
+  const handleCreateChannel = async (data: any) => {
+    if (!isLastStep) {
+      handleNextStep();
       return;
     }
 
-    try {
-      const strippedHandle = stripHandleSuffix(data.handle);
-      
-      // Validate handle format first
-      if (!isValidHandle(strippedHandle)) {
-        toast.error('Invalid handle format. Please correct before continuing.');
-        return;
-      }
-
-      // Final handle check
-      const handleCheck = await checkHandleAvailability(strippedHandle);
-      if (!handleCheck.isAvailable) {
-        toast.error('Handle is no longer available. Please choose another.');
-        return;
-      }
-
-      setIsModalOpen(true);
-    } catch (error) {
-      console.error('Pre-submission validation failed:', error);
-      toast.error('Unable to validate handle. Please try again.');
-    }
+    // Only show confirmation modal on the last step
+    setIsModalOpen(true);
   };
 
   const confirmCreateChannel = async () => {
@@ -788,10 +798,10 @@ const CreateChannelPage: React.FC = () => {
                       <ArrowLeft className="mr-3" /> Previous Step
                     </motion.button>
                   )}
-                  {step < totalSteps ? (
+                  {!isLastStep ? (
                     <motion.button
                       type="button"
-                      onClick={() => setStep(step + 1)}
+                      onClick={handleNextStep}
                       className="bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black px-8 py-4 
                         rounded-xl flex items-center ml-auto font-medium"
                       whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' }}

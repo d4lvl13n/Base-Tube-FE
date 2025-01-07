@@ -1,9 +1,12 @@
 import { Video } from '../../../../types/video';
 
+export type VideoSortOption = 'newest' | 'oldest' | 'most_viewed' | 'most_liked';
+export type VideoVisibilityOption = 'all' | 'public' | 'private' | 'unlisted';
+
 export interface VideoFilters {
   search?: string;
-  sortBy?: 'newest' | 'oldest' | 'most_viewed' | 'most_liked';
-  visibility?: 'public' | 'private' | 'unlisted';
+  sortBy?: VideoSortOption;
+  visibility?: VideoVisibilityOption;
 }
 
 export interface VideosManagementProps {
@@ -21,11 +24,7 @@ export interface VideoListProps {
   onSelectAll: (videoIds: string[]) => void;
 }
 
-export type VideoAction = 
-  | 'edit'
-  | 'delete'
-  | 'toggle_visibility'
-  | 'share';
+export type VideoAction = 'edit' | 'delete' | 'toggle_visibility';
 
 export interface VideoActionsProps {
   selectedVideos: string[];

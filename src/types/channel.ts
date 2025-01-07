@@ -9,6 +9,7 @@ export interface Channel {
   description?: string;
   unique_id: string;
   channel_image_path?: string;
+  channel_image_url?: string;
   facebook_link?: string;
   instagram_link?: string;
   twitter_link?: string;
@@ -158,7 +159,8 @@ export interface SubscribedChannel {
   name: string;
   description: string;
   unique_id: string;
-  channel_image_path: string;
+  channel_image_path?: string;
+  channel_image_url?: string;
   facebook_link: string | null;
   instagram_link: string | null;
   twitter_link: string | null;
@@ -177,4 +179,6 @@ export interface SubscribedChannel {
   ownerUsername: string | null;
   ownerProfileImage: string | null;
   newVideos?: number;
+  hasNewContent?: boolean;
+  videos_count?: number;
 }

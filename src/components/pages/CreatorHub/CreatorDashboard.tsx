@@ -36,7 +36,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
   const isLoading = analyticsLoading || channelLoading;
 
   const formatMetrics = {
-    subscribers: activeChannel?.subscribers_count.toLocaleString() ?? '0',
+    subscribers: activeChannel?.subscribers_count?.toLocaleString() ?? '0',
     newSubscribers: growthMetrics?.metrics.subscribers.total.toLocaleString() ?? '0',
     subscribersTrend: growthMetrics?.metrics.subscribers.trend ?? 0,
     views: viewMetrics?.totalViews.toLocaleString() ?? '0',

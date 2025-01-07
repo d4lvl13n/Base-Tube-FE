@@ -125,19 +125,38 @@ export const createChannel = async (channelData: FormData, sessionToken: string)
     .then((res) => res.data);
 };
 
-export const updateChannel = (channelId: string, channelData: FormData) =>
-  api
-    .put<ChannelResponse>(`/api/v1/channels/${channelId}`, channelData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    .then((res) => res.data);
+export const updateChannel = async (
+  channelId: string, 
+  formData: FormData
+): Promise<ChannelResponse> => {
+  try {
+    const response = await api.put<ChannelResponse>(
+      `/api/v1/channels/${channelId}`, 
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error updating channel:', error);
+    throw error;
+  }
+};
 
-export const deleteChannel = (channelId: string) =>
-  api
-    .delete<{ success: boolean; message: string }>(`/api/v1/channels/${channelId}`)
-    .then((res) => res.data);
+export const deleteChannel = async (channelId: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await api.delete<{ success: boolean; message: string }>(
+      `/api/v1/channels/${channelId}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting channel:', error);
+    throw error;
+  }
+};
 
 export const subscribeToChannel = async (channelIdentifier: string | number) => {
   const response = await api.post(`/api/v1/channels/${channelIdentifier}/subscribe`);
@@ -363,5 +382,92 @@ export const getSubscribedChannels = async (
     }
     console.error('Error fetching subscribed channels:', error);
     throw error;
+  }
+};
+
+// Helper function to check if channel exists
+export const checkChannelExists = async (channelId: string): Promise<boolean> => {
+  try {
+    await api.get(`/api/v1/channels/${channelId}`);
+    return true;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return false;
+    }
+    throw error;
+  }
+};
+
+// Helper function to validate channel data before update
+export interface ChannelUpdateData {
+  name?: string;
+  description?: string;
+  handle?: string;
+  facebook_link?: string;
+  instagram_link?: string;
+  twitter_link?: string;
+  channel_image?: File;
+}
+
+export const validateChannelData = (data: ChannelUpdateData): string[] => {
+  const errors: string[] = [];
+
+  if (data.name && data.name.length < 3) {
+    errors.push('Channel name must be at least 3 characters long');
+  }
+
+  if (data.handle && !/^[a-zA-Z0-9_-]+$/.test(data.handle)) {
+    errors.push('Handle can only contain letters, numbers, underscores, and hyphens');
+  }
+
+  if (data.channel_image) {
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!validTypes.includes(data.channel_image.type)) {
+      errors.push('Invalid image type. Please use JPEG, PNG, or GIF');
+    }
+    if (data.channel_image.size > 5 * 1024 * 1024) { // 5MB limit
+      errors.push('Image size must be less than 5MB');
+    }
+  }
+
+  // Validate social media links
+  const socialLinks = [
+    { name: 'Facebook', value: data.facebook_link },
+    { name: 'Instagram', value: data.instagram_link },
+    { name: 'Twitter', value: data.twitter_link }
+  ];
+
+  socialLinks.forEach(({ name, value }) => {
+    if (value && !isValidUrl(value)) {
+      errors.push(`Invalid ${name} URL`);
+    }
+  });
+
+  return errors;
+};
+
+// Helper function to create FormData from channel update data
+export const createChannelFormData = (data: ChannelUpdateData): FormData => {
+  const formData = new FormData();
+
+  // Only append fields that are defined
+  if (data.name) formData.append('name', data.name);
+  if (data.description) formData.append('description', data.description);
+  if (data.handle) formData.append('handle', data.handle);
+  if (data.facebook_link) formData.append('facebook_link', data.facebook_link);
+  if (data.instagram_link) formData.append('instagram_link', data.instagram_link);
+  if (data.twitter_link) formData.append('twitter_link', data.twitter_link);
+  if (data.channel_image) formData.append('channel_image', data.channel_image);
+
+  return formData;
+};
+
+// Helper function to validate URLs
+const isValidUrl = (url: string): boolean => {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
   }
 };

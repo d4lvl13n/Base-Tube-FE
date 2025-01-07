@@ -2,6 +2,7 @@ import api from './index';
 import { TrendingVideoResponse, Video } from '../types/video';
 import { AxiosProgressEvent } from 'axios';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
+import axios from 'axios';
 
 
 interface InitViewResponse {
@@ -30,14 +31,61 @@ interface GenerateVideoDescriptionResponse {
   suggestedTitle: string;
 }
 
+interface DeleteVideoResponse {
+  success: boolean;
+  message: string;
+}
+
+interface UpdateVideoResponse {
+  success: boolean;
+  message: string;
+  data?: Video;
+}
+
+interface FeaturedVideoResponse {
+  success: boolean;
+  data: {
+    videos: Array<{
+      id: number;
+      title: string;
+      description: string;
+      duration: number;
+      views_count: number;
+      likes_count: number;
+      thumbnail_url: string;
+      created_at: string;
+      channel: {
+        id: number;
+        name: string;
+        handle: string;
+        channel_image_url: string;
+        owner: {
+          username: string | null;
+          profile_image_url: string | null;
+        }
+      } | null;
+      rotation: {
+        period: number;
+        next_update: string;
+      }
+    }>;
+    rotation: {
+      period_hours: number;
+      next_update: string;
+    };
+    total: number;
+  }
+}
+
 export const getAllVideos = (page: number = 1, limit: number = 10) =>
   api.get(`/api/v1/videos?page=${page}&limit=${limit}`).then((res) => res.data.data);
 
 export const getVideoById = (id: string) =>
   api.get(`/api/v1/videos/${id}`).then((res) => res.data.data);
 
-export const getFeaturedVideos = (limit: number = 2) => 
-  api.get(`/api/v1/videos/featured?limit=${limit}`).then(res => res.data.data);
+export const getFeaturedVideos = (limit: number = 2): Promise<FeaturedVideoResponse['data']['videos']> => 
+  api.get<FeaturedVideoResponse>(`/api/v1/videos/featured?limit=${limit}`)
+    .then(res => res.data.data.videos);
 
 export const getRecommendedVideos = (page: number = 1, limit: number = 10) =>
   api.get(`/api/v1/videos/recommended?page=${page}&limit=${limit}`).then((res) => res.data.data);
@@ -181,13 +229,41 @@ export const uploadVideo = async (formData: FormData, onUploadProgress?: (progre
   }
 };
 
-export const updateVideo = (id: string, formData: FormData) =>
-  api.put(`/api/v1/videos/${id}`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+export const updateVideo = async (id: string, formData: FormData): Promise<UpdateVideoResponse> => {
+  try {
+    const response = await api.put<UpdateVideoResponse>(
+      `/api/v1/videos/${id}`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error updating video:', error);
+    // Properly handle different error types
+    if (axios.isAxiosError(error)) {
+      const message = error.response?.data?.message || 'Failed to update video';
+      throw new Error(message);
+    }
+    throw error;
+  }
+};
 
-export const deleteVideo = (id: string) => 
-  api.delete(`/api/v1/videos/${id}`);
+export const deleteVideo = async (id: string): Promise<DeleteVideoResponse> => {
+  try {
+    const response = await api.delete<DeleteVideoResponse>(`/api/v1/videos/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting video:', error);
+    // Properly handle different error types
+    if (axios.isAxiosError(error)) {
+      const message = error.response?.data?.message || 'Failed to delete video';
+      throw new Error(message);
+    }
+    throw error;
+  }
+};
 
 export const toggleVideoLike = async (videoId: string): Promise<LikeResponse> => {
   try {

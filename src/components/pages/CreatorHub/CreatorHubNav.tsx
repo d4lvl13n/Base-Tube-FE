@@ -87,22 +87,27 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
     {
       title: 'Community',
       icon: Users,
-      path: '/creator/community',
+      path: '/creator-hub/community',
       subItems: [
-        { title: 'Comments', path: '/creator/comments' },
-        { title: 'Messages', path: '/creator/messages' }
+        { title: 'Comments', path: '/creator-hub/comments' },
+        { title: 'Messages', path: '/creator-hub/messages' }
       ]
+    },
+    {
+      title: 'Channels Management',
+      icon: Tv,
+      path: '/creator-hub/channels',
     },
     {
       title: 'Monetization',
       icon: DollarSign,
-      path: '/creator/monetization',
+      path: '/creator-hub/monetization',
       badge: 'NEW'
     },
     {
       title: 'Settings',
       icon: Settings,
-      path: '/creator/settings'
+      path: '/creator-hub/settings'
     }
   ];
 

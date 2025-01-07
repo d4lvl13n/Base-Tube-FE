@@ -12,25 +12,26 @@ interface ChannelHeaderProps {
 }
 
 const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel }) => {
-  console.log('ChannelHeader - channel data:', {
-    ownerProfileImage: channel.ownerProfileImage,
-    fullAvatarUrl: channel.ownerProfileImage
-      ? channel.ownerProfileImage.startsWith('http')
-        ? channel.ownerProfileImage
-        : `${process.env.REACT_APP_API_URL}/${channel.ownerProfileImage}`
-      : '/assets/default-avatar.jpg'
+  console.log('Channel data in header:', {
+    channel_image_url: channel.channel_image_url,
+    channel_image_path: channel.channel_image_path
   });
 
-  const coverImageUrl = channel.channel_image_path
-    ? channel.channel_image_path.startsWith('http')
-      ? channel.channel_image_path
-      : `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
-    : '/assets/default-cover.jpg';
+  // Match the EXACT fallback logic used by ChannelPreviewCard:
+  const coverImageUrl =
+    channel.channel_image_url ||
+    (channel.channel_image_path
+      ? channel.channel_image_path.startsWith('http')
+        ? channel.channel_image_path
+        : `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
+      : '/assets/default-cover.jpg');
 
-  const avatarUrl = channel.ownerProfileImage
-    ? channel.ownerProfileImage.startsWith('http')
-      ? channel.ownerProfileImage
-      : `${process.env.REACT_APP_API_URL}/${channel.ownerProfileImage}`
+  // Standardized avatar logic
+  const rawAvatar = channel.ownerProfileImage || '';
+  const avatarUrl = rawAvatar
+    ? (rawAvatar.startsWith('http')
+      ? rawAvatar
+      : `${process.env.REACT_APP_API_URL}/${rawAvatar}`)
     : '/assets/default-avatar.jpg';
 
   return (

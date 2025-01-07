@@ -62,6 +62,7 @@ export interface Video {
   // Additional metadata
   engagement_score?: number;
   time_category: 'today' | 'this_week' | 'this_month' | 'older';
+  tags?: string;
 }
 
 export interface TrendingVideoResponse {

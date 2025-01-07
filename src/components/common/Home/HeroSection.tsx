@@ -44,7 +44,12 @@ const HeroSection: React.FC<HeroSectionProps> = ({ featuredVideos, renderPlaceho
           >
             {/* Thumbnail */}
             <img 
-              src={`${process.env.REACT_APP_API_URL}/${video.thumbnail_path}`} 
+              src={video.thumbnail_url || 
+                (video.thumbnail_path?.startsWith('http')
+                  ? video.thumbnail_path
+                  : video.thumbnail_path
+                    ? `${process.env.REACT_APP_API_URL}/${video.thumbnail_path}`
+                    : '/assets/default-thumbnail.jpg')}
               alt={video.title} 
               className="w-full h-full object-cover"
             />
@@ -59,7 +64,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ featuredVideos, renderPlaceho
                 <div className="flex items-center justify-between text-sm text-gray-300">
                   <div className="flex items-center space-x-2">
                     <Eye size={16} className="text-[#fa7517]" />
-                    <span>{formatViews(video.views)}</span>
+                    <span>{formatViews(video.views_count)}</span>
                   </div>
                   <div className="px-2 py-1 bg-black/50 rounded-md">
                     {formatDuration(video.duration)}
@@ -90,9 +95,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ featuredVideos, renderPlaceho
                 >
                   <div className="relative w-full h-20 rounded-lg overflow-hidden">
                     <img
-                      src={video.channel.channel_image_path 
-                        ? `${process.env.REACT_APP_API_URL}/${video.channel.channel_image_path}`
-                        : '/assets/default-cover.jpg'}
+                      src={video.channel.channel_image_url || '/assets/default-cover.jpg'}
                       alt={video.channel.name}
                       className="w-full h-full object-cover"
                     />

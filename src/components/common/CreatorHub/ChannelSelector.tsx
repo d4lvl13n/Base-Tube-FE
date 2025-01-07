@@ -42,13 +42,6 @@ export const ChannelSelector = () => {
     // queryClient.invalidateQueries(['channel', channelId]);
   };
 
-  const getImageUrl = (imagePath: string | null | undefined) => {
-    if (!imagePath) return '/assets/default-cover.jpg';
-    return imagePath.startsWith('http')
-      ? imagePath
-      : `${process.env.REACT_APP_API_URL}/${imagePath}`;
-  };
-
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -66,7 +59,7 @@ export const ChannelSelector = () => {
         >
           <div className="h-[84px] relative bg-gray-900">
             <img
-              src={getImageUrl(selectedChannel?.channel_image_path)}
+              src={selectedChannel?.channel_image_url || '/assets/default-cover.jpg'}
               alt={selectedChannel?.name}
               className="w-full h-full object-cover"
             />
@@ -101,7 +94,7 @@ export const ChannelSelector = () => {
               >
                 <div className="relative h-[84px] cursor-default group bg-gray-900">
                   <img
-                    src={getImageUrl(channel.channel_image_path)}
+                    src={channel.channel_image_url || '/assets/default-cover.jpg'}
                     alt={channel.name}
                     className="w-full h-full object-cover"
                     draggable={false}

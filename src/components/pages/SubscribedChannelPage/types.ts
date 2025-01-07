@@ -5,6 +5,7 @@ export interface SubscribedChannel {
   name: string;
   handle: string;
   description?: string;
+  channel_image_url?: string;
   channel_image_path?: string;
   ownerProfileImage?: string | null;
   ownerUsername?: string | null;

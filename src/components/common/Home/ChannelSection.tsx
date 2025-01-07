@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Users, ExternalLink } from 'lucide-react';
 import { Channel } from '../../../types/channel';
 import { motion } from 'framer-motion';
-import { processImageUrl } from '../../../utils/imageUtils';
 
 interface ChannelSectionProps {
   channels: Channel[] | undefined;
@@ -78,15 +77,21 @@ const ChannelSection: React.FC<ChannelSectionProps> = ({ channels, renderPlaceho
           onScroll={handleScroll}
         >
           {channels.map((channel) => {
-            const coverImageUrl = processImageUrl(
-              channel.channel_image_path, 
-              '/assets/default-cover.jpg'
-            );
+            const coverImageUrl = channel.channel_image_url 
+              ? channel.channel_image_url
+              : (channel.channel_image_path
+                ? channel.channel_image_path.startsWith('http')
+                  ? channel.channel_image_path
+                  : `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
+                : '/assets/default-cover.jpg'
+              );
             
-            const avatarUrl = processImageUrl(
-              channel.ownerProfileImage, 
-              '/assets/default-avatar.jpg'
-            );
+            const rawAvatar = channel.ownerProfileImage || '';
+            const avatarUrl = rawAvatar
+              ? (rawAvatar.startsWith('http')
+                ? rawAvatar
+                : `${process.env.REACT_APP_API_URL}/${rawAvatar}`)
+              : '/assets/default-avatar.jpg';
 
             return (
               <motion.div

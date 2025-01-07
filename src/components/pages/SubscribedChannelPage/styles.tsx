@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Users, ExternalLink, Clock } from 'lucide-react';
 import { SubscribedChannel } from './types';
-import { processImageUrl } from '../../../utils/imageUtils';
 import { SortSelectProps, PageSizeSelectProps, SortOption } from './types';
 
 interface ChannelGridProps {
@@ -53,15 +52,27 @@ export const SubscribedChannelCard: React.FC<{
   channel: SubscribedChannel;
   onWatched?: (channelId: number) => void;
 }> = ({ channel, onWatched }) => {
-  const coverImageUrl = processImageUrl(
-    channel.channel_image_path, 
-    '/assets/default-cover.jpg'
-  );
-  
-  const avatarUrl = processImageUrl(
-    channel.ownerProfileImage || channel.user?.profile_image_url, 
-    '/assets/default-avatar.jpg'
-  );
+  // Standardized cover image logic
+  const coverImageUrl = channel.channel_image_url
+    ? channel.channel_image_url
+    : (channel.channel_image_path
+      ? channel.channel_image_path.startsWith('http')
+        ? channel.channel_image_path
+        : `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
+      : '/assets/default-cover.jpg'
+    );
+
+  // Standardized avatar logic
+  const rawAvatar =
+    channel.ownerProfileImage ||
+    channel.user?.profile_image_url ||
+    '';
+
+  const avatarUrl = rawAvatar
+    ? (rawAvatar.startsWith('http')
+      ? rawAvatar
+      : `${process.env.REACT_APP_API_URL}/${rawAvatar}`)
+    : '/assets/default-avatar.jpg';
 
   const ownerName = channel.ownerUsername || channel.user?.username || 'Unknown';
   const createdDate = new Date(channel.createdAt).toLocaleDateString();
@@ -184,7 +195,7 @@ export const SubscribedChannelCard: React.FC<{
             <div className="flex items-center justify-between text-gray-100">
               <span className="flex items-center group-hover:text-[#fa7517] transition-colors">
                 <Users size={16} className="mr-2" />
-                {channel.subscribers_count.toLocaleString()}
+                {channel.subscribers_count?.toLocaleString() || 0}
               </span>
               <span className="text-xs text-gray-400">
                 by {ownerName}
