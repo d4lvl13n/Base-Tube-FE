@@ -1,6 +1,6 @@
 // src/components/pages/VideoUpload.tsx
 
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -48,6 +48,11 @@ const VideoUpload: React.FC = () => {
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
   const [suggestedTitle, setSuggestedTitle] = useState<string | undefined>();
   const [generatedDescription, setGeneratedDescription] = useState<string | undefined>();
+  const [uploadStalled, setUploadStalled] = useState(false);
+  const lastProgressRef = useRef(0);
+  const lastProgressTimeRef = useRef(Date.now());
+  const uploadTimerRef = useRef<NodeJS.Timeout>();
+  const stallCheckTimerRef = useRef<NodeJS.Timeout>();
 
   const { channels } = useChannels();
   const navigate = useNavigate();
@@ -124,68 +129,74 @@ const VideoUpload: React.FC = () => {
     }
   };
 
+  const clearTimers = () => {
+    if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
+    if (stallCheckTimerRef.current) clearInterval(stallCheckTimerRef.current);
+  };
+
   const handlePublish = async () => {
-    console.log('Starting video upload process...');
-    
-    if (!selectedFile) {
-      console.error('Upload failed: No video file selected');
-      alert('Please select a video file.');
-      return;
-    }
-    
-    if (!selectedChannelId) {
-      console.error('Upload failed: No channel selected');
-      alert('Please select a channel.');
-      return;
-    }
-    
-    if (!title.trim()) {
-      console.error('Upload failed: No title provided');
-      alert('Please enter a title for your video.');
+    if (!selectedFile || !selectedChannelId || !title.trim()) {
+      alert('Please fill in all required fields.');
       return;
     }
 
-    console.log('Upload preparation:', {
-      fileName: selectedFile.name,
-      fileSize: `${(selectedFile.size / (1024 * 1024)).toFixed(2)}MB`,
-      fileType: selectedFile.type,
-      channelId: selectedChannelId,
-      hasThumbnail: !!thumbnailFile,
-      visibility
-    });
+    clearTimers(); // Clear any existing timers
+    setUploadStalled(false);
+    lastProgressRef.current = 0;
+    lastProgressTimeRef.current = Date.now();
 
-    const formData = new FormData();
-    formData.append('video', selectedFile);
-    formData.append('title', title);
-    formData.append('description', description);
-    formData.append('tags', tags);
-    formData.append('channel_id', selectedChannelId.toString());
-    formData.append('is_public', visibility === 'public' ? 'true' : 'false');
-    if (thumbnailFile) {
-      formData.append('thumbnail', thumbnailFile);
-    }
+    // Set up stall detection
+    stallCheckTimerRef.current = setInterval(() => {
+      const stallDuration = Date.now() - lastProgressTimeRef.current;
+      if (stallDuration > 30000 && uploadProgress < 100 && uploadProgress === lastProgressRef.current) {
+        console.warn('Upload appears stalled:', {
+          lastProgress: lastProgressRef.current,
+          stallDuration: `${Math.round(stallDuration / 1000)}s`
+        });
+        setUploadStalled(true);
+      }
+    }, 5000);
+
+    // Set up global timeout
+    uploadTimerRef.current = setTimeout(() => {
+      console.error('Upload timed out after 30 minutes');
+      setStep(2);
+      alert('Upload timed out. Please try again.');
+      clearTimers();
+    }, 1800000); // 30 minutes
 
     try {
-      console.log('Starting upload to server...');
-      setUploadProgress(0);
-      setStep(3); // Show upload progress
+      setStep(3);
+      const formData = new FormData();
+      formData.append('video', selectedFile);
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('tags', tags);
+      formData.append('channel_id', selectedChannelId.toString());
+      formData.append('is_public', visibility === 'public' ? 'true' : 'false');
+      if (thumbnailFile) {
+        formData.append('thumbnail', thumbnailFile);
+      }
 
       const response = await uploadVideo(formData, (progressEvent) => {
         if (progressEvent.total) {
           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(progress);
-          console.log(`Upload progress: ${progress}%`);
+          
+          // Update stall detection refs
+          if (progress > lastProgressRef.current) {
+            lastProgressRef.current = progress;
+            lastProgressTimeRef.current = Date.now();
+            setUploadStalled(false);
+          }
         }
       });
 
-      console.log('Upload completed successfully:', {
-        videoId: response.data.id,
-        status: response.status
-      });
-
+      clearTimers();
       setUploadedVideoId(response.data.id);
       setStep(4);
     } catch (error: any) {
+      clearTimers();
       console.error('Upload failed with error:', {
         message: error.message,
         status: error.response?.status,
@@ -504,45 +515,7 @@ const VideoUpload: React.FC = () => {
         );
 
       case 3:
-        return (
-          <motion.div
-            key="step3"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="w-full"
-          >
-            <div className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
-              <div className="flex items-center gap-4 mb-6">
-                <Video className="w-8 h-8 text-[#fa7517]" />
-                <div className="flex-1">
-                  <h3 className="text-lg font-medium text-white">{selectedFile?.name}</h3>
-                  <p className="text-sm text-gray-400">Uploading video...</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setStep(1);
-                    setSelectedFile(null);
-                    setThumbnailFile(null);
-                    setThumbnailPreview(null);
-                  }}
-                  className="p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
-
-              <div className="relative w-full h-3 bg-gray-800 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${uploadProgress}%` }}
-                  className="absolute left-0 top-0 h-full bg-[#fa7517]"
-                />
-              </div>
-              <p className="text-sm text-gray-400 mt-2">{uploadProgress}% uploaded</p>
-            </div>
-          </motion.div>
-        );
+        return renderUploadProgress();
 
       case 4:
         return (
@@ -568,6 +541,79 @@ const VideoUpload: React.FC = () => {
         return null;
     }
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => clearTimers();
+  }, []);
+
+  // Add stall warning to upload progress UI
+  const renderUploadProgress = () => (
+    <motion.div
+      key="step3"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="w-full"
+    >
+      <div className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
+        <div className="flex items-center gap-4 mb-6">
+          <Video className="w-8 h-8 text-[#fa7517]" />
+          <div className="flex-1">
+            <h3 className="text-lg font-medium text-white">{selectedFile?.name}</h3>
+            <p className="text-sm text-gray-400">
+              {uploadStalled ? 'Upload stalled' : 'Uploading video...'}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              clearTimers();
+              setStep(2);
+            }}
+            className="p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="relative w-full h-3 bg-gray-800 rounded-full overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${uploadProgress}%` }}
+            className={`absolute left-0 top-0 h-full bg-[#fa7517] transition-opacity ${
+              uploadStalled ? 'opacity-50 animate-pulse' : ''
+            }`}
+          />
+        </div>
+        <p className="text-sm text-gray-400 mt-2">{uploadProgress}% uploaded</p>
+
+        {uploadStalled && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-4 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-start gap-3"
+          >
+            <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-yellow-200">
+                Upload appears to be stalled. You can wait or try again.
+              </p>
+              <button
+                onClick={() => {
+                  clearTimers();
+                  setStep(2);
+                }}
+                className="mt-2 px-4 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/30 
+                           rounded-lg text-yellow-200 text-sm transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </motion.div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto p-8">

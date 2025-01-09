@@ -35,6 +35,7 @@ import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
 import { NavigationProvider } from './contexts/NavigationContext';
 import VideosManagement from './components/pages/CreatorHub/VideosManagement';
 import ChannelManagement from './components/pages/CreatorHub/ChannelManagement';
+import { SystemHealth } from './health/SystemHealth';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -221,6 +222,19 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <ProfileSettings />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Admin routes */}
+                    <Route
+                      path="/admin/system-health"
+                      element={
+                        <ProtectedRoute>
+                          <div className="min-h-screen bg-[#09090B]">
+                            <Header className="sticky top-0 z-50" />
+                            <SystemHealth />
+                          </div>
                         </ProtectedRoute>
                       }
                     />
