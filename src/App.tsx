@@ -35,6 +35,7 @@ import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
 import { NavigationProvider } from './contexts/NavigationContext';
 import VideosManagement from './components/pages/CreatorHub/VideosManagement';
 import ChannelManagement from './components/pages/CreatorHub/ChannelManagement';
+import BatchUpload from './components/pages/CreatorHub/BatchUpload';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -167,6 +168,14 @@ function App() {
                       element={
                         <CreatorHubRoute
                           element={<ChannelManagement />}
+                        />
+                      }
+                    />
+                    <Route
+                      path="/creator-hub/batch-upload"
+                      element={
+                        <CreatorHubRoute
+                          element={<BatchUpload />}
                         />
                       }
                     />

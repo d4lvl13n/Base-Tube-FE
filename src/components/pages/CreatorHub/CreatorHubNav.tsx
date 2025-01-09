@@ -16,7 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   LucideIcon,
-  Upload
+  Upload,
+  Sparkles
 } from 'lucide-react';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 
@@ -156,16 +157,16 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
 
         <div className="space-y-3">
           <ActionButton
-            icon={Tv}
-            label={!isCollapsed ? "Create Channel" : undefined}
-            className="w-full bg-gray-700/50 hover:bg-gray-600/50"
-            onClick={() => navigate('/create-channel')}
-          />
-          <ActionButton
             icon={VideoIcon}
-            label={!isCollapsed ? "Upload Video" : undefined}
+            label={!isCollapsed ? "Quick Upload" : undefined}
             className="w-full bg-[#fa7517] hover:bg-[#ff8c3a] text-black"
             onClick={() => navigate('/creator-hub/upload')}
+          />
+          <ActionButton
+            icon={Sparkles}
+            label={!isCollapsed ? "Content Studio" : undefined}
+            className="w-full bg-gradient-to-r from-[#2d2d2d] to-[#1a1a1a] hover:from-[#333333] hover:to-[#222222] border border-gray-800/30"
+            onClick={() => navigate('/creator-hub/batch-upload')}
           />
         </div>
       </div>
