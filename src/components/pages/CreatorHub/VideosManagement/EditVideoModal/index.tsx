@@ -66,19 +66,11 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
     setIsSubmitting(true);
     const submitData = new FormData();
     
-    // Only append changed fields
-    if (formData.title !== video.title) {
-      submitData.append('title', formData.title);
-    }
-    if (formData.description !== video.description) {
-      submitData.append('description', formData.description);
-    }
-    if (formData.tags !== video.tags) {
-      submitData.append('tags', formData.tags);
-    }
-    if (formData.is_public !== video.is_public) {
-      submitData.append('is_public', formData.is_public.toString());
-    }
+    // Always append all fields to ensure proper update
+    submitData.append('title', formData.title);
+    submitData.append('description', formData.description);
+    submitData.append('tags', formData.tags);
+    submitData.append('is_public', formData.is_public.toString());
     if (thumbnailFile) {
       submitData.append('thumbnail', thumbnailFile);
     }

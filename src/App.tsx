@@ -36,6 +36,7 @@ import { NavigationProvider } from './contexts/NavigationContext';
 import VideosManagement from './components/pages/CreatorHub/VideosManagement';
 import ChannelManagement from './components/pages/CreatorHub/ChannelManagement';
 import { SystemHealth } from './health/SystemHealth';
+import { ContentStudio } from './components/pages/CreatorHub/ContentStudio/index';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -74,13 +75,21 @@ const AnalyticsRoute: React.FC<{ element: React.ReactElement }> = ({ element }) 
   return element;
 };
 
-// Update CreatorHubRoute to include analytics prefetching
+// Update CreatorHubRoute to include monitoring routes
 const CreatorHubRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => (
   <ProtectedRoute>
     <CreatorHubLayout>
       <AnalyticsRoute element={element} />
     </CreatorHubLayout>
   </ProtectedRoute>
+);
+
+// Add a simpler layout for monitoring
+const MonitoringLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="min-h-screen bg-[#09090B]">
+    <Header className="sticky top-0 z-50" />
+    {children}
+  </div>
 );
 
 function App() {
@@ -114,6 +123,28 @@ function App() {
                     <Route path="/channel/:identifier" element={<ChannelDetailPage />} />
                     <Route path="/channel" element={<ChannelPage />} />
                     
+                    {/* Move monitoring routes here, before creator hub routes */}
+                    <Route
+                      path="/monitoring"
+                      element={
+                        <ProtectedRoute>
+                          <MonitoringLayout>
+                            <SystemHealth />
+                          </MonitoringLayout>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/monitoring/queue"
+                      element={
+                        <ProtectedRoute>
+                          <MonitoringLayout>
+                            <SystemHealth refreshInterval={5000} />
+                          </MonitoringLayout>
+                        </ProtectedRoute>
+                      }
+                    />
+
                     {/* Creator Hub routes with special layout */}
                     <Route
                       path="/creator-hub"
@@ -171,6 +202,18 @@ function App() {
                         />
                       }
                     />
+                    <Route
+                      path="/creator-hub/content-studio"
+                      element={
+                        <CreatorHubRoute
+                          element={
+                            <ChannelSelectionProvider>
+                              <ContentStudio />
+                            </ChannelSelectionProvider>
+                          }
+                        />
+                      }
+                    />
 
                     {/* Protected routes */}
                     <Route
@@ -222,19 +265,6 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <ProfileSettings />
-                        </ProtectedRoute>
-                      }
-                    />
-
-                    {/* Admin routes */}
-                    <Route
-                      path="/admin/system-health"
-                      element={
-                        <ProtectedRoute>
-                          <div className="min-h-screen bg-[#09090B]">
-                            <Header className="sticky top-0 z-50" />
-                            <SystemHealth />
-                          </div>
                         </ProtectedRoute>
                       }
                     />

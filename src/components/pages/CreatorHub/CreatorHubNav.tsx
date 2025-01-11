@@ -80,6 +80,11 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
       ]
     },
     {
+      title: 'Content Studio',
+      icon: ListVideo,
+      path: '/creator-hub/content-studio',
+    },
+    {
       title: 'Analytics',
       icon: BarChart2,
       path: '/creator-hub/analytics',

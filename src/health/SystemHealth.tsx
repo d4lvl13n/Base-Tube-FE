@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { monitoringApi, SystemHealthStatus } from '../api/monitoring';
 import { motion } from 'framer-motion';
 import { 
   HardDrive, 
-  Video, 
-  ListCheck,
   Database,
   AlertCircle,
-  CheckCircle2,
   RefreshCw,
+  Cpu,
+  Activity
 } from 'lucide-react';
-import { formatDuration } from '../utils/format';
+import { monitoringApi, SystemHealthStatus } from '../api/monitoring';
+import { styles } from './styles';
+import { HealthCard, StatusIndicator, MetricCard } from './component';
+import { PerformanceDashboard } from './components/PerformanceDashboard';
 
 interface SystemHealthProps {
   refreshInterval?: number;
@@ -43,34 +44,9 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ refreshInterval = 30
     return () => clearInterval(interval);
   }, [refreshInterval]);
 
-  const HealthCard = ({ title, icon: Icon, children }: { 
-    title: string; 
-    icon: React.ElementType;
-    children: React.ReactNode;
-  }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
-    >
-      <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-        <Icon className="w-5 h-5 text-[#fa7517]" />
-        {title}
-      </h3>
-      {children}
-    </motion.div>
-  );
-
-  const StatusIndicator = ({ status }: { status: 'healthy' | 'unhealthy' }) => (
-    <div className={`flex items-center gap-2 ${status === 'healthy' ? 'text-green-400' : 'text-red-400'}`}>
-      {status === 'healthy' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-      <span className="capitalize">{status}</span>
-    </div>
-  );
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className={styles.loading}>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -82,26 +58,22 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ refreshInterval = 30
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-8 space-y-8">
-      <motion.div className="flex justify-between items-center">
+    <div className={styles.container}>
+      <motion.div className={styles.header.wrapper}>
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-            System Health
-          </h1>
-          <p className="text-gray-400 mt-2">Monitor system performance and status</p>
+          <h1 className={styles.header.title}>System Health</h1>
+          <p className={styles.header.subtitle}>Monitor system performance and status</p>
         </div>
         <button
           onClick={fetchHealthData}
           disabled={isRefreshing}
-          className={`p-2 rounded-lg hover:bg-gray-800/50 transition-colors ${
-            isRefreshing ? 'opacity-50' : ''
-          }`}
+          className={styles.refreshButton(isRefreshing)}
         >
           <RefreshCw className={`w-5 h-5 text-[#fa7517] ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className={styles.grid}>
         {/* Storage Status */}
         <HealthCard title="Storage Status" icon={HardDrive}>
           <div className="space-y-3">
@@ -119,37 +91,53 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ refreshInterval = 30
           </div>
         </HealthCard>
 
-        {/* Video Processing */}
-        <HealthCard title="Video Processing" icon={Video}>
+        {/* New Performance Dashboard */}
+        <div className="col-span-2">
+          <HealthCard title="Queue Performance" icon={Activity}>
+            {healthStatus?.queuePerformance && (
+              <PerformanceDashboard 
+                performance={healthStatus.queuePerformance.metrics} 
+              />
+            )}
+          </HealthCard>
+        </div>
+
+        {/* Enhanced FFmpeg Section */}
+        <HealthCard title="FFmpeg Performance" icon={Cpu}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg bg-gray-900/50">
-                <div className="text-sm text-gray-400">Active Jobs</div>
-                <div className="text-2xl font-semibold text-white">
-                  {healthStatus?.videoProcessing.metrics.activeJobs}
-                </div>
-              </div>
-              <div className="p-4 rounded-lg bg-gray-900/50">
-                <div className="text-sm text-gray-400">Oldest Job Age</div>
-                <div className="text-2xl font-semibold text-white">
-                  {formatDuration(healthStatus?.videoProcessing.metrics.oldestJobAge)}
-                </div>
-              </div>
+              <MetricCard 
+                label="CPU Model"
+                value={healthStatus?.ffmpegPerformance.metrics.systemCapabilities.cpuModel || 'N/A'}
+              />
+              <MetricCard 
+                label="Memory"
+                value={
+                  healthStatus?.ffmpegPerformance.metrics.systemCapabilities.freeMemory && 
+                  healthStatus?.ffmpegPerformance.metrics.systemCapabilities.totalMemory
+                    ? `${healthStatus.ffmpegPerformance.metrics.systemCapabilities.freeMemory} / ${healthStatus.ffmpegPerformance.metrics.systemCapabilities.totalMemory}`
+                    : 'N/A'
+                }
+              />
             </div>
-          </div>
-        </HealthCard>
-
-        {/* Queue Status */}
-        <HealthCard title="Queue Status" icon={ListCheck}>
-          <div className="grid grid-cols-2 gap-4">
-            {Object.entries(healthStatus?.queue.metrics || {}).map(([key, value]) => (
-              key !== 'oldestStuckJobAge' && (
-                <div key={key} className="p-4 rounded-lg bg-gray-900/50">
-                  <div className="text-sm text-gray-400 capitalize">{key.replace(/([A-Z])/g, ' $1')}</div>
-                  <div className="text-2xl font-semibold text-white">{value}</div>
+            
+            {/* Active Transcodings */}
+            <div className="space-y-2">
+              {healthStatus?.ffmpegPerformance.metrics.activeTranscodings.map(job => (
+                <div 
+                  key={job.id}
+                  className="p-3 bg-gray-800/50 rounded-lg flex items-center justify-between"
+                >
+                  <div>
+                    <span className="text-sm text-gray-300">Video {job.videoId}</span>
+                    <div className="text-xs text-gray-400">
+                      Duration: {job.duration || 0}s
+                    </div>
+                  </div>
+                  <span className="text-[#fa7517]">{job.progress || 0}%</span>
                 </div>
-              )
-            ))}
+              ))}
+            </div>
           </div>
         </HealthCard>
 
@@ -157,10 +145,11 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ refreshInterval = 30
         <HealthCard title="Database Metrics" icon={Database}>
           <div className="grid grid-cols-2 gap-4">
             {Object.entries(healthStatus?.database_metrics.metrics || {}).map(([key, value]) => (
-              <div key={key} className="p-4 rounded-lg bg-gray-900/50">
-                <div className="text-sm text-gray-400 capitalize">{key.replace(/_/g, ' ')}</div>
-                <div className="text-2xl font-semibold text-white">{value}</div>
-              </div>
+              <MetricCard 
+                key={key}
+                label={key.replace(/_/g, ' ')}
+                value={value || 0}
+              />
             ))}
           </div>
         </HealthCard>
@@ -170,10 +159,10 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ refreshInterval = 30
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-3"
+          className={styles.error}
         >
           <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
-          <p className="text-sm text-red-200">{error}</p>
+          <p className={styles.errorText}>{error}</p>
         </motion.div>
       )}
     </div>

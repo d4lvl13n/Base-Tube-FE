@@ -1,6 +1,7 @@
 // src/types/discovery.ts
 
 import { Channel } from '../../../types/channel'; // Assuming you have a Channel type defined
+import { VideoStatus } from '../../../types/video';
 // If you don't, create one or adjust imports accordingly.
 
 export type TimeFrame = 'today' | 'week' | 'month' | 'all';
@@ -21,7 +22,7 @@ export interface DiscoveryVideo {
   trending_score: number;
   duration: number;
   likes_count: number;
-  status: string;
+  status: string | VideoStatus;
   createdAt: string;
   updatedAt: string;
   engagement_score: number;

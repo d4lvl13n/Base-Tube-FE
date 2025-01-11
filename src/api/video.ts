@@ -1,5 +1,5 @@
 import api from './index';
-import { TrendingVideoResponse, Video } from '../types/video';
+import { TrendingVideoResponse, Video, ProgressResponse } from '../types/video';
 import { AxiosProgressEvent } from 'axios';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
 import axios from 'axios';
@@ -75,6 +75,26 @@ interface FeaturedVideoResponse {
     };
     total: number;
   }
+}
+
+export interface VideoProgressData {
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: {
+    quality: string;
+    percent: number;
+    currentQuality: string;
+    totalQualities: number;
+    currentQualityIndex: number;
+  };
+  error?: {
+    message: string;
+    jobId?: string;
+  };
+}
+
+export interface VideoProgressResponse {
+  success: boolean;
+  data: VideoProgressData;
 }
 
 export const getAllVideos = (page: number = 1, limit: number = 10) =>
@@ -395,4 +415,14 @@ export const generateVideoDescription = async (
     console.error('Error generating video description:', error);
     throw error;
   }
+};
+
+export const getVideoProgress = async (videoId: number): Promise<VideoProgressResponse> => {
+  const response = await api.get(`/api/v1/videos/progress/${videoId}`);
+  return response.data;
+};
+
+export const retryVideoProcessing = async (videoId: number): Promise<{ success: boolean; message: string }> => {
+  const response = await api.post(`/api/v1/videos/retry/${videoId}`);
+  return response.data;
 };

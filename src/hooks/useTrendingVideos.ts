@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 // We keep both type systems because:
 // 1. TrendingVideoResponse matches our API response structure
 // 2. Video type is used throughout the rest of the application
-import { TrendingVideoResponse, Video } from '../types/video';
+import { TrendingVideoResponse, Video, VideoStatus } from '../types/video';
 import { 
   TimeFrame, 
   DiscoveryVideo,
@@ -26,6 +26,36 @@ interface UseTrendingVideosReturn {
 // This is necessary because the API returns data in DiscoveryVideo format
 // but our app components expect Video format
 const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
+  // Determine status based on video properties
+  const determineStatus = (): VideoStatus => {
+    if (discoveryVideo.video_urls && Object.keys(discoveryVideo.video_urls).length > 0) {
+      return 'completed';
+    }
+    if (discoveryVideo.processed_video_paths?.length) {
+      return 'completed';
+    }
+    return 'pending';
+  };
+
+  // Map the string status to our valid status type
+  const mapStatus = (status: string | undefined): VideoStatus => {
+    if (!status) return determineStatus();
+    
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'done':
+        return 'completed';
+      case 'processing':
+      case 'in_progress':
+        return 'processing';
+      case 'failed':
+      case 'error':
+        return 'failed';
+      default:
+        return determineStatus();
+    }
+  };
+
   return {
     // Basic info
     id: discoveryVideo.id,
@@ -43,7 +73,7 @@ const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
     thumbnail_path: discoveryVideo.thumbnail_path,
     thumbnail_url: discoveryVideo.thumbnail_url,
     
-    // Stats - including both old and new property names
+    // Stats
     duration: discoveryVideo.duration,
     views_count: discoveryVideo.views_count,
     views: discoveryVideo.views_count,
@@ -57,6 +87,9 @@ const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
     is_public: discoveryVideo.is_public,
     is_featured: discoveryVideo.is_featured,
     is_nft_content: false,
+    
+    // Status - using the mapping function
+    status: mapStatus(discoveryVideo.status),
     
     // Scores
     trending_score: discoveryVideo.trending_score,

@@ -63,6 +63,13 @@ export interface Video {
   engagement_score?: number;
   time_category: 'today' | 'this_week' | 'this_month' | 'older';
   tags?: string;
+  status: VideoStatus;
+  processing_progress?: {
+    percent: number;
+    currentQuality?: string;
+    totalQualities?: number;
+    currentQualityIndex?: number;
+  };
 }
 
 export interface TrendingVideoResponse {
@@ -88,4 +95,35 @@ export interface VideosResponse {
     total: number;
     hasMore: boolean;
   }
+}
+
+export interface ProgressResponse {
+  success: boolean;
+  data: {
+    videoId: number;
+    status: VideoStatus;
+    progress?: {
+      quality: string;
+      percent: number;
+      currentQuality: string;
+      totalQualities: number;
+      currentQualityIndex: number;
+    };
+    error?: {
+      message: string;
+      jobId?: string;
+      timestamp?: string;
+    };
+  };
+}
+
+export type VideoStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface VideoProgress {
+  videoId: number;
+  percent: number;
+  status: VideoStatus;
+  currentQuality?: string;
+  totalQualities?: number;
+  currentQualityIndex?: number;
 }

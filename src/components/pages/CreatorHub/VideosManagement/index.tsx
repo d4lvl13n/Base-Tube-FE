@@ -1,16 +1,15 @@
-import React, { useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { getChannelVideos } from '../../../../api/channel';
 import { updateVideo, deleteVideo } from '../../../../api/video';
-import { VideoAction, VideoFilters } from './types';
-import VideoList from './components/VideoList';
-import VideoActions from './components/VideoActions';
-import VideoFiltersComponent from './components/VideoFilters';
+import { VideoAction, VideoFilters, SortField, SortState } from './types';
+import { VideoList } from './components/VideoList/videolist';
 import EditVideoModal from './EditVideoModal';
 import DeleteConfirmationDialog from '../../../common/DeleteConfirmationDialog';
 import { Video } from '../../../../types/video';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
+import { useVideoProcessing } from '../../../../hooks/useVideoProcessing';
 
 interface PaginatedResponse {
   data: Video[];
@@ -25,13 +24,25 @@ interface PaginatedResponse {
 const VideosManagement: React.FC = () => {
   // State management
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<VideoFilters>({});
+  const [filters] = useState<VideoFilters>({});
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [videos, setVideos] = useState<Video[]>([]);
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
   const [deletingVideo, setDeletingVideo] = useState<Video | null>(null);
-  const [isUpdating, setIsUpdating] = useState(false);
   const { selectedChannelId } = useChannelSelection();
+  const queryClient = useQueryClient();
+
+  // Add sort state
+  const [sort, setSort] = useState<SortState>({
+    field: 'date',
+    direction: 'desc'
+  });
+
+  const processingVideoIds = videos
+    .filter(v => v.status === 'pending' || v.status === 'processing')
+    .map(v => v.id);
+  
+  const { processingVideos } = useVideoProcessing(processingVideoIds);
 
   // Fetch videos with react-query
   const {
@@ -62,7 +73,7 @@ const VideosManagement: React.FC = () => {
       if (page === 1) {
         setVideos(data.data);
       } else {
-        setVideos(prev => [...prev, ...data.data]);
+        setVideos(prev => [...prev, ...data.data]); 
       }
     }
   }, [data, page]);
@@ -80,23 +91,14 @@ const VideosManagement: React.FC = () => {
       case 'delete':
         setDeletingVideo(video);
         break;
-        
-      case 'toggle_visibility':
-        if (!isUpdating) {
-          const formData = new FormData();
-          formData.append('is_public', (!video.is_public).toString());
-          handleUpdateVideo(videoId, formData);
-        }
-        break;
     }
-  }, [videos, isUpdating]);
+  }, [videos]);
 
   // Handle video update
   const handleUpdateVideo = async (videoId: string, formData: FormData) => {
-    setIsUpdating(true);
     try {
       const result = await updateVideo(videoId, formData);
-      if (result.success && result.data) {
+      if (result.success) {
         setVideos(prevVideos => 
           prevVideos.map(v => 
             v.id.toString() === videoId ? result.data! : v
@@ -110,8 +112,6 @@ const VideosManagement: React.FC = () => {
       const message = error instanceof Error ? error.message : 'Failed to update video';
       toast.error(message);
       console.error('Update error:', error);
-    } finally {
-      setIsUpdating(false);
     }
   };
 
@@ -138,64 +138,61 @@ const VideosManagement: React.FC = () => {
     setDeletingVideo(null);
   };
 
-  // Handle bulk actions
-  const handleBulkAction = async (action: VideoAction) => {
-    if (!selectedVideos.length) return;
-    
-    try {
-      for (const videoId of selectedVideos) {
-        await handleVideoAction(videoId, action);
-      }
-      setSelectedVideos([]); // Clear selection after bulk action
-    } catch (error) {
-      toast.error('Failed to perform bulk action');
-      console.error('Bulk action error:', error);
-    }
-  };
+  // Handle sort
+  const handleSort = useCallback((field: SortField) => {
+    setSort(prev => ({
+      field,
+      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  }, []);
 
-  // Handle filter changes
-  const handleFilterChange = (newFilters: VideoFilters) => {
-    setFilters(newFilters);
-    setPage(1); // Reset pagination when filters change
-  };
+  // Sort videos
+  const sortedVideos = useMemo(() => {
+    return [...videos].sort((a, b) => {
+      const modifier = sort.direction === 'asc' ? 1 : -1;
+      
+      switch (sort.field) {
+        case 'views':
+          return (a.views_count - b.views_count) * modifier;
+        case 'likes':
+          return (a.likes_count - b.likes_count) * modifier;
+        case 'date':
+          return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * modifier;
+        case 'status':
+          return (a.is_public === b.is_public ? 0 : a.is_public ? 1 : -1) * modifier;
+        default:
+          return 0;
+      }
+    });
+  }, [videos, sort]);
 
   if (error) {
     return <div className="p-6 text-red-500">Failed to load videos</div>;
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <VideoFiltersComponent
-        filters={filters}
-        onFilterChange={handleFilterChange}
-      />
-
-      {selectedVideos.length > 0 && (
-        <VideoActions
-          selectedVideos={selectedVideos}
-          onBulkAction={handleBulkAction}
-        />
-      )}
+      <div className="p-6 space-y-6">
 
       <VideoList
-        videos={videos}
+        videos={sortedVideos}
+        processingVideos={processingVideos}
         isLoading={isLoading}
-        onLoadMore={handleLoadMore}
         hasMore={hasMore}
-        onVideoAction={handleVideoAction}
-        selectedVideos={selectedVideos}
-        onVideoSelect={(videoId) => {
-          setSelectedVideos(prev => 
-            prev.includes(videoId) 
-              ? prev.filter(id => id !== videoId)
-              : [...prev, videoId]
-          );
+        onLoadMore={handleLoadMore}
+        onVideoAction={async (videoId: string, action: VideoAction, formData?: FormData) => {
+          switch (action) {
+            case 'edit':
+              if (formData) {
+                await handleUpdateVideo(videoId, formData);
+              }
+              break;
+            case 'delete':
+              await handleDeleteVideo(videoId);
+              break;
+          }
         }}
-        onSelectAll={(videoIds) => {
-          setSelectedVideos(prev => 
-            prev.length === videoIds.length ? [] : videoIds
-          );
-        }}
+        sort={sort}
+        onSort={handleSort}
       />
 
       {editingVideo && (

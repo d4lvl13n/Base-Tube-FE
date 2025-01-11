@@ -7,6 +7,7 @@ import { Select } from '../../../../ui/Select';
 import { getChannelVideos } from '../../../../../api/channel';
 import { useQuery } from '@tanstack/react-query';
 import { formatDuration } from '../../../../../utils/format';
+import { Video } from '../../../../../types/video';
 
 export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const [period, setPeriod] = useState<'7d' | '30d'>('7d');
@@ -114,15 +115,15 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
                 </tr>
               </thead>
               <tbody>
-                {performanceData.recentVideos.map((video) => (
+                {performanceData.recentVideos.map((video: Video) => (
                   <tr key={video.id} className="border-t border-gray-800">
                     <td className="py-3 truncate max-w-[200px]">{video.title}</td>
                     <td className="text-right text-[#fa7517]">
                       {video.views?.toLocaleString() ?? '0'}
                     </td>
                     <td className="text-right text-blue-400">
-  {formatDuration(video?.duration)}
-</td>
+                      {formatDuration(video?.duration)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

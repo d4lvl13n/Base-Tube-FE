@@ -1,7 +1,14 @@
 import api from './index';
 
-export interface StorageHealth {
+// Base interfaces
+interface BaseHealthResponse {
   status: string;
+  timestamp: string;
+  service: string;
+}
+
+// Extended interfaces for new endpoints
+export interface StorageHealth extends BaseHealthResponse {
   details: {
     video: boolean;
     thumbnail: boolean;
@@ -10,15 +17,14 @@ export interface StorageHealth {
   };
 }
 
-export interface VideoProcessingHealth {
-  status: string;
+export interface VideoProcessingHealth extends BaseHealthResponse {
   metrics: {
     activeJobs: number;
     oldestJobAge: number;
   };
 }
 
-export interface QueueHealth {
+export interface QueueHealth extends BaseHealthResponse {
   metrics: {
     waiting: number;
     active: number;
@@ -30,7 +36,70 @@ export interface QueueHealth {
   };
 }
 
-export interface StorageMetrics {
+export interface QueuePerformance extends BaseHealthResponse {
+  metrics: {
+    jobCounts: {
+      waiting: number;
+      active: number;
+      completed: number;
+      failed: number;
+      delayed: number;
+    };
+    performance: {
+      averageProcessingTime: string;
+      jobsPerHour: number;
+      currentThroughput: string;
+    };
+    systemLoad: {
+      cpuCount: number;
+      loadAverage: string;
+      systemLoadPercentage: string;
+      memory: {
+        heapUsed: string;
+        heapTotal: string;
+        rss: string;
+      };
+    };
+    issues: {
+      stuckJobs: Array<{
+        id: string;
+        duration: string;
+        data: any;
+      }>;
+    };
+    activeJobs: Array<{
+      id: string;
+      progress: number;
+      duration: string;
+      data: any;
+    }>;
+    recentFailures: Array<{
+      id: string;
+      failedReason: string;
+      data: any;
+      attempts: number;
+    }>;
+  };
+}
+
+export interface FFmpegPerformance extends BaseHealthResponse {
+  metrics: {
+    systemCapabilities: {
+      cpuCount: number;
+      cpuModel: string;
+      totalMemory: string;
+      freeMemory: string;
+    };
+    activeTranscodings: Array<{
+      id: string;
+      progress: number;
+      duration: number;
+      videoId: number;
+    }>;
+  };
+}
+
+export interface StorageMetrics extends BaseHealthResponse {
   metrics: {
     [key in 'video' | 'thumbnail' | 'image']: {
       objectCount: number;
@@ -40,7 +109,7 @@ export interface StorageMetrics {
   };
 }
 
-export interface DatabaseMetrics {
+export interface DatabaseMetrics extends BaseHealthResponse {
   metrics: {
     total_videos: number;
     processing_videos: number;
@@ -54,6 +123,8 @@ export interface SystemHealthStatus {
   storage: StorageHealth;
   videoProcessing: VideoProcessingHealth;
   queue: QueueHealth;
+  queuePerformance: QueuePerformance;
+  ffmpegPerformance: FFmpegPerformance;
   storage_metrics: StorageMetrics;
   database_metrics: DatabaseMetrics;
 }
@@ -74,6 +145,16 @@ export const monitoringApi = {
     return data;
   },
 
+  async getQueuePerformance(): Promise<QueuePerformance> {
+    const { data } = await api.get('/api/v1/monitoring/health/queue-performance');
+    return data;
+  },
+
+  async getFFmpegPerformance(): Promise<FFmpegPerformance> {
+    const { data } = await api.get('/api/v1/monitoring/health/ffmpeg-performance');
+    return data;
+  },
+
   async getStorageMetrics(): Promise<StorageMetrics> {
     const { data } = await api.get('/api/v1/monitoring/health/storage-metrics');
     return data;
@@ -85,10 +166,20 @@ export const monitoringApi = {
   },
 
   async getAllHealthMetrics(): Promise<SystemHealthStatus> {
-    const [storage, videoProcessing, queue, storageMetrics, dbMetrics] = await Promise.all([
+    const [
+      storage,
+      videoProcessing,
+      queue,
+      queuePerformance,
+      ffmpegPerformance,
+      storageMetrics,
+      dbMetrics
+    ] = await Promise.all([
       this.getStorageHealth(),
       this.getVideoProcessingHealth(),
       this.getQueueHealth(),
+      this.getQueuePerformance(),
+      this.getFFmpegPerformance(),
       this.getStorageMetrics(),
       this.getDatabaseMetrics()
     ]);
@@ -97,6 +188,8 @@ export const monitoringApi = {
       storage,
       videoProcessing,
       queue,
+      queuePerformance,
+      ffmpegPerformance,
       storage_metrics: storageMetrics,
       database_metrics: dbMetrics
     };

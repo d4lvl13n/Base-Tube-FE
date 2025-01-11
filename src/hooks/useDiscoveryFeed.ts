@@ -3,7 +3,7 @@
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { getDiscoveryFeed } from '../api/discovery';
 import type { GetDiscoveryOptions, DiscoveryResponse, DiscoveryVideo } from '../types/discovery';
-import type { Video } from '../types/video';
+import { Video, VideoStatus } from '../types/video';
 
 // Define a type for the transformed page data
 interface TransformedDiscoveryResponse {
@@ -16,35 +16,85 @@ interface TransformedDiscoveryResponse {
 
 // Helper function to transform DiscoveryVideo to Video
 const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
+  // Determine status based on video properties
+  const determineStatus = (): VideoStatus => {
+    if (discoveryVideo.video_urls && Object.keys(discoveryVideo.video_urls).length > 0) {
+      return 'completed';
+    }
+    if (discoveryVideo.processed_video_paths?.length) {
+      return 'completed';
+    }
+    return 'pending';
+  };
+
+  // Map the string status to our valid status type
+  const mapStatus = (status: string | undefined): VideoStatus => {
+    if (!status) return determineStatus();
+    
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'done':
+        return 'completed';
+      case 'processing':
+      case 'in_progress':
+        return 'processing';
+      case 'failed':
+      case 'error':
+        return 'failed';
+      default:
+        return determineStatus();
+    }
+  };
+
   return {
+    // Basic info
     id: discoveryVideo.id,
     user_id: Number(discoveryVideo.user_id),
     channel_id: discoveryVideo.channel_id,
     title: discoveryVideo.title,
     description: discoveryVideo.description || '',
+    
+    // Video paths and URLs
     video_path: '',
+    video_urls: discoveryVideo.video_urls || {},
     processed_video_paths: discoveryVideo.processed_video_paths,
+    
+    // Thumbnail info
     thumbnail_path: discoveryVideo.thumbnail_path,
     thumbnail_url: discoveryVideo.thumbnail_url,
+    
+    // Stats
     duration: discoveryVideo.duration,
     views_count: discoveryVideo.views_count,
     views: discoveryVideo.views_count,
     likes_count: discoveryVideo.likes_count,
     likes: discoveryVideo.likes_count,
     dislikes: 0,
+    like_count: discoveryVideo.likes_count,
+    comment_count: 0,
+    
+    // Flags
     is_public: discoveryVideo.is_public,
     is_featured: discoveryVideo.is_featured,
-    trending_score: discoveryVideo.trending_score,
     is_nft_content: false,
+    
+    // Status - using the mapping function
+    status: mapStatus(discoveryVideo.status),
+    
+    // Scores
+    trending_score: discoveryVideo.trending_score,
+    engagement_score: discoveryVideo.engagement_score || 0,
+    
+    // Timestamps
     createdAt: discoveryVideo.createdAt,
     updatedAt: discoveryVideo.updatedAt,
+    
+    // Relations
     channel: discoveryVideo.channel,
-    comment_count: 0,
-    like_count: discoveryVideo.likes_count,
     user: undefined,
-    time_category: discoveryVideo.time_category || 'older',
-    engagement_score: discoveryVideo.engagement_score || 0,
-    video_urls: discoveryVideo.video_urls || {}
+    
+    // Categories
+    time_category: discoveryVideo.time_category || 'older'
   };
 };
 

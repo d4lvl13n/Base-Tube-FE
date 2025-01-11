@@ -6,7 +6,6 @@ import {
   ChannelResponse, 
   ChannelsResponse, 
   ChannelDetailsResponse,
-  ChannelVideosResponse,
   ChannelAnalyticsResponse,
   ChannelQueryOptions,
   GetChannelsOptions,
@@ -179,12 +178,17 @@ export const getChannelDetails = async (identifier: number | string): Promise<Ch
   return response.data;
 };
 
-export const getChannelVideos = async (channelId: string, page: number = 1, limit: number = 12): Promise<ChannelVideosResponse> => {
+export const getChannelVideos = async (channelId: string | number, page: number = 1) => {
   try {
-    const response = await api.get<ChannelVideosResponse>(`/api/v1/channels/${channelId}/videos?page=${page}&limit=${limit}`);
+    const response = await api.get(`/api/v1/channels/${channelId}/videos`, {
+      params: {
+        page,
+        include_private: true
+      }
+    });
     return response.data;
   } catch (error) {
-    console.error('Error fetching channel videos:', error);
+    console.error('Failed to fetch channel videos:', error);
     throw error;
   }
 };
