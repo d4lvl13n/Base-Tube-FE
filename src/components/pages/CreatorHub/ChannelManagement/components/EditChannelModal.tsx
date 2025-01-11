@@ -23,7 +23,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
   // -------------------------------------------------------
   const [formData, setFormData] = useState<FormFields>({
     name: channel.name,
-    handle: channel.handle,
+    handle: channel.handle.replace('.base', ''),
     description: channel.description || '',
     channel_image: undefined, // No new file by default
     facebook_link: channel.facebook_link || '',
@@ -42,7 +42,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
   useEffect(() => {
     setFormData({
       name: channel.name,
-      handle: channel.handle,
+      handle: channel.handle.replace('.base', ''),
       description: channel.description || '',
       channel_image: undefined,
       facebook_link: channel.facebook_link || '',
@@ -133,10 +133,9 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      // Build the object again for submission
       const channelUpdateObj: UpdateChannelData = {
         name: formData.name.trim(),
-        handle: formData.handle.trim(),
+        handle: `${formData.handle.trim()}.base`,
         description: formData.description.trim(),
         facebook_link: formData.facebook_link.trim() || undefined,
         instagram_link: formData.instagram_link.trim() || undefined,
@@ -224,24 +223,33 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                   )}
                 </div>
 
-                {/* Handle */}
+                {/* Handle Input with Helper Text */}
                 <div className={styles.inputGroup}>
                   <label htmlFor="channelHandle" className={styles.label}>
                     Handle
                   </label>
-                  <input
-                    id="channelHandle"
-                    type="text"
-                    value={formData.handle}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, handle: e.target.value }))
-                    }
-                    className={`${styles.input} ${
-                      errors.handle
-                        ? 'border-red-500 focus:outline-none'
-                        : 'border-gray-700 focus:border-[#fa7517]'
-                    }`}
-                  />
+                  <div className="relative">
+                    <input
+                      id="channelHandle"
+                      type="text"
+                      value={formData.handle}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, handle: e.target.value }))
+                      }
+                      className={`${styles.input} ${
+                        errors.handle
+                          ? 'border-red-500 focus:outline-none'
+                          : 'border-gray-700 focus:border-[#fa7517]'
+                      }`}
+                      placeholder="your-channel-handle"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                      .base
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Handle can only contain letters, numbers, underscores, and hyphens
+                  </p>
                   {errors.handle && (
                     <p className={styles.errorText}>{errors.handle}</p>
                   )}

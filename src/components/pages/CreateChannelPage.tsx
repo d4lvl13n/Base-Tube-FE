@@ -14,7 +14,7 @@ import {
   Twitter,
   User,
   FileText,
-  Share2,
+  Share2, 
   Image,
   HelpCircle,
   Sparkles,
@@ -55,6 +55,11 @@ const CreateChannelPage: React.FC = () => {
   const [showHandleHelpModal, setShowHandleHelpModal] = useState(false);
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
   const [showDescriptionHelpModal, setShowDescriptionHelpModal] = useState(false);
+  const [keywords, setKeywords] = useState('');
+  const [additionalInfo, setAdditionalInfo] = useState('');
+  const [generatedDescription, setGeneratedDescription] = useState<string | undefined>();
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [suggestedHandle, setSuggestedHandle] = useState<string | undefined>();
   
   const {
     register,
@@ -80,6 +85,7 @@ const CreateChannelPage: React.FC = () => {
     isGeneratingHandle,
     suggestions: aiHandleSuggestions,
     generateHandleSuggestions,
+    generateChannelDescription,
     clearSuggestions,
   } = useChannelAI();
 
@@ -201,12 +207,13 @@ const CreateChannelPage: React.FC = () => {
 
   // Handle form submission
   const handleCreateChannel = async (data: any) => {
-    if (!isLastStep) {
+    // Check if we're on the last step AND the next button was clicked
+    if (!isLastStep || step !== 4) {
       handleNextStep();
       return;
     }
 
-    // Only show confirmation modal on the last step
+    // Only show confirmation modal on the last step when submitting
     setIsModalOpen(true);
   };
 
@@ -752,6 +759,33 @@ const CreateChannelPage: React.FC = () => {
     { key: '4', icon: Image, label: 'Image' },
   ];
 
+  // Add a handler for AI description generation
+  const handleGenerateDescription = async () => {
+    if (!watchedName.trim()) {
+      toast.error('Please enter a channel name first');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { description: generated, suggestedHandle: suggested } = 
+        await generateChannelDescription(watchedName, keywords, additionalInfo);
+      
+      if (generated) {
+        setValue('description', generated, { shouldValidate: true });
+        setGeneratedDescription(generated);
+      }
+      if (suggested) {
+        setSuggestedHandle(suggested);
+      }
+    } catch (error: any) {
+      console.error('Description generation failed:', error);
+      toast.error('Failed to generate description. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="bg-black text-white min-h-screen">
       <Header />
@@ -864,14 +898,21 @@ const CreateChannelPage: React.FC = () => {
       <AIAssistantPanel
         isOpen={isAIPanelOpen}
         onClose={() => setIsAIPanelOpen(false)}
-        title={watch('name')}
-        keywords=""
-        additionalInfo=""
-        onKeywordsChange={() => {}}
-        onAdditionalInfoChange={() => {}}
-        onGenerate={() => {}}
-        isGenerating={false}
-        generatedDescription={watch('description')}
+        title={watchedName}
+        keywords={keywords}
+        additionalInfo={additionalInfo}
+        onKeywordsChange={setKeywords}
+        onAdditionalInfoChange={setAdditionalInfo}
+        onGenerate={handleGenerateDescription}
+        isGenerating={isGenerating}
+        suggestedTitle={suggestedHandle}
+        generatedDescription={generatedDescription}
+        onAcceptTitle={() => {
+          if (suggestedHandle) {
+            setValue('handle', suggestedHandle, { shouldValidate: true });
+            setSuggestedHandle(undefined);
+          }
+        }}
         mode="channel"
       />
     </div>

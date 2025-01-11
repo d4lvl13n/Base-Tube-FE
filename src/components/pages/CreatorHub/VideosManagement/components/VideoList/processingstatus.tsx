@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 import { ProcessingVideo } from '../../../../../../hooks/useVideoProcessing';
-import { styles } from './styles';
 import { motion } from 'framer-motion';
 
 interface ProcessingStatusProps {

@@ -1,17 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Edit2, Trash2, Eye, EyeOff, FileVideo, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, ThumbsUp } from 'lucide-react';
+import { RefreshCw, Edit2, Trash2, Eye, EyeOff, FileVideo, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { VideoAction } from '../../types';
 import { Video } from '../../../../../../types/video';
-import { ProcessingStatus } from './processingstatus';
 import { styles } from './styles';
 import { formatDuration, getThumbnailUrl } from './utils';
 import { ProcessingVideo } from '../../../../../../hooks/useVideoProcessing';
-import EditVideoModal from '../../EditVideoModal';
 import { SortField, SortState } from '../../types';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import * as AlertDialog from '@radix-ui/react-alert-dialog';
+import { ProcessingStatus } from './processingstatus';
 
 interface VideoListProps {
   videos: Video[];
@@ -19,7 +17,6 @@ interface VideoListProps {
   hasMore: boolean;
   onLoadMore: () => void;
   onVideoAction: (videoId: string, action: VideoAction, formData?: FormData) => Promise<void>;
-  onRetryProcessing?: (videoId: number) => void;
   processingVideos?: Record<number, ProcessingVideo>;
   sort?: SortState;
   onSort?: (field: SortField) => void;
@@ -60,29 +57,10 @@ export const VideoList: React.FC<VideoListProps> = ({
   hasMore,
   onLoadMore,
   onVideoAction,
-  onRetryProcessing,
+  processingVideos,
   sort,
   onSort,
-  processingVideos,
 }) => {
-  const [editingVideo, setEditingVideo] = useState<Video | null>(null);
-  const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
-  const [deletingVideo, setDeletingVideo] = useState<Video | null>(null);
-
-  const handleAction = async (videoId: string, action: VideoAction) => {
-    const actionKey = `${videoId}-${action}`;
-    setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
-    try {
-      await onVideoAction(videoId, action);
-    } finally {
-      setLoadingActions(prev => {
-        const newState = { ...prev };
-        delete newState[actionKey];
-        return newState;
-      });
-    }
-  };
-
   if (isLoading && !videos.length) {
     return (
       <motion.div 
@@ -115,39 +93,29 @@ export const VideoList: React.FC<VideoListProps> = ({
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.table.wrapper}>
-        <ErrorBoundary fallback={
-          <div className="p-4 text-red-400 bg-red-400/10 rounded-lg">
-            <AlertCircle className="w-5 h-5 inline-block mr-2" />
-            Something went wrong displaying the video list. 
-            <button 
-              onClick={() => window.location.reload()}
-              className="ml-2 underline hover:text-red-300"
-            >
-              Refresh page
-            </button>
-          </div>
-        }>
-          <table className="w-full">
+    <div className="overflow-x-auto w-full">
+      <div className="min-w-full inline-block align-middle">
+        <div className="overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-800/30">
             <thead className={styles.table.header}>
               <tr>
-                <th className={styles.table.headerCell}>Video</th>
-                <SortableHeader field="status" label="Visibility" currentSort={sort} onSort={onSort} />
-                <th className="hidden md:table-cell">
+                <th className="w-[600px] min-w-[600px] max-w-[600px] px-4 py-3.5">Video</th>
+                <th className="w-[70px] px-4 py-3.5">
+                  <SortableHeader field="status" label="Visibility" currentSort={sort} onSort={onSort} />
+                </th>
+                <th className="w-[80px] hidden lg:table-cell px-4 py-3.5">
                   <SortableHeader field="date" label="Date" currentSort={sort} onSort={onSort} />
                 </th>
-                <th className="hidden md:table-cell">
+                <th className="w-[60px] hidden lg:table-cell px-4 py-3.5">
                   <SortableHeader field="views" label="Views" currentSort={sort} onSort={onSort} />
                 </th>
-                <th className="hidden md:table-cell">
+                <th className="w-[60px] hidden lg:table-cell px-4 py-3.5">
                   <SortableHeader field="likes" label="Likes" currentSort={sort} onSort={onSort} />
                 </th>
-                <th className="hidden md:table-cell">Duration</th>
-                <th className={`${styles.table.headerCell} text-right`}>Actions</th>
+                <th className="w-[70px] px-4 py-3.5"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/30">
+            <tbody>
               <AnimatePresence mode="popLayout">
                 {videos.map((video) => (
                   <motion.tr
@@ -155,136 +123,72 @@ export const VideoList: React.FC<VideoListProps> = ({
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    layout
-                    layoutId={`video-${video.id}`}
-                    transition={{
-                      layout: { duration: 0.3 },
-                      opacity: { duration: 0.2 },
-                    }}
                     className={styles.table.row}
                   >
-                    <td className={styles.table.cell}>
-                      <div className="flex items-center space-x-3">
-                        <motion.div 
-                          className={styles.thumbnail.wrapper}
-                          layoutId={`thumbnail-${video.id}`}
-                          whileHover={{ scale: 1.05 }}
-                        >
-                          <div className="relative w-full h-full">
-                            <img
-                              src={getThumbnailUrl(video)}
-                              alt={video.title || 'Video thumbnail'}
-                              className={`${styles.thumbnail.image} transition-opacity duration-200`}
-                              loading="lazy"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = '/assets/default-thumbnail.jpg';
-                              }}
-                            />
-                            <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/80 rounded text-xs text-white backdrop-blur-sm">
-                              {formatDuration(video.duration)}
-                            </div>
-                          </div>
-                        </motion.div>
-                        <div className="flex flex-col gap-2 flex-grow">
-                          <div>
-                            <div className={styles.videoInfo.title}>
-                              {video.title || 'Untitled'}
-                            </div>
-                            <div className={styles.videoInfo.description}>
-                              {video.description || 'No description'}
-                            </div>
-                          </div>
-                          <ProcessingStatus 
-                            videoId={video.id} 
-                            processingStatus={processingVideos?.[video.id]}
-                            onRetry={async () => {
-                              try {
-                                const confirmed = window.confirm('Are you sure you want to retry processing this video?');
-                                if (!confirmed) return;
-
-                                const actionKey = `${video.id}-retry`;
-                                setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
-
-                                await onRetryProcessing?.(video.id);
-
-                                console.log('Processing retry initiated successfully');
-                              } catch (error) {
-                                console.error('Failed to retry processing:', error);
-                              } finally {
-                                setLoadingActions(prev => {
-                                  const newState = { ...prev };
-                                  delete newState[`${video.id}-retry`];
-                                  return newState;
-                                });
-                              }
+                    <td className={`${styles.table.cell} w-[600px] min-w-[600px] max-w-[600px]`}>
+                      <div className="flex items-start space-x-3">
+                        <div className="w-28 flex-shrink-0 relative">
+                          <img
+                            src={getThumbnailUrl(video)}
+                            alt={video.title || 'Video thumbnail'}
+                            className="w-full aspect-video object-cover rounded-lg"
+                            loading="lazy"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = '/assets/default-thumbnail.jpg';
                             }}
                           />
-                        </div>
-                      </div>
-                      
-                      <div className={styles.table.mobileInfo}>
-                        <div className={styles.table.mobileStats}>
-                          <div className={styles.table.mobileStat}>
-                            <Eye className="w-3 h-3" />
-                            {video.views_count?.toLocaleString() ?? '0'} views
-                          </div>
-                          <div className={styles.table.mobileStat}>
-                            <ThumbsUp className="w-3 h-3" />
-                            {video.likes_count?.toLocaleString() ?? '0'} likes
+                          <div className="absolute bottom-1 right-1 bg-black/80 px-1 py-0.5 rounded text-xs text-white">
+                            {formatDuration(video.duration)}
                           </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {formatDistanceToNow(new Date(video.createdAt), { addSuffix: true })}
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <h3 className="text-sm font-medium truncate">
+                            {video.title || 'Untitled'}
+                          </h3>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2 break-words">
+                            {video.description || 'No description'}
+                          </p>
+                          {processingVideos?.[video.id] && (
+                            <div className="mt-2">
+                              <ProcessingStatus
+                                videoId={video.id}
+                                processingStatus={processingVideos[video.id]}
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
-                    <td className={styles.table.cell}>
+                    <td className={`${styles.table.cell} w-[70px]`}>
                       <div className={video.is_public ? styles.status.public : styles.status.private}>
-                        <motion.div className="flex items-center gap-1.5">
-                          {video.is_public ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                          {video.is_public ? 'Public' : 'Private'}
-                        </motion.div>
+                        {video.is_public ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                        {video.is_public ? 'Public' : 'Private'}
                       </div>
                     </td>
-                    <td className={`${styles.table.cell} hidden md:table-cell text-sm text-gray-400`}>
-                      {video.createdAt 
-                        ? formatDistanceToNow(new Date(video.createdAt), { addSuffix: true }) 
-                        : 'Unknown'}
+                    <td className={`${styles.table.cell} w-[80px] hidden lg:table-cell text-sm text-gray-400`}>
+                      {formatDistanceToNow(new Date(video.createdAt), { addSuffix: true })}
                     </td>
-                    <td className={`${styles.table.cell} hidden md:table-cell text-sm text-gray-400`}>
+                    <td className={`${styles.table.cell} w-[60px] hidden lg:table-cell text-sm text-gray-400`}>
                       {video.views_count?.toLocaleString() ?? '0'}
                     </td>
-                    <td className={`${styles.table.cell} hidden md:table-cell text-sm text-gray-400`}>
+                    <td className={`${styles.table.cell} w-[60px] hidden lg:table-cell text-sm text-gray-400`}>
                       {video.likes_count?.toLocaleString() ?? '0'}
                     </td>
-                    <td className={`${styles.table.cell} hidden md:table-cell text-sm text-gray-400`}>
-                      {formatDuration(video.duration)}
-                    </td>
-                    <td className={`${styles.table.cell} text-right`}>
+                    <td className={`${styles.table.cell} w-[70px]`}>
                       <div className="flex items-center justify-end gap-2">
                         <Tooltip.Provider delayDuration={300}>
                           <Tooltip.Root>
                             <Tooltip.Trigger asChild>
-                              <motion.button
+                              <button
                                 className={styles.actionButton}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => setEditingVideo(video)}
-                                disabled={loadingActions[`${video.id}-edit`]}
+                                onClick={() => onVideoAction(video.id.toString(), 'edit')}
                               >
-                                {loadingActions[`${video.id}-edit`] ? (
-                                  <RefreshCw className={`${styles.actionIcon} animate-spin`} />
-                                ) : (
-                                  <Edit2 className={styles.actionIcon} />
-                                )}
-                              </motion.button>
+                                <Edit2 className={styles.actionIcon} />
+                              </button>
                             </Tooltip.Trigger>
                             <Tooltip.Portal>
-                              <Tooltip.Content
-                                className={styles.tooltip}
-                                sideOffset={5}
-                              >
+                              <Tooltip.Content className={styles.tooltip} sideOffset={5}>
                                 Edit video
                                 <Tooltip.Arrow className="fill-gray-900" />
                               </Tooltip.Content>
@@ -293,25 +197,15 @@ export const VideoList: React.FC<VideoListProps> = ({
 
                           <Tooltip.Root>
                             <Tooltip.Trigger asChild>
-                              <motion.button
+                              <button
                                 className={styles.actionButton}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => setDeletingVideo(video)}
-                                disabled={loadingActions[`${video.id}-delete`]}
+                                onClick={() => onVideoAction(video.id.toString(), 'delete')}
                               >
-                                {loadingActions[`${video.id}-delete`] ? (
-                                  <RefreshCw className={`${styles.actionIcon} animate-spin text-red-500`} />
-                                ) : (
-                                  <Trash2 className={`${styles.actionIcon} group-hover:text-red-500`} />
-                                )}
-                              </motion.button>
+                                <Trash2 className={`${styles.actionIcon} group-hover:text-red-500`} />
+                              </button>
                             </Tooltip.Trigger>
                             <Tooltip.Portal>
-                              <Tooltip.Content
-                                className={styles.tooltip}
-                                sideOffset={5}
-                              >
+                              <Tooltip.Content className={styles.tooltip} sideOffset={5}>
                                 Delete video
                                 <Tooltip.Arrow className="fill-gray-900" />
                               </Tooltip.Content>
@@ -325,87 +219,10 @@ export const VideoList: React.FC<VideoListProps> = ({
               </AnimatePresence>
             </tbody>
           </table>
-        </ErrorBoundary>
-      </div>
-      
-      {hasMore && (
-        <div className={styles.loadMore.wrapper}>
-          <motion.button
-            onClick={onLoadMore}
-            className={styles.loadMore.button}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Load More
-          </motion.button>
         </div>
-      )}
-
-      <AlertDialog.Root open={!!deletingVideo} onOpenChange={() => setDeletingVideo(null)}>
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm" />
-          <AlertDialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 p-6 rounded-lg max-w-md w-full">
-            <AlertDialog.Title className="text-lg font-bold mb-4">
-              Delete Video
-            </AlertDialog.Title>
-            <AlertDialog.Description className="text-gray-400 mb-6">
-              Are you sure you want to delete this video? This action cannot be undone.
-            </AlertDialog.Description>
-            <div className="flex justify-end gap-4">
-              <AlertDialog.Cancel asChild>
-                <button className="px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700">
-                  Cancel
-                </button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <button
-                  className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600"
-                  onClick={() => {
-                    if (deletingVideo) {
-                      handleAction(deletingVideo.id.toString(), 'delete');
-                      setDeletingVideo(null);
-                    }
-                  }}
-                >
-                  Delete
-                </button>
-              </AlertDialog.Action>
-            </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
-
-      {editingVideo && (
-        <EditVideoModal
-          video={editingVideo}
-          isOpen={!!editingVideo}
-          onClose={() => setEditingVideo(null)}
-          onUpdate={async (videoId, formData) => {
-            await onVideoAction(videoId, 'edit', formData);
-            setEditingVideo(null);
-          }}
-        />
-      )}
+      </div>
     </div>
   );
 };
 
 export default VideoList;
-
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback: React.ReactNode },
-  { hasError: boolean }
-> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback;
-    }
-    return this.props.children;
-  }
-}

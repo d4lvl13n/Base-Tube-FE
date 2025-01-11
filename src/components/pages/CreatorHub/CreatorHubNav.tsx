@@ -1,22 +1,17 @@
 // src/components/pages/CreatorHub/CreatorHubNav.tsx
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
   VideoIcon,
-  Users,
   BarChart2,
   DollarSign,
-  Settings,
-  MessagesSquare,
-  ListVideo,
-  Bell,
   Tv,
   ChevronLeft,
   ChevronRight,
-  LucideIcon,
-  Upload
+  Upload,
+  LucideIcon
 } from 'lucide-react';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 
@@ -46,6 +41,7 @@ interface ActionButtonProps {
   label?: string;
   badge?: number;
   className?: string;
+  iconClassName?: string;
   onClick?: () => void;
 }
 
@@ -66,23 +62,15 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
       path: '/creator-hub',
     },
     {
-      title: 'Upload',
-      icon: Upload,
-      path: '/creator-hub/upload-video',
-    },
-    {
-      title: 'Content',
-      icon: VideoIcon,
-      path: '/creator-hub/videos',
-      subItems: [
-        { title: 'Videos', path: '/creator-hub/videos' },
-        { title: 'Playlists', path: '/creator-hub/playlists' },
-      ]
-    },
-    {
       title: 'Content Studio',
-      icon: ListVideo,
-      path: '/creator-hub/content-studio',
+      icon: VideoIcon,
+      path: '/creator-hub',
+      subItems: [
+        { title: 'Videos Management', path: '/creator-hub/videos' },
+        { title: 'Batch Upload', path: '/creator-hub/content-studio' },
+        { title: 'Playlists', path: '/creator-hub/playlists' },
+        { title: 'Channel Management', path: '/creator-hub/channels' }
+      ]
     },
     {
       title: 'Analytics',
@@ -90,29 +78,10 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
       path: '/creator-hub/analytics',
     },
     {
-      title: 'Community',
-      icon: Users,
-      path: '/creator-hub/community',
-      subItems: [
-        { title: 'Comments', path: '/creator-hub/comments' },
-        { title: 'Messages', path: '/creator-hub/messages' }
-      ]
-    },
-    {
-      title: 'Channels Management',
-      icon: Tv,
-      path: '/creator-hub/channels',
-    },
-    {
       title: 'Monetization',
       icon: DollarSign,
       path: '/creator-hub/monetization',
       badge: 'NEW'
-    },
-    {
-      title: 'Settings',
-      icon: Settings,
-      path: '/creator-hub/settings'
     }
   ];
 
@@ -142,23 +111,8 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
         }
       </motion.button>
 
-      {/* Quick Actions */}
+      {/* Primary Actions */}
       <div className="p-4 border-b border-gray-800/30">
-        <AnimatePresence>
-          {!isCollapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex justify-between mb-4"
-            >
-              <ActionButton icon={Bell} badge={3} />
-              <ActionButton icon={MessagesSquare} />
-              <ActionButton icon={ListVideo} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         <div className="space-y-3">
           <ActionButton
             icon={Tv}
@@ -167,10 +121,10 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
             onClick={() => navigate('/create-channel')}
           />
           <ActionButton
-            icon={VideoIcon}
+            icon={Upload}
             label={!isCollapsed ? "Upload Video" : undefined}
             className="w-full bg-[#fa7517] hover:bg-[#ff8c3a] text-black"
-            onClick={() => navigate('/creator-hub/upload')}
+            onClick={() => navigate('/creator-hub/upload-video')}
           />
         </div>
       </div>
@@ -182,14 +136,15 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
             key={item.title}
             item={item}
             isCollapsed={isCollapsed}
-            isActive={location.pathname === item.path}
+            isActive={location.pathname === item.path || 
+            (item.subItems?.some(subItem => location.pathname === subItem.path) ?? false)}
             onClick={() => !isCollapsed && item.subItems && setExpandedItem(expandedItem === item.title ? null : item.title)}
             isExpanded={expandedItem === item.title}
           />
         ))}
       </nav>
 
-      {/* Channel Selector at the bottom */}
+      {/* Channel Selector */}
       {!isCollapsed && (
         <div className="px-4 pb-4 border-t border-gray-800/30 mt-auto">
           <div className="pt-4">
@@ -202,18 +157,18 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
 };
 
 // Helper Components
-const ActionButton = ({ icon: Icon, label, badge, className = '', onClick }: ActionButtonProps) => (
+const ActionButton = ({ icon: Icon, label, badge, className = '', iconClassName = '', onClick }: ActionButtonProps) => (
   <motion.button
-    whileHover={{ scale: 1.05 }}
-    whileTap={{ scale: 0.95 }}
+    whileHover={{ scale: 1.02 }}
+    whileTap={{ scale: 0.98 }}
     onClick={onClick}
     className={`
-      relative p-2 rounded-lg transition-colors flex items-center justify-center gap-2
+      relative p-2.5 rounded-lg transition-colors flex items-center justify-center gap-2
       ${className || 'hover:bg-gray-800/50'}
     `}
   >
-    <Icon className="w-5 h-5 text-gray-400" />
-    {label && <span className="text-sm font-medium text-white whitespace-nowrap">{label}</span>}
+    <Icon className={`w-5 h-5 ${iconClassName || 'text-gray-400'}`} />
+    {label && <span className="text-sm font-medium whitespace-nowrap">{label}</span>}
     {badge && (
       <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#fa7517] rounded-full text-[10px] flex items-center justify-center text-black">
         {badge}
@@ -241,17 +196,30 @@ const NavItem: React.FC<NavItemProps> = ({ item, isCollapsed, isActive, onClick,
           ${isActive ? 'text-[#fa7517]' : 'text-gray-400 hover:text-white'}
         `}
       >
-        <Link 
-          to={item.path}
-          className="flex items-center flex-1 overflow-hidden"
-        >
-          <item.icon className="w-5 h-5 min-w-[20px]" />
-          {!isCollapsed && (
-            <span className="ml-3 font-medium whitespace-nowrap">
-              {item.title}
-            </span>
-          )}
-        </Link>
+        {item.path ? (
+          <Link 
+            to={item.path}
+            className="flex items-center flex-1 overflow-hidden"
+          >
+            <item.icon className="w-5 h-5 min-w-[20px]" />
+            {!isCollapsed && (
+              <span className="ml-3 font-medium whitespace-nowrap">
+                {item.title}
+              </span>
+            )}
+          </Link>
+        ) : (
+          // For items without path (like Content Studio)
+          <div className="flex items-center flex-1 overflow-hidden">
+            <item.icon className="w-5 h-5 min-w-[20px]" />
+            {!isCollapsed && (
+              <span className="ml-3 font-medium whitespace-nowrap">
+                {item.title}
+              </span>
+            )}
+          </div>
+        )}
+        
         {!isCollapsed && (
           <>
             {item.badge && (

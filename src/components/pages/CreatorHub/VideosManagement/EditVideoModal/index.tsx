@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ImageIcon, Globe2, Lock } from 'lucide-react';
+import { X, ImageIcon, Globe2, Lock, Sparkles } from 'lucide-react';
 import { toast } from 'react-toastify';
 import RichTextEditor from '../../../../common/RichTextEditor';
+import AIAssistantPanel from '../../../../common/AIAssistantPanel';
+import { generateVideoDescription } from '../../../../../api/video';
 import { EditVideoModalProps, FormErrors, FormFields, VisibilityOption } from './types';
 import { styles } from './styles';
 
@@ -25,6 +27,14 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(video.thumbnail_url || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // New AI-related state
+  const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [additionalInfo, setAdditionalInfo] = useState('');
+  const [generatedDescription, setGeneratedDescription] = useState('');
+  const [suggestedTitle, setSuggestedTitle] = useState<string | undefined>();
 
   // Cleanup function for thumbnail preview
   useEffect(() => {
@@ -107,6 +117,27 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
     { id: 'private', icon: Lock, label: 'Private', description: 'Only you can watch' },
   ];
 
+  // Add generation handler
+  const handleGenerateDescription = async () => {
+    if (!formData.title.trim()) {
+      toast.error('Please enter a video title first');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { description: generated, suggestedTitle } = 
+        await generateVideoDescription(formData.title, keywords.join(', '), additionalInfo);
+      
+      setGeneratedDescription(generated);
+      setSuggestedTitle(suggestedTitle);
+    } catch (error: any) {
+      toast.error('Failed to generate description. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -168,6 +199,32 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
                     className={styles.input}
                     placeholder="gaming, tutorial, vlog"
                   />
+                </div>
+
+                {/* Description section with AI assistant */}
+                <div className={styles.inputGroup}>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className={styles.label}>Description</label>
+                    <motion.button
+                      type="button"
+                      onClick={() => setIsAIPanelOpen(true)}
+                      className="flex items-center space-x-2 text-[#fa7517] hover:text-[#ff8c3a] transition-colors"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span className="text-sm">AI Assistant</span>
+                    </motion.button>
+                  </div>
+                  <RichTextEditor
+                    content={formData.description}
+                    onChange={(value) => setFormData(prev => ({ ...prev, description: value }))}
+                    placeholder="Describe your video..."
+                    minHeight="150px"
+                  />
+                  {errors.description && (
+                    <span className="text-sm text-red-500">{errors.description}</span>
+                  )}
                 </div>
 
                 {/* Two-column layout for Description and Thumbnail */}
@@ -271,6 +328,26 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
               </form>
             </div>
           </motion.div>
+
+          {/* Add AIAssistantPanel */}
+          <AIAssistantPanel
+            isOpen={isAIPanelOpen}
+            onClose={() => setIsAIPanelOpen(false)}
+            title={formData.title}
+            keywords={keywords.join(', ')}
+            additionalInfo={additionalInfo}
+            onKeywordsChange={(value) => setKeywords(value.split(', '))}
+            onAdditionalInfoChange={setAdditionalInfo}
+            onGenerate={handleGenerateDescription}
+            isGenerating={isGenerating}
+            suggestedTitle={suggestedTitle}
+            generatedDescription={generatedDescription}
+            onAcceptTitle={() => {
+              setFormData(prev => ({ ...prev, title: suggestedTitle || '' }));
+              setSuggestedTitle(undefined);
+            }}
+            mode="video"
+          />
         </div>
       )}
     </AnimatePresence>

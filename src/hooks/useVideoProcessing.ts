@@ -9,80 +9,67 @@ export const useVideoProcessing = (videoIds: number[]) => {
   const [processingVideos, setProcessingVideos] = useState<Record<number, ProcessingVideo>>({});
   const [isPolling, setIsPolling] = useState(false);
 
-  const hasProcessingVideos = useCallback(() => {
-    return videoIds.some(id => {
-      const video = processingVideos[id];
-      return !video || video.status === 'pending' || video.status === 'processing';
-    });
-  }, [videoIds, processingVideos]);
-
   const checkProgress = useCallback(async () => {
-    const incompleteVideos = videoIds.filter(id => {
-      const video = processingVideos[id];
-      return !video || video.status === 'pending' || video.status === 'processing';
-    });
-
-    if (incompleteVideos.length === 0) {
-      setIsPolling(false);
-      return;
-    }
-
     try {
+      const incompleteVideos = videoIds.filter(id => {
+        const video = processingVideos[id];
+        return !video || video.status === 'pending' || video.status === 'processing';
+      });
+
+      if (incompleteVideos.length === 0) {
+        setIsPolling(false);
+        return;
+      }
+
       const updates = await Promise.all(
         incompleteVideos.map(async (id) => {
           try {
             const response = await getVideoProgress(id);
-            if (!response.success) {
-              throw new Error('Failed to fetch progress');
-            }
-            
             return {
               videoId: id,
               ...response.data
-            } as ProcessingVideo;
-          } catch (error) {
-            return { 
-              videoId: id, 
-              status: 'failed' as const,
-              error: { message: 'Failed to fetch progress' }
             } satisfies ProcessingVideo;
+          } catch (error) {
+            console.error(`Error fetching progress for video ${id}:`, error);
+            return null;
           }
         })
       );
 
-      const newProcessingVideos = Object.fromEntries(
-        updates.map(update => [update.videoId, update])
-      );
+      const validUpdates = updates.filter((update): update is ProcessingVideo => update !== null);
       
-      setProcessingVideos(prev => ({
-        ...prev,
-        ...newProcessingVideos
-      }));
+      if (validUpdates.length > 0) {
+        setProcessingVideos(prev => ({
+          ...prev,
+          ...Object.fromEntries(validUpdates.map(update => [update.videoId, update]))
+        }));
+      }
 
-      if (!updates.some(video => 
-        video.status === 'pending' || video.status === 'processing'
-      )) {
+      // Stop polling if no videos are still processing
+      if (!validUpdates.some(video => video.status === 'pending' || video.status === 'processing')) {
         setIsPolling(false);
       }
     } catch (error) {
       console.error('Error checking video progress:', error);
+      setIsPolling(false);
     }
   }, [videoIds, processingVideos]);
 
-  // Start polling when we have videos to track
+  // Start polling only when we have untracked videos
   useEffect(() => {
-    if (videoIds.length > 0 && hasProcessingVideos() && !isPolling) {
+    const untrackedVideos = videoIds.filter(id => !processingVideos[id]);
+    if (untrackedVideos.length > 0) {
       setIsPolling(true);
     }
-  }, [videoIds, hasProcessingVideos, isPolling]);
+  }, [videoIds, processingVideos]);
 
-  // Handle the polling
+  // Handle polling with a more reasonable interval
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
     if (isPolling) {
       checkProgress(); // Initial check
-      interval = setInterval(checkProgress, 1000); // Check every second
+      interval = setInterval(checkProgress, 5000); // Check every 5 seconds
     }
 
     return () => {

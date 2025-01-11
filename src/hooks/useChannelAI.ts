@@ -4,40 +4,22 @@ import { useState, useCallback } from 'react';
 import { getHandleSuggestions, getChannelDescription } from '../api/channel';
 import { toast } from 'react-toastify';
 
-interface UseChannelAIProps {
-  onError?: (error: string) => void;
-}
-
-export const useChannelAI = ({ onError = (msg) => toast.error(msg) }: UseChannelAIProps = {}) => {
+export const useChannelAI = () => {
   const [isGeneratingHandle, setIsGeneratingHandle] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const generateHandleSuggestions = useCallback(
-    async (name: string, context?: { type?: string; description?: string }) => {
+    async (name: string, context?: { description?: string }) => {
       if (!name.trim()) {
-        onError('Channel name is required');
+        toast.error('Channel name is required');
         return [];
       }
 
-      // Clean up context to remove undefined values
-      const cleanContext = {
-        type: context?.type?.trim(),
-        description: context?.description?.trim()
-      };
-
-      // Remove undefined or empty string properties
-      Object.keys(cleanContext).forEach(key => {
-        if (!cleanContext[key as keyof typeof cleanContext]) {
-          delete cleanContext[key as keyof typeof cleanContext];
-        }
-      });
-
       setIsGeneratingHandle(true);
       try {
-        const response = await getHandleSuggestions(name, cleanContext);
-        console.log('Handle suggestions response:', response);
-
+        const response = await getHandleSuggestions(name, context);
+        
         if (response.success && Array.isArray(response.suggestions)) {
           setSuggestions(response.suggestions);
           return response.suggestions;
@@ -48,54 +30,43 @@ export const useChannelAI = ({ onError = (msg) => toast.error(msg) }: UseChannel
         }
       } catch (error) {
         console.error('Handle suggestion error:', error);
-        onError('Failed to generate handle suggestions');
+        toast.error('Failed to generate handle suggestions');
         setSuggestions([]);
         return [];
       } finally {
         setIsGeneratingHandle(false);
       }
     },
-    [onError]
+    []
   );
 
-  const generateDescription = useCallback(
-    async (
-      name: string,
-      context?: {
-        type?: string;
-        keywords?: string[];
-        additionalInfo?: string;
-      }
-    ) => {
+  const generateChannelDescription = useCallback(
+    async (name: string, keywords: string, additionalInfo: string) => {
       if (!name.trim()) {
-        onError('Channel name is required');
-        return null;
+        toast.error('Channel name is required');
+        return { description: '', suggestedHandle: '' };
       }
-
-      // Clean up context
-      const cleanContext = {
-        ...context,
-        keywords: context?.keywords?.filter((kw) => kw && kw.trim()),
-        additionalInfo: context?.additionalInfo?.trim(),
-      };
 
       setIsGeneratingDescription(true);
       try {
-        const response = await getChannelDescription(name, cleanContext);
-        if (response.success && response.description) {
-          return response.description;
+        const response = await getChannelDescription(name, { keywords: keywords.split(','), additionalInfo });
+        if (response.success) {
+          return {
+            description: response.description || '',
+            suggestedHandle: response.originalName || ''
+          };
         } else {
           throw new Error(response.message || 'Failed to generate description');
         }
       } catch (error) {
         console.error('Description generation error:', error);
-        onError('Failed to generate channel description');
-        return null;
+        toast.error('Failed to generate channel description');
+        return { description: '', suggestedHandle: '' };
       } finally {
         setIsGeneratingDescription(false);
       }
     },
-    [onError]
+    []
   );
 
   const clearSuggestions = useCallback(() => {
@@ -107,7 +78,7 @@ export const useChannelAI = ({ onError = (msg) => toast.error(msg) }: UseChannel
     isGeneratingDescription,
     suggestions,
     generateHandleSuggestions,
-    generateDescription,
+    generateChannelDescription,
     clearSuggestions,
   };
 };

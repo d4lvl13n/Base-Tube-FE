@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Facebook, Twitter, Link, CheckCircle2, MessageCircle } from 'lucide-react';
+import { Facebook, Twitter, Link, MessageCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface VideoUploadSuccessProps {

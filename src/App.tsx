@@ -37,6 +37,7 @@ import VideosManagement from './components/pages/CreatorHub/VideosManagement';
 import ChannelManagement from './components/pages/CreatorHub/ChannelManagement';
 import { SystemHealth } from './health/SystemHealth';
 import { ContentStudio } from './components/pages/CreatorHub/ContentStudio/index';
+import ChannelList from './components/pages/CreatorHub/ChannelManagement/ChannelList';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -196,6 +197,14 @@ function App() {
                     />
                     <Route
                       path="/creator-hub/channels"
+                      element={
+                        <CreatorHubRoute
+                          element={<ChannelList />}
+                        />
+                      }
+                    />
+                    <Route
+                      path="/creator-hub/channels/:channelId"
                       element={
                         <CreatorHubRoute
                           element={<ChannelManagement />}

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { getChannelVideos } from '../../../../api/channel';
 import { updateVideo, deleteVideo } from '../../../../api/video';
@@ -25,12 +25,10 @@ const VideosManagement: React.FC = () => {
   // State management
   const [page, setPage] = useState(1);
   const [filters] = useState<VideoFilters>({});
-  const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [videos, setVideos] = useState<Video[]>([]);
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
   const [deletingVideo, setDeletingVideo] = useState<Video | null>(null);
   const { selectedChannelId } = useChannelSelection();
-  const queryClient = useQueryClient();
 
   // Add sort state
   const [sort, setSort] = useState<SortState>({
@@ -78,22 +76,6 @@ const VideosManagement: React.FC = () => {
     }
   }, [data, page]);
 
-  // Handle video actions (edit, delete, visibility)
-  const handleVideoAction = useCallback(async (videoId: string, action: VideoAction) => {
-    const video = videos.find(v => v.id.toString() === videoId);
-    if (!video) return;
-
-    switch (action) {
-      case 'edit':
-        setEditingVideo(video);
-        break;
-        
-      case 'delete':
-        setDeletingVideo(video);
-        break;
-    }
-  }, [videos]);
-
   // Handle video update
   const handleUpdateVideo = async (videoId: string, formData: FormData) => {
     try {
@@ -122,9 +104,6 @@ const VideosManagement: React.FC = () => {
       if (result.success) {
         setVideos(prevVideos => 
           prevVideos.filter(v => v.id.toString() !== videoId)
-        );
-        setSelectedVideos(prev => 
-          prev.filter(id => id !== videoId)
         );
         toast.success('Video deleted successfully');
       } else {
@@ -171,48 +150,55 @@ const VideosManagement: React.FC = () => {
   }
 
   return (
-      <div className="p-6 space-y-6">
-
-      <VideoList
-        videos={sortedVideos}
-        processingVideos={processingVideos}
-        isLoading={isLoading}
-        hasMore={hasMore}
-        onLoadMore={handleLoadMore}
-        onVideoAction={async (videoId: string, action: VideoAction, formData?: FormData) => {
-          switch (action) {
-            case 'edit':
-              if (formData) {
-                await handleUpdateVideo(videoId, formData);
+    <div className="relative">
+      <div className="px-4 md:px-6 space-y-6 max-w-[1920px] mx-auto">
+        <div className="overflow-hidden rounded-lg border border-gray-800/30">
+          <VideoList
+            videos={sortedVideos}
+            processingVideos={processingVideos}
+            isLoading={isLoading}
+            hasMore={hasMore}
+            onLoadMore={handleLoadMore}
+            onVideoAction={async (videoId: string, action: VideoAction, formData?: FormData) => {
+              switch (action) {
+                case 'edit':
+                  if (formData) {
+                    await handleUpdateVideo(videoId, formData);
+                  } else {
+                    const video = videos.find(v => v.id.toString() === videoId);
+                    if (video) setEditingVideo(video);
+                  }
+                  break;
+                case 'delete':
+                  const video = videos.find(v => v.id.toString() === videoId);
+                  if (video) setDeletingVideo(video);
+                  break;
               }
-              break;
-            case 'delete':
-              await handleDeleteVideo(videoId);
-              break;
-          }
-        }}
-        sort={sort}
-        onSort={handleSort}
-      />
+            }}
+            sort={sort}
+            onSort={handleSort}
+          />
+        </div>
 
-      {editingVideo && (
-        <EditVideoModal
-          video={editingVideo}
-          isOpen={!!editingVideo}
-          onClose={() => setEditingVideo(null)}
-          onUpdate={handleUpdateVideo}
-        />
-      )}
+        {editingVideo && (
+          <EditVideoModal
+            video={editingVideo}
+            isOpen={!!editingVideo}
+            onClose={() => setEditingVideo(null)}
+            onUpdate={handleUpdateVideo}
+          />
+        )}
 
-      {deletingVideo && (
-        <DeleteConfirmationDialog
-          isOpen={!!deletingVideo}
-          onClose={() => setDeletingVideo(null)}
-          onConfirm={() => handleDeleteVideo(deletingVideo.id.toString())}
-          title="Delete Video"
-          message={`Are you sure you want to delete "${deletingVideo.title}"? This action cannot be undone.`}
-        />
-      )}
+        {deletingVideo && (
+          <DeleteConfirmationDialog
+            isOpen={!!deletingVideo}
+            onClose={() => setDeletingVideo(null)}
+            onConfirm={() => handleDeleteVideo(deletingVideo.id.toString())}
+            title="Delete Video"
+            message={`Are you sure you want to delete "${deletingVideo.title}"? This action cannot be undone.`}
+          />
+        )}
+      </div>
     </div>
   );
 };

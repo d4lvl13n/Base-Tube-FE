@@ -1,5 +1,5 @@
 import api from './index';
-import { TrendingVideoResponse, Video, ProgressResponse } from '../types/video';
+import { TrendingVideoResponse, Video } from '../types/video';
 import { AxiosProgressEvent } from 'axios';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
 import axios from 'axios';
