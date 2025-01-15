@@ -227,23 +227,8 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
                   )}
                 </div>
 
-                {/* Two-column layout for Description and Thumbnail */}
+                {/* Two-column layout for Thumbnail only */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Description */}
-                  <div>
-                    <label className={styles.label}>Description</label>
-                    <RichTextEditor
-                      content={formData.description}
-                      onChange={(value) => setFormData(prev => ({ ...prev, description: value }))}
-                      placeholder="Describe your video..."
-                      minHeight="150px"
-                    />
-                    {errors.description && (
-                      <span className="text-sm text-red-500">{errors.description}</span>
-                    )}
-                  </div>
-
-                  {/* Thumbnail */}
                   <div>
                     <label className={styles.label}>Thumbnail</label>
                     <div

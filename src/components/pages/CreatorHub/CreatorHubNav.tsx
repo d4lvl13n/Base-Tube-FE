@@ -8,8 +8,6 @@ import {
   BarChart2,
   DollarSign,
   Tv,
-  ChevronLeft,
-  ChevronRight,
   Upload,
   LucideIcon
 } from 'lucide-react';
@@ -55,6 +53,13 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
   const [expandedItem, setExpandedItem] = React.useState<string | null>(null);
   const navigate = useNavigate();
 
+  const isPathActive = (path: string): boolean => {
+    if (path === '/creator-hub') {
+      return location.pathname === '/creator-hub';
+    }
+    return path !== '/creator-hub' && location.pathname.startsWith(path);
+  };
+
   const navigationItems: NavigationItem[] = [
     {
       title: 'Dashboard',
@@ -64,7 +69,7 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
     {
       title: 'Content Studio',
       icon: VideoIcon,
-      path: '/creator-hub',
+      path: '/creator-hub/content-studio',
       subItems: [
         { title: 'Videos Management', path: '/creator-hub/videos' },
         { title: 'Batch Upload', path: '/creator-hub/content-studio' },
@@ -81,7 +86,7 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
       title: 'Monetization',
       icon: DollarSign,
       path: '/creator-hub/monetization',
-      badge: 'NEW'
+      badge: 'Soon'
     }
   ];
 
@@ -98,19 +103,6 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
         `
       }}
     >
-      {/* Toggle Button */}
-      <motion.button
-        onClick={onToggle}
-        className="absolute right-0 top-6 bg-gray-900/50 p-1.5 rounded-l-lg border border-gray-800/30"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        {isCollapsed ? 
-          <ChevronRight className="w-4 h-4 text-[#fa7517]" /> : 
-          <ChevronLeft className="w-4 h-4 text-[#fa7517]" />
-        }
-      </motion.button>
-
       {/* Primary Actions */}
       <div className="p-4 border-b border-gray-800/30">
         <div className="space-y-3">
@@ -124,7 +116,7 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
             icon={Upload}
             label={!isCollapsed ? "Upload Video" : undefined}
             className="w-full bg-[#fa7517] hover:bg-[#ff8c3a] text-black"
-            onClick={() => navigate('/creator-hub/upload-video')}
+            onClick={() => navigate('/creator-hub/upload')}
           />
         </div>
       </div>
@@ -136,9 +128,10 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
             key={item.title}
             item={item}
             isCollapsed={isCollapsed}
-            isActive={location.pathname === item.path || 
-            (item.subItems?.some(subItem => location.pathname === subItem.path) ?? false)}
-            onClick={() => !isCollapsed && item.subItems && setExpandedItem(expandedItem === item.title ? null : item.title)}
+            isActive={isPathActive(item.path) || 
+              (item.subItems?.some(subItem => isPathActive(subItem.path)) ?? false)}
+            onClick={() => !isCollapsed && item.subItems && 
+              setExpandedItem(expandedItem === item.title ? null : item.title)}
             isExpanded={expandedItem === item.title}
           />
         ))}
@@ -180,6 +173,10 @@ const ActionButton = ({ icon: Icon, label, badge, className = '', iconClassName 
 const NavItem: React.FC<NavItemProps> = ({ item, isCollapsed, isActive, onClick, isExpanded }) => {
   const location = useLocation();
   
+  const isSubItemActive = (path: string): boolean => {
+    return location.pathname === path;
+  };
+
   return (
     <motion.div
       whileHover={{ x: 4 }}
@@ -262,7 +259,7 @@ const NavItem: React.FC<NavItemProps> = ({ item, isCollapsed, isActive, onClick,
               to={subItem.path}
               className={`
                 block px-4 py-2 rounded-lg text-sm
-                ${location.pathname === subItem.path ? 'text-[#fa7517] bg-[#fa7517]/10' 
+                ${isSubItemActive(subItem.path) ? 'text-[#fa7517] bg-[#fa7517]/10' 
                   : 'text-gray-400 hover:text-white hover:bg-gray-800/30'}
                 transition-colors
               `}

@@ -270,43 +270,56 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                 </div>
 
                 {/* Channel Image */}
-                <div>
-                  <label className={styles.label}>Channel Image</label>
-                  <div className="flex items-center gap-4">
-                    {/* Preview */}
+                <div className={styles.inputGroup}>
+                  <label className={styles.label}>Channel Banner</label>
+                  
+                  {/* Image Preview */}
+                  <div className="space-y-4">
                     <div className={styles.imageWrapper}>
                       {(imagePreview || currentChannelImage) ? (
                         <img
                           src={imagePreview || currentChannelImage || ''}
-                          alt="Channel Preview"
-                          className="object-cover w-full h-full"
+                          alt="Channel Banner Preview"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className={styles.imagePlaceholder}>
-                          <ImageIcon className="w-6 h-6 text-gray-400" />
+                        <div className="flex flex-col items-center justify-center h-full">
+                          <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
+                          <p className="text-sm text-gray-400">Click to upload banner image</p>
                         </div>
                       )}
                     </div>
-                    {/* File Input */}
-                    <div>
-                      <input
-                        id="channelImageInput"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className={styles.fileInput}
-                      />
-                      <label
-                        htmlFor="channelImageInput"
-                        className={styles.fileButton}
-                      >
-                        Choose File
-                      </label>
-                      {errors.channel_image && (
-                        <p className={styles.errorText}>
-                          {errors.channel_image}
-                        </p>
-                      )}
+
+                    {/* File Input and Requirements */}
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-4">
+                        <input
+                          id="channelImageInput"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="channelImageInput"
+                          className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg cursor-pointer transition-colors"
+                        >
+                          Choose File
+                        </label>
+                        {errors.channel_image && (
+                          <p className="text-sm text-red-500">
+                            {errors.channel_image}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Image Requirements */}
+                      <div className="text-xs text-gray-400 space-y-1">
+                        <p>Recommended: 1920x480px (4:1 ratio)</p>
+                        <p>Minimum: 1280x320px</p>
+                        <p>File types: PNG or JPG</p>
+                        <p>Maximum file size: 3MB</p>
+                      </div>
                     </div>
                   </div>
                 </div>

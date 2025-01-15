@@ -99,6 +99,8 @@ const SignInPage: React.FC = () => {
         <div className="relative w-full max-w-md">
           <div className="absolute -inset-1 bg-gradient-to-r from-[#fa751730] via-[#fa751710] to-[#fa751730] rounded-3xl blur-2xl" />
           
+          <div id="clerk-captcha" className="mb-4"></div>
+          
           <SignIn 
             routing="path" 
             path="/sign-in"
@@ -143,7 +145,21 @@ const SignInPage: React.FC = () => {
                 },
                 card__main: "p-6",
                 socialButtons: "grid grid-cols-2 gap-2",
-                footer: "mt-8"
+                footer: "mt-8",
+                captchaContainer: `
+                  bg-[#111114]/90 
+                  border border-gray-800/20 
+                  rounded-xl
+                  p-4
+                  mb-4
+                `,
+                captchaButton: `
+                  bg-[#18181B] 
+                  hover:bg-[#1F1F23] 
+                  transition-colors
+                  border border-gray-800
+                  rounded-lg
+                `
               }
             }}
           />

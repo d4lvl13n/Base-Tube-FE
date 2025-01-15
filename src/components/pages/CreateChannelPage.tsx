@@ -63,7 +63,6 @@ const CreateChannelPage: React.FC = () => {
   
   const {
     register,
-    handleSubmit,
     control,
     formState: { errors },
     watch,
@@ -180,41 +179,46 @@ const CreateChannelPage: React.FC = () => {
   // Helper to check if we're on the final step
   const isLastStep = step === totalSteps;
 
-  // Handle next step click
-  const handleNextStep = () => {
-    // Validate current step before proceeding
+  // Validate required fields for each step
+  const canProceedFromStep = () => {
     switch (step) {
       case 1:
-        // Validate name and handle
-        if (!errors.name && !errors.handle) {
-          setStep(step + 1);
-        }
-        break;
+        // Name and handle are required
+        return watchedName?.trim() && watchedHandle?.trim() && handleAvailable === true;
       case 2:
-        // Validate description
-        if (!errors.description) {
-          setStep(step + 1);
-        }
-        break;
+        // Description is required (minimum 20 characters)
+        const description = watch('description');
+        return description?.trim().length >= 20;
       case 3:
-        // Social media links are optional, so just proceed
-        setStep(step + 1);
-        break;
+        // Social media links are optional
+        return true;
+      case 4:
+        // Channel image is optional
+        return true;
       default:
-        break;
+        return false;
     }
   };
 
-  // Handle form submission
-  const handleCreateChannel = async (data: any) => {
-    // Check if we're on the last step AND the next button was clicked
-    if (!isLastStep || step !== 4) {
-      handleNextStep();
-      return;
+  // Simple step navigation with validation
+  const handleNextStep = () => {
+    if (canProceedFromStep()) {
+      setStep(step + 1);
+    } else {
+      // Show error message based on current step
+      switch (step) {
+        case 1:
+          toast.error('Please enter a valid channel name and handle');
+          break;
+        case 2:
+          toast.error('Please enter a description (minimum 20 characters)');
+          break;
+      }
     }
+  };
 
-    // Only show confirmation modal on the last step when submitting
-    setIsModalOpen(true);
+  const handlePreviousStep = () => {
+    setStep(step - 1);
   };
 
   const confirmCreateChannel = async () => {
@@ -719,9 +723,12 @@ const CreateChannelPage: React.FC = () => {
                       <span className="font-semibold">Click to upload</span> or drag
                       and drop
                     </p>
-                    <p className="text-xs text-gray-500">
-                      PNG, JPG or GIF (MAX. 800x400px)
-                    </p>
+                    <div className="text-xs text-gray-500 space-y-1 text-center">
+                      <p>Recommended: 1920x480px (4:1 ratio)</p>
+                      <p>Minimum: 1280x320px</p>
+                      <p>File types: PNG or JPG</p>
+                      <p>Maximum file size: 3MB</p>
+                    </div>
                   </div>
                 )}
                 <Controller
@@ -786,6 +793,21 @@ const CreateChannelPage: React.FC = () => {
     }
   };
 
+  // Add this function
+  const handleLaunchChannel = () => {
+    const name = watch('name');
+    const description = watch('description');
+
+    // Validate required fields before showing modal
+    if (!name?.trim() || !description?.trim() || description.trim().length < 20) {
+      toast.error('Please fill in all required fields (name and description)');
+      return;
+    }
+
+    // If validation passes, show the confirmation modal
+    setIsModalOpen(true);
+  };
+
   return (
     <div className="bg-black text-white min-h-screen">
       <Header />
@@ -816,62 +838,80 @@ const CreateChannelPage: React.FC = () => {
             </div>
 
             <div className="bg-gray-900/30 rounded-2xl p-8 lg:p-12 backdrop-blur-sm border border-gray-800/50">
-              <form onSubmit={handleSubmit(handleCreateChannel)}>
-                <AnimatePresence mode="wait">{renderStep()}</AnimatePresence>
+              <AnimatePresence mode="wait">{renderStep()}</AnimatePresence>
+              
+              <div className="mt-12 flex justify-between items-center">
+                {step > 1 && (
+                  <motion.button
+                    type="button"
+                    onClick={handlePreviousStep}
+                    className="bg-gray-800/80 text-white px-8 py-4 rounded-xl flex items-center 
+                      transition-all duration-300 hover:bg-gray-700 border border-gray-700"
+                    whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.2)' }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <ArrowLeft className="mr-3" /> Previous Step
+                  </motion.button>
+                )}
                 
-                <div className="mt-12 flex justify-between items-center">
-                  {step > 1 && (
-                    <motion.button
-                      type="button"
-                      onClick={() => setStep(step - 1)}
-                      className="bg-gray-800/80 text-white px-8 py-4 rounded-xl flex items-center 
-                        transition-all duration-300 hover:bg-gray-700 border border-gray-700"
-                      whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.2)' }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <ArrowLeft className="mr-3" /> Previous Step
-                    </motion.button>
-                  )}
-                  {!isLastStep ? (
-                    <motion.button
-                      type="button"
-                      onClick={handleNextStep}
-                      className="bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black px-8 py-4 
-                        rounded-xl flex items-center ml-auto font-medium"
-                      whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' }}
-                      whileTap={{ scale: 0.98 }}
-                    >
+                {!isLastStep ? (
+                  <motion.button
+                    type="button"
+                    onClick={handleNextStep}
+                    disabled={!canProceedFromStep()}
+                    className={`bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black px-8 py-4 
+                      rounded-xl flex items-center ml-auto font-medium
+                      ${!canProceedFromStep() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    whileHover={canProceedFromStep() ? { scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' } : {}}
+                    whileTap={canProceedFromStep() ? { scale: 0.98 } : {}}
+                  >
+                    <span className="flex items-center">
                       Next Step <ArrowRight className="ml-3" />
-                    </motion.button>
-                  ) : (
-                    <motion.button
-                      type="submit"
-                      disabled={isLoading}
-                      className="bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black px-8 py-4 
-                        rounded-xl flex items-center ml-auto font-medium"
-                      whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      {isLoading ? (
-                        <span className="flex items-center">
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="mr-3"
-                          >
-                            ⟳
-                          </motion.div>
-                          Creating Channel...
-                        </span>
-                      ) : (
-                        <span className="flex items-center">
-                          Launch Channel <Wand2 className="ml-3" />
-                        </span>
-                      )}
-                    </motion.button>
-                  )}
-                </div>
-              </form>
+                    </span>
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    type="button"
+                    onClick={handleLaunchChannel}
+                    disabled={isLoading || !canProceedFromStep()}
+                    className={`bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black px-8 py-4 
+                      rounded-xl flex items-center ml-auto font-medium
+                      ${(isLoading || !canProceedFromStep()) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    whileHover={!isLoading && canProceedFromStep() ? { scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' } : {}}
+                    whileTap={!isLoading && canProceedFromStep() ? { scale: 0.98 } : {}}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="mr-3"
+                        >
+                          ⟳
+                        </motion.div>
+                        Creating Channel...
+                      </span>
+                    ) : (
+                      <span className="flex items-center">
+                        Launch Channel <Wand2 className="ml-3" />
+                      </span>
+                    )}
+                  </motion.button>
+                )}
+              </div>
+            </div>
+
+            {/* Add a helper text to show required fields */}
+            <div className="mt-4 text-sm text-gray-400">
+              {step === 1 && (
+                <p>* Channel name and handle are required</p>
+              )}
+              {step === 2 && (
+                <p>* Channel description is required (minimum 20 characters)</p>
+              )}
+              {(step === 3 || step === 4) && (
+                <p>* Required fields: Channel name and description</p>
+              )}
             </div>
           </motion.div>
         </main>

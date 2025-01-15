@@ -1,8 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Settings } from 'lucide-react';
-import { Channel } from '../../../../types/channel';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
 import ChannelPreviewCard from '../../../common/CreatorHub/ChannelPreviewCard';
 
@@ -52,49 +50,24 @@ const ChannelList: React.FC = () => {
               className="space-y-6"
             >
               {channels.map((channel) => (
-                <ChannelListItem
+                <motion.div
                   key={channel.id}
-                  channel={channel}
-                  onManage={() => navigate(`/creator-hub/channels/${channel.id}`)}
-                />
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="relative"
+                >
+                  <div className="group">
+                    <ChannelPreviewCard channel={channel} />
+                  </div>
+                </motion.div>
               ))}
             </motion.div>
           )}
         </div>
       </div>
     </div>
-  );
-};
-
-interface ChannelListItemProps {
-  channel: Channel;
-  onManage: () => void;
-}
-
-const ChannelListItem: React.FC<ChannelListItemProps> = ({ channel, onManage }) => {
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="relative"
-    >
-      <div className="group">
-        <ChannelPreviewCard channel={channel} />
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onManage}
-          className="absolute top-4 right-4 p-2.5 bg-black/50 hover:bg-[#fa7517] 
-            text-white rounded-lg transition-all duration-200 
-            backdrop-blur-sm border border-gray-800/30
-            shadow-lg shadow-black/20"
-        >
-          <Settings className="w-5 h-5" />
-        </motion.button>
-      </div>
-    </motion.div>
   );
 };
 

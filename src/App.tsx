@@ -38,6 +38,7 @@ import ChannelManagement from './components/pages/CreatorHub/ChannelManagement';
 import { SystemHealth } from './health/SystemHealth';
 import { ContentStudio } from './components/pages/CreatorHub/ContentStudio/index';
 import ChannelList from './components/pages/CreatorHub/ChannelManagement/ChannelList';
+import OnboardingModal from './components/pages/OnboardingModal';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -267,7 +268,14 @@ function App() {
                         </SignedOut>
                       }
                     />
-
+                    <Route
+                      path="/onboarding"
+                      element={
+                        <ProtectedRoute>
+                          <OnboardingModal />
+                        </ProtectedRoute>
+                      }
+                    />
                     {/* Profile settings route */}
                     <Route
                       path="/profile/settings"

@@ -15,13 +15,16 @@ const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 root.render(
-  <React.StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+  
+    <ClerkProvider 
+      publishableKey={PUBLISHABLE_KEY} 
+      afterSignOutUrl="/"
+      allowedRedirectOrigins={['https://challenges.cloudflare.com']}
+    >
       <ClerkLoaded>
         <App />
       </ClerkLoaded>
     </ClerkProvider>
-  </React.StrictMode>,
 );
 
 reportWebVitals();

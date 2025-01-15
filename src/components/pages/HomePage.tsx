@@ -100,15 +100,15 @@ const BaseTubeHomepage: React.FC = () => {
               renderPlaceholder={() => renderPlaceholders(2, 'large')}
             />
             <VideoSection 
-              title="Recommended for You" 
-              videos={sectionErrors['recommended'] ? [] : recommendedVideos} 
-              linkTo="/discover?tab=for-you"
-              renderPlaceholder={() => renderPlaceholders(4)}
-            />
-            <VideoSection 
               title="Trending Now" 
               videos={trendingVideos || []}
               linkTo="/discover?tab=trending"
+              renderPlaceholder={() => renderPlaceholders(4)}
+            />
+            <VideoSection 
+              title="Recommended for You" 
+              videos={sectionErrors['recommended'] ? [] : recommendedVideos} 
+              linkTo="/discover?tab=for-you"
               renderPlaceholder={() => renderPlaceholders(4)}
             />
             <VideoSection 
