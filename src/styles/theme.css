@@ -1,0 +1,21 @@
+.ock-root {
+  --ock-font-family: inherit;
+  --ock-border-radius: 1rem;
+  --ock-border-radius-inner: 0.75rem;
+  
+  /* Text Colors */
+  --ock-text-inverse: #ffffff;
+  --ock-text-foreground: #ffffff;
+  --ock-text-foreground-muted: #9ca3af;
+  --ock-text-primary: #fa7517;
+  
+  /* Background Colors */
+  --ock-bg-default: #000000;
+  --ock-bg-default-hover: rgba(250, 117, 23, 0.1);
+  --ock-bg-primary: #fa7517;
+  --ock-bg-primary-hover: rgba(250, 117, 23, 0.9);
+  
+  /* Border Colors */
+  --ock-border-line-primary: rgba(128, 128, 128, 0.3);
+  --ock-border-line-default: rgba(128, 128, 128, 0.3);
+} 

@@ -1,30 +1,46 @@
 import React from 'react';
+import { motion, HTMLMotionProps } from 'framer-motion';
 
-interface ButtonProps {
-  children: React.ReactNode;
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
-  className?: string;
+interface ButtonProps extends HTMLMotionProps<"button"> {
+  variant?: 'default' | 'outline' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
 }
 
-const Button: React.FC<ButtonProps> = ({ children, onClick, className = '' }) => {
+const Button: React.FC<ButtonProps> = ({ 
+  variant = 'default',
+  size = 'md',
+  className = '',
+  children,
+  ...props 
+}) => {
+  const baseStyles = 'rounded-lg font-medium transition-all duration-200 flex items-center justify-center';
+  
+  const variantStyles = {
+    default: 'bg-[#fa7517] hover:bg-[#fa7517]/90 text-white',
+    outline: 'border border-[#fa7517] text-[#fa7517] hover:bg-[#fa7517]/10',
+    ghost: 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+  };
+
+  const sizeStyles = {
+    sm: 'px-3 py-1.5 text-sm',
+    md: 'px-4 py-2',
+    lg: 'px-6 py-3 text-lg'
+  };
+
   return (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        if (onClick) onClick(e);
-      }}
+    <motion.button
+      whileHover={{ scale: variant === 'ghost' ? 1 : 1.02 }}
+      whileTap={{ scale: variant === 'ghost' ? 0.98 : 0.98 }}
       className={`
-        px-4 py-2 rounded-full
-        bg-gradient-to-r from-[#fa7517] to-[#ff9a5a]
-        text-white font-bold
-        transition-all duration-300
-        hover:shadow-lg hover:shadow-[#fa7517]/50
-        active:scale-95
+        ${baseStyles}
+        ${variantStyles[variant]}
+        ${sizeStyles[size]}
         ${className}
       `}
+      {...props}
     >
       {children}
-    </button>
+    </motion.button>
   );
 };
 

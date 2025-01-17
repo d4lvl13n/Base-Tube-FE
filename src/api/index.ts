@@ -10,20 +10,22 @@ const api = axios.create({
 
 api.interceptors.request.use(
   async (config) => {
-    const token = await window.Clerk?.session?.getToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      // Get the current auth method
+      const authMethod = localStorage.getItem('auth_method');
+
+      // For Clerk auth, we still need to manually set the token
+      if (authMethod !== 'web3') {
+        const clerkToken = await window.Clerk?.session?.getToken();
+        if (clerkToken) {
+          config.headers.Authorization = `Bearer ${clerkToken}`;
+        }
+      }
+      // For web3 auth, the cookie will be sent automatically
+    } catch (error) {
+      console.warn('Failed to process auth in interceptor', error);
     }
-    if (config.headers) {
-      delete config.headers['X-Forwarded-For'];
-      delete config.headers['X-Real-IP'];
-    }
-    console.log('Outgoing request:', {
-      url: config.url,
-      method: config.method,
-      headers: config.headers,
-      data: config.data
-    });
+
     return config;
   },
   (error) => Promise.reject(error)
