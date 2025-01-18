@@ -43,7 +43,7 @@ root.render(
             name: 'Base.Tube',
             logo: '/assets/basetubelogo.png',
             mode: 'dark',
-            theme: 'custom'
+            theme: 'hacker'
           },
           wallet: {
             display: 'modal',

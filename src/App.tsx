@@ -40,6 +40,7 @@ import { ContentStudio } from './components/pages/CreatorHub/ContentStudio/index
 import ChannelList from './components/pages/CreatorHub/ChannelManagement/ChannelList';
 import OnboardingModal from './components/pages/OnboardingModal';
 import { AuthProvider } from './contexts/AuthContext';
+import SignInWeb3 from './components/pages/SignInWeb3';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -268,6 +269,14 @@ function App() {
                           element={
                             <SignedOut>
                               <SignUpPage />
+                            </SignedOut>
+                          }
+                        />
+                        <Route
+                          path="/sign-in-web3"
+                          element={
+                            <SignedOut>
+                              <SignInWeb3 />
                             </SignedOut>
                           }
                         />

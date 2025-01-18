@@ -10,7 +10,7 @@ import { getPopularChannels } from '../../api/channel';
 import { useTrendingVideos } from '../../hooks/useTrendingVideos';
 import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';
-import Header_test from '../common/Header_test';
+import Header from '../common/Header';
 
 const BaseTubeHomepage: React.FC = () => {
   const [featuredVideos, setFeaturedVideos] = useState<Video[]>([]);
@@ -91,7 +91,7 @@ const BaseTubeHomepage: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="flex-1 flex flex-col bg-black">
-        <Header_test />
+        <Header/>
         <div className="flex pt-16">
           <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
           <main className="flex-1 ml-16 max-w-[1920px] mx-auto w-full">
