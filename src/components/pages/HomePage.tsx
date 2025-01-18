@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 import HeroSection from '../common/Home/HeroSection';
 import VideoSection from '../common/Home/VideoSection';
@@ -11,6 +10,7 @@ import { getPopularChannels } from '../../api/channel';
 import { useTrendingVideos } from '../../hooks/useTrendingVideos';
 import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';
+import Header_test from '../common/Header_test';
 
 const BaseTubeHomepage: React.FC = () => {
   const [featuredVideos, setFeaturedVideos] = useState<Video[]>([]);
@@ -90,37 +90,39 @@ const BaseTubeHomepage: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className="bg-[#000000] text-white min-h-screen overflow-hidden">
-        <Header className="fixed top-0 left-0 right-0 z-50" />
+      <div className="flex-1 flex flex-col bg-black">
+        <Header_test />
         <div className="flex pt-16">
           <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
-          <main className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 ml-16 max-w-[1920px] mx-auto w-full">
-            <HeroSection 
-              featuredVideos={featuredVideos.slice(0, 2)} 
-              renderPlaceholder={() => renderPlaceholders(2, 'large')}
-            />
-            <VideoSection 
-              title="Trending Now" 
-              videos={trendingVideos || []}
-              linkTo="/discover?tab=trending"
-              renderPlaceholder={() => renderPlaceholders(4)}
-            />
-            <VideoSection 
-              title="Recommended for You" 
-              videos={sectionErrors['recommended'] ? [] : recommendedVideos} 
-              linkTo="/discover?tab=for-you"
-              renderPlaceholder={() => renderPlaceholders(4)}
-            />
-            <VideoSection 
-              title="NFT Content Pass" 
-              videos={sectionErrors['nft'] ? [] : nftVideos} 
-              linkTo="/discover?tab=nft"
-              renderPlaceholder={() => renderPlaceholders(4)}
-            />
-            <ChannelSection
-              channels={sectionErrors['channels'] ? [] : popularChannels}
-              renderPlaceholder={() => renderPlaceholders(15)}
-            />
+          <main className="flex-1 ml-16 max-w-[1920px] mx-auto w-full">
+            <div className="p-4 md:p-6">
+              <HeroSection 
+                featuredVideos={featuredVideos.slice(0, 2)} 
+                renderPlaceholder={() => renderPlaceholders(2, 'large')}
+              />
+              <VideoSection 
+                title="Trending Now" 
+                videos={trendingVideos || []}
+                linkTo="/discover?tab=trending"
+                renderPlaceholder={() => renderPlaceholders(4)}
+              />
+              <VideoSection 
+                title="Recommended for You" 
+                videos={sectionErrors['recommended'] ? [] : recommendedVideos} 
+                linkTo="/discover?tab=for-you"
+                renderPlaceholder={() => renderPlaceholders(4)}
+              />
+              <VideoSection 
+                title="NFT Content Pass" 
+                videos={sectionErrors['nft'] ? [] : nftVideos} 
+                linkTo="/discover?tab=nft"
+                renderPlaceholder={() => renderPlaceholders(4)}
+              />
+              <ChannelSection
+                channels={sectionErrors['channels'] ? [] : popularChannels}
+                renderPlaceholder={() => renderPlaceholders(15)}
+              />
+            </div>
           </main>
         </div>
       </div>

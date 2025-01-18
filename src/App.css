@@ -1,5 +1,5 @@
 .App {
-  text-align: center;
+  text-align: left;
 }
 
 .App-logo {
@@ -61,4 +61,43 @@ body {
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
   cursor: pointer;
+}
+
+/* Add header-specific styles */
+.header-container {
+  width: 100%;
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.header-search {
+  width: 100%;
+  max-width: 600px; /* Adjust search bar width */
+  margin: 0 auto;
+}
+
+/* Add these new utility classes */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* Override any unwanted center alignment */
+.text-left {
+  text-align: left;
+}
+
+/* Add this to ensure header content aligns properly */
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
 }

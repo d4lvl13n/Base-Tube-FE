@@ -8,13 +8,13 @@ import { Play, Wallet, Users, Trophy } from 'lucide-react';
 const SignUpPage: React.FC = () => {
   return (
     <>
-      <div className="min-h-screen bg-[#09090B] flex flex-col lg:flex-row">
+      <div className="min-h-screen bg-[#09090B] flex">
         {/* Hero Section */}
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="lg:w-1/2 p-8 lg:p-12 flex flex-col relative overflow-hidden"
+          className="w-0 lg:w-1/2 lg:flex flex-col p-8 lg:p-12 relative overflow-hidden"
         >
           {/* Logo Section */}
           <Link to="/" className="inline-flex items-center gap-4 transition-transform hover:scale-105">
@@ -99,7 +99,7 @@ const SignUpPage: React.FC = () => {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="lg:w-1/2 flex items-center justify-center p-8 relative"
+          className="w-full lg:w-1/2 flex items-center justify-center p-8 relative"
         >
           {/* Glow Effect */}
           <div className="absolute inset-0 bg-gradient-to-r from-[#fa751710] via-transparent to-[#fa751710]" />

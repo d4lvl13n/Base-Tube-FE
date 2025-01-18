@@ -116,205 +116,192 @@ function App() {
               <Router>
                 <ChannelProvider>
                   <NavigationProvider>
-                    <div className="min-h-screen bg-black relative">
-                      <Header className="fixed top-0 left-0 right-0 z-40" />
-                      <div className="pt-[4.5rem] md:pt-20">
-                        <Routes>
-                          {/* Public routes that don't need channel context */}
-                          <Route path="/" element={<HomePage />} />
-                          <Route path="/discover" element={<DiscoveryPage />} />
-                          <Route path="/video/:id" element={<SingleVideo />} />
-                          <Route path="/nft-marketplace" element={<NFTMarketplace />} />
+                    <div className="min-h-screen bg-black">
+                      <Routes>
+                        {/* Public routes that don't need channel context */}
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/discover" element={<DiscoveryPage />} />
+                        <Route path="/video/:id" element={<SingleVideo />} />
+                        <Route path="/nft-marketplace" element={<NFTMarketplace />} />
 
-                          {/* Channel-related routes */}
-                          <Route path="/channel/:identifier" element={<ChannelDetailPage />} />
-                          <Route path="/channel" element={<ChannelPage />} />
-                          
-                          {/* Move monitoring routes here, before creator hub routes */}
-                          <Route
-                            path="/monitoring"
-                            element={
-                              <ProtectedRoute>
-                                <MonitoringLayout>
-                                  <SystemHealth />
-                                </MonitoringLayout>
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/monitoring/queue"
-                            element={
-                              <ProtectedRoute>
-                                <MonitoringLayout>
-                                  <SystemHealth refreshInterval={5000} />
-                                </MonitoringLayout>
-                              </ProtectedRoute>
-                            }
-                          />
+                        {/* Channel-related routes */}
+                        <Route path="/channel/:identifier" element={<ChannelDetailPage />} />
+                        <Route path="/channel" element={<ChannelPage />} />
+                        
+                        {/* Move monitoring routes here, before creator hub routes */}
+                        <Route
+                          path="/monitoring"
+                          element={
+                            <ProtectedRoute>
+                              <MonitoringLayout>
+                                <SystemHealth />
+                              </MonitoringLayout>
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/monitoring/queue"
+                          element={
+                            <ProtectedRoute>
+                              <MonitoringLayout>
+                                <SystemHealth refreshInterval={5000} />
+                              </MonitoringLayout>
+                            </ProtectedRoute>
+                          }
+                        />
 
-                          {/* Creator Hub routes with special layout */}
-                          <Route
-                            path="/creator-hub"
-                            element={
-                              <CreatorHubRoute
-                                element={<CreatorHubLandingPage />}
-                              />
-                            }
-                          />
-                          <Route
-                            path="/creator-hub/upload"
-                            element={
-                              <CreatorHubRoute
-                                element={<VideoUpload />}
-                              />
-                            }
-                          />
-                          <Route
-                            path="/creator-hub/analytics"
-                            element={
-                              <CreatorHubRoute
-                                element={<AnalyticsPage />}
-                              />
-                            }
-                          />
-                          <Route
-                            path="/creator-hub/analytics/growth"
-                            element={
-                              <CreatorHubRoute
-                                element={<GrowthTab channelId={''} />}
-                              />
-                            }
-                          />
-                          <Route
-                            path="/creator-hub/resources"
-                            element={
-                              <CreatorHubRoute
-                                element={<CreatorResourcesPage />}
-                              />
-                            }
-                          />
-                          <Route
-                            path="/creator-hub/videos"
-                            element={
-                              <CreatorHubRoute
-                                element={<VideosManagement />}
-                              />
-                            }
-                          />
-                          <Route
-                            path="/creator-hub/channels"
-                            element={
-                              <CreatorHubRoute
-                                element={<ChannelList />}
-                              />
-                            }
-                          />
-                          <Route
-                            path="/creator-hub/channels/:channelId"
-                            element={
-                              <CreatorHubRoute
-                                element={<ChannelManagement />}
-                              />
-                            }
-                          />
-                          <Route
-                            path="/creator-hub/content-studio"
-                            element={
-                              <CreatorHubRoute
-                                element={
-                                  <ChannelSelectionProvider>
-                                    <ContentStudio />
-                                  </ChannelSelectionProvider>
-                                }
-                              />
-                            }
-                          />
+                        {/* Creator Hub routes with special layout */}
+                        <Route
+                          path="/creator-hub"
+                          element={
+                            <CreatorHubRoute
+                              element={<CreatorHubLandingPage />}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/creator-hub/upload"
+                          element={
+                            <CreatorHubRoute
+                              element={<VideoUpload />}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/creator-hub/analytics"
+                          element={
+                            <CreatorHubRoute
+                              element={<AnalyticsPage />}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/creator-hub/analytics/growth"
+                          element={
+                            <CreatorHubRoute
+                              element={<GrowthTab channelId={''} />}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/creator-hub/resources"
+                          element={
+                            <CreatorHubRoute
+                              element={<CreatorResourcesPage />}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/creator-hub/videos"
+                          element={
+                            <CreatorHubRoute
+                              element={<VideosManagement />}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/creator-hub/channels"
+                          element={
+                            <CreatorHubRoute
+                              element={<ChannelList />}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/creator-hub/channels/:channelId"
+                          element={
+                            <CreatorHubRoute
+                              element={<ChannelManagement />}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/creator-hub/content-studio"
+                          element={
+                            <CreatorHubRoute
+                              element={
+                                <ChannelSelectionProvider>
+                                  <ContentStudio />
+                                </ChannelSelectionProvider>
+                              }
+                            />
+                          }
+                        />
 
-                          {/* Protected routes */}
-                          <Route
-                            path="/profile"
-                            element={
-                              <ProtectedRoute>
-                                <UserProfileWallet />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/subscribed"
-                            element={
-                              <ProtectedRoute>
-                                <SubscribedChannelPage />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/create-channel"
-                            element={
-                              <ProtectedRoute>
-                                <CreateChannelPage />
-                              </ProtectedRoute>
-                            }
-                          />
+                        {/* Protected routes */}
+                        <Route
+                          path="/profile"
+                          element={
+                            <ProtectedRoute>
+                              <UserProfileWallet />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/subscribed"
+                          element={
+                            <ProtectedRoute>
+                              <SubscribedChannelPage />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/create-channel"
+                          element={
+                            <ProtectedRoute>
+                              <CreateChannelPage />
+                            </ProtectedRoute>
+                          }
+                        />
 
-                          {/* Auth routes */}
-                          <Route
-                            path="/sign-in/*"
-                            element={
-                              <SignedOut>
-                                <SignInPage />
-                              </SignedOut>
-                            }
-                          />
-                          <Route
-                            path="/sign-up/*"
-                            element={
-                              <SignedOut>
-                                <SignUpPage />
-                              </SignedOut>
-                            }
-                          />
-                          <Route
-                            path="/onboarding"
-                            element={
-                              <ProtectedRoute>
-                                <OnboardingModal />
-                              </ProtectedRoute>
-                            }
-                          />
-                          {/* Profile settings route */}
-                          <Route
-                            path="/profile/settings"
-                            element={
-                              <ProtectedRoute>
-                                <ProfileSettings />
-                              </ProtectedRoute>
-                            }
-                          />
+                        {/* Auth routes */}
+                        <Route
+                          path="/sign-in/*"
+                          element={
+                            <SignedOut>
+                              <SignInPage />
+                            </SignedOut>
+                          }
+                        />
+                        <Route
+                          path="/sign-up/*"
+                          element={
+                            <SignedOut>
+                              <SignUpPage />
+                            </SignedOut>
+                          }
+                        />
+                        <Route
+                          path="/onboarding"
+                          element={
+                            <ProtectedRoute>
+                              <OnboardingModal />
+                            </ProtectedRoute>
+                          }
+                        />
+                        {/* Profile settings route */}
+                        <Route
+                          path="/profile/settings"
+                          element={
+                            <ProtectedRoute>
+                              <ProfileSettings />
+                            </ProtectedRoute>
+                          }
+                        />
 
-                          {/* Catch-all redirect to sign-in */}
-                          <Route
-                            path="*"
-                            element={
-                              <SignedOut>
-                                <RedirectToSignIn />
-                              </SignedOut>
-                            }
-                          />
-                        </Routes>
-                      </div>
+                        {/* Catch-all redirect to sign-in */}
+                        <Route
+                          path="*"
+                          element={
+                            <SignedOut>
+                              <RedirectToSignIn />
+                            </SignedOut>
+                          }
+                        />
+                      </Routes>
+                      <ToastContainer />
+                      <ReactQueryDevtools initialIsOpen={false} />
                     </div>
-                    <ToastContainer 
-                      position="top-right"
-                      autoClose={5000}
-                      hideProgressBar={false}
-                      newestOnTop={false}
-                      closeOnClick
-                      rtl={false}
-                      pauseOnFocusLoss
-                      draggable
-                      pauseOnHover
-                    />
-                    <ReactQueryDevtools initialIsOpen={false} />
                   </NavigationProvider>
                 </ChannelProvider>
               </Router>

@@ -9,13 +9,13 @@ import { Coins } from 'lucide-react';
 
 const SignInPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#09090B] flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-[#09090B] flex">
       {/* Left Section */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
-        className="lg:w-1/2 p-8 lg:p-12 flex flex-col relative overflow-hidden"
+        className="w-0 lg:w-1/2 lg:flex flex-col p-8 lg:p-12 relative overflow-hidden"
       >
         {/* Logo */}
         <Link to="/" className="inline-flex items-center gap-4 transition-transform hover:scale-105">
@@ -94,7 +94,7 @@ const SignInPage: React.FC = () => {
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
-        className="lg:w-1/2 flex items-center justify-center p-8 relative"
+        className="w-full lg:w-1/2 flex items-center justify-center p-8 relative"
       >
         <div className="relative w-full max-w-md">
           <div className="absolute -inset-1 bg-gradient-to-r from-[#fa751730] via-[#fa751710] to-[#fa751730] rounded-3xl blur-2xl" />
