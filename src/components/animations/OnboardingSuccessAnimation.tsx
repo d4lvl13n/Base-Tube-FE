@@ -1,14 +1,28 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Rocket, Sparkles, Shield } from 'lucide-react';
 
-const OnboardingSuccessAnimation: React.FC = () => {
+interface OnboardingSuccessAnimationProps {
+  onComplete: () => void;
+}
+
+const OnboardingSuccessAnimation: React.FC<OnboardingSuccessAnimationProps> = ({ onComplete }) => {
+  useEffect(() => {
+    // Wait for animation duration then call onComplete
+    const timer = setTimeout(() => {
+      onComplete();
+    }, 3000); // Match this with your animation duration
+
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
   return (
     <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
     >
       <motion.div
         className="relative w-full h-full"

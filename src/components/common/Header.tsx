@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '../../contexts/NavigationContext';
-import ConnectWalletButton from './WalletWrapper/ConnectWalletButton';
 
 interface HeaderProps {
   className?: string;
@@ -25,6 +24,7 @@ const Header: React.FC<HeaderProps> = ({
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showSignInOptions, setShowSignInOptions] = useState(false);
+  const [hoveredAvatar, setHoveredAvatar] = useState(false);
 
   const handleNavStyleToggle = () => {
     if (onNavToggle) onNavToggle();
@@ -75,9 +75,59 @@ const Header: React.FC<HeaderProps> = ({
   const renderAuthButtons = () => {
     if (isAuthenticated && web3User) {
       return (
-        <ConnectWalletButton 
-          className="h-10 min-w-[40px] md:min-w-[140px]"
-        />
+        <Link to="/profile">
+          <motion.div
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.95 }}
+            className="relative group"
+          >
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-full opacity-75 group-hover:opacity-100 blur transition duration-1000 group-hover:duration-200" />
+            <div className="relative flex items-center gap-2">
+              {/* Avatar with AnimatePresence Tooltip */}
+              <motion.div
+                className="relative"
+                onHoverStart={() => setHoveredAvatar(true)}
+                onHoverEnd={() => setHoveredAvatar(false)}
+              >
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#fa7517] to-orange-400 flex items-center justify-center text-white font-bold border-2 border-[#fa7517]">
+                  {web3User.profile_image_url ? (
+                    <img
+                      src={web3User.profile_image_url}
+                      alt="User Avatar"
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-sm">0x</span>
+                  )}
+                </div>
+
+                <AnimatePresence>
+                  {hoveredAvatar && (
+                    <motion.div
+                      className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 
+                               bg-black/90 rounded-lg p-3 backdrop-blur-sm min-w-[200px]
+                               z-50"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="text-white">
+                        <h3 className="font-semibold mb-1">Web3 Wallet</h3>
+                        <p className="text-xs text-gray-300">{web3User.username}</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+              
+              {/* Username - Only show on larger screens */}
+              <span className="hidden md:block text-sm text-white/90 group-hover:text-white transition-colors">
+                {web3User.username || 'My Wallet'}
+              </span>
+            </div>
+          </motion.div>
+        </Link>
       );
     }
 
@@ -127,6 +177,8 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 w-full">
+      <div style={{position: 'fixed', top: '100px', right: '10px', background: 'black', color: 'white', padding: '10px', zIndex: 9999}}>
+      </div>
       <div className="bg-gradient-to-b from-black via-black/95 to-black/80 backdrop-blur-md border-b border-white/5">
         <div className="max-w-[1920px] mx-auto px-4">
           <div className="flex items-center justify-between h-16 relative">

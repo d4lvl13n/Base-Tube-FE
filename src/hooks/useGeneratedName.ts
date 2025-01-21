@@ -1,19 +1,23 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { web3AuthApi } from '../api/web3authapi';
 
-const MAX_SUGGESTIONS = 6; // or 8 for a 2x4 grid
+export const MAX_SUGGESTIONS = 6; // or 8 for a 2x4 grid
+export const MAX_REFRESHES = 5;
+export const REFRESH_DELAY = 1000; // 1 second delay
 
 export const useGeneratedName = () => {
+  const [refreshCount, setRefreshCount] = useState(0);
   const [selectedUsername, setSelectedUsername] = useState<string>('');
   const [customUsername, setCustomUsername] = useState<string>('');
+  const lastRefreshTime = useRef<number>(0);
 
   // Fetch username suggestions
   const {
     data: suggestions,
     isLoading: isLoadingSuggestions,
     error: suggestionsError,
-    refetch: refreshSuggestions
+    refetch: refetchSuggestions
   } = useQuery({
     queryKey: ['usernameSuggestions'],
     queryFn: () => web3AuthApi.getUsernameSuggestions(),
@@ -24,6 +28,20 @@ export const useGeneratedName = () => {
       suggestions: data.suggestions.slice(0, MAX_SUGGESTIONS)
     })
   });
+
+  const refreshSuggestions = async () => {
+    const now = Date.now();
+    if (
+      refreshCount >= MAX_REFRESHES || 
+      now - lastRefreshTime.current < REFRESH_DELAY
+    ) {
+      return;
+    }
+
+    lastRefreshTime.current = now;
+    setRefreshCount(prev => prev + 1);
+    await refetchSuggestions();
+  };
 
   // Update username mutation
   const {
@@ -51,34 +69,32 @@ export const useGeneratedName = () => {
     }
   });
 
-  // Validate custom username
   const validateUsername = (username: string): boolean => {
-    const usernameRegex = /^0x_[a-zA-Z0-9_]{2,17}$/;
+    if (!username) return false;
+    const usernameRegex = /^[a-zA-Z0-9][a-zA-Z0-9_]{3,19}$/;
     return usernameRegex.test(username);
   };
 
+  const isValid = Boolean(
+    (customUsername && validateUsername(customUsername)) ||
+    (selectedUsername && validateUsername(selectedUsername))
+  );
+
   return {
-    // Data
+    refreshCount,
+    maxRefreshes: MAX_REFRESHES,
     suggestions: suggestions?.suggestions.slice(0, MAX_SUGGESTIONS) || [],
     selectedUsername,
     customUsername,
-    isValid: validateUsername(customUsername || selectedUsername),
-
-    // Loading states
+    isValid,
     isLoadingSuggestions,
     isUpdating,
-
-    // Errors
     suggestionsError,
     updateError,
-
-    // Actions
     setSelectedUsername,
     setCustomUsername,
     updateUsername,
     refreshSuggestions,
-
-    // Helpers
     validateUsername
   };
 }; 

@@ -19,7 +19,7 @@ import {
 type WalletWrapperParams = Omit<ConnectWalletReact, 'children'> & {
   text?: string;
   className?: string;
-  withWalletAggregator?: boolean; // if true, show aggregator
+  withWalletAggregator?: boolean; 
   onConnect?: () => void;
   icon?: React.ReactNode;
   children?: React.ReactNode;
@@ -63,36 +63,33 @@ export default function WalletWrapper({
           <Name />
         </ConnectWallet>
       ) : (
-        /*
-          2) AUTHENTICATED:
-             Renders a simple "button" (or DIV) that includes
-             an avatar + name and still triggers the dropdown.
-        */
-        <button
-          type="button"
-          className={`flex items-center space-x-2 ${className}`}
-          onClick={() => {
-            // no-op click. OnchainKit handles toggling the dropdown automatically.
-          }}
-        >
-          {/* If you have a custom icon, show that.
-              Or you can show OnchainKit's Avatar + Name (or both) */}
-          {icon ? (
-            <>{icon}</>
-          ) : (
-            <Avatar className="h-6 w-6 rounded-full" />
-          )}
-          <span>{username || text || 'My Wallet'}</span>
-        </button>
+        <div className="relative flex items-center">
+          <button
+            type="button"
+            className={`
+              flex items-center space-x-2 
+              relative z-10 
+              min-w-[40px] 
+              ${className}
+            `}
+          >
+            {icon ? (
+              <>{icon}</>
+            ) : (
+              <Avatar className="h-6 w-6 rounded-full" />
+            )}
+            <span className="text-white">{username || text || 'My Wallet'}</span>
+          </button>
+        </div>
       )}
 
       {/* The WalletDropdown remains in the DOM, letting OnchainKit attach 
           click handlers that open/close the dropdown. */}
-      <WalletDropdown className="bg-black/95 backdrop-blur-xl">
+      <WalletDropdown className="bg-black/95 backdrop-blur-xl z-50">
         <Identity hasCopyAddressOnClick>
           <Avatar className="!h-16 !w-16" />
           <div>
-            <Name className="!text-xl !font-bold" />
+            <Name className="!text-xl !font-bold text-white" />
             <Address className="!text-sm !text-gray-400" />
             <EthBalance className="!text-sm !font-medium !text-[#fa7517]" />
           </div>
