@@ -12,6 +12,7 @@ interface AuthContextType {
   error: Error | null;
   isAuthenticated: boolean;
   user: User | null;
+  setUser: (user: User | null) => void;
 
   // Wallet State
   isConnected: boolean;
@@ -31,6 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error,
     isAuthenticated,
     user,
+    setUser,
     
     // Wallet State
     isConnected,
@@ -47,6 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error,
     isAuthenticated,
     user,
+    setUser,
     
     // Wallet State
     isConnected,

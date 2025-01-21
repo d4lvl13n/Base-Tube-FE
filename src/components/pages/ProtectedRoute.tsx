@@ -9,21 +9,29 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const { isAuthenticated, step } = useAuth();
   const { isSignedIn, isLoaded: isClerkLoaded } = useUser();
   const location = useLocation();
-
-  // Get the current auth method
   const authMethod = localStorage.getItem('auth_method') as AuthMethod;
 
-  // Handle loading states
-  const isLoading = !isClerkLoaded || step === 'CONNECTING_WALLET' || step === 'CHECKING_NETWORK';
+  // Only check relevant loading state based on auth method
+  const isLoading = authMethod === AuthMethod.WEB3 
+    ? step === 'CONNECTING_WALLET' || step === 'CHECKING_NETWORK'
+    : !isClerkLoaded;
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
-  // Check auth based on method
   const isAuthorized = authMethod === AuthMethod.WEB3 ? isAuthenticated : isSignedIn;
-  
+
   if (!isAuthorized) {
-    return <Navigate to="/sign-in" state={{ from: location }} replace />;
+    // Add debug logging
+    console.log('Not authorized:', {
+      authMethod,
+      isAuthenticated,
+      isSignedIn,
+      currentPath: location.pathname
+    });
+    
+    return <Navigate to={authMethod === AuthMethod.WEB3 ? "/sign-in-web3" : "/sign-in"} state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

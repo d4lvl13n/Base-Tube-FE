@@ -11,17 +11,23 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      // Get the current auth method
       const authMethod = localStorage.getItem('auth_method');
+      console.log('Request:', {
+        url: config.url,
+        method: config.method,
+        authMethod,
+        cookies: document.cookie // Log cookies being sent
+      });
 
-      // For Clerk auth, we still need to manually set the token
       if (authMethod !== 'web3') {
+        // Clerk-based auth:
         const clerkToken = await window.Clerk?.session?.getToken();
         if (clerkToken) {
           config.headers.Authorization = `Bearer ${clerkToken}`;
         }
       }
       // For web3 auth, the cookie will be sent automatically
+      // because withCredentials: true is set
     } catch (error) {
       console.warn('Failed to process auth in interceptor', error);
     }
@@ -33,6 +39,7 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
+    // Example logging; optional
     if (response.data?.data?.thumbnail_url || response.data?.data?.video_url) {
       console.log('Media URLs in response:', {
         thumbnail: response.data.data.thumbnail_url,
@@ -46,18 +53,29 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    const errorDetails = {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.response?.data?.message,
-      url: error.config?.url,
-      method: error.config?.method,
-      headers: {
-        ...error.config?.headers,
-        Authorization: 'Bearer [REDACTED]'
+    if (axios.isAxiosError(error)) {
+      // Handle 401 Unauthorized errors
+      if (error.response?.status === 401) {
+        const authMethod = localStorage.getItem('auth_method');
+        
+        if (authMethod === 'web3') {
+          // For web3 users, dispatch an event to trigger re-auth
+          window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        }
+        // For Clerk users, let Clerk handle it
       }
-    };
-    console.error('API Error:', errorDetails);
+
+      // Log error details (keep your existing logging)
+      const errorDetails = {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.response?.data?.message,
+        url: error.config?.url,
+        method: error.config?.method,
+        authMethod: localStorage.getItem('auth_method'),
+      };
+      console.error('API Error:', errorDetails);
+    }
     return Promise.reject(error);
   }
 );

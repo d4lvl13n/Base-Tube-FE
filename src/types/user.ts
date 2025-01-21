@@ -6,7 +6,9 @@ export interface User {
   id: string;
   username: string;
   email: string;
-  name?: string | null;
+  onboarding_status: 'PENDING' | 'COMPLETED';
+  profile_image_url: string;
+  name: string | null;
   dob?: string | null;
   picture?: string | null;
   description?: string | null;

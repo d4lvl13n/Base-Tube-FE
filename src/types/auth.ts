@@ -10,10 +10,13 @@ export interface User {
   username: string;
   email: string;
   name: string | null;
-  profile_image_url: string | null;
+  profile_image_url: string;
   createdAt: string;
   updatedAt: string;
-  web3auth?: Web3Auth; // Add direct reference to web3auth
+  web3auth?: Web3Auth & {
+    avatar?: string;  // From onchainkit Avatar
+  };
+  onboarding_status: 'PENDING' | 'COMPLETED';
 }
 
 // Wallet Information
@@ -37,17 +40,18 @@ export interface AuthState {
 
 // API Responses
 export interface LoginResponse {
-  user: User;
-  message: string;
-  token?: string; // Make token optional
+  user: User;  // This should only include basic user info, no suggestions
+  token?: string;
 }
 
 export interface SignupResponse {
   user: User;
-  web3auth: Web3Auth;
-  wallet: string;
-  message: string;
-  token?: string; // Make token optional
+  token?: string;
+}
+
+export interface OnboardingResponse {
+  user: User;
+  suggestedUsernames?: string[];  // Move this here for onboarding
 }
 
 export interface LinkWalletResponse {

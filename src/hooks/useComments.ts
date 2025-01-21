@@ -3,6 +3,8 @@ import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as commentsApi from '../api/comment';
 import type { Comment, CommentsResponse, ApiResponse } from '../types/comment';
+import { useWeb3Auth } from './useWeb3Auth';
+import { AuthMethod } from '../types/auth';
 
 // Add this helper function at the top of the file, before useComments
 const findCommentById = (comments: Comment[], id: number): Comment | null => {
@@ -23,7 +25,14 @@ interface UseCommentsProps {
 }
 
 export const useComments = ({ videoId, initialLimit = 30, sortBy = 'latest' }: UseCommentsProps) => {
-  const { user } = useUser();
+  const { user: clerkUser } = useUser();
+  const { user: web3User, isAuthenticated: isWeb3Auth } = useWeb3Auth();
+  const authMethod = localStorage.getItem('auth_method');
+  
+  // Use the correct user based on auth method
+  const user = authMethod === AuthMethod.WEB3 ? web3User : clerkUser;
+  const isAuthenticated = authMethod === AuthMethod.WEB3 ? isWeb3Auth : !!clerkUser;
+
   const queryClient = useQueryClient();
   
   // Use React Query for caching and state management
@@ -47,9 +56,14 @@ export const useComments = ({ videoId, initialLimit = 30, sortBy = 'latest' }: U
     enabled: !!videoId // Only fetch when videoId is available
   });
 
-  // Permission checks
-  const canModifyComment = useCallback((comment: Comment) => 
-    user?.id === comment.commenter?.id, [user]);
+  // Update permission checks
+  const canModifyComment = useCallback((comment: Comment) => {
+    if (!user) return false;
+    const userId = authMethod === AuthMethod.WEB3 
+      ? user.id 
+      : clerkUser?.id;
+    return userId === comment.commenter?.id;
+  }, [user, authMethod, clerkUser]);
 
   const canPinComment = useCallback((comment: Comment) => 
     user?.id === comment.video_id.toString(), [user]);
@@ -57,28 +71,25 @@ export const useComments = ({ videoId, initialLimit = 30, sortBy = 'latest' }: U
   // Mutations
   const addCommentMutation = useMutation<ApiResponse<Comment>, Error, { content: string; parentId?: number }>({
     mutationFn: async ({ content, parentId }) => {
-      if (!user) throw new Error('Must be logged in to comment');
+      if (!isAuthenticated) {
+        throw new Error('Must be logged in to comment');
+      }
 
-      const parentComment = parentId ? 
-        findCommentById(data?.comments || [], parentId) : null;
-
-      const effectiveParentId = parentId;
-      const replyingTo = parentComment?.commenter?.username;
-
-      const response = await commentsApi.addComment(
-        Number(videoId), 
-        content, 
-        effectiveParentId
-      );
-
-      return {
-        success: true,
-        data: {
-          ...response.data,
-          replyingTo,
-          replies: []
-        }
-      };
+      try {
+        const response = await commentsApi.addComment(
+          Number(videoId), 
+          content, 
+          parentId
+        );
+        return response;
+      } catch (error) {
+        // Let the interceptor handle 401s
+        throw error;
+      }
+    },
+    onError: (error) => {
+      // Handle other errors as needed
+      console.error('Failed to add comment:', error);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey })
   });
@@ -109,7 +120,7 @@ export const useComments = ({ videoId, initialLimit = 30, sortBy = 'latest' }: U
     addCommentMutation.mutateAsync({ content, parentId });
 
   const editComment = async (commentId: number, content: string) => {
-    const comment = data?.comments.find(c => c.id === commentId);
+    const comment = findCommentById(data?.comments || [], commentId);
     if (!comment || !canModifyComment(comment)) {
       throw new Error('Permission denied');
     }
@@ -117,7 +128,7 @@ export const useComments = ({ videoId, initialLimit = 30, sortBy = 'latest' }: U
   };
 
   const deleteComment = async (commentId: number) => {
-    const comment = data?.comments.find(c => c.id === commentId);
+    const comment = findCommentById(data?.comments || [], commentId);
     if (!comment || !canModifyComment(comment)) {
       throw new Error('Permission denied');
     }
@@ -125,7 +136,7 @@ export const useComments = ({ videoId, initialLimit = 30, sortBy = 'latest' }: U
   };
 
   const pinComment = async (commentId: number) => {
-    const comment = data?.comments.find(c => c.id === commentId);
+    const comment = findCommentById(data?.comments || [], commentId);
     if (!comment || !canPinComment(comment)) {
       throw new Error('Permission denied');
     }
@@ -133,7 +144,7 @@ export const useComments = ({ videoId, initialLimit = 30, sortBy = 'latest' }: U
   };
 
   const unpinComment = async (commentId: number) => {
-    const comment = data?.comments.find(c => c.id === commentId);
+    const comment = findCommentById(data?.comments || [], commentId);
     if (!comment || !canPinComment(comment)) {
       throw new Error('Permission denied');
     }

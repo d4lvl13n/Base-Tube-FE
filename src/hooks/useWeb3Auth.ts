@@ -55,7 +55,12 @@ export function useWeb3Auth() {
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
 
-  // Restore from localStorage (only user data, not token)
+  /**
+   * On mount, restore any user data + auth_method === "web3".
+   * 
+   * NOTE: If your server sets JWT cookies, you don't *have* to store a token locally;
+   * you just need to know the user is "authenticated" so your UI can reflect that.
+   */
   useEffect(() => {
     const userStr = localStorage.getItem('auth_user');
     const method = localStorage.getItem('auth_method');
@@ -75,66 +80,97 @@ export function useWeb3Auth() {
     }
   }, []);
 
-  const handleAuthSuccess = useCallback((auth: { user: User }) => {
-    try {
-      localStorage.setItem('auth_user', JSON.stringify(auth.user));
-      localStorage.setItem('auth_method', AuthMethod.WEB3);
+  /**
+   * Helper function after a successful login or signup.
+   * This sets localStorage, updates React state, and marks user as authenticated.
+   * If the backend returns a token, you can store it here too (optional).
+   */
+  const handleAuthSuccess = useCallback(
+    (auth: { user: User; token?: string }) => {
+      try {
+        console.log('Handling auth success:', auth);
+        
+        localStorage.setItem('auth_user', JSON.stringify(auth.user));
+        localStorage.setItem('auth_method', AuthMethod.WEB3);
 
-      dispatch({ 
-        type: 'SET_AUTHENTICATED', 
-        payload: { user: auth.user }
-      });
-    } catch (error) {
-      console.warn('Failed to store user data in localStorage', error);
-      dispatch({ 
-        type: 'SET_AUTHENTICATED', 
-        payload: { user: auth.user }
-      });
-    }
-  }, []);
+        // If the user already has a username, sync it to wallet_username
+        if (auth.user.username) {
+          console.log('Syncing existing username:', auth.user.username);
+          localStorage.setItem('wallet_username', auth.user.username);
+        }
 
+        dispatch({ 
+          type: 'SET_AUTHENTICATED', 
+          payload: { user: auth.user } 
+        });
+      } catch (error) {
+        console.warn('Failed to store user data:', error);
+        dispatch({ 
+          type: 'SET_AUTHENTICATED', 
+          payload: { user: auth.user } 
+        });
+      }
+    },
+    []
+  );
+
+  /**
+   * connect() is called when the user chooses to log in with their wallet.
+   * It checks if the user is on the right network, then attempts to log in or sign up.
+   */
   const connect = useCallback(async () => {
     try {
       dispatch({ type: 'SET_STEP', payload: AuthenticationStep.CONNECTING_WALLET });
       
-      if (!isConnected || !address) {
-        return;
-      }
+      if (!isConnected || !address) return;
 
-      dispatch({ type: 'SET_STEP', payload: AuthenticationStep.CHECKING_NETWORK });
       if (chainId !== baseSepolia.id) {
         await switchChain({ chainId: baseSepolia.id });
       }
 
       try {
+        // Attempt login
         const auth = await web3AuthApi.login(address);
         handleAuthSuccess(auth);
+        
+        window.location.href = auth.user.onboarding_status === 'PENDING' 
+          ? '/onboarding/web3' 
+          : '/';
+          
         return auth;
       } catch (error: any) {
-        if (error?.response?.status === 404 || 
-            error.message?.toLowerCase().includes('not found')) {
-          dispatch({
-            type: 'SET_STEP',
-            payload: AuthenticationStep.CREATING_ACCOUNT
-          });
+        // If user not found, handle signup flow
+        if (error.message?.includes('User not found') || error?.response?.status === 404) {
+          dispatch({ type: 'SET_STEP', payload: AuthenticationStep.CREATING_ACCOUNT });
+          
           await web3AuthApi.signup(address);
-          const authAgain = await web3AuthApi.login(address);
-          handleAuthSuccess(authAgain);
-          return authAgain;
+          const authData = await web3AuthApi.login(address);
+          handleAuthSuccess(authData);
+          
+          window.location.href = '/onboarding/web3';
+          return authData;
         }
-        throw error;
+        
+        throw error; // Re-throw non-404 errors
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
-      dispatch({ type: 'SET_ERROR', payload: new Error(errorMessage) });
+      console.error('Authentication error:', error);
+      dispatch({ type: 'SET_ERROR', payload: error as Error });
       throw error;
     }
   }, [address, isConnected, chainId, switchChain, handleAuthSuccess]);
 
+  /**
+   * disconnect() logs the user out in the backend
+   * and clears localStorage / React state in the frontend.
+   */
   const disconnect = useCallback(async () => {
     try {
       localStorage.removeItem('auth_user');
       localStorage.removeItem('auth_method');
+      // If you stored a token, remove it:
+      // localStorage.removeItem('web3_token');
+
       await api.post('/api/v1/web3auth/logout', {}, { withCredentials: true });
     } catch (error) {
       console.warn('Failed to cleanup auth state', error);
@@ -142,18 +178,49 @@ export function useWeb3Auth() {
     dispatch({ type: 'RESET' });
   }, []);
 
-  // Debug effect
+  // Optional debug
   useEffect(() => {
     console.log('Connection status:', {
-      isConnected,
       address,
+      isConnected,
       isAuthenticated: state.isAuthenticated,
       step: state.step
     });
   }, [isConnected, address, state.isAuthenticated, state.step]);
 
+  // Add this effect to handle unauthorized events
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      console.log('Unauthorized event received, resetting auth state');
+      dispatch({ type: 'RESET' });
+      localStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_method');
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, []);
+
+  // Add this function
+  const setUser = useCallback((user: User | null) => {
+    if (user) {
+      dispatch({ 
+        type: 'SET_AUTHENTICATED', 
+        payload: { user } 
+      });
+      // Update localStorage
+      localStorage.setItem('auth_user', JSON.stringify(user));
+    } else {
+      dispatch({ type: 'RESET' });
+      // Clear localStorage
+      localStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_method');
+    }
+  }, []);
+
   return {
     ...state,
+    setUser,  // Add this
     connect,
     disconnect,
     isConnected,

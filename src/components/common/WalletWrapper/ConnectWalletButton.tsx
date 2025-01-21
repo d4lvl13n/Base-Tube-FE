@@ -18,7 +18,7 @@ export default function ConnectWalletButton({
 
   const buttonText = customText ?? (
     isAuthenticated 
-      ? 'My Wallet' 
+      ? localStorage.getItem('wallet_username') || 'My Wallet'
       : step === AuthenticationStep.IDLE 
         ? 'Connect Wallet' 
         : 'Connecting...'
@@ -78,7 +78,7 @@ export default function ConnectWalletButton({
           ${className}
         `}
         onConnect={handleConnect}
-        withWalletAggregator={true}
+        withWalletAggregator={!isAuthenticated}
         icon={
           <div className="opacity-70 group-hover:opacity-100 transition-opacity md:mr-2">
             <Wallet className="w-5 h-5 md:w-4 md:h-4" />

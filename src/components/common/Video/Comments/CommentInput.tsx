@@ -4,6 +4,8 @@ import { Send, Loader, Smile } from 'lucide-react';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 import { useUser } from '@clerk/clerk-react';
+import { useWeb3Auth } from '../../../../hooks/useWeb3Auth';
+import { AuthMethod } from '../../../../types/auth';
 import type { ApiResponse, Comment } from '../../../../types/comment';
 
 interface CommentInputProps {
@@ -23,7 +25,18 @@ const CommentInput: React.FC<CommentInputProps> = ({
   initialContent = '',
   onCancel
 }) => {
-  const { user } = useUser();
+  const { user: clerkUser } = useUser();
+  const { user: web3User } = useWeb3Auth();
+  const authMethod = localStorage.getItem('auth_method') as AuthMethod;
+  
+  // Use the correct user based on auth method
+  const user = authMethod === AuthMethod.WEB3 ? web3User : clerkUser;
+
+  // Get the correct image URL based on auth method
+  const userImageUrl = authMethod === AuthMethod.WEB3 
+    ? web3User?.web3auth?.avatar  // Get avatar from web3auth
+    : clerkUser?.imageUrl;  // Clerk user uses 'imageUrl'
+
   const [comment, setComment] = useState(initialContent);
   const [isFocused, setIsFocused] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -80,7 +93,7 @@ const CommentInput: React.FC<CommentInputProps> = ({
   if (!user) {
     return (
       <div className="text-center p-4 text-gray-400">
-        Please sign in to comment
+        Please {authMethod === AuthMethod.WEB3 ? 'connect wallet' : 'sign in'} to comment
       </div>
     );
   }
@@ -92,7 +105,7 @@ const CommentInput: React.FC<CommentInputProps> = ({
         className="flex gap-3"
       >
         <img
-          src={user.imageUrl || '/default-avatar.png'}
+          src={userImageUrl || '/default-avatar.png'}
           alt={user.username || ''}
           className="w-8 h-8 rounded-full"
         />

@@ -3,6 +3,9 @@ export interface Commenter {
   username: string;
   profile_image_url: string | null;
   clerkId: string;
+  web3auth?: {
+    avatar?: string;
+  };
 }
 
 export interface Comment {
@@ -12,11 +15,13 @@ export interface Comment {
   content: string;
   parent_id: number | null;
   status: 'approved' | 'pending' | 'rejected';
+  moderatedBy: string | null;
+  moderatedAt: string | null;
   isPinned: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
-  commenter?: Commenter;
+  commenter: Commenter;
   replies?: Comment[];
   replyingTo?: string | null;
   likes: number;

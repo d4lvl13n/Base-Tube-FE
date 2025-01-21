@@ -1,10 +1,26 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Wallet, Shield, Coins, Sparkles } from 'lucide-react';
 import ConnectWalletButton from '../common/WalletWrapper/ConnectWalletButton';
+import { useAuth } from '../../contexts/AuthContext';
 
 const SignInWeb3: React.FC = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.onboarding_status === 'PENDING') {
+        // New user → go to onboarding
+        navigate('/onboarding/web3', { replace: true });
+      } else {
+        // Existing user → go to home
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
+
   return (
     <div className="min-h-screen bg-[#09090B] flex">
       {/* Left Section */}
@@ -113,7 +129,7 @@ const SignInWeb3: React.FC = () => {
               <p className="text-gray-400">Access Base.Tube with your Web3 wallet</p>
             </div>
 
-            {/* Wallet Button */}
+            {/* Updated Wallet Button */}
             <div className="flex justify-center mb-8">
               <ConnectWalletButton 
                 className="w-full max-w-sm"
