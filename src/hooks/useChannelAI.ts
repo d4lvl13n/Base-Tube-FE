@@ -1,8 +1,11 @@
-// src/hooks/useChannelAI.ts
-
 import { useState, useCallback } from 'react';
 import { getHandleSuggestions, getChannelDescription } from '../api/channel';
 import { toast } from 'react-toastify';
+
+interface ChannelAIResult {
+  description: string;
+  suggestedHandle: string;
+}
 
 export const useChannelAI = () => {
   const [isGeneratingHandle, setIsGeneratingHandle] = useState(false);
@@ -41,7 +44,9 @@ export const useChannelAI = () => {
   );
 
   const generateChannelDescription = useCallback(
-    async (name: string, keywords: string, additionalInfo: string) => {
+    async (name: string, keywords: string, additionalInfo: string): Promise<ChannelAIResult> => {
+      console.log('Starting description generation with:', { name, keywords, additionalInfo });
+      
       if (!name.trim()) {
         toast.error('Channel name is required');
         return { description: '', suggestedHandle: '' };
@@ -49,14 +54,24 @@ export const useChannelAI = () => {
 
       setIsGeneratingDescription(true);
       try {
-        const response = await getChannelDescription(name, { keywords: keywords.split(','), additionalInfo });
-        if (response.success) {
-          return {
-            description: response.description || '',
+        console.log('Calling getChannelDescription API...');
+        const response = await getChannelDescription(name, { 
+          keywords: keywords.split(',').map(k => k.trim()), 
+          additionalInfo 
+        });
+        
+        console.log('API Response:', response);
+
+        if (response.success && response.description) {
+          const result: ChannelAIResult = {
+            description: response.description,
             suggestedHandle: response.originalName || ''
           };
+          console.log('Returning generated content:', result);
+          return result;
         } else {
-          throw new Error(response.message || 'Failed to generate description');
+          console.error('API returned unsuccessful response:', response);
+          throw new Error('Failed to generate description');
         }
       } catch (error) {
         console.error('Description generation error:', error);

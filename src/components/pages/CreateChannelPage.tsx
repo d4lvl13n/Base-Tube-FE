@@ -778,6 +778,8 @@ const CreateChannelPage: React.FC = () => {
       const { description: generated, suggestedHandle: suggested } = 
         await generateChannelDescription(watchedName, keywords, additionalInfo);
       
+      console.log('Generated description:', generated);
+      
       if (generated) {
         setValue('description', generated, { shouldValidate: true });
         setGeneratedDescription(generated);
@@ -945,8 +947,8 @@ const CreateChannelPage: React.FC = () => {
         onAdditionalInfoChange={setAdditionalInfo}
         onGenerate={handleGenerateDescription}
         isGenerating={isGenerating}
-        suggestedTitle={suggestedHandle}
         generatedDescription={generatedDescription}
+        suggestedTitle={suggestedHandle}
         onAcceptTitle={() => {
           if (suggestedHandle) {
             setValue('handle', suggestedHandle, { shouldValidate: true });

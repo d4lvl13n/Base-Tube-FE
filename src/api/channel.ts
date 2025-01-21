@@ -302,41 +302,49 @@ export const getHandleSuggestions = async (
   return response.data;
 };
 
+interface AIChannelDescriptionResponse {
+  success: boolean;
+  data?: {
+    suggestions: string[];
+  };
+  message?: string;
+}
+
 export const getChannelDescription = async (
   name: string,
   context?: {
-    type?: string;
     keywords?: string[];
     additionalInfo?: string;
   }
-): Promise<{
-  success: boolean;
-  description: string;
-  originalName: string;
-  message?: string;
-}> => {
-  const params = new URLSearchParams();
-
-  if (context?.type && context.type.trim()) {
-    params.append('type', context.type.trim());
-  }
-  if (context?.keywords && context.keywords.length > 0) {
-    const keywords = context.keywords
-      .map((kw) => kw.trim())
-      .filter((kw) => kw);
-    if (keywords.length > 0) {
-      params.append('keywords', keywords.join(','));
+) => {
+  try {
+    console.log('Sending description request:', { name, context });
+    const response = await api.get<AIChannelDescriptionResponse>(
+      `/api/v1/channels/description/${name}`,
+      {
+        params: {
+          keywords: context?.keywords?.join(','),
+          additionalInfo: context?.additionalInfo
+        }
+      }
+    );
+    
+    console.log('Raw API response:', response.data);
+    
+    // Check if we have suggestions in the data object
+    if (response.data.success && response.data.data?.suggestions?.[0]) {
+      return {
+        success: true,
+        description: response.data.data.suggestions[0],
+        originalName: name
+      };
     }
+    
+    throw new Error(response.data.message || 'No description generated');
+  } catch (error) {
+    console.error('Error fetching channel description:', error);
+    throw error;
   }
-  if (context?.additionalInfo && context.additionalInfo.trim()) {
-    params.append('additionalInfo', context.additionalInfo.trim());
-  }
-
-  const response = await api.get(
-    `/api/v1/channels/description/${encodeURIComponent(name)}?${params.toString()}`
-  );
-
-  return response.data;
 };
 
 export const getSubscribedChannels = async (
