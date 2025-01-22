@@ -94,13 +94,16 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
     <motion.div 
       initial={false}
       animate={{ width: isCollapsed ? '80px' : '256px' }}
-      className="relative h-screen flex flex-col bg-black/50 border-r border-gray-800/30 backdrop-blur-sm overflow-hidden"
+      className="h-screen flex flex-col bg-black/50 border-r border-gray-800/30 backdrop-blur-sm overflow-hidden pt-16"
       style={{
         boxShadow: `
           0 0 20px 5px rgba(250, 117, 23, 0.1),
           0 0 40px 10px rgba(250, 117, 23, 0.05),
           inset 0 0 60px 15px rgba(250, 117, 23, 0.03)
-        `
+        `,
+        position: 'sticky',
+        top: 0,
+        zIndex: 40
       }}
     >
       {/* Primary Actions */}

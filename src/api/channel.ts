@@ -113,15 +113,41 @@ export const getPopularChannels = async (
   }
 };
 
-export const createChannel = async (channelData: FormData, sessionToken: string) => {
-  return api
-    .post<ChannelResponse>('/api/v1/channels', channelData, {
+export const createChannel = async (channelData: FormData) => {
+  try {
+    // Log the request details (but sanitize sensitive data)
+    console.log('Creating channel with data:', {
+      name: channelData.get('name'),
+      handle: channelData.get('handle'),
+      hasDescription: Boolean(channelData.get('description')),
+      hasImage: Boolean(channelData.get('channel_image')),
+      apiUrl: api.defaults.baseURL
+    });
+
+    const response = await api.post<ChannelResponse>('/api/v1/channels', channelData, {
       headers: {
         'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${sessionToken}`,
       },
-    })
-    .then((res) => res.data);
+      timeout: 30000, // 30 seconds
+    });
+
+    // Log response for debugging
+    console.log('Channel creation response:', {
+      status: response.status,
+      statusText: response.statusText,
+      data: response.data
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error('Channel creation error:', {
+      name: error.name,
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    throw error;
+  }
 };
 
 export const updateChannel = async (
@@ -433,9 +459,9 @@ export const validateChannelData = (data: ChannelUpdateData): string[] => {
   }
 
   if (data.channel_image) {
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(data.channel_image.type)) {
-      errors.push('Invalid image type. Please use JPEG, PNG, or GIF');
+      errors.push('Invalid image type. Please use JPEG, PNG, GIF, or WebP');
     }
     if (data.channel_image.size > 5 * 1024 * 1024) { // 5MB limit
       errors.push('Image size must be less than 5MB');

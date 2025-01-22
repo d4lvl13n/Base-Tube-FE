@@ -3,19 +3,27 @@ import { SignIn } from '@clerk/clerk-react';
 import { dark } from '@clerk/themes';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Play } from 'lucide-react';
-import { Coins } from 'lucide-react';
+import { Play, Coins } from 'lucide-react';
+import { FeatureCard } from './SignInWeb3/components/FeatureCard';
 
-
-const SignInPage: React.FC = () => {
-  return (
-    <div className="min-h-screen bg-[#09090B] flex">
+export const SignInPage: React.FC = () => (
+  <>
+    <style>
+      {`
+        @media (max-width: 1024px) {
+          .hide-on-mobile {
+            display: none;
+          }
+        }
+      `}
+    </style>
+    <div className="h-screen bg-[#09090B] grid lg:grid-cols-2 grid-cols-1">
       {/* Left Section */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
-        className="w-0 lg:w-1/2 lg:flex flex-col p-8 lg:p-12 relative overflow-hidden"
+        className="relative flex flex-col p-8 lg:p-12 max-h-screen overflow-hidden"
       >
         {/* Logo */}
         <Link to="/" className="inline-flex items-center gap-4 transition-transform hover:scale-105">
@@ -30,14 +38,12 @@ const SignInPage: React.FC = () => {
         </Link>
 
         {/* Main Content */}
-        <div className="mt-12 lg:mt-16 relative z-10">
+        <div className="mt-12 lg:mt-16 relative z-10 flex-shrink-0">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="space-y-8"
           >
-            {/* Main Title */}
             <h1 className="text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight">
               <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
                 Welcome Back to
@@ -54,26 +60,35 @@ const SignInPage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="mt-12 grid grid-cols-2 gap-6"
+            className="mt-12 grid grid-cols-2 gap-6 hide-on-mobile relative z-20"
           >
-            <FeatureCard 
-              icon={<Play className="w-5 h-5 text-[#fa7517]" />}
-              title="Web3 Video Platform"
-              description="Decentralized content sharing with true ownership"
-            />
-            <FeatureCard 
-              icon={<Coins className="w-5 h-5 text-[#fa7517]" />}
-              title="Creator Economy"
-              description="Earn rewards for quality content and engagement"
-            />
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
+              <FeatureCard 
+                icon={<Play className="w-5 h-5 text-[#fa7517]" />}
+                title="Web3 Video Platform"
+                description="Decentralized content sharing with true ownership"
+                className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
+              />
+            </div>
+
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
+              <FeatureCard 
+                icon={<Coins className="w-5 h-5 text-[#fa7517]" />}
+                title="Creator Economy"
+                description="Earn rewards for quality content and engagement"
+                className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
+              />
+            </div>
           </motion.div>
 
-          {/* Quote - Centered */}
+          {/* Quote */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="mt-12 lg:mt-16 flex justify-center"
+            className="mt-12 lg:mt-16 flex justify-center hide-on-mobile"
           >
             <blockquote className="text-xl lg:text-2xl font-medium leading-relaxed text-center max-w-2xl">
               <span className="bg-gradient-to-r from-[#fa7517]/80 to-orange-400/80 bg-clip-text text-transparent">
@@ -94,7 +109,7 @@ const SignInPage: React.FC = () => {
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
-        className="w-full lg:w-1/2 flex items-center justify-center p-8 relative"
+        className="relative flex items-center justify-center p-4 lg:p-8 flex-shrink-0"
       >
         <div className="relative w-full max-w-md">
           <div className="absolute -inset-1 bg-gradient-to-r from-[#fa751730] via-[#fa751710] to-[#fa751730] rounded-3xl blur-2xl" />
@@ -166,40 +181,7 @@ const SignInPage: React.FC = () => {
         </div>
       </motion.div>
     </div>
-  );
-};
-
-// FeatureCard Component
-const FeatureCard: React.FC<{ icon: React.ReactNode; title: string; description: string }> = ({ icon, title, description }) => (
-  <motion.div 
-    whileHover={{ scale: 1.05 }}
-    className="p-4 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm relative overflow-hidden"
-    style={{
-      boxShadow: `
-        0 0 20px 5px rgba(250, 117, 23, 0.1),
-        0 0 40px 10px rgba(250, 117, 23, 0.05),
-        inset 0 0 60px 15px rgba(250, 117, 23, 0.03)
-      `
-    }}
-  >
-    <div className="relative z-10">
-      <div className="p-2 bg-gray-900/50 rounded-lg w-fit">
-        {icon}
-      </div>
-      <h3 className="font-semibold text-white mt-3">{title}</h3>
-      <p className="text-xs text-gray-400 mt-1">{description}</p>
-    </div>
-    
-    {/* Gradient overlay */}
-    <div className="absolute inset-0 bg-gradient-to-br from-[#fa751708] to-transparent" />
-    
-    {/* Subtle glow effect on hover */}
-    <motion.div
-      className="absolute inset-0 bg-[#fa7517] opacity-0 blur-2xl transition-opacity duration-300"
-      initial={{ opacity: 0 }}
-      whileHover={{ opacity: 0.03 }}
-    />
-  </motion.div>
+  </>
 );
 
 export default SignInPage;

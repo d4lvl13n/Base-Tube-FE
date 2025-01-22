@@ -22,7 +22,6 @@ import {
   Wand2,
   X,
 } from 'lucide-react';
-import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '../common/ConfirmationModal';
@@ -43,7 +42,6 @@ interface FormData {
 }
 
 const CreateChannelPage: React.FC = () => {
-  const { session } = useCurrentUser();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [channelImagePreview, setChannelImagePreview] = useState<string | null>(null);
@@ -225,34 +223,41 @@ const CreateChannelPage: React.FC = () => {
     const data = watch();
     setIsLoading(true);
 
-    const formData = new FormData();
-    formData.append('name', data.name);
-    formData.append('handle', stripHandleSuffix(data.handle));
-    formData.append('description', data.description);
-    formData.append('facebook_link', data.facebook_link);
-    formData.append('instagram_link', data.instagram_link);
-    formData.append('twitter_link', data.twitter_link);
-
-    if (data.channel_image) {
-      formData.append('channel_image', data.channel_image);
-    }
-
     try {
-      if (!session) throw new Error('User session not found');
-      const token = await session.getToken();
-      if (!token) throw new Error('Failed to get authentication token');
+      // Validate required fields
+      if (!data.name?.trim()) throw new Error('Channel name is required');
+      if (!data.handle?.trim()) throw new Error('Channel handle is required');
+      if (!data.description?.trim() || data.description.trim().length < 20) {
+        throw new Error('Channel description must be at least 20 characters');
+      }
 
-      const response = await createChannel(formData, token);
-      if (response.success && response.channel?.handle) {
-        toast.success('Channel created successfully!');
-        return response.channel.handle;
-      } else {
+      const formData = new FormData();
+      formData.append('name', data.name.trim());
+      formData.append('handle', stripHandleSuffix(data.handle.trim()));
+      formData.append('description', data.description.trim());
+
+      // Add optional fields
+      if (data.facebook_link?.trim()) formData.append('facebook_link', data.facebook_link.trim());
+      if (data.instagram_link?.trim()) formData.append('instagram_link', data.instagram_link.trim());
+      if (data.twitter_link?.trim()) formData.append('twitter_link', data.twitter_link.trim());
+
+      if (data.channel_image instanceof File) {
+        formData.append('channel_image', data.channel_image);
+      }
+
+      const response = await createChannel(formData);
+      
+      if (!response.success || !response.channel?.handle) {
         throw new Error(response.message || 'Failed to create channel');
       }
-    } catch (err) {
-      toast.error('An error occurred. Please try again later.');
-      console.error('Error creating channel:', err);
-      throw err;
+
+      toast.success('Channel created successfully!');
+      return response.channel.handle;
+
+    } catch (error: any) {
+      console.error('Channel creation error:', error);
+      toast.error(error.message || 'Failed to create channel');
+      throw error;
     } finally {
       setIsLoading(false);
     }
