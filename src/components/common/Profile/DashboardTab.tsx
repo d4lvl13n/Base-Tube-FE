@@ -8,7 +8,7 @@ import {
   Wallet, 
   TrendingUp, 
   BarChart2,
-  AlertCircle 
+  AlertCircle,
 } from 'lucide-react';
 import { useUserMetrics } from '../../../hooks/useMetricsData';
 import StatsCard from '../../pages/CreatorHub/StatsCard';

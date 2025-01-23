@@ -7,8 +7,6 @@ import {
   ArrowUpRight, 
   ArrowDownLeft, 
   RefreshCw, 
-  TrendingUp, 
-  BarChart2, 
   CreditCard,
   History
 } from 'lucide-react';
