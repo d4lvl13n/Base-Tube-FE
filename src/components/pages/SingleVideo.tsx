@@ -191,6 +191,21 @@ const SingleVideo: React.FC = () => {
   const handlePlayerReady = useCallback((player: VideoPlayerRef) => {
     playerRef.current = player;
 
+    // Listen for user to become active/inactive
+    player.on('useractive', () => {
+      // user is moving mouse/touch → show overlays
+      setShowInterface(true);
+      setShouldShowOverlay(true);
+    });
+
+    player.on('userinactive', () => {
+      // user is idle → hide overlays, if video is playing
+      if (isPlaying) {
+        setShowInterface(false);
+        setShouldShowOverlay(false);
+      }
+    });
+
     player.on('play', () => {
       setIsPlaying(true);
     });
@@ -198,7 +213,7 @@ const SingleVideo: React.FC = () => {
     player.on('pause', () => {
       setIsPlaying(false);
     });
-  }, []);
+  }, [isPlaying]);
 
   if (error) {
     return (
@@ -287,19 +302,30 @@ const SingleVideo: React.FC = () => {
                 onReady={handlePlayerReady}
                 ref={playerRef}
               />
-
-              {/* Overlays */}
-              <AnimatePresence>
-                {(shouldShowOverlay || !isPlaying) && (
-                  <>
-                    <VideoInfoOverlay video={video} />
-                    {channel && <CreatorBox channel={channel} />}
-                    <ViewCount video={video} />
-                  </>
-                )}
-              </AnimatePresence>
             </div>
+
+            {/* Desktop Overlays - float on top of video */}
+            <AnimatePresence>
+              {!isMobile && (shouldShowOverlay || !isPlaying) && (
+                <>
+                  <VideoInfoOverlay video={video} />
+                  {channel && <CreatorBox channel={channel} />}
+                  <ViewCount video={video} />
+                </>
+              )}
+            </AnimatePresence>
           </div>
+
+          {/* Mobile Overlays - stacked below the video container */}
+          {isMobile && (shouldShowOverlay || !isPlaying) && (
+            <AnimatePresence>
+              <div className="mobile-info-container w-full max-w-[1280px] px-4 mt-4 space-y-3">
+                <VideoInfoOverlay video={video} />
+                {channel && <CreatorBox channel={channel} />}
+                <ViewCount video={video} />
+              </div>
+            </AnimatePresence>
+          )}
 
           {/* Reserved bottom space */}
           <div
@@ -315,7 +341,7 @@ const SingleVideo: React.FC = () => {
       <AnimatePresence>
         {showInterface && (
           <motion.div
-            className="radial-menu-wrapper"
+            className="radial-menu-wrapper fixed bottom-0 right-0 z-[60] pointer-events-auto"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

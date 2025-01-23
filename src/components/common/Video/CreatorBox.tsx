@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Channel } from '../../../types/channel';
 import { SubscribeButton } from '../../common/buttons/SubscribeButton';
+import { useWindowSize } from '../../../hooks/useWindowSize';
 
 interface CreatorBoxProps {
   channel: Channel;
@@ -11,6 +12,8 @@ interface CreatorBoxProps {
 
 export const CreatorBox: React.FC<CreatorBoxProps> = ({ channel }) => {
   const navigate = useNavigate();
+  const { width } = useWindowSize();
+  const isMobile = width <= 768;
 
   const avatarUrl = channel.ownerProfileImage
     ? channel.ownerProfileImage.startsWith('http')
@@ -25,11 +28,15 @@ export const CreatorBox: React.FC<CreatorBoxProps> = ({ channel }) => {
 
   return (
     <motion.div
-      className="absolute top-4 left-4 bg-black bg-opacity-70 rounded-lg p-4 flex items-center space-x-4"
-      initial={{ opacity: 0, x: -20 }}
+      className={`
+        bg-black bg-opacity-70 rounded-lg p-4 flex items-center space-x-4
+        ${isMobile 
+          ? 'relative mt-2 w-full pointer-events-auto' 
+          : 'absolute top-4 left-4 pointer-events-none'}
+      `}
+      initial={{ opacity: 0, x: isMobile ? 0 : -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.5 }}
-      style={{ pointerEvents: 'none' }}
     >
       <img
         src={avatarUrl}

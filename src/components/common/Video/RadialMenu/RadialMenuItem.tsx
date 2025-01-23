@@ -10,6 +10,7 @@ interface RadialMenuItemProps {
   count?: number;
   isActive?: boolean;
   isLoading?: boolean;
+  isMobile?: boolean;
 }
 
 const RadialMenuItem: React.FC<RadialMenuItemProps> = ({
@@ -19,13 +20,23 @@ const RadialMenuItem: React.FC<RadialMenuItemProps> = ({
   onClick,
   count,
   isActive,
-  isLoading
+  isLoading,
+  isMobile = false
 }) => (
   <motion.div
-    className="absolute top-1/2 left-1/2"
-    style={{
-      transform: `rotate(${angle}deg) translate(0, -80px) rotate(-${angle}deg)`,
-    }}
+    className={
+      isMobile 
+        ? 'relative flex flex-col items-center'
+        : 'absolute top-1/2 left-1/2'
+    }
+    style={
+      isMobile
+        ? { pointerEvents: 'auto' }
+        : {
+            transform: `rotate(${angle}deg) translate(0, -80px) rotate(-${angle}deg)`,
+            pointerEvents: 'auto'
+          }
+    }
   >
     <div className="relative group">
       {/* Main Button */}
@@ -36,9 +47,9 @@ const RadialMenuItem: React.FC<RadialMenuItemProps> = ({
         }}
         disabled={isLoading}
         className={`bg-black/70 rounded-full p-3 cursor-pointer relative
-                   backdrop-blur-sm border border-white/5
-                   group-hover:border-[#fa7517]/20 transition-colors
-                   ${isActive ? 'bg-[#fa7517]/20' : ''}`}
+                    backdrop-blur-sm border border-white/5
+                    group-hover:border-[#fa7517]/20 transition-colors
+                    ${isActive ? 'bg-[#fa7517]/20' : ''}`}
         whileHover={{ 
           scale: 1.2,
           backgroundColor: isActive ? '#fa7517' : undefined,

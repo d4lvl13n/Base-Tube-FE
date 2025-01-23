@@ -177,8 +177,6 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 w-full">
-      <div style={{position: 'fixed', top: '100px', right: '10px', background: 'black', color: 'white', padding: '10px', zIndex: 9999}}>
-      </div>
       <div className="bg-gradient-to-b from-black via-black/95 to-black/80 backdrop-blur-md border-b border-white/5">
         <div className="max-w-[1920px] mx-auto px-4">
           <div className="flex items-center justify-between h-16 relative">

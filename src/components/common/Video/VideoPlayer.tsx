@@ -108,7 +108,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
             },
           ],
         },
-        inactivityTimeout: isTouchDevice ? 0 : 3000,
+        inactivityTimeout: 3000,
         techOrder: ['html5'],
       };
 
