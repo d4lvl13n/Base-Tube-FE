@@ -59,7 +59,14 @@ const BaseTubeHomepage: React.FC = () => {
 
       await Promise.all([
         fetchData(() => getFeaturedVideos(2), setFeaturedVideos, 'featured'),
-        fetchData(() => getRecommendedVideos(4), setRecommendedVideos, 'recommended'),
+        fetchData(
+          async () => {
+            const response = await getRecommendedVideos(1, 4);
+            return response.videos;
+          },
+          setRecommendedVideos,
+          'recommended'
+        ),
         fetchData(() => getNFTVideos(4), setNFTVideos, 'nft'),
         fetchData(
           async () => {

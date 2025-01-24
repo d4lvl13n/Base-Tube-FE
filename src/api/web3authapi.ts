@@ -95,26 +95,18 @@ class Web3AuthApi {
    */
   async linkWallet(walletAddress: string): Promise<LinkWalletResponse> {
     try {
-      const normalizedAddress = walletAddress.toLowerCase();
-      
       const response = await api.post('/api/v1/web3auth/link', {
-        walletAddress: normalizedAddress
+        walletAddress: walletAddress.toLowerCase()
       }, {
         withCredentials: true
       });
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error('Failed to link wallet:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        });
-
+        console.error('Failed to link wallet:', error);
         if (error.response?.status === 409) {
           throw new Error('Wallet already linked to another account.');
         }
-        
         if (error.response?.data?.error) {
           throw new Error(error.response.data.error);
         }

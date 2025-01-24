@@ -30,8 +30,17 @@ export interface UserProfile extends User {
 
 export interface UserWallet {
   walletAddress: string;
-  balance: number;
-  transactions: Transaction[];
+  lastLogin: string | null;
+  linkedAt: string;
+  // Keep other properties that might be needed for WalletTab
+  balance?: number;
+  transactions?: Array<{
+    id: string;
+    type: 'send' | 'receive';
+    amount: number;
+    date: string;
+    hash?: string;
+  }>;
 }
 
 export interface Transaction {

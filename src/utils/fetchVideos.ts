@@ -19,7 +19,16 @@ export const fetchVideos = async (
     } else if (category === 'New') {
       return await getAllVideos(page, limit);
     } else if (category === 'For You') {
-      return await getRecommendedVideos(page, limit);
+      const response = await getRecommendedVideos(page, limit);
+      // Map recommended videos to match Video type
+      return response.videos.map((video: any) => ({
+        ...video,
+        user_id: video.creator_id,
+        channel_id: video.creator_id,
+        video_path: video.url,
+        thumbnail_path: video.thumbnail,
+        // Add any other required Video properties with default values
+      }));
     } else if (category === 'NFT') {
       return [];
     } else {

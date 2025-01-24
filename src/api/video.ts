@@ -1,5 +1,5 @@
 import api from './index';
-import { TrendingVideoResponse, Video } from '../types/video';
+import { RecommendedVideo, PaginationResponse, TrendingVideoResponse, Video, RecommendedVideosResponse } from '../types/video';
 import { AxiosProgressEvent } from 'axios';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
 import axios from 'axios';
@@ -107,8 +107,22 @@ export const getFeaturedVideos = (limit: number = 2): Promise<FeaturedVideoRespo
   api.get<FeaturedVideoResponse>(`/api/v1/videos/featured?limit=${limit}`)
     .then(res => res.data.data.videos);
 
-export const getRecommendedVideos = (page: number = 1, limit: number = 10) =>
-  api.get(`/api/v1/videos/recommended?page=${page}&limit=${limit}`).then((res) => res.data.data);
+export const getRecommendedVideos = async (page: number = 1, limit: number = 10): Promise<RecommendedVideosResponse> => {
+  const response = await api.get<PaginationResponse<RecommendedVideo>>(
+    `/api/v1/videos/recommended`,
+    {
+      params: {
+        page,
+        limit
+      }
+    }
+  );
+
+  return {
+    videos: response.data.data,
+    pagination: response.data.pagination
+  };
+};
 
 export type TimeFrame = 'today' | 'week' | 'month' | 'all';
 export type SortOption = 'trending' | 'latest' | 'popular' | 'random';
@@ -425,4 +439,60 @@ export const getVideoProgress = async (videoId: number): Promise<VideoProgressRe
 export const retryVideoProcessing = async (videoId: number): Promise<{ success: boolean; message: string }> => {
   const response = await api.post(`/api/v1/videos/retry/${videoId}`);
   return response.data;
+};
+// Types for the API response
+export interface WatchHistoryResponse {
+  // VideoHistory fields
+  id: number;
+  user_id: string | null;
+  video_id: number;
+  durationWatched: number;
+  completed: boolean;
+  is_counted: boolean;
+  view_id: string;
+  last_updated: Date;
+  createdAt: Date;
+  
+  // Video association with included fields
+  video?: {
+    id: number;
+    title: string;
+    description: string;
+    thumbnail_path: string | null;
+    thumbnail_url?: string;  // Added by backend
+    duration: number;
+    views_count: number;
+    likes_count: number;
+    status: 'pending' | 'processing' | 'processed' | 'failed';
+    
+    // Channel association with included fields
+    channel?: {
+      id: number;
+      name: string;
+      channel_image_path: string;
+      channel_image_url?: string;  // Added by backend
+    };
+  };
+}
+
+// API client function
+export const getUserWatchHistory = async (page: number = 1, limit: number = 10): Promise<{
+  success: boolean;
+  data: WatchHistoryResponse[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}> => {
+  try {
+    const response = await api.get('/api/v1/profile/history/watch', {
+      params: { page, limit }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching watch history:', error);
+    throw error;
+  }
 };

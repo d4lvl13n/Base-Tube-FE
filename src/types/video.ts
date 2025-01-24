@@ -127,3 +127,50 @@ export interface VideoProgress {
   totalQualities?: number;
   currentQualityIndex?: number;
 }
+
+// Generic pagination response type
+export interface PaginationResponse<T> {
+  success: boolean;
+  data: T[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
+// Updated Video interface for recommendations
+export interface RecommendedVideo {
+  id: number;
+  title: string;
+  description: string;
+  thumbnail_url: string;
+  duration: number;
+  views_count: number;
+  likes_count: number;
+  channel: {
+    id: number;
+    name: string;
+    handle: string;
+    channel_image_url: string;
+    owner: {
+      username: string;
+      profile_image_url: string | null;
+    };
+  };
+  createdAt: string;
+}
+
+// Response type for recommended videos
+export interface RecommendedVideosResponse {
+  videos: RecommendedVideo[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}

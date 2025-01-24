@@ -28,8 +28,8 @@ export const getMyNFTs = async (): Promise<UserNFT[]> => {
 };
 
 export const getMyWallet = async (): Promise<UserWallet> => {
-  const response = await api.get('/api/v1/profile/wallet');
-  return response.data;
+  const response = await api.get<{ success: boolean; data: UserWallet }>('/api/v1/profile/wallet');
+  return response.data.data;
 };
 
 export const getProfileSettings = async (): Promise<ProfileSettings> => {

@@ -56,6 +56,8 @@ export interface OnboardingResponse {
 
 export interface LinkWalletResponse {
   web3auth: Web3Auth;
+  user: User;  // Add this to match the API response
+  message?: string;
 }
 
 // Error Handling

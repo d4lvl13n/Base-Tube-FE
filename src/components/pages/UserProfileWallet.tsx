@@ -85,11 +85,7 @@ const UserProfileWallet: React.FC = () => {
         return <HistoryTab errors={errors} />;
       case 'Wallet':
         return (
-          <WalletTab 
-            wallet={userWallet}
-            isLoading={isWalletLoading}
-            error={walletError}
-          />
+          <WalletTab />
         );
       case 'Referrals':
         return <ReferralsTab errors={errors} />;
@@ -143,12 +139,12 @@ const UserProfileWallet: React.FC = () => {
       <Header />
       <div className="flex pt-20">
         <Sidebar />
-        <main className="flex-1 p-4 md:p-8 min-h-[calc(100vh-5rem)]">
+        <main className="flex-1 p-4 md:p-8 min-h-[calc(100vh-5rem)] overflow-visible">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="max-w-7xl mx-auto space-y-8"
+            className="max-w-7xl mx-auto space-y-8 overflow-visible"
           >
             {/* Profile Info Card */}
             {activeUser && (
@@ -158,7 +154,7 @@ const UserProfileWallet: React.FC = () => {
             {/* Navigation Tabs with Mobile Optimization */}
             <motion.div 
               whileHover={{ scale: 1.02 }}
-              className="p-4 md:p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm relative"
+              className="p-4 md:p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm relative overflow-visible"
               style={{
                 boxShadow: `
                   0 0 20px 5px rgba(250, 117, 23, 0.1),
@@ -167,7 +163,7 @@ const UserProfileWallet: React.FC = () => {
                 `
               }}
             >
-              <div className="relative z-10">
+              <div className="relative z-10 overflow-visible">
                 {/* Mobile Tab Selector */}
                 <div className="hide-on-desktop mb-4">
                   <button
@@ -234,7 +230,7 @@ const UserProfileWallet: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3 }}
-                    className="mt-6"
+                    className="mt-6 overflow-visible"
                   >
                     {renderActiveTab()}
                   </motion.div>
