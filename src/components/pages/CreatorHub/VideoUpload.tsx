@@ -1,7 +1,7 @@
 // src/components/pages/VideoUpload.tsx
 
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Upload,
   Video,
@@ -13,6 +13,9 @@ import {
   AlertCircle,
   X,
   Sparkles,
+  FileVideo,
+  Image,
+  Info,
 } from 'lucide-react';
 import { uploadVideo, generateVideoDescription } from '../../../api/video';
 import { useChannels } from '../../../context/ChannelContext';
@@ -20,6 +23,8 @@ import VideoUploadSuccess from '../../common/ModalScreen/VideoUploadSuccess';
 import { useNavigate } from 'react-router-dom';
 import AIAssistantPanel from '../../common/AIAssistantPanel';
 import RichTextEditor from '../../common/RichTextEditor';
+import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
+import * as Tooltip from '@radix-ui/react-tooltip';
 
 interface VisibilityOption {
   id: 'public' | 'unlisted' | 'private';
@@ -310,53 +315,33 @@ const VideoUpload: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="w-full space-y-6"
+            className="grid grid-cols-1 lg:grid-cols-7 gap-8"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Video Preview */}
-              <div className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
-                <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                  <Video className="w-5 h-5 text-[#fa7517]" />
-                  Video Preview
-                </h3>
-                <div className="aspect-video bg-gray-900/50 rounded-lg flex items-center justify-center">
-                  {selectedFile && (
-                    <video
-                      src={URL.createObjectURL(selectedFile)}
-                      controls
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                  )}
+            {/* Left Column - Video Preview & Thumbnail - Takes 3 columns */}
+            <div className="lg:col-span-3 space-y-8">
+              {/* Video Preview Card */}
+              <div className="p-8 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
+                <h2 className="text-xl font-medium text-white mb-6">Video Preview</h2>
+                <div className="relative rounded-lg overflow-hidden bg-black/50">
+                  <video
+                    src={selectedFile ? URL.createObjectURL(selectedFile) : ''}
+                    controls
+                    className="w-full aspect-video"
+                  />
                 </div>
               </div>
 
-              {/* Thumbnail Upload */}
-              <div className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
-                <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5 text-[#fa7517]" />
-                  Thumbnail
-                </h3>
-                <div
-                  className="aspect-video bg-gray-900/50 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-800/50 transition-colors"
-                  onClick={() => {
-                    const inputElement = document.getElementById('thumbnail-upload');
-                    if (inputElement) {
-                      inputElement.click();
-                    }
-                  }}
-                >
-                  {thumbnailPreview ? (
-                    <img
-                      src={thumbnailPreview}
-                      alt="Thumbnail preview"
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                  ) : (
-                    <>
-                      <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-400">Upload thumbnail</p>
-                    </>
-                  )}
+              {/* Thumbnail Card */}
+              <div className="p-8 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-medium text-white">Thumbnail</h2>
+                  <button
+                    onClick={() => document.getElementById('thumbnail-upload')?.click()}
+                    className="px-6 py-2.5 bg-[#fa7517] hover:bg-[#ff8c3a] text-black 
+                             rounded-lg font-medium transition-colors"
+                  >
+                    Upload Thumbnail
+                  </button>
                   <input
                     id="thumbnail-upload"
                     type="file"
@@ -365,90 +350,216 @@ const VideoUpload: React.FC = () => {
                     onChange={handleThumbnailChange}
                   />
                 </div>
+                
+                <div className="relative aspect-video rounded-lg overflow-hidden bg-black/50">
+                  {thumbnailPreview ? (
+                    <img
+                      src={thumbnailPreview}
+                      alt="Video thumbnail"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 space-y-3">
+                      <img 
+                        src="/assets/thumbnail-placeholder.svg" 
+                        alt="Upload thumbnail" 
+                        className="w-20 h-20 opacity-50"
+                      />
+                      <p className="text-lg">No thumbnail uploaded</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Upload Requirements Card */}
+              <div className="p-8 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
+                <h2 className="text-xl font-medium text-white mb-6">Upload Requirements</h2>
+                
+                {/* Video Requirements */}
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-[#fa7517]">
+                      <FileVideo className="w-5 h-5" />
+                      <h3 className="font-medium">Video File</h3>
+                    </div>
+                    <ul className="space-y-2 text-gray-300 text-sm pl-7">
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        Formats: MP4 or QuickTime (.mp4, .mov)
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        Maximum size: 2GB
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        Recommended resolution: 1080p or 720p
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Thumbnail Requirements */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-[#fa7517]">
+                      <Image className="w-5 h-5" />
+                      <h3 className="font-medium">Thumbnail</h3>
+                    </div>
+                    <ul className="space-y-2 text-gray-300 text-sm pl-7">
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        Formats: JPG, PNG, or JPEG
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        Maximum size: 3MB
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        Recommended dimensions: 1280x720 pixels
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        Aspect ratio: 16:9 (recommended)
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Important Notes */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-[#fa7517]">
+                      <AlertCircle className="w-5 h-5" />
+                      <h3 className="font-medium">Important Notes</h3>
+                    </div>
+                    <ul className="space-y-2 text-gray-300 text-sm pl-7">
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        Files must not be corrupted
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        <span>Video processing may take several minutes</span>
+                        <Tooltip.Provider delayDuration={300}>
+                          <Tooltip.Root>
+                            <Tooltip.Trigger asChild>
+                              <button className="text-gray-400 hover:text-[#fa7517] transition-colors">
+                                <Info className="w-4 h-4" />
+                              </button>
+                            </Tooltip.Trigger>
+                            <Tooltip.Portal>
+                              <Tooltip.Content
+                                className="max-w-xs bg-black/90 backdrop-blur-sm border border-gray-800/30 
+                                         rounded-lg px-4 py-3 text-sm text-gray-200 shadow-xl"
+                                sideOffset={5}
+                              >
+                                <p className="mb-2">
+                                  Our system is designed to process videos in multiple qualities:
+                                </p>
+                                <ul className="space-y-1 text-gray-300">
+                                  <li>• 1080p (Full HD)</li>
+                                  <li>• 720p (HD)</li>
+                                  <li>• 480p (SD)</li>
+                                </ul>
+                                <p className="mt-2 text-gray-400">
+                                  Currently, videos will be displayed in their original uploaded quality. 
+                                  Multi-quality support is under development.
+                                </p>
+                                <Tooltip.Arrow className="fill-black/90" />
+                              </Tooltip.Content>
+                            </Tooltip.Portal>
+                          </Tooltip.Root>
+                        </Tooltip.Provider>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        Keep the upload page open until processing is complete
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                        Upload progress can be monitored in real-time
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Video Details Form */}
-            <div className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
-              <div className="space-y-6">
+            {/* Right Column - Video Details Form - Takes 4 columns */}
+            <div className="lg:col-span-4 space-y-8">
+              {/* Channel Selection */}
+              <div className="p-8 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
+                <h2 className="text-xl font-medium text-white mb-6">Channel</h2>
+                <ChannelSelector />
+              </div>
+
+              {/* Video Details */}
+              <div className="p-8 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm space-y-8">
+                <h2 className="text-xl font-medium text-white">Video Details</h2>
+
                 {/* Title */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Title</label>
+                <div className="space-y-3">
+                  <label className="block text-base font-medium text-gray-200">Title</label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-900/50 border border-gray-800/30 rounded-lg focus:outline-none focus:border-[#fa7517] text-white"
                     placeholder="Enter video title"
+                    className="w-full px-5 py-3 bg-gray-900/50 border border-gray-800/30 rounded-lg text-white 
+                               focus:ring-2 focus:ring-[#fa7517]/50 focus:border-[#fa7517]/50
+                               min-h-[48px] text-lg"
                   />
                 </div>
 
-                {/* Description section with AI assistant */}
-                <div className="space-y-4">
+                {/* Description - Even more height */}
+                <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <label className="block text-sm font-medium text-gray-200">
-                      Description
-                    </label>
+                    <label className="block text-base font-medium text-gray-200">Description</label>
                     <motion.button
-                      type="button"
                       onClick={() => setIsAIPanelOpen(true)}
                       className="flex items-center space-x-2 text-[#fa7517] hover:text-[#ff8c3a] transition-colors"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
-                      <Sparkles className="w-4 h-4" />
-                      <span className="text-sm">AI Assistant</span>
+                      <Sparkles className="w-5 h-5" />
+                      <span className="text-base">AI Assistant</span>
                     </motion.button>
                   </div>
-
-                  <RichTextEditor
-                    content={description}
-                    onChange={setDescription}
-                    placeholder="Tell viewers about your video..."
-                    minHeight="200px"
-                  />
+                  <div className="min-h-[400px]">
+                    <RichTextEditor
+                      content={description}
+                      onChange={setDescription}
+                      className="w-full bg-gray-900/50 border border-gray-800/30 rounded-lg text-white
+                               focus:ring-2 focus:ring-[#fa7517]/50 focus:border-[#fa7517]/50"
+                      placeholder="Enter video description..."
+                      minHeight="400px"
+                    />
+                  </div>
                 </div>
 
                 {/* Tags */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Tags</label>
-                  <div className="flex items-center gap-2 px-4 py-2 bg-gray-900/50 border border-gray-800/30 rounded-lg">
-                    <Tag className="w-4 h-4 text-gray-400" />
+                <div className="space-y-3">
+                  <label className="block text-base font-medium text-gray-200">Tags</label>
+                  <div className="flex items-center gap-3 px-5 py-3 bg-gray-900/50 border border-gray-800/30 rounded-lg">
+                    <Tag className="w-5 h-5 text-gray-400" />
                     <input
                       type="text"
                       value={tags}
                       onChange={(e) => setTags(e.target.value)}
-                      className="flex-1 bg-transparent focus:outline-none text-white"
+                      className="flex-1 bg-transparent focus:outline-none text-white text-lg"
                       placeholder="Add tags (separated by commas)"
                     />
                   </div>
                 </div>
 
-                {/* Channel Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Channel</label>
-                  <select
-                    value={selectedChannelId || ''}
-                    onChange={(e) => setSelectedChannelId(Number(e.target.value))}
-                    className="w-full px-4 py-2 bg-gray-900/50 border border-gray-800/30 rounded-lg focus:outline-none focus:border-[#fa7517] text-white"
-                  >
-                    {channels.map((channel) => (
-                      <option key={channel.id} value={channel.id}>
-                        {channel.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
                 {/* Visibility Options */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-4">Visibility</label>
-                  <div className="grid gap-4">
+                <div className="space-y-3">
+                  <label className="block text-base font-medium text-gray-200">Visibility</label>
+                  <div className="grid grid-cols-3 gap-4">
                     {visibilityOptions.map((option) => (
                       <label
                         key={option.id}
                         className={`
-                          flex items-center gap-4 p-4 rounded-lg cursor-pointer transition-colors
+                          flex flex-col items-center p-6 rounded-lg cursor-pointer transition-all
+                          hover:transform hover:scale-[1.02] active:scale-[0.98]
                           ${
                             visibility === option.id
                               ? 'bg-[#fa7517]/10 border border-[#fa7517]/30'
@@ -461,55 +572,42 @@ const VideoUpload: React.FC = () => {
                           name="visibility"
                           value={option.id}
                           checked={visibility === option.id}
-                          onChange={(e) =>
-                            setVisibility(e.target.value as 'public' | 'unlisted' | 'private')
-                          }
+                          onChange={(e) => setVisibility(e.target.value as 'public' | 'unlisted' | 'private')}
                           className="hidden"
                         />
                         <option.icon
-                          className={`w-5 h-5 ${
+                          className={`w-8 h-8 mb-3 ${
                             visibility === option.id ? 'text-[#fa7517]' : 'text-gray-400'
                           }`}
                         />
-                        <div className="flex-1">
-                          <p className="font-medium text-white">{option.label}</p>
-                          <p className="text-sm text-gray-400">{option.description}</p>
-                        </div>
+                        <p className="font-medium text-white text-center mb-2">{option.label}</p>
+                        <p className="text-sm text-gray-400 text-center leading-tight">
+                          {option.description}
+                        </p>
                       </label>
                     ))}
                   </div>
                 </div>
+
+                {/* Publish Button - Added back */}
+                <div className="pt-4 border-t border-gray-800/30">
+                  <motion.button
+                    onClick={handlePublish}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full py-4 bg-[#fa7517] hover:bg-[#ff8c3a] text-black 
+                             rounded-lg font-medium text-lg transition-colors
+                             flex items-center justify-center gap-3"
+                  >
+                    <Upload className="w-6 h-6" />
+                    Publish Video
+                  </motion.button>
+                  {/* Optional helper text */}
+                  <p className="text-sm text-gray-400 text-center mt-3">
+                    Make sure all required fields are filled before publishing
+                  </p>
+                </div>
               </div>
-            </div>
-
-            {/* Warning Note */}
-            <div className="flex items-start gap-4 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-              <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
-              <p className="text-sm text-yellow-200">
-                Please ensure your content complies with our community guidelines.
-                Videos that violate our policies may be removed.
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => {
-                  setStep(1);
-                  setSelectedFile(null);
-                  setThumbnailFile(null);
-                  setThumbnailPreview(null);
-                }}
-                className="px-6 py-2 rounded-lg border border-gray-800/30 hover:bg-gray-800/50 transition-colors text-white font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handlePublish}
-                className="px-6 py-2 bg-[#fa7517] hover:bg-[#ff8c3a] transition-colors rounded-lg text-black font-medium"
-              >
-                Publish Video
-              </button>
             </div>
           </motion.div>
         );
@@ -616,21 +714,45 @@ const VideoUpload: React.FC = () => {
   );
 
   return (
-    <div className="max-w-4xl mx-auto p-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-          Upload Video
-        </h1>
-        <p className="text-gray-400 mt-2">Share your content with the world</p>
-      </motion.div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full pt-20"
+      layout="position"
+    >
+      <div className="max-w-[1920px] mx-auto px-6 pb-8">
+        <div className="min-h-[calc(100vh-200px)]">
+          {step === 1 && (
+            renderStep()
+          )}
 
-      <AnimatePresence mode="wait">{renderStep()}</AnimatePresence>
+          {step === 2 && (
+            renderStep()
+          )}
 
-      {/* Move AIAssistantPanel here, at the root level */}
+          {step === 3 && renderUploadProgress()}
+
+          {step === 4 && (
+            <VideoUploadSuccess
+              videoTitle={title}
+              videoId={uploadedVideoId}
+              uploadProgress={uploadProgress}
+              onClose={() => {
+                setStep(1);
+                setSelectedFile(null);
+                setThumbnailFile(null);
+                setThumbnailPreview(null);
+                setTitle('');
+                setDescription('');
+                setTags('');
+                setUploadProgress(0);
+                navigate('/creator-hub/videos');
+              }}
+            />
+          )}
+        </div>
+      </div>
+
       <AIAssistantPanel
         isOpen={isAIPanelOpen}
         onClose={() => setIsAIPanelOpen(false)}
@@ -649,7 +771,7 @@ const VideoUpload: React.FC = () => {
         }}
         mode="video"
       />
-    </div>
+    </motion.div>
   );
 };
 

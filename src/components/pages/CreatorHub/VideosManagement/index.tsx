@@ -150,7 +150,7 @@ const VideosManagement: React.FC = () => {
   }
 
   return (
-    <div className="relative">
+    <div className="relative pt-24">
       <div className="px-4 md:px-6 space-y-6 max-w-[1920px] mx-auto">
         <div className="overflow-hidden rounded-lg border border-gray-800/30">
           <VideoList
