@@ -5,17 +5,12 @@ import { motion } from 'framer-motion';
 import {
   Upload,
   Video,
-  Image as ImageIcon,
   Tag,
   Globe2,
   Lock,
-  Eye,
   AlertCircle,
   X,
   Sparkles,
-  FileVideo,
-  Image,
-  Info,
 } from 'lucide-react';
 import { uploadVideo, generateVideoDescription } from '../../../api/video';
 import { useChannels } from '../../../context/ChannelContext';
@@ -24,10 +19,12 @@ import { useNavigate } from 'react-router-dom';
 import AIAssistantPanel from '../../common/AIAssistantPanel';
 import RichTextEditor from '../../common/RichTextEditor';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
-import * as Tooltip from '@radix-ui/react-tooltip';
+import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
+import { showErrorToast, uploadErrors } from '../../common/Notifications/ErrorToast';
+import { UploadRequirements } from '../../common/CreatorHub/UploadRequirements';
 
 interface VisibilityOption {
-  id: 'public' | 'unlisted' | 'private';
+  id: 'public' | 'private';
   icon: React.ElementType;
   label: string;
   description: string;
@@ -40,11 +37,10 @@ const VideoUpload: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-  const [visibility, setVisibility] = useState<'public' | 'unlisted' | 'private'>('public');
+  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
-  const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
   const [uploadedVideoId, setUploadedVideoId] = useState<string | null>(null);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -61,17 +57,24 @@ const VideoUpload: React.FC = () => {
 
   const { channels } = useChannels();
   const navigate = useNavigate();
+  const { selectedChannelId, selectedChannel, channels: channelSelectionChannels } = useChannelSelection();
+  const [channelError, setChannelError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (channels.length > 0 && selectedChannelId === null) {
-      setSelectedChannelId(channels[0].id);
+    if (step === 2) {
+      if (!selectedChannelId) {
+        setChannelError('Please select a channel to upload to');
+      } else if (!channels.find(c => c.id.toString() === selectedChannelId.toString())) {
+        setChannelError('Selected channel is invalid');
+      } else {
+        setChannelError(null);
+      }
     }
-  }, [channels]);
+  }, [selectedChannelId, channels, step]);
 
   const visibilityOptions: VisibilityOption[] = [
-    { id: 'public', icon: Globe2, label: 'Public', description: 'Anyone can watch this video' },
-    { id: 'unlisted', icon: Eye, label: 'Unlisted', description: 'Only people with the link can watch' },
-    { id: 'private', icon: Lock, label: 'Private', description: 'Only you can watch' },
+    { id: 'public', icon: Globe2, label: 'Public', description: 'Everyone can watch this video' },
+    { id: 'private', icon: Lock, label: 'Private', description: 'Only you can watch this video' },
   ];
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -140,8 +143,30 @@ const VideoUpload: React.FC = () => {
   };
 
   const handlePublish = async () => {
-    if (!selectedFile || !selectedChannelId || !title.trim()) {
-      alert('Please fill in all required fields.');
+    if (!selectedFile) {
+      showErrorToast(uploadErrors.noFile);
+      return;
+    }
+
+    if (!title.trim()) {
+      showErrorToast(uploadErrors.noTitle);
+      return;
+    }
+
+    if (!description.trim()) {
+      showErrorToast(uploadErrors.noDescription);
+      return;
+    }
+
+    if (!selectedChannelId) {
+      showErrorToast(uploadErrors.noChannel);
+      return;
+    }
+
+    // Size validation (2GB limit)
+    const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB in bytes
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      showErrorToast(uploadErrors.fileTooLarge);
       return;
     }
 
@@ -176,7 +201,9 @@ const VideoUpload: React.FC = () => {
       formData.append('video', selectedFile);
       formData.append('title', title);
       formData.append('description', description);
-      formData.append('tags', tags);
+      if (tags.trim()) {
+        formData.append('tags', tags);
+      }
       formData.append('channel_id', selectedChannelId.toString());
       formData.append('is_public', visibility === 'public' ? 'true' : 'false');
       if (thumbnailFile) {
@@ -209,18 +236,17 @@ const VideoUpload: React.FC = () => {
         data: error.response?.data
       });
 
-      // More specific error messages based on error type
-      let errorMessage = 'Failed to upload video. Please try again.';
+      let errorMessage = uploadErrors.uploadFailed;
       
       if (error.response?.status === 413) {
-        errorMessage = 'Video file is too large. Maximum size is 2GB.';
+        errorMessage = uploadErrors.fileTooLarge;
       } else if (error.response?.status === 415) {
-        errorMessage = 'Unsupported video format. Please use MP4, MOV, or AVI.';
+        errorMessage = uploadErrors.unsupportedFormat;
       } else if (error.message.includes('Network Error')) {
-        errorMessage = 'Network error. Please check your internet connection.';
+        errorMessage = uploadErrors.networkError;
       }
 
-      alert(errorMessage);
+      showErrorToast(errorMessage);
       setStep(2);
     }
   };
@@ -371,124 +397,44 @@ const VideoUpload: React.FC = () => {
                 </div>
               </div>
 
-              {/* Upload Requirements Card */}
-              <div className="p-8 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
-                <h2 className="text-xl font-medium text-white mb-6">Upload Requirements</h2>
-                
-                {/* Video Requirements */}
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-[#fa7517]">
-                      <FileVideo className="w-5 h-5" />
-                      <h3 className="font-medium">Video File</h3>
-                    </div>
-                    <ul className="space-y-2 text-gray-300 text-sm pl-7">
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        Formats: MP4 or QuickTime (.mp4, .mov)
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        Maximum size: 2GB
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        Recommended resolution: 1080p or 720p
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Thumbnail Requirements */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-[#fa7517]">
-                      <Image className="w-5 h-5" />
-                      <h3 className="font-medium">Thumbnail</h3>
-                    </div>
-                    <ul className="space-y-2 text-gray-300 text-sm pl-7">
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        Formats: JPG, PNG, or JPEG
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        Maximum size: 3MB
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        Recommended dimensions: 1280x720 pixels
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        Aspect ratio: 16:9 (recommended)
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Important Notes */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-[#fa7517]">
-                      <AlertCircle className="w-5 h-5" />
-                      <h3 className="font-medium">Important Notes</h3>
-                    </div>
-                    <ul className="space-y-2 text-gray-300 text-sm pl-7">
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        Files must not be corrupted
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        <span>Video processing may take several minutes</span>
-                        <Tooltip.Provider delayDuration={300}>
-                          <Tooltip.Root>
-                            <Tooltip.Trigger asChild>
-                              <button className="text-gray-400 hover:text-[#fa7517] transition-colors">
-                                <Info className="w-4 h-4" />
-                              </button>
-                            </Tooltip.Trigger>
-                            <Tooltip.Portal>
-                              <Tooltip.Content
-                                className="max-w-xs bg-black/90 backdrop-blur-sm border border-gray-800/30 
-                                         rounded-lg px-4 py-3 text-sm text-gray-200 shadow-xl"
-                                sideOffset={5}
-                              >
-                                <p className="mb-2">
-                                  Our system is designed to process videos in multiple qualities:
-                                </p>
-                                <ul className="space-y-1 text-gray-300">
-                                  <li>• 1080p (Full HD)</li>
-                                  <li>• 720p (HD)</li>
-                                  <li>• 480p (SD)</li>
-                                </ul>
-                                <p className="mt-2 text-gray-400">
-                                  Currently, videos will be displayed in their original uploaded quality. 
-                                  Multi-quality support is under development.
-                                </p>
-                                <Tooltip.Arrow className="fill-black/90" />
-                              </Tooltip.Content>
-                            </Tooltip.Portal>
-                          </Tooltip.Root>
-                        </Tooltip.Provider>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        Keep the upload page open until processing is complete
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                        Upload progress can be monitored in real-time
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
+              {/* Upload Requirements */}
+              <UploadRequirements />
             </div>
 
             {/* Right Column - Video Details Form - Takes 4 columns */}
             <div className="lg:col-span-4 space-y-8">
-              {/* Channel Selection */}
-              <div className="p-8 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
-                <h2 className="text-xl font-medium text-white mb-6">Channel</h2>
-                <ChannelSelector />
+              {/* Channel Selection with simplified UI */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-medium text-white">Channel Selection</h3>
+                    <p className="text-sm text-gray-400">Choose which channel to upload your video to</p>
+                  </div>
+                  {channelError && (
+                    <span className="text-sm text-red-500 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      {channelError}
+                    </span>
+                  )}
+                </div>
+
+                <div className={`
+                  relative rounded-xl overflow-hidden
+                  ${channelError ? 'ring-2 ring-red-500' : 'ring-1 ring-gray-800/30 hover:ring-[#fa7517]/30'}
+                  transition-all duration-300 group
+                `}>
+                  {/* Channel Banner with Selector */}
+                  <div className="relative">
+                    <ChannelSelector />
+                    
+                    
+                  </div>
+                </div>
+
+                {/* Helper Text */}
+                <p className="text-sm text-gray-400">
+                  Your video will be published to the selected channel. You can change this selection at any time before uploading.
+                </p>
               </div>
 
               {/* Video Details */}
@@ -550,42 +496,42 @@ const VideoUpload: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Visibility Options */}
+                {/* Visibility Section */}
                 <div className="space-y-3">
-                  <label className="block text-base font-medium text-gray-200">Visibility</label>
-                  <div className="grid grid-cols-3 gap-4">
-                    {visibilityOptions.map((option) => (
-                      <label
-                        key={option.id}
-                        className={`
-                          flex flex-col items-center p-6 rounded-lg cursor-pointer transition-all
-                          hover:transform hover:scale-[1.02] active:scale-[0.98]
-                          ${
-                            visibility === option.id
-                              ? 'bg-[#fa7517]/10 border border-[#fa7517]/30'
-                              : 'bg-gray-900/50 border border-gray-800/30 hover:bg-gray-800/50'
-                          }
-                        `}
-                      >
-                        <input
-                          type="radio"
-                          name="visibility"
-                          value={option.id}
-                          checked={visibility === option.id}
-                          onChange={(e) => setVisibility(e.target.value as 'public' | 'unlisted' | 'private')}
-                          className="hidden"
-                        />
-                        <option.icon
-                          className={`w-8 h-8 mb-3 ${
-                            visibility === option.id ? 'text-[#fa7517]' : 'text-gray-400'
-                          }`}
-                        />
-                        <p className="font-medium text-white text-center mb-2">{option.label}</p>
-                        <p className="text-sm text-gray-400 text-center leading-tight">
-                          {option.description}
-                        </p>
-                      </label>
-                    ))}
+                  <label className="block text-sm font-medium text-white">
+                    Video Visibility
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {visibilityOptions.map((option) => {
+                      const Icon = option.icon;
+                      const isSelected = visibility === option.id;
+                      
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => setVisibility(option.id)}
+                          className={`
+                            p-4 rounded-xl border transition-all duration-300
+                            flex items-start gap-3 text-left
+                            ${
+                              isSelected 
+                                ? 'border-[#fa7517] bg-[#fa7517]/10' 
+                                : 'border-gray-800/30 hover:border-gray-700/50 bg-black/20'
+                            }
+                          `}
+                        >
+                          <Icon className={`w-5 h-5 mt-0.5 ${isSelected ? 'text-[#fa7517]' : 'text-gray-400'}`} />
+                          <div>
+                            <p className={`font-medium ${isSelected ? 'text-[#fa7517]' : 'text-white'}`}>
+                              {option.label}
+                            </p>
+                            <p className="text-sm text-gray-400 mt-1">
+                              {option.description}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 

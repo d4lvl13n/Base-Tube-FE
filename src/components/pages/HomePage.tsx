@@ -11,8 +11,11 @@ import { useTrendingVideos } from '../../hooks/useTrendingVideos';
 import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';
 import Header from '../common/Header';
+import { useNavigation } from '../../contexts/NavigationContext';
 
 const BaseTubeHomepage: React.FC = () => {
+  const { navStyle } = useNavigation();
+  const isFloatingNav = navStyle === 'floating';
   const [featuredVideos, setFeaturedVideos] = useState<Video[]>([]);
   const [recommendedVideos, setRecommendedVideos] = useState<Video[]>([]);
   const [nftVideos, setNFTVideos] = useState<Video[]>([]);
@@ -100,8 +103,8 @@ const BaseTubeHomepage: React.FC = () => {
       <div className="flex-1 flex flex-col bg-black">
         <Header/>
         <div className="flex pt-16">
-          <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
-          <main className="flex-1 ml-16 max-w-[1920px] mx-auto w-full">
+          <Sidebar className={`${isFloatingNav ? 'hidden' : 'fixed left-0 top-16 bottom-0 z-40'}`} />
+          <main className={`flex-1 ${isFloatingNav ? '' : 'pl-16'} max-w-[1920px] mx-auto w-full`}>
             <div className="p-4 md:p-6">
               <HeroSection 
                 featuredVideos={featuredVideos.slice(0, 2)} 

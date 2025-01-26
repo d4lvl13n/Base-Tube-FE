@@ -23,6 +23,7 @@ import { RadialMenu } from '../common/Video/RadialMenu/RadialMenu';
 import { useComments } from '../../hooks/useComments';
 import { useLikes } from '../../hooks/useLikes';
 import { useWindowSize } from '../../hooks/useWindowSize';
+import { SharePopup } from '../common/SharePopup/SharePopup';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
@@ -215,6 +216,16 @@ const SingleVideo: React.FC = () => {
     });
   }, [isPlaying]);
 
+  const [isSharePopupOpen, setIsSharePopupOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [shareTitle, setShareTitle] = useState('');
+
+  const handleSharePopupOpen = (url: string, title: string) => {
+    setShareUrl(url);
+    setShareTitle(title);
+    setIsSharePopupOpen(true);
+  };
+
   if (error) {
     return (
       <div className="flex flex-col bg-black text-white min-h-screen">
@@ -341,18 +352,23 @@ const SingleVideo: React.FC = () => {
       <AnimatePresence>
         {showInterface && (
           <motion.div
-            className="radial-menu-wrapper fixed bottom-0 right-0 z-[60] pointer-events-auto"
+            className="radial-menu-wrapper fixed bottom-0 right-0 z-[60] pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <RadialMenu
-              commentCount={commentsData.totalComments}
-              likeCount={likesCount}
-              isLiked={isLiked}
-              onLike={handleLike}
-              isTogglingLike={isTogglingLike}
-            />
+            <div className="pointer-events-auto">
+              <RadialMenu
+                videoId={video.id.toString()}
+                videoTitle={video.title}
+                commentCount={commentsData.totalComments}
+                likeCount={likesCount}
+                isLiked={isLiked}
+                onLike={handleLike}
+                isTogglingLike={isTogglingLike}
+                onSharePopupOpen={handleSharePopupOpen}
+              />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -368,6 +384,14 @@ const SingleVideo: React.FC = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Share Popup - moved to root level */}
+      <SharePopup
+        isOpen={isSharePopupOpen}
+        onClose={() => setIsSharePopupOpen(false)}
+        videoUrl={shareUrl}
+        title={shareTitle}
+      />
     </div>
   );
 };

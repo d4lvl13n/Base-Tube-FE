@@ -17,7 +17,7 @@ const VideoSection: React.FC<VideoSectionProps> = ({ title, videos, linkTo, rend
   console.log(`VideoSection "${title}" hasVideos:`, hasVideos);
 
   return (
-    <div className="mb-8 mr-16">
+    <div className="mb-8">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl sm:text-2xl font-bold">{title}</h2>
         <Link to={linkTo} className="text-[#fa7517] hover:underline text-sm sm:text-base">View More</Link>
