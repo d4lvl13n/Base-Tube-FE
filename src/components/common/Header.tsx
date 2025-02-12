@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Search, Layout, LayoutDashboard, UserCircle, X, Palette, LogIn, Wallet } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Layout, LayoutDashboard, UserCircle, X, Palette, LogIn, Wallet, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '../../contexts/NavigationContext';
+
 
 interface HeaderProps {
   className?: string;
@@ -25,6 +26,66 @@ const Header: React.FC<HeaderProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showSignInOptions, setShowSignInOptions] = useState(false);
   const [hoveredAvatar, setHoveredAvatar] = useState(false);
+
+  // --- NEW SEARCH LOGIC ---
+  const navigate = useNavigate();
+  const location = useLocation();
+  const placeholders = [
+    "Search videos...",
+    "What would you like to watch?",
+    "Discover content...",
+    "Find creators..."
+  ];
+  const placeholdersLength = placeholders.length;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Add recent searches functionality
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    const saved = localStorage.getItem('recentSearches');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Save recent searches
+  const addToRecentSearches = (query: string) => {
+    const updated = [query, ...recentSearches.filter(q => q !== query)].slice(0, 5);
+    setRecentSearches(updated);
+    localStorage.setItem('recentSearches', JSON.stringify(updated));
+  };
+
+  // Enhanced search handler
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      addToRecentSearches(query.trim());
+      navigate(`/search?query=${encodeURIComponent(query.trim())}`);
+      setSearchQuery('');
+    }
+  };
+
+  // Rotates placeholder if input is empty and not focused
+  useEffect(() => {
+    if (!isSearchFocused && !searchQuery) {
+      const interval = setInterval(() => {
+        setPlaceholderIndex(prev => (prev + 1) % placeholdersLength);
+      }, 4000);
+      return () => clearInterval(interval);
+    }
+  }, [isSearchFocused, searchQuery, placeholdersLength]);
+
+  // Auto-focus search input when landing on search page
+  useEffect(() => {
+    if (location.pathname === '/search' && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [location.pathname]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch(searchQuery);
+    }
+  };
+
 
   const handleNavStyleToggle = () => {
     if (onNavToggle) onNavToggle();
@@ -175,6 +236,52 @@ const Header: React.FC<HeaderProps> = ({
     );
   };
 
+  // Search suggestions component with only recent searches
+  const SearchSuggestions = () => (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="absolute top-full left-0 right-0 mt-2 bg-black/90 backdrop-blur-xl 
+                 border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+    >
+      {/* Recent Searches */}
+      {recentSearches.length > 0 && (
+        <div className="p-3">
+          <div className="flex items-center gap-2 text-white/50 text-sm mb-2">
+            <History className="w-4 h-4" />
+            <span>Recent Searches</span>
+          </div>
+          <div className="space-y-1">
+            {recentSearches.map((search, index) => (
+              <motion.button
+                key={index}
+                whileHover={{ x: 4 }}
+                className="w-full text-left p-2 rounded-lg hover:bg-white/5 text-white/90 
+                         flex items-center gap-2 group"
+                onClick={() => handleSearch(search)}
+              >
+                <Search className="w-4 h-4 text-white/50 group-hover:text-[#fa7517]" />
+                {search}
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const updated = recentSearches.filter((_, i) => i !== index);
+                    setRecentSearches(updated);
+                    localStorage.setItem('recentSearches', JSON.stringify(updated));
+                  }}
+                  className="ml-auto opacity-0 group-hover:opacity-100 hover:text-[#fa7517] transition-opacity"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 w-full">
       <div className="bg-gradient-to-b from-black via-black/95 to-black/80 backdrop-blur-md border-b border-white/5">
@@ -214,24 +321,83 @@ const Header: React.FC<HeaderProps> = ({
               </Link>
             </div>
 
-            {/* Center Section - Search */}
-            <div className="flex-1 max-w-2xl mx-6 block">
+            {/* Center Section - Updated Search Input */}
+            <div className="flex-1 max-w-2xl mx-6 block relative">
               <div className="relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-full opacity-0 group-hover:opacity-100 blur transition duration-300" />
-                <input
-                  className="w-full bg-white/5 rounded-full px-4 py-2.5 pl-10
-                    border border-white/10 group-hover:border-[#fa7517]/30
-                    backdrop-blur-xl focus:outline-none focus:border-[#fa7517]/30
-                    focus:bg-white/10 text-white transition-all duration-300
-                    placeholder:text-white/50"
-                  placeholder="Search videos or enter NFT Content Pass"
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setIsSearchFocused(false)}
+                {/* Animated background gradient */}
+                <motion.div
+                  className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 
+                           rounded-full opacity-0 group-hover:opacity-100 blur transition duration-300"
+                  animate={{
+                    scale: isSearchFocused ? 1.02 : 1,
+                    opacity: isSearchFocused ? 1 : 0
+                  }}
                 />
-                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2
-                  w-5 h-5 transition-colors duration-300
-                  ${isSearchFocused ? 'text-[#fa7517]' : 'text-white/50'}`} 
-                />
+                
+                {/* Search Input Container */}
+                <div className="relative flex items-center">
+                  {/* Search Icon */}
+                  <motion.div
+                    animate={{
+                      scale: isSearchFocused ? 1.1 : 1,
+                      rotate: isSearchFocused ? 90 : 0
+                    }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                  >
+                    <Search 
+                      className={`w-4 h-4 transition-colors duration-300
+                      ${isSearchFocused ? 'text-[#fa7517]' : 'text-white/50'}`}
+                    />
+                  </motion.div>
+
+                  {/* Search Input */}
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => {
+                      setTimeout(() => setIsSearchFocused(false), 200);
+                    }}
+                    onKeyDown={handleKeyDown}
+                    className={`w-full bg-white/5 rounded-full px-4 py-2.5
+                             border border-white/10 group-hover:border-[#fa7517]/30
+                             backdrop-blur-xl focus:outline-none focus:border-[#fa7517]/30
+                             focus:bg-white/10 text-white transition-all duration-300
+                             placeholder:text-white/50
+                             ${searchQuery ? 'pl-10 pr-24' : 'pl-10 pr-4'}`}
+                    placeholder={searchQuery || placeholders[placeholderIndex]}
+                  />
+
+                  {/* Search Button (visible when typing) */}
+                  <AnimatePresence>
+                    {searchQuery && (
+                      <motion.button
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleSearch(searchQuery)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2
+                                 bg-[#fa7517] hover:bg-[#fa8517] text-white 
+                                 px-4 py-1.5 rounded-full text-sm font-medium
+                                 transition-colors duration-200 flex items-center gap-2"
+                      >
+                        <span>Search</span>
+                        <Search className="w-3 h-3" />
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Search Suggestions Dropdown */}
+                <AnimatePresence>
+                  {isSearchFocused && (
+                    <SearchSuggestions />
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 

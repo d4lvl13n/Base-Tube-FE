@@ -9,6 +9,7 @@ import ProtectedRoute from './components/pages/ProtectedRoute';
 import HomePage from './components/pages/HomePage';
 import SingleVideo from './components/pages/SingleVideo';
 import DiscoveryPage from './components/pages/DiscoveryPage/index';
+import SearchPage from './components/pages/SearchPage';
 import SubscribedChannelPage from './components/pages/SubscribedChannelPage/index';
 import NFTMarketplace from './components/pages/NFTMarketplace';
 import UserProfileWallet from './components/pages/UserProfileWallet';
@@ -42,6 +43,8 @@ import OnboardingModal from './components/pages/OnboardingModal';
 import { AuthProvider } from './contexts/AuthContext';
 import SignInWeb3 from './components/pages/SignInWeb3';
 import OnboardingWeb3 from './components/pages/OnboardingWeb3';
+import NFTSimulator from './components/pages/NftContentPass/NFTCPsimulator/NftContentPassSimulator';
+import MonetizationInfo from './components/pages/CreatorHub/MonetizationInfo';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -123,6 +126,7 @@ function App() {
                         {/* Public routes that don't need channel context */}
                         <Route path="/" element={<HomePage />} />
                         <Route path="/discover" element={<DiscoveryPage />} />
+                        <Route path="/search" element={<SearchPage />} />
                         <Route path="/video/:id" element={<SingleVideo />} />
                         <Route path="/nft-marketplace" element={<NFTMarketplace />} />
 
@@ -228,6 +232,18 @@ function App() {
                               }
                             />
                           }
+                        />
+                        <Route
+                          path="/creator-hub/nft-simulator"
+                          element={
+                            <CreatorHubRoute
+                              element={<NFTSimulator />}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/creator-hub/monetization"
+                          element={<MonetizationInfo />}
                         />
 
                         {/* Protected routes */}
