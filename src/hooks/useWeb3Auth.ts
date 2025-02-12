@@ -1,9 +1,9 @@
 import { useReducer, useEffect, useCallback } from 'react';
-import { useAccount, useChainId, useSwitchChain } from 'wagmi';
+import { useAccount, useChainId, useSwitchChain, useDisconnect } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
 import { AuthenticationStep, User, AuthMethod } from '../types/auth';
 import { web3AuthApi } from '../api/web3authapi';
-import api from '../api/index';
+import { useNavigate } from 'react-router-dom';
 
 interface AuthState {
   step: AuthenticationStep;
@@ -54,6 +54,8 @@ export function useWeb3Auth() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const navigate = useNavigate();
 
   /**
    * On mount, restore any user data + auth_method === "web3".
@@ -133,10 +135,10 @@ export function useWeb3Auth() {
         const auth = await web3AuthApi.login(address);
         handleAuthSuccess(auth);
         
-        window.location.href = auth.user.onboarding_status === 'PENDING' 
-          ? '/onboarding/web3' 
-          : '/';
-          
+        navigate(
+          auth.user.onboarding_status === 'PENDING' ? '/onboarding/web3' : '/',
+          { replace: true }
+        );
         return auth;
       } catch (error: any) {
         // If user not found, handle signup flow
@@ -147,7 +149,7 @@ export function useWeb3Auth() {
           const authData = await web3AuthApi.login(address);
           handleAuthSuccess(authData);
           
-          window.location.href = '/onboarding/web3';
+          navigate('/onboarding/web3', { replace: true });
           return authData;
         }
         
@@ -158,7 +160,7 @@ export function useWeb3Auth() {
       dispatch({ type: 'SET_ERROR', payload: error as Error });
       throw error;
     }
-  }, [address, isConnected, chainId, switchChain, handleAuthSuccess]);
+  }, [address, isConnected, chainId, switchChain, handleAuthSuccess, navigate]);
 
   /**
    * disconnect() logs the user out in the backend
@@ -171,12 +173,15 @@ export function useWeb3Auth() {
       // If you stored a token, remove it:
       // localStorage.removeItem('web3_token');
 
-      await api.post('/api/v1/web3auth/logout', {}, { withCredentials: true });
+      await web3AuthApi.logout();
+      if (typeof wagmiDisconnect === 'function') {
+        await wagmiDisconnect();
+      }
     } catch (error) {
       console.warn('Failed to cleanup auth state', error);
     }
     dispatch({ type: 'RESET' });
-  }, []);
+  }, [wagmiDisconnect]);
 
   // Optional debug
   useEffect(() => {

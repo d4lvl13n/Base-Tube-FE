@@ -13,15 +13,14 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { uploadVideo, generateVideoDescription } from '../../../api/video';
-import { useChannels } from '../../../context/ChannelContext';
 import VideoUploadSuccess from '../../common/ModalScreen/VideoUploadSuccess';
 import { useNavigate } from 'react-router-dom';
-import AIAssistantPanel from '../../common/AIAssistantPanel';
-import RichTextEditor from '../../common/RichTextEditor';
-import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
 import { showErrorToast, uploadErrors } from '../../common/Notifications/ErrorToast';
 import { UploadRequirements } from '../../common/CreatorHub/UploadRequirements';
+import AIAssistantPanel from '../../common/AIAssistantPanel';
+import RichTextEditor from '../../common/RichTextEditor';
+import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 
 interface VisibilityOption {
   id: 'public' | 'private';
@@ -55,9 +54,8 @@ const VideoUpload: React.FC = () => {
   const uploadTimerRef = useRef<NodeJS.Timeout>();
   const stallCheckTimerRef = useRef<NodeJS.Timeout>();
 
-  const { channels } = useChannels();
+  const { channels, selectedChannelId, selectedChannel } = useChannelSelection();
   const navigate = useNavigate();
-  const { selectedChannelId, selectedChannel, channels: channelSelectionChannels } = useChannelSelection();
   const [channelError, setChannelError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -426,8 +424,6 @@ const VideoUpload: React.FC = () => {
                   {/* Channel Banner with Selector */}
                   <div className="relative">
                     <ChannelSelector />
-                    
-                    
                   </div>
                 </div>
 

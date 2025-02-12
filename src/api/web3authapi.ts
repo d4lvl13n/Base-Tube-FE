@@ -208,6 +208,18 @@ private getValidationError(username: string): string | null {
     }
     return null;
   }
+
+  // New dedicated logout method for web3 users
+  async logout(): Promise<void> {
+    try {
+      await api.post('/api/v1/web3auth/logout', {}, {
+        withCredentials: true
+      });
+    } catch (error) {
+      console.error('Failed to logout via Web3Auth API:', error);
+      // Optionally, you can re-throw or handle the error as needed.
+    }
+  }
 }
 
 export const web3AuthApi = new Web3AuthApi();

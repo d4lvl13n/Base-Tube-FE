@@ -199,6 +199,7 @@ export const uploadVideo = async (formData: FormData, onUploadProgress?: (progre
       headers: { 
         'Content-Type': 'multipart/form-data',
       },
+      withCredentials: true,
       onUploadProgress: (progressEvent: AxiosProgressEvent) => {
         console.log('Upload API - Progress:', {
           loaded: `${(progressEvent.loaded / (1024 * 1024)).toFixed(2)}MB`,

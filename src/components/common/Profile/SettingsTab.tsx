@@ -21,6 +21,7 @@ import Loader from '../Loader';
 import { ProfileSettings } from '../../../types/user';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useGeneratedName } from '../../../hooks/useGeneratedName';
+import { AuthMethod } from '../../../types/auth';
 
 type SettingsTabProps = {
   settings: ProfileSettings;
@@ -32,6 +33,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   errors
 }) => {
   const { signOut } = useClerk();
+  const { disconnect } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -138,7 +140,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   const handleLogout = async () => {
     setLoading(true);
     try {
-      await signOut();
+      const authMethod = localStorage.getItem('auth_method');
+      if (authMethod === AuthMethod.WEB3) {
+        await disconnect();
+      } else {
+        await signOut();
+      }
       navigate('/');
     } catch (err) {
       console.error('Error signing out:', err);
