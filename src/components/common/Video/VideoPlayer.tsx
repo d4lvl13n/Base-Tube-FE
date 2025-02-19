@@ -15,6 +15,8 @@ interface VideoPlayerProps {
   onReady?: (player: VideoPlayerRef) => void;
   videoId: string;
   duration: number;
+  isEmbed?: boolean;
+  title?: string;
 }
 
 export interface VideoPlayerRef {
@@ -28,7 +30,7 @@ export interface VideoPlayerRef {
 }
 
 const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
-  ({ src, video_url, video_urls, thumbnail_path, thumbnail_url, onReady, videoId, duration }, ref) => {
+  ({ src, video_url, video_urls, thumbnail_path, thumbnail_url, onReady, videoId, duration, isEmbed = false, title }, ref) => {
     const videoRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<Player | null>(null);
 
@@ -110,6 +112,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         },
         inactivityTimeout: 3000,
         techOrder: ['html5'],
+        title: title || '',
       };
 
       const player = videojs(videoElement, playerOptions);

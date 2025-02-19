@@ -101,3 +101,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   width: 100%;
   text-align: left;
 }
+
+:root {
+  --gold: #FFD700;
+  --silver: #C0C0C0;
+  --bronze: #CD7F32;
+  --background: #ffffff;
+  --background-secondary: #f8f9fa;
+  --background-accent: #e9ecef;
+  --background-hover: #f1f3f5;
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --primary: #0066ff;
+  --border: #dee2e6;
+  --error: #dc3545;
+}

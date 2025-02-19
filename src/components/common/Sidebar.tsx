@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigation } from '../../contexts/NavigationContext';
 import FloatingSidebar from './FloatingSidebar';
 import { Link } from 'react-router-dom';
-import { Home, Flame, Compass, PlayCircle, User, Tv, Palette } from 'lucide-react';
+import { Home, Flame, Compass, PlayCircle, User, Tv, Palette, Trophy } from 'lucide-react';
 
 const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
   const { navStyle } = useNavigation();
@@ -36,6 +36,9 @@ const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
         </Link>
         <Link to="/creator-hub" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
           <Palette size={24} />
+        </Link>
+        <Link to="/leaderboard" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
+          <Trophy size={24} />
         </Link>
       </div>
     </nav>

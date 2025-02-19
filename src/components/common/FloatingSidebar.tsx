@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Flame, Compass, PlayCircle, User, Tv, Palette } from 'lucide-react';
+import { Home, Flame, Compass, PlayCircle, User, Tv, Palette, Trophy } from 'lucide-react';
 
 interface NavigationItem {
   path: string;
@@ -52,6 +52,12 @@ const navigationItems: NavigationItem[] = [
     icon: <Palette size={24} />,
     label: 'Creator Hub',
     description: 'Access creator tools'
+  },
+  {
+    path: '/leaderboard',
+    icon: <Trophy size={24} />,
+    label: 'Leaderboard',
+    description: 'See the top performers'
   }
 ];
 

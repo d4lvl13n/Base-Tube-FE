@@ -43,6 +43,8 @@ import SignInWeb3 from './components/pages/SignInWeb3';
 import OnboardingWeb3 from './components/pages/OnboardingWeb3';
 import NFTSimulator from './components/pages/NftContentPass/NFTCPsimulator/NftContentPassSimulator';
 import MonetizationInfo from './components/pages/CreatorHub/MonetizationInfo';
+import Leaderboard from './components/pages/Leaderboard/Index';
+import EmbedVideo from './components/pages/EmbedVideo';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -124,6 +126,7 @@ function App() {
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/video/:id" element={<SingleVideo />} />
                   <Route path="/nft-marketplace" element={<NFTMarketplace />} />
+                  <Route path="/leaderboard" element={<Leaderboard />} />
 
                   {/* Channel-related routes */}
                   <Route path="/channel/:identifier" element={<ChannelDetailPage />} />
@@ -312,6 +315,12 @@ function App() {
                         <ProfileSettings />
                       </ProtectedRoute>
                     }
+                  />
+
+                  {/* Public embed route - must be outside auth wrapper */}
+                  <Route 
+                    path="/embed/:videoId" 
+                    element={<EmbedVideo />} 
                   />
 
                   {/* Catch-all redirect to sign-in */}

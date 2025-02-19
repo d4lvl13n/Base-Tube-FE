@@ -4,7 +4,6 @@ import { useVideoContext } from '../../../../contexts/VideoContext';
 import RadialMenuItem from './RadialMenuItem';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
 import { toast } from 'react-toastify';
-import { shareVideo } from '../../../../utils/share';
 import { SharePopup } from '../../SharePopup/SharePopup';
 
 interface RadialMenuProps {
@@ -88,11 +87,21 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   };
 
   const handleShare = () => {
-    shareVideo({
-      videoId,
-      title: videoTitle,
-      onOpenSharePopup: onSharePopupOpen
-    });
+    // If on mobile and native sharing is available, use it...
+    if (isMobile && navigator.share) {
+      const shareLink = new URL(`/video/${videoId}`, window.location.origin).toString();
+      navigator.share({
+        title: videoTitle,
+        url: shareLink
+      }).catch(err => console.error('Error sharing via native API:', err));
+    } else {
+      // For desktop or when native share is unavailable,
+      // set the shareUrl and shareTitle and then open the SharePopup.
+      const shareLink = new URL(`/video/${videoId}`, window.location.origin).toString();
+      setShareUrl(shareLink);
+      setShareTitle(videoTitle);
+      setIsSharePopupOpen(true);
+    }
   };
 
   const items = [
@@ -165,6 +174,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
         onClose={() => setIsSharePopupOpen(false)}
         videoUrl={shareUrl}
         title={shareTitle}
+        videoId={videoId}
       />
     </>
   );
