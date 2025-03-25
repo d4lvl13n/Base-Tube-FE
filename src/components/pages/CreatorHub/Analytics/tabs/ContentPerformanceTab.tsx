@@ -32,8 +32,8 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
 
   const performanceData = {
     watchTime: {
-      total: creatorWatchHours ?? 0,
-      timeFrames: watchPatterns?.timeFrames?.daily ?? {
+      total: watchPatterns?.timeFrames?.[period === '7d' ? 'weekly' : 'monthly']?.watchTimeHours ?? 0,
+      timeFrames: watchPatterns?.timeFrames?.[period === '7d' ? 'daily' : 'weekly'] ?? {
         watchTimeHours: 0,
         videosWatched: 0,
         completionRate: 0
@@ -74,7 +74,7 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
         <StatsCard
           icon={Clock}
           title="Watch Time"
-          value={`${performanceData.watchTime.total}h`}
+          value={`${performanceData.watchTime.total.toFixed(2)}h`}
           change={0}
           loading={isLoading}
           subtitle={`${performanceData.watchTime.timeFrames.videosWatched} videos watched`}
@@ -100,7 +100,21 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-4">
           <h3 className="text-xl font-semibold">Watch Time Distribution</h3>
-          <WatchTimeChart data={watchPatterns?.peakHours ?? []} />
+          <WatchTimeChart 
+            data={
+              // Sort the data by hour and ensure all 24 hours are represented
+              Array.from({ length: 24 }, (_, hour) => {
+                // Find the entry for this hour, or default to 0 views
+                const hourData = (watchPatterns?.peakHours || [])
+                  .find(entry => entry.hour === hour);
+                
+                return {
+                  hour,
+                  viewCount: hourData?.viewCount || 0
+                };
+              })
+            } 
+          />
         </div>
 
         <div className="space-y-4">

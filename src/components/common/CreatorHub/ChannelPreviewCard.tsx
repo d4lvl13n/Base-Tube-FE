@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ExternalLink, Users, Video, Edit3 } from 'lucide-react';
 import { Channel } from '../../../types/channel';
 import EditChannelModal from '../../pages/CreatorHub/ChannelManagement/components/EditChannelModal';
+import DOMPurify from 'dompurify';
 
 interface ChannelPreviewCardProps {
   channel: Channel;
@@ -19,6 +20,20 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
         ? channel.channel_image_path
         : `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
       : '/assets/default-cover.jpg');
+
+  // Sanitize the description HTML to prevent XSS attacks
+  const sanitizeHTML = (html: string) => {
+    return {
+      __html: DOMPurify.sanitize(html)
+    };
+  };
+
+  // Function to create a plain text version of the HTML for accessibility
+  const createPlainText = (html: string) => {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || '';
+  };
 
   return (
     <>
@@ -41,6 +56,15 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
                   <div>
                     <h3 className="text-xl font-bold text-white mb-1">{channel.name}</h3>
                     <p className="text-gray-300">@{channel.handle}</p>
+                    
+                    {/* Channel description - render HTML safely */}
+                    {channel.description && (
+                      <div 
+                        className="text-sm text-gray-400 mt-1 line-clamp-2 overflow-hidden"
+                        dangerouslySetInnerHTML={sanitizeHTML(channel.description)}
+                        aria-label={createPlainText(channel.description)}
+                      />
+                    )}
                   </div>
                   <div className="flex items-center space-x-2">
                     <Link

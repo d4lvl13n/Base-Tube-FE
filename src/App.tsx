@@ -45,6 +45,10 @@ import NFTSimulator from './components/pages/NftContentPass/NFTCPsimulator/NftCo
 import MonetizationInfo from './components/pages/CreatorHub/MonetizationInfo';
 import Leaderboard from './components/pages/Leaderboard/Index';
 import EmbedVideo from './components/pages/EmbedVideo';
+import FAQPage from './pages/FAQ/index';
+import MomentNFTsPage from './pages/FAQ/MomentNFTs';
+import MomentNFTMintPage from './pages/MomentNFTMint';
+
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -322,6 +326,23 @@ function App() {
                     path="/embed/:videoId" 
                     element={<EmbedVideo />} 
                   />
+
+                  {/* Add the new MomentNFTMint route before the FAQ routes */}
+                  <Route
+                    path="/mint/moment-nft"
+                    element={
+                      <ProtectedRoute>
+                        <MomentNFTMintPage />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* FAQ routes */}
+                  <Route path="/faq" element={<FAQPage />} />
+                  <Route path="/faq/moment-nfts" element={<MomentNFTsPage />} />
+                  <Route path="/faq/points-system" element={<div>Coming Soon</div>} />
+                  <Route path="/faq/wallet" element={<div>Coming Soon</div>} />
+                  <Route path="/faq/content-creation" element={<div>Coming Soon</div>} />
 
                   {/* Catch-all redirect to sign-in */}
                   <Route
