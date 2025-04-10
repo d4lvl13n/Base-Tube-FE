@@ -10,12 +10,27 @@ interface StatsCardProps {
   change: number;
   loading?: boolean;
   subtitle?: string;
+  className?: string;
+  error?: string;
 }
 
-const StatsCard: React.FC<StatsCardProps> = ({ icon: Icon, title, value, change, loading = false, subtitle }) => {
+const StatsCard: React.FC<StatsCardProps> = ({ 
+  icon: Icon, 
+  title, 
+  value, 
+  change, 
+  loading = false, 
+  subtitle, 
+  className = '', 
+  error
+}) => {
   const isPositive = change >= 0;
   const changeColor = isPositive ? 'text-green-500' : 'text-red-500';
   const changeIcon = isPositive ? '↑' : '↓';
+  
+  // Check if this is a "coming soon" card
+  const isComingSoon = value === "Coming Soon";
+  const iconClass = isComingSoon ? "text-gray-500" : "text-[#fa7517]";
 
   // Extract the number from subtitle if it starts with a + or -
   const subtitleMatch = subtitle?.match(/^([+-]\d+)/);
@@ -23,22 +38,26 @@ const StatsCard: React.FC<StatsCardProps> = ({ icon: Icon, title, value, change,
 
   return (
     <motion.div 
-      className="bg-black/50 rounded-xl p-6 border border-gray-800/30"
+      className={`bg-black/50 rounded-xl p-6 border border-gray-800/30 ${className}`}
       whileHover={{ scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 10 }}
     >
       <div className="flex items-center justify-between mb-4">
-        <Icon className="text-[#fa7517]" size={24} />
-        <div className={`px-2 py-1 rounded ${isPositive ? 'bg-green-500/20' : 'bg-red-500/20'} ${changeColor}`}>
-          {changeIcon} {Math.abs(change)}%
-        </div>
+        <Icon className={error ? "text-red-500" : iconClass} size={24} />
+        {!error && !loading && change !== 0 && (
+           <div className={`px-2 py-1 rounded ${isPositive ? 'bg-green-500/20' : 'bg-red-500/20'} ${changeColor}`}>
+             {changeIcon} {Math.abs(change)}%
+           </div>
+        )}
       </div>
       <h3 className="text-gray-400 text-sm mb-1">{title}</h3>
       {loading ? (
         <div className="h-8 bg-gray-700 animate-pulse rounded" />
+      ) : error ? (
+        <p className="text-red-400 text-sm">{error}</p>
       ) : (
         <>
-          <p className="text-2xl font-bold text-white">{value}</p>
+          <p className={`text-2xl font-bold ${isComingSoon ? 'text-gray-400' : 'text-white'}`}>{value}</p>
           {subtitle && (
             <p className="text-sm mt-1">
               {hasGrowthIndicator ? (

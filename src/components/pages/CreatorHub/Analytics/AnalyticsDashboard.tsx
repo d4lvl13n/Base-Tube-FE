@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TabNav from '../../../common/TabNav';
-import { useAnalyticsData } from '../../../../hooks/useAnalyticsData';
-import { GrowthTab } from './tabs/GrowthTab';
+import { useCreatorAnalytics } from '../../../../hooks/useAnalyticsData';
 import { ContentPerformanceTab } from './tabs/ContentPerformanceTab';
-import { AudienceEngagementTab } from './tabs/AudienceEngagementTab';
 import { AlertCircle } from 'lucide-react';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
-import { LikesAnalyticsTab } from './tabs/LikesAnalyticsTab';
 import ChannelPreviewCard from '../../../common/CreatorHub/ChannelPreviewCard';
+import { OverviewTab } from './tabs/OverviewTab';
+import { AudienceInsightsTab } from './tabs/AudienceInsightsTab';
+import { GrowthTab } from './tabs/GrowthMonetizationTab';
+import { EngagementAnalyticsTab } from './tabs/EngagementAnalyticsTab';
+import { DetailedVideoPerformanceTab } from './tabs/DetailedVideoPerformanceTab';
 
 const AnalyticsDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('Growth');
+  const [activeTab, setActiveTab] = useState('Overview');
   const { selectedChannelId, selectedChannel } = useChannelSelection();
   
-  const { isError } = useAnalyticsData('7d', selectedChannelId);
+  const analyticsData = useCreatorAnalytics('7d', selectedChannelId);
+  const isError = analyticsData.viewMetrics === undefined && 
+                  Object.values(analyticsData.errors).some(err => err !== null);
 
   if (!selectedChannel) {
     return null;
@@ -22,14 +26,18 @@ const AnalyticsDashboard: React.FC = () => {
 
   const renderActiveTab = () => {
     switch (activeTab) {
+      case 'Overview':
+        return <OverviewTab channelId={selectedChannelId} />;
+      case 'Content':
+        return <ContentPerformanceTab channelId={selectedChannelId} />;
+      case 'Audience':
+        return <AudienceInsightsTab channelId={selectedChannelId} />;
       case 'Growth':
         return <GrowthTab channelId={selectedChannelId} />;
-      case 'Performance':
-        return <ContentPerformanceTab channelId={selectedChannelId} />;
       case 'Engagement':
-        return <AudienceEngagementTab channelId={selectedChannelId} />;
-      case 'Likes':
-        return <LikesAnalyticsTab channelId={selectedChannelId} />;
+        return <EngagementAnalyticsTab channelId={selectedChannelId} />;
+      case 'Video Performance':
+        return <DetailedVideoPerformanceTab channelId={selectedChannelId} />;
       default:
         return null;
     }
@@ -68,7 +76,7 @@ const AnalyticsDashboard: React.FC = () => {
       >
         <div className="relative z-10">
           <TabNav
-            tabs={['Growth', 'Performance', 'Engagement', 'Likes']}
+            tabs={['Overview', 'Content', 'Audience', 'Growth', 'Engagement', 'Video Performance']}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
           />

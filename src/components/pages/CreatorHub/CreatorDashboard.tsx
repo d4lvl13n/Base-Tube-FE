@@ -3,8 +3,9 @@ import { motion } from 'framer-motion';
 import StatsCard from './StatsCard';
 import { Users, Play, Clock, MessageCircle } from 'lucide-react';
 import { Channel } from '../../../types/channel';
-import { useAnalyticsData } from '../../../hooks/useAnalyticsData';
+import { useCreatorAnalytics } from '../../../hooks/useAnalyticsData';
 import { useChannelData } from '../../../hooks/useChannelData';
+import { Link } from 'react-router-dom';
 
 interface CreatorDashboardProps {
   channels: Channel[];
@@ -26,7 +27,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
     viewMetrics,
     socialMetrics,
     isLoading: analyticsLoading 
-  } = useAnalyticsData('7d', selectedChannelId);
+  } = useCreatorAnalytics('7d', selectedChannelId);
 
   const {
     channel: activeChannel,

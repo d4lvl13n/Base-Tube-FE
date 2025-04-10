@@ -25,7 +25,6 @@ import VideoUpload from './components/pages/CreatorHub/VideoUpload';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import AnalyticsPage from './components/pages/CreatorHub/Analytics/AnalyticsPage';
-import { GrowthTab } from './components/pages/CreatorHub/Analytics/tabs/GrowthTab';
 import { useAnalyticsContext } from './hooks/useAnalyticsData';
 import CreatorResourcesPage from './components/common/CreatorHub/CreatorResourcesPage';
 import { VideoProvider } from './contexts/VideoContext';
@@ -48,7 +47,7 @@ import EmbedVideo from './components/pages/EmbedVideo';
 import FAQPage from './pages/FAQ/index';
 import MomentNFTsPage from './pages/FAQ/MomentNFTs';
 import MomentNFTMintPage from './pages/MomentNFTMint';
-
+import { GrowthTab } from './components/pages/CreatorHub/Analytics/tabs/GrowthMonetizationTab';
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -78,11 +77,11 @@ const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
 // Create an analytics wrapper for Creator Hub routes
 const AnalyticsRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
-  const { prefetchAnalytics } = useAnalyticsContext();
+  const { prefetchCreatorAnalytics } = useAnalyticsContext();
   
   React.useEffect(() => {
-    prefetchAnalytics('7d');
-  }, [prefetchAnalytics]);
+    prefetchCreatorAnalytics('7d');
+  }, [prefetchCreatorAnalytics]);
 
   return element;
 };

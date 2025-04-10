@@ -1,18 +1,32 @@
 import React, { useState } from 'react';
 import { MessageCircle, Clock, ThumbsUp, Users } from 'lucide-react';
-import { useAnalyticsData } from '../../../../../hooks/useAnalyticsData';
+import { useCreatorAnalytics, useViewerAnalytics } from '../../../../../hooks/useAnalyticsData';
 import StatsCard from '../../../CreatorHub/StatsCard';
 import { Select } from '../../../../ui/Select';
 import { WatchTimeChart } from '../charts/WatchTimeChart';
 
 export const AudienceEngagementTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const [period, setPeriod] = useState<'7d' | '30d'>('7d');
+  
+  // Get creator-specific analytics
   const { 
     socialMetrics, 
     growthMetrics,
-    watchPatterns,
-    isLoading 
-  } = useAnalyticsData(period, channelId);
+    channelWatchPatterns,
+    isLoading: creatorDataLoading 
+  } = useCreatorAnalytics(period, channelId);
+  
+  // Get viewer-focused analytics for backward compatibility
+  const { watchPatterns, isLoading: viewerDataLoading } = useViewerAnalytics();
+  
+  const isLoading = creatorDataLoading || viewerDataLoading;
+
+  // Calculate average retention rate from channelWatchPatterns
+  const averageRetentionRate = 
+    channelWatchPatterns?.retentionByDuration?.reduce(
+      (avg, item) => avg + (item.retentionRate / (channelWatchPatterns.retentionByDuration.length || 1)), 
+      0
+    ) ?? 0;
 
   const engagementData = {
     comments: {
@@ -25,8 +39,12 @@ export const AudienceEngagementTab: React.FC<{ channelId: string }> = ({ channel
       trend: growthMetrics?.metrics.engagement.trend ?? 0
     },
     watchTime: {
-      peakHours: watchPatterns?.peakHours ?? [],
-      completionRate: watchPatterns?.completionRates.overall ?? 0
+      // Map hourlyPatterns to the expected format for WatchTimeChart
+      peakHours: channelWatchPatterns?.hourlyPatterns?.map(pattern => ({
+        hour: pattern.hour,
+        viewCount: pattern.viewCount
+      })) ?? (watchPatterns?.peakHours ?? []), // Fallback to viewer data if needed
+      completionRate: averageRetentionRate
     }
   };
 
@@ -72,7 +90,7 @@ export const AudienceEngagementTab: React.FC<{ channelId: string }> = ({ channel
         <StatsCard
           icon={Users}
           title="Completion Rate"
-          value={`${engagementData.watchTime.completionRate}%`}
+          value={`${engagementData.watchTime.completionRate.toFixed(1)}%`}
           change={0}
           loading={isLoading}
           subtitle="Video completion"
