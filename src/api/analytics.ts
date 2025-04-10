@@ -15,7 +15,8 @@ import {
   TopContentItem, 
   TopSharedItem, 
   TopComment,
-  VideoPerformanceResponse
+  VideoPerformanceResponse,
+  ChannelAnalyticsInsight
 } from '../types/analytics';
 
 // ===========================================
@@ -491,7 +492,44 @@ export const getChannelDemographics = async (
     console.error('Failed to fetch channel demographics:', error);
     return handleApiError(error, 'channel demographics');
   }
-}; 
+};
+
+/**
+ * Gets AI-generated insights for channel analytics
+ * @param channelId The channel ID
+ * @param periods One or more time periods to analyze ('7d', '30d', '90d', 'all')
+ */
+export const getChannelAnalyticsInsights = async (
+  channelId: string,
+  periods: ('7d' | '30d' | '90d' | 'all')[] | '7d' | '30d' | '90d' | 'all' = '30d'
+): Promise<ChannelAnalyticsInsight> => {
+  try {
+    // Add cache-busting timestamp to prevent 304 responses
+    const timestamp = new Date().getTime();
+    const params: Record<string, string | number | string[]> = { _t: timestamp };
+    
+    // Handle both single period and array of periods
+    if (Array.isArray(periods)) {
+      params.periods = periods;
+    } else {
+      params.period = periods;
+    }
+    
+    const response = await api.get<{ success: boolean; data: ChannelAnalyticsInsight }>(
+      `/api/v1/creators/channels/${channelId}/analytics/insights`,
+      { params }
+    );
+    
+    if (!response.data.success) {
+      throw new Error(`Failed to fetch analytics insights for channel ${channelId}`);
+    }
+    
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch analytics insights:', error);
+    throw error;
+  }
+};
 
 // ===========================================
 // HELPER FUNCTIONS

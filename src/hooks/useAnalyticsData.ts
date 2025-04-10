@@ -13,7 +13,8 @@ import {
   getTopSharedContent,
   getTopComments,
   getLikeGrowthTrends,
-  getTopLikedVideos
+  getTopLikedVideos,
+  getChannelAnalyticsInsights
 } from '../api/analytics';
 import type { 
   WatchPatterns, 
@@ -22,6 +23,7 @@ import type {
   CreatorWatchHours,
   BasicViewMetrics,
   DetailedViewMetrics,
+  TopLikedVideos,
   ChannelWatchPatterns,
   ChannelDemographics,
   DemographicsPeriod,
@@ -30,7 +32,7 @@ import type {
   TopSharedItem,
   TopComment,
   LikeGrowthTrends,
-  TopLikedVideos
+  ChannelAnalyticsInsight
 } from '../types/analytics';
 import { useEffect } from 'react';
 
@@ -538,5 +540,37 @@ export const useAnalyticsData = (period: '7d' | '30d' = '7d', channelId?: string
     isLoading: creatorData.isLoading || viewerData.isLoading,
     hasCreatorError: Object.values(creatorData.errors).some(e => e !== null),
     viewerError: viewerData.isError
+  };
+};
+
+// Add a new hook for AI insights
+
+/**
+ * Hook for AI-generated analytics insights for a channel
+ */
+export const useAnalyticsInsights = (
+  periods: ('7d' | '30d' | '90d' | 'all')[] | '7d' | '30d' | '90d' | 'all' = ['7d', '30d', '90d', 'all'], 
+  channelId?: string
+) => {
+  const { data, isLoading, error, refetch } = useQuery<ChannelAnalyticsInsight, Error>({
+    queryKey: ['analyticsInsights', channelId, Array.isArray(periods) ? periods.join(',') : periods],
+    queryFn: () => {
+      if (!channelId) {
+        throw new Error('Channel ID is required for AI analytics insights');
+      }
+      console.log(`[Analytics] Fetching AI insights for channel ${channelId} with periods ${Array.isArray(periods) ? periods.join(',') : periods}`);
+      return getChannelAnalyticsInsights(channelId, periods);
+    },
+    enabled: !!channelId,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes 
+    retry: 1, // Only retry once as this is a "nice to have" feature
+  });
+
+  return {
+    insights: data,
+    isLoading,
+    error,
+    refreshInsights: refetch
   };
 };

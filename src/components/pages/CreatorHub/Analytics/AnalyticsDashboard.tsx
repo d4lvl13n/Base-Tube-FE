@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import TabNav from '../../../common/TabNav';
 import { useCreatorAnalytics } from '../../../../hooks/useAnalyticsData';
 import { ContentPerformanceTab } from './tabs/ContentPerformanceTab';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Sparkles, BarChart2, Users, TrendingUp, BarChart3, Activity } from 'lucide-react';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
 import ChannelPreviewCard from '../../../common/CreatorHub/ChannelPreviewCard';
 import { OverviewTab } from './tabs/OverviewTab';
@@ -11,6 +11,7 @@ import { AudienceInsightsTab } from './tabs/AudienceInsightsTab';
 import { GrowthTab } from './tabs/GrowthMonetizationTab';
 import { EngagementAnalyticsTab } from './tabs/EngagementAnalyticsTab';
 import { DetailedVideoPerformanceTab } from './tabs/DetailedVideoPerformanceTab';
+import { AIInsightsTab } from './tabs/AIInsightsTab';
 
 const AnalyticsDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Overview');
@@ -38,10 +39,23 @@ const AnalyticsDashboard: React.FC = () => {
         return <EngagementAnalyticsTab channelId={selectedChannelId} />;
       case 'Video Performance':
         return <DetailedVideoPerformanceTab channelId={selectedChannelId} />;
+      case 'AI Insights':
+        return <AIInsightsTab channelId={selectedChannelId} />;
       default:
         return null;
     }
   };
+
+  // Define tabs with icons
+  const tabs = [
+    'Overview',
+    'Content',
+    'Audience',
+    'Growth',
+    'Engagement',
+    'Video Performance',
+    { id: 'AI Insights', label: 'AI Insights', icon: Sparkles }
+  ];
 
   return (
     <motion.div
@@ -76,7 +90,7 @@ const AnalyticsDashboard: React.FC = () => {
       >
         <div className="relative z-10">
           <TabNav
-            tabs={['Overview', 'Content', 'Audience', 'Growth', 'Engagement', 'Video Performance']}
+            tabs={tabs}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
           />
