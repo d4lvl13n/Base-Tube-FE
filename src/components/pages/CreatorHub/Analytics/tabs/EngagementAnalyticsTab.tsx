@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ThumbsUp, 
   MessageCircle, 
@@ -13,19 +13,41 @@ import StatsCard from '../../../CreatorHub/StatsCard';
 import { Select } from '../../../../ui/Select';
 import { format, parseISO } from 'date-fns';
 import { LineChart } from '../charts/LineChart';
+import { getVideoById } from '../../../../../api/video';
 
 // Video card component
 const TopVideoCard: React.FC<{
   thumbnail: string;
   title: string;
+  videoId: number | string;
   metric: { icon: React.ReactNode; value: string; label: string };
   secondaryMetric: { value: string; label: string };
-}> = ({ thumbnail, title, metric, secondaryMetric }) => {
+}> = ({ thumbnail, title, videoId, metric, secondaryMetric }) => {
+  const [loadedThumbnail, setLoadedThumbnail] = useState<string | null>(thumbnail);
+  
+  // Try to fetch thumbnail if not provided
+  useEffect(() => {
+    const fetchThumbnail = async () => {
+      if (!thumbnail && videoId) {
+        try {
+          const videoDetails = await getVideoById(videoId.toString());
+          if (videoDetails?.thumbnail_url) {
+            setLoadedThumbnail(videoDetails.thumbnail_url);
+          }
+        } catch (error) {
+          console.error(`Failed to fetch thumbnail for video ${videoId}:`, error);
+        }
+      }
+    };
+    
+    fetchThumbnail();
+  }, [thumbnail, videoId]);
+  
   return (
     <div className="bg-black/30 rounded-lg overflow-hidden flex">
       <div className="w-24 h-16 flex-shrink-0 bg-gray-800">
         <img 
-          src={thumbnail || '/placeholder-thumbnail.jpg'} 
+          src={loadedThumbnail || '/placeholder-thumbnail.jpg'} 
           alt="" 
           className="w-full h-full object-cover"
           onError={(e) => {
@@ -335,6 +357,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
                   key={index}
                   thumbnail={video.thumbnail}
                   title={video.title}
+                  videoId={video.id}
                   metric={{
                     icon: <ThumbsUp className="w-3 h-3" />,
                     value: video.likes.toLocaleString(),
@@ -368,6 +391,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
                   key={index}
                   thumbnail={video.thumbnail}
                   title={video.title}
+                  videoId={video.id}
                   metric={{
                     icon: <Share2 className="w-3 h-3" />,
                     value: video.shares.toLocaleString(),
