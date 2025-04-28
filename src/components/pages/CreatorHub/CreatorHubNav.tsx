@@ -9,7 +9,8 @@ import {
   DollarSign,
   Tv,
   Upload,
-  LucideIcon
+  LucideIcon,
+  ImageIcon
 } from 'lucide-react';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 
@@ -87,6 +88,11 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
       icon: DollarSign,
       path: '/creator-hub/monetization',
       badge: 'Soon'
+    },
+    {
+      title: 'Thumbnail Gallery',
+      icon: ImageIcon,
+      path: '/thumbnail-gallery',
     }
   ];
 

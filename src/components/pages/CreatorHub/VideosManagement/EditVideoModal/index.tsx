@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ImageIcon, Globe2, Lock, Sparkles } from 'lucide-react';
+import { X, ImageIcon, Globe2, Lock, Sparkles, Wand2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import RichTextEditor from '../../../../common/RichTextEditor';
 import AIAssistantPanel from '../../../../common/AIAssistantPanel';
+import AIThumbnailPanel from '../../../../common/AIThumbnailPanel';
 import { generateVideoDescription } from '../../../../../api/video';
+import { useAIthumbnail } from '../../../../../hooks/useAIthumbnail';
 import { EditVideoModalProps, FormErrors, FormFields, VisibilityOption } from './types';
 import { styles } from './styles';
 
@@ -35,6 +37,17 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [generatedDescription, setGeneratedDescription] = useState('');
   const [suggestedTitle, setSuggestedTitle] = useState<string | undefined>();
+  
+  // AI Thumbnail Panel state
+  const [isAIThumbnailPanelOpen, setIsAIThumbnailPanelOpen] = useState(false);
+  const { 
+    generateForVideo, 
+    generateFromPrompt, 
+    generateWithReference,
+    isGeneratingForVideo,
+    isGeneratingFromPrompt,
+    isGeneratingWithReference
+  } = useAIthumbnail();
 
   // Cleanup function for thumbnail preview
   useEffect(() => {
@@ -138,6 +151,24 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
     }
   };
 
+  // Handle AI-generated thumbnail
+  const handleThumbnailGenerated = (thumbnailUrl: string) => {
+    // Convert the URL to a file
+    fetch(thumbnailUrl)
+      .then(response => response.blob())
+      .then(blob => {
+        const file = new File([blob], `ai-thumbnail-${Date.now()}.png`, { type: 'image/png' });
+        setThumbnailFile(file);
+        setThumbnailPreview(thumbnailUrl);
+        setErrors(prev => ({ ...prev, thumbnail: undefined }));
+        toast.success('AI thumbnail applied successfully');
+      })
+      .catch(error => {
+        console.error('Error converting thumbnail URL to file:', error);
+        toast.error('Failed to apply AI thumbnail');
+      });
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -227,41 +258,51 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
                   )}
                 </div>
 
-                {/* Two-column layout for Thumbnail only */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
+                {/* Two-column layout for Thumbnail */}
+                <div className={styles.inputGroup}>
+                  <div className="flex justify-between items-center mb-2">
                     <label className={styles.label}>Thumbnail</label>
-                    <div
-                      className={`h-48 bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-800/50 transition-colors ${errors.thumbnail ? 'border border-red-500' : ''}`}
+                    <motion.button
+                      type="button"
+                      onClick={() => setIsAIThumbnailPanelOpen(true)}
+                      className="flex items-center space-x-2 text-[#fa7517] hover:text-[#ff8c3a] transition-colors"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleThumbnailChange}
-                        className="hidden"
-                        id="thumbnail-upload"
-                      />
-                      <label htmlFor="thumbnail-upload" className="block w-full h-full">
-                        {thumbnailPreview ? (
-                          <img
-                            src={thumbnailPreview}
-                            alt="Video thumbnail"
-                            className="w-full h-full object-cover rounded-lg"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center h-full gap-2">
-                            <ImageIcon className="w-8 h-8 text-gray-400" />
-                            <span className="text-sm text-gray-400">
-                              Click to upload thumbnail
-                            </span>
-                          </div>
-                        )}
-                      </label>
-                    </div>
-                    {errors.thumbnail && (
-                      <span className="text-sm text-red-500">{errors.thumbnail}</span>
-                    )}
+                      <Wand2 className="w-4 h-4" />
+                      <span className="text-sm">AI Thumbnail Generator</span>
+                    </motion.button>
                   </div>
+                  <div
+                    className={`h-48 bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-800/50 transition-colors ${errors.thumbnail ? 'border border-red-500' : ''}`}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleThumbnailChange}
+                      className="hidden"
+                      id="thumbnail-upload"
+                    />
+                    <label htmlFor="thumbnail-upload" className="block w-full h-full">
+                      {thumbnailPreview ? (
+                        <img
+                          src={thumbnailPreview}
+                          alt="Video thumbnail"
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full gap-2">
+                          <ImageIcon className="w-8 h-8 text-gray-400" />
+                          <span className="text-sm text-gray-400">
+                            Click to upload thumbnail
+                          </span>
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                  {errors.thumbnail && (
+                    <span className="text-sm text-red-500">{errors.thumbnail}</span>
+                  )}
                 </div>
 
                 {/* Visibility Toggle */}
@@ -332,6 +373,22 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
               setSuggestedTitle(undefined);
             }}
             mode="video"
+          />
+
+          {/* Add AIThumbnailPanel */}
+          <AIThumbnailPanel
+            isOpen={isAIThumbnailPanelOpen}
+            onClose={() => setIsAIThumbnailPanelOpen(false)}
+            videoId={video.id}
+            videoTitle={formData.title}
+            videoDescription={formData.description}
+            onThumbnailGenerated={handleThumbnailGenerated}
+            isGeneratingForVideo={isGeneratingForVideo}
+            isGeneratingFromPrompt={isGeneratingFromPrompt}
+            isGeneratingWithReference={isGeneratingWithReference}
+            generateForVideo={generateForVideo}
+            generateFromPrompt={generateFromPrompt}
+            generateWithReference={generateWithReference}
           />
         </div>
       )}

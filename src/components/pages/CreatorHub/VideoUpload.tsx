@@ -19,8 +19,10 @@ import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
 import { showErrorToast, uploadErrors } from '../../common/Notifications/ErrorToast';
 import { UploadRequirements } from '../../common/CreatorHub/UploadRequirements';
 import AIAssistantPanel from '../../common/AIAssistantPanel';
+import AIThumbnailPanel from '../../common/AIThumbnailPanel';
 import RichTextEditor from '../../common/RichTextEditor';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
+import { useAIthumbnail } from '../../../hooks/useAIthumbnail';
 
 interface VisibilityOption {
   id: 'public' | 'private';
@@ -42,6 +44,7 @@ const VideoUpload: React.FC = () => {
   const [tags, setTags] = useState('');
   const [uploadedVideoId, setUploadedVideoId] = useState<string | null>(null);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showAIThumbnailPanel, setShowAIThumbnailPanel] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [keywords, setKeywords] = useState('');
   const [additionalInfo, setAdditionalInfo] = useState('');
@@ -57,6 +60,16 @@ const VideoUpload: React.FC = () => {
   const { channels, selectedChannelId, selectedChannel } = useChannelSelection();
   const navigate = useNavigate();
   const [channelError, setChannelError] = useState<string | null>(null);
+  
+  // Add AI Thumbnail hook
+  const { 
+    generateForVideo, 
+    isGeneratingForVideo,
+    generateFromPrompt,
+    isGeneratingFromPrompt,
+    generateWithReference,
+    isGeneratingWithReference
+  } = useAIthumbnail();
 
   useEffect(() => {
     if (step === 2) {
@@ -286,6 +299,22 @@ const VideoUpload: React.FC = () => {
     }
   };
 
+  // Add handler for applying generated thumbnails
+  const handleApplyAIThumbnail = (thumbnailUrl: string) => {
+    setThumbnailPreview(thumbnailUrl);
+    // Fetch the image and convert to File object
+    fetch(thumbnailUrl)
+      .then(res => res.blob())
+      .then(blob => {
+        const file = new File([blob], 'ai-thumbnail.jpg', { type: 'image/jpeg' });
+        setThumbnailFile(file);
+      })
+      .catch(error => {
+        console.error('Error fetching thumbnail:', error);
+        showErrorToast('Failed to apply AI thumbnail');
+      });
+  };
+
   const renderStep = () => {
     switch (step) {
       case 1:
@@ -355,33 +384,36 @@ const VideoUpload: React.FC = () => {
                 </div>
               </div>
 
-              {/* Thumbnail Card */}
+              {/* Thumbnail Card - Updated with improved UI */}
               <div className="p-8 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-medium text-white">Thumbnail</h2>
-                  <button
-                    onClick={() => document.getElementById('thumbnail-upload')?.click()}
-                    className="px-6 py-2.5 bg-[#fa7517] hover:bg-[#ff8c3a] text-black 
-                             rounded-lg font-medium transition-colors"
-                  >
-                    Upload Thumbnail
-                  </button>
-                  <input
-                    id="thumbnail-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleThumbnailChange}
-                  />
-                </div>
+                <h2 className="text-xl font-medium text-white mb-6">Thumbnail</h2>
                 
-                <div className="relative aspect-video rounded-lg overflow-hidden bg-black/50">
+                <div className="relative aspect-video rounded-lg overflow-hidden bg-black/50 mb-6 group">
                   {thumbnailPreview ? (
+                    <>
                     <img
                       src={thumbnailPreview}
                       alt="Video thumbnail"
-                      className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-all duration-300"
                     />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <button
+                          onClick={() => document.getElementById('thumbnail-upload')?.click()}
+                          className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg text-white text-sm font-medium hover:bg-white/30 transition-colors mx-2"
+                        >
+                          Replace
+                        </button>
+                        <button
+                          onClick={() => {
+                            setThumbnailPreview(null);
+                            setThumbnailFile(null);
+                          }}
+                          className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg text-white text-sm font-medium hover:bg-white/30 transition-colors mx-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </>
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 space-y-3">
                       <img 
@@ -393,6 +425,46 @@ const VideoUpload: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                <div className="flex flex-col space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => document.getElementById('thumbnail-upload')?.click()}
+                      className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 text-white rounded-lg font-medium transition-colors"
+                    >
+                      <Upload className="w-5 h-5" />
+                      Upload Image
+                    </button>
+                    
+                    <button
+                      onClick={() => setShowAIThumbnailPanel(true)}
+                      className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#fa7517]/90 to-[#ff8c3a]/90 hover:from-[#fa7517] hover:to-[#ff8c3a] text-black rounded-lg font-medium transition-all shadow-md hover:shadow-lg hover:shadow-[#fa7517]/20"
+                    >
+                      <Sparkles className="w-5 h-5" />
+                      AI Generator
+                    </button>
+                  </div>
+                  
+                  <div className="bg-[#fa7517]/10 rounded-lg p-4 border border-[#fa7517]/20">
+                    <div className="flex items-start">
+                      <div className="mr-3 mt-1">
+                        <Sparkles className="w-5 h-5 text-[#fa7517]" />
+                      </div>
+                      <div>
+                        <p className="text-white text-sm font-medium">AI Thumbnail Generator</p>
+                        <p className="text-gray-400 text-sm mt-1">Create eye-catching thumbnails powered by AI to increase your video's click-through rate.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <input
+                  id="thumbnail-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleThumbnailChange}
+                />
               </div>
 
               {/* Upload Requirements */}
@@ -712,6 +784,21 @@ const VideoUpload: React.FC = () => {
           setSuggestedTitle(undefined);
         }}
         mode="video"
+      />
+
+      <AIThumbnailPanel
+        isOpen={showAIThumbnailPanel}
+        onClose={() => setShowAIThumbnailPanel(false)}
+        videoId={uploadedVideoId ? parseInt(uploadedVideoId) : undefined}
+        videoTitle={title}
+        videoDescription={description}
+        onThumbnailGenerated={handleApplyAIThumbnail}
+        isGeneratingForVideo={isGeneratingForVideo}
+        isGeneratingFromPrompt={isGeneratingFromPrompt}
+        isGeneratingWithReference={isGeneratingWithReference}
+        generateForVideo={generateForVideo}
+        generateFromPrompt={generateFromPrompt}
+        generateWithReference={generateWithReference}
       />
     </motion.div>
   );

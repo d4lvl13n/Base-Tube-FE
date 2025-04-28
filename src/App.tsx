@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { ToastContainer } from 'react-toastify';
@@ -48,6 +48,9 @@ import FAQPage from './pages/FAQ/index';
 import MomentNFTsPage from './pages/FAQ/MomentNFTs';
 import MomentNFTMintPage from './pages/MomentNFTMint';
 import { GrowthTab } from './components/pages/CreatorHub/Analytics/tabs/GrowthMonetizationTab';
+
+// Lazy-loaded components
+const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -335,6 +338,18 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  {/* Thumbnail Gallery route */}
+                  <Route path="/thumbnail-gallery" element={
+                    <div className="min-h-screen bg-black">
+                      <Header className="sticky top-0 z-50" />
+                      <div className="pt-16">
+                        <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+                          <ThumbnailGalleryPage />
+                        </Suspense>
+                      </div>
+                    </div>
+                  } />
 
                   {/* FAQ routes */}
                   <Route path="/faq" element={<FAQPage />} />
