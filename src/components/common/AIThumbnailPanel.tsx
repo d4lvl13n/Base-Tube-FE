@@ -486,10 +486,10 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                             <Video className="w-5 h-5 text-[#fa7517] flex-shrink-0 mt-1" />
                             <div>
                               <p className="text-white">
-                                Generate 3 thumbnails based on your video title and description.
+                                Generate 2 thumbnails based on your video title and description.
                                 {!videoId && " Since your video isn't uploaded yet, we'll use text-based generation."}
                               </p>
-                              <p className="text-gray-400 text-sm mt-1">All thumbnails are generated at 1280×720 resolution in high quality.</p>
+                              <p className="text-gray-400 text-sm mt-1">All thumbnails are generated at 1536×1024 resolution in high quality.</p>
                             </div>
                           </div>
                           
@@ -500,7 +500,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                           <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
                             <div className="flex items-center gap-2">
                               <Info className="w-5 h-5 text-gray-400" />
-                              <p className="text-gray-300 text-sm">All thumbnails are generated at 1280×720 resolution in high quality PNG format with optional transparency.</p>
+                              <p className="text-gray-300 text-sm">All thumbnails are generated at 1536×1024 resolution in high quality PNG format with optional transparency.</p>
                             </div>
                           </div>
                         </div>
@@ -514,7 +514,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                             <Sparkles className="w-5 h-5 text-[#fa7517] flex-shrink-0 mt-1" />
                             <div>
                               <p className="text-white">
-                                Create 3 custom thumbnails with your own prompt, reference image, or both combined for best results.
+                                Create 2 custom thumbnails with your own prompt, reference image, or both combined for best results.
                               </p>
                               <p className="text-gray-400 text-sm mt-1">
                                 Upload an image for styling reference and/or use a detailed prompt to guide the AI.
@@ -645,7 +645,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                           <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
                             <div className="flex items-center gap-2">
                               <Info className="w-5 h-5 text-gray-400" />
-                              <p className="text-gray-300 text-sm">All thumbnails are generated at 1280×720 resolution in high quality PNG format with optional transparency.</p>
+                              <p className="text-gray-300 text-sm">All thumbnails are generated at 1536×1024 resolution in high quality PNG format with optional transparency.</p>
                             </div>
                           </div>
                         </div>

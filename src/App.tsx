@@ -48,6 +48,9 @@ import FAQPage from './pages/FAQ/index';
 import MomentNFTsPage from './pages/FAQ/MomentNFTs';
 import MomentNFTMintPage from './pages/MomentNFTMint';
 import { GrowthTab } from './components/pages/CreatorHub/Analytics/tabs/GrowthMonetizationTab';
+import PassDetailsPage from './pages/PassDetailsPage';
+import CheckoutSuccessPage from './pages/CheckoutSuccessPage';
+import WatchPassPage from './pages/WatchPassPage';
 
 // Lazy-loaded components
 const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
@@ -357,6 +360,11 @@ function App() {
                   <Route path="/faq/points-system" element={<div>Coming Soon</div>} />
                   <Route path="/faq/wallet" element={<div>Coming Soon</div>} />
                   <Route path="/faq/content-creation" element={<div>Coming Soon</div>} />
+
+                  {/* New routes */}
+                  <Route path="/p/:slug" element={<PassDetailsPage />} />
+                  <Route path="/pay/success" element={<CheckoutSuccessPage />} />
+                  <Route path="/watch/:passId" element={<WatchPassPage />} />
 
                   {/* Catch-all redirect to sign-in */}
                   <Route
