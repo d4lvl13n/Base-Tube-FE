@@ -2,9 +2,13 @@ import { motion } from 'framer-motion';
 import styled from 'styled-components';
 
 export const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1.5rem;
+  padding-top: 4rem;
 `;
 
 export const Header = styled.div`

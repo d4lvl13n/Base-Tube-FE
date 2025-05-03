@@ -21,6 +21,11 @@ import {
   Bot,
   Wand2,
   X,
+  Youtube,
+  CheckCircle,
+  Loader2,
+  Eye,
+  Film,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -30,6 +35,7 @@ import { stripHandleSuffix } from '../../utils/handleUtils';
 import { useChannelAI } from '../../hooks/useChannelAI';
 import RichTextEditor from '../common/RichTextEditor';
 import AIAssistantPanel from '../common/AIAssistantPanel';
+import { useYouTubeAuth } from '../../hooks/useYouTubeAuth';
 
 interface FormData {
   name: string;
@@ -58,6 +64,9 @@ const CreateChannelPage: React.FC = () => {
   const [generatedDescription, setGeneratedDescription] = useState<string | undefined>();
   const [isGenerating, setIsGenerating] = useState(false);
   const [suggestedHandle, setSuggestedHandle] = useState<string | undefined>();
+  const [showSuccessOptions, setShowSuccessOptions] = useState(false);
+  const [createdChannelHandle, setCreatedChannelHandle] = useState('');
+  const { startOAuth, status: youtubeStatus, channel: youtubeChannel } = useYouTubeAuth();
   
   const {
     register,
@@ -174,6 +183,34 @@ const CreateChannelPage: React.FC = () => {
     }
   }, [shouldFetchSuggestions, watchedName, generateHandleSuggestions, watch]);
 
+  // Update the YouTube data handling in useEffect
+  useEffect(() => {
+    if (youtubeStatus === 'linked' && youtubeChannel) {
+      // Auto-fill form with YouTube data
+      setValue('name', youtubeChannel.title || '');
+      
+      // Generate handle from YouTube channel name if we have one
+      if (youtubeChannel.title) {
+        const suggestedHandle = youtubeChannel.title
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-zA-Z0-9_]/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .substring(0, 29);
+        
+        setValue('handle', suggestedHandle, { shouldValidate: true });
+      }
+      
+      // Add description if available - safely access it
+      const channelDescription = (youtubeChannel as any).description;
+      if (channelDescription && typeof channelDescription === 'string') {
+        setValue('description', channelDescription);
+      }
+      
+      toast.success("YouTube channel details imported successfully!");
+    }
+  }, [youtubeStatus, youtubeChannel, setValue]);
+
   // Helper to check if we're on the final step
   const isLastStep = step === totalSteps;
 
@@ -251,7 +288,16 @@ const CreateChannelPage: React.FC = () => {
         throw new Error(response.message || 'Failed to create channel');
       }
 
+      // Store the created channel handle for navigation
+      setCreatedChannelHandle(response.channel.handle);
+      
+      // Show success message
       toast.success('Channel created successfully!');
+      
+      // Close the modal and show success options
+      setIsModalOpen(false);
+      setShowSuccessOptions(true);
+      
       return response.channel.handle;
 
     } catch (error: any) {
@@ -515,6 +561,74 @@ const CreateChannelPage: React.FC = () => {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Optional YouTube Import - Added at the bottom of Step 1 */}
+            <motion.div
+              className="mt-12 p-6 rounded-xl bg-gray-900/30 border border-gray-800/50 backdrop-blur-sm"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-red-600/20 rounded-lg">
+                    <Youtube className="text-red-500" size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-white mb-1">Already have a YouTube channel?</h3>
+                    <p className="text-gray-400">
+                      Optionally connect your YouTube channel to import your details and speed up the process.
+                    </p>
+                  </div>
+                </div>
+                
+                <motion.button
+                  onClick={startOAuth}
+                  disabled={youtubeStatus === 'linked'}
+                  className={`px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium
+                    ${youtubeStatus === 'linked' 
+                      ? 'bg-green-600/20 text-green-400 cursor-not-allowed' 
+                      : 'bg-red-600 hover:bg-red-500 text-white'}`}
+                  whileHover={youtubeStatus !== 'linked' ? { scale: 1.03 } : {}}
+                  whileTap={youtubeStatus !== 'linked' ? { scale: 0.97 } : {}}
+                >
+                  {youtubeStatus === 'linked' ? (
+                    <>
+                      <CheckCircle size={18} />
+                      Connected
+                    </>
+                  ) : youtubeStatus === 'loading' ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      >
+                        <Loader2 size={18} />
+                      </motion.div>
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <Youtube size={18} />
+                      Connect YouTube
+                    </>
+                  )}
+                </motion.button>
+              </div>
+              
+              {youtubeStatus === 'linked' && youtubeChannel && (
+                <motion.div 
+                  className="mt-4 p-3 bg-green-600/10 border border-green-600/20 rounded-lg flex items-center gap-3"
+                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                  animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                >
+                  <CheckCircle className="text-green-500" size={18} />
+                  <span className="text-green-400">
+                    Details imported from: <span className="font-medium">{youtubeChannel.title}</span>
+                  </span>
+                </motion.div>
+              )}
+            </motion.div>
           </motion.div>
         );
       case 2:
@@ -928,12 +1042,7 @@ const CreateChannelPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onConfirm={async () => {
           try {
-            const handle = await confirmCreateChannel();
-            if (handle) {
-              setTimeout(() => {
-                navigate(`/channel/${handle}`);
-              }, 7000);
-            }
+            await confirmCreateChannel();
           } catch (error) {
             console.error('Error creating channel:', error);
             setIsModalOpen(false);
@@ -962,6 +1071,57 @@ const CreateChannelPage: React.FC = () => {
         }}
         mode="channel"
       />
+      
+      {/* Success options screen */}
+      <AnimatePresence>
+        {showSuccessOptions && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-90 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-gray-900 rounded-2xl p-8 max-w-lg w-full border border-gray-800/50"
+              style={{
+                boxShadow: '0 0 20px rgba(250, 117, 23, 0.2), 0 0 60px rgba(250, 117, 23, 0.1)'
+              }}
+            >
+              <div className="text-center mb-8">
+                <div className="w-20 h-20 mx-auto bg-green-500/20 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle className="text-green-500" size={40} />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2">Channel Created Successfully!</h2>
+                <p className="text-gray-400">Your channel is now live. What would you like to do next?</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <motion.button
+                  onClick={() => navigate(`/channel/${createdChannelHandle}`)}
+                  className="p-4 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-[#fa7517]/30 transition-all"
+                  whileHover={{ y: -2, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                >
+                  <Eye className="w-8 h-8 text-[#fa7517] mx-auto mb-2" />
+                  <h3 className="font-medium text-white">View My Channel</h3>
+                  <p className="text-xs text-gray-400 mt-1">See how your channel looks</p>
+                </motion.button>
+                
+                <motion.button
+                  onClick={() => navigate('/creator-hub/create-content-pass')}
+                  className="p-4 rounded-xl bg-[#fa7517] hover:bg-[#ff8c3a] text-black transition-all"
+                  whileHover={{ y: -2, boxShadow: '0 10px 15px -3px rgba(250, 117, 23, 0.3)' }}
+                >
+                  <Film className="w-8 h-8 mx-auto mb-2" />
+                  <h3 className="font-medium">Create Content Pass</h3>
+                  <p className="text-xs mt-1">Start monetizing your content</p>
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

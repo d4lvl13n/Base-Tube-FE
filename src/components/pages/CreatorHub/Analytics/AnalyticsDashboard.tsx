@@ -12,17 +12,24 @@ import { GrowthTab } from './tabs/GrowthMonetizationTab';
 import { EngagementAnalyticsTab } from './tabs/EngagementAnalyticsTab';
 import { DetailedVideoPerformanceTab } from './tabs/DetailedVideoPerformanceTab';
 import { AIInsightsTab } from './tabs/AIInsightsTab';
+import NoChannelView from '../NoChannelView';
 
 const AnalyticsDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Overview');
-  const { selectedChannelId, selectedChannel } = useChannelSelection();
+  const { selectedChannelId, selectedChannel, channels } = useChannelSelection();
   
   const analyticsData = useCreatorAnalytics('7d', selectedChannelId);
   const isError = analyticsData.viewMetrics === undefined && 
                   Object.values(analyticsData.errors).some(err => err !== null);
 
-  if (!selectedChannel) {
-    return null;
+  if (!selectedChannel || channels.length === 0) {
+    return (
+      <NoChannelView 
+        title="Channel Analytics Dashboard"
+        description="Create a channel to access detailed performance metrics, audience insights, and growth statistics."
+        buttonText="Create a Channel"
+      />
+    );
   }
 
   const renderActiveTab = () => {

@@ -51,9 +51,14 @@ import { GrowthTab } from './components/pages/CreatorHub/Analytics/tabs/GrowthMo
 import PassDetailsPage from './pages/PassDetailsPage';
 import CheckoutSuccessPage from './pages/CheckoutSuccessPage';
 import WatchPassPage from './pages/WatchPassPage';
+import { ManagePassesPage } from './components/pages/CreatorHub/ManagePasses';
+import { PassDetailView } from './components/pages/CreatorHub/ManagePasses';
+import MyPasses from './components/pages/MyPasses';
+import YouTubeAuthCallback from './components/pages/CreatorHub/YouTubeAuthCallback';
 
 // Lazy-loaded components
 const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
+const CreateContentPass = lazy(() => import('./components/pages/CreatorHub/CreateContentPass/index'));
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -252,6 +257,34 @@ function App() {
                     path="/creator-hub/monetization"
                     element={<MonetizationInfo />}
                   />
+                  <Route
+                    path="/creator-hub/create-content-pass"
+                    element={
+                      <CreatorHubRoute
+                        element={
+                          <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+                            <CreateContentPass />
+                          </Suspense>
+                        }
+                      />
+                    }
+                  />
+                  <Route
+                    path="/creator-hub/passes"
+                    element={
+                      <CreatorHubRoute
+                        element={<ManagePassesPage />}
+                      />
+                    }
+                  />
+                  <Route
+                    path="/creator-hub/passes/:id"
+                    element={
+                      <CreatorHubRoute
+                        element={<PassDetailView />}
+                      />
+                    }
+                  />
 
                   {/* Protected routes */}
                   <Route
@@ -365,6 +398,22 @@ function App() {
                   <Route path="/p/:slug" element={<PassDetailsPage />} />
                   <Route path="/pay/success" element={<CheckoutSuccessPage />} />
                   <Route path="/watch/:passId" element={<WatchPassPage />} />
+
+                  {/* MyPasses route */}
+                  <Route
+                    path="/my-passes"
+                    element={
+                      <ProtectedRoute>
+                        <MyPasses />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Dashboard route */}
+                  <Route
+                    path="/dashboard/creator"
+                    element={<YouTubeAuthCallback />}
+                  />
 
                   {/* Catch-all redirect to sign-in */}
                   <Route

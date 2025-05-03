@@ -5,25 +5,36 @@ import VideoSection from '../common/Home/VideoSection';
 import ChannelSection from '../common/Home/ChannelSection';
 import ErrorBoundary from '../common/ErrorBoundary';
 import PlaceholderVideoCard from '../common/PlaceHolderVideoCard';
-import { getFeaturedVideos, getRecommendedVideos, getNFTVideos } from '../../api/video';
+import { getFeaturedVideos, getRecommendedVideos } from '../../api/video';
 import { getPopularChannels } from '../../api/channel';
 import { useTrendingVideos } from '../../hooks/useTrendingVideos';
+import { usePassDiscover } from '../../hooks/usePass';
 import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';
 import Header from '../common/Header';
 import { useNavigation } from '../../contexts/NavigationContext';
+import PassCard from '../pass/PassCard';
 
 const BaseTubeHomepage: React.FC = () => {
   const { navStyle } = useNavigation();
   const isFloatingNav = navStyle === 'floating';
   const [featuredVideos, setFeaturedVideos] = useState<Video[]>([]);
   const [recommendedVideos, setRecommendedVideos] = useState<Video[]>([]);
-  const [nftVideos, setNFTVideos] = useState<Video[]>([]);
   const [popularChannels, setPopularChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [sectionErrors, setSectionErrors] = useState<Record<string, boolean>>({});
   const [channelsPage] = useState(1);
   const [channelsLimit] = useState(15);
+
+  // Fetch premium content passes (formerly NFT videos)
+  const { 
+    data: passesData,
+    isLoading: passesLoading,
+    error: passesError
+  } = usePassDiscover({ limit: 4 });
+  
+  // Extract passes from the first page
+  const contentPasses = passesData?.pages?.[0]?.data || [];
 
   const { 
     videos: trendingVideos,
@@ -70,7 +81,6 @@ const BaseTubeHomepage: React.FC = () => {
           setRecommendedVideos,
           'recommended'
         ),
-        fetchData(() => getNFTVideos(4), setNFTVideos, 'nft'),
         fetchData(
           async () => {
             const channelsData = await getPopularChannels(channelsPage, channelsLimit);
@@ -88,7 +98,7 @@ const BaseTubeHomepage: React.FC = () => {
     fetchHomePageData();
   }, [channelsPage, channelsLimit]);
 
-  if (loading || trendingLoading) {
+  if (loading || trendingLoading || passesLoading) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
 
@@ -96,6 +106,15 @@ const BaseTubeHomepage: React.FC = () => {
     Array(count).fill(null).map((_, index) => (
       <PlaceholderVideoCard key={index} size={size} className={size === 'large' ? 'w-full' : ''} />
     ))
+  );
+
+  // Custom render function for passes
+  const renderPasses = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {contentPasses.map(pass => (
+        <PassCard key={pass.id} pass={pass} />
+      ))}
+    </div>
   );
 
   return (
@@ -122,12 +141,29 @@ const BaseTubeHomepage: React.FC = () => {
                 linkTo="/discover?tab=for-you"
                 renderPlaceholder={() => renderPlaceholders(4)}
               />
-              <VideoSection 
-                title="NFT Content Pass" 
-                videos={sectionErrors['nft'] ? [] : nftVideos} 
-                linkTo="/discover?tab=nft"
-                renderPlaceholder={() => renderPlaceholders(4)}
-              />
+              
+              {/* Content Pass Section */}
+              <div className="mt-12">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl md:text-2xl font-bold">Premium Content Passes</h2>
+                  <a 
+                    href="/discover?tab=passes" 
+                    className="text-sm text-orange-500 hover:text-orange-400 transition-colors duration-200"
+                  >
+                    See All
+                  </a>
+                </div>
+                {passesError ? (
+                  <div className="text-red-500">Failed to load content passes</div>
+                ) : passesLoading ? (
+                  renderPlaceholders(4)
+                ) : contentPasses.length === 0 ? (
+                  <div className="text-gray-500 text-center py-8">No content passes available</div>
+                ) : (
+                  renderPasses()
+                )}
+              </div>
+              
               <ChannelSection
                 channels={sectionErrors['channels'] ? [] : popularChannels}
                 renderPlaceholder={() => renderPlaceholders(15)}

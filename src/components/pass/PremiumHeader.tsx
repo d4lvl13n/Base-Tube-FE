@@ -8,11 +8,13 @@ import { useAuth as useWeb3Auth } from '../../contexts/AuthContext';
 interface PremiumHeaderProps {
   passTitle?: string;
   creatorName?: string;
+  passId?: string;
 }
 
 const PremiumHeader: React.FC<PremiumHeaderProps> = ({ 
   passTitle,
-  creatorName
+  creatorName,
+  passId
 }) => {
   const { isSignedIn, user: clerkUser } = useUser();
   const { isAuthenticated: isWeb3SignedIn, user: web3User } = useWeb3Auth();
@@ -98,27 +100,59 @@ const PremiumHeader: React.FC<PremiumHeaderProps> = ({
             {/* Center Section - Pass Title (if available) */}
             {passTitle && (
               <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 hidden md:block">
-                <div className="flex items-center gap-2 text-white/80">
-                  <span className="font-medium truncate max-w-xs">{passTitle}</span>
-                  {creatorName && (
-                    <>
-                      <span className="text-white/40">•</span>
-                      <span className="text-white/60 text-sm">{creatorName}</span>
-                    </>
-                  )}
-                </div>
+                {passId ? (
+                  <Link to={`/p/${passId}`} className="group">
+                    <motion.div 
+                      whileHover={{ scale: 1.03 }}
+                      className="flex items-center gap-2 text-white/80 hover:text-white"
+                    >
+                      <span className="font-medium truncate max-w-xs group-hover:underline">{passTitle}</span>
+                      {creatorName && (
+                        <>
+                          <span className="text-white/40">•</span>
+                          <span className="text-white/60 text-sm">{creatorName}</span>
+                        </>
+                      )}
+                    </motion.div>
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-2 text-white/80">
+                    <span className="font-medium truncate max-w-xs">{passTitle}</span>
+                    {creatorName && (
+                      <>
+                        <span className="text-white/40">•</span>
+                        <span className="text-white/60 text-sm">{creatorName}</span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Right Section - Premium Indicator and Avatar */}
+            {/* Right Section - Premium Indicator/Pass Title and Avatar */}
             <div className="flex items-center gap-4">
-              <motion.div 
-                whileHover={{ scale: 1.02 }}
-                className="flex items-center gap-2 bg-gradient-to-r from-orange-500/10 to-pink-500/10 rounded-full px-3 py-1.5 border border-orange-500/20"
-              >
-                <Lock className="w-3.5 h-3.5 text-orange-400" />
-                <span className="text-white/90 text-sm font-medium">Premium Content</span>
-              </motion.div>
+              {passId && passTitle ? (
+                <motion.div 
+                  whileHover={{ scale: 1.02 }}
+                  className="flex items-center gap-2"
+                >
+                  <Link 
+                    to={`/p/${passId}`} 
+                    className="bg-gradient-to-r from-orange-500/10 to-pink-500/10 rounded-full px-3 py-1.5 border border-orange-500/20 flex items-center gap-2 hover:from-orange-500/20 hover:to-pink-500/20 transition-all duration-300"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-orange-400" />
+                    <span className="text-white/90 text-sm font-medium truncate max-w-[150px]">{passTitle}</span>
+                  </Link>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  whileHover={{ scale: 1.02 }}
+                  className="flex items-center gap-2 bg-gradient-to-r from-orange-500/10 to-pink-500/10 rounded-full px-3 py-1.5 border border-orange-500/20"
+                >
+                  <Lock className="w-3.5 h-3.5 text-orange-400" />
+                  <span className="text-white/90 text-sm font-medium">Content Pass</span>
+                </motion.div>
+              )}
               {renderAvatar()}
             </div>
           </div>

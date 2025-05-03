@@ -4,7 +4,11 @@ import {
   CheckoutSessionResponse,
   SignedUrlResponse,
   Pass,
-  PurchaseStatus
+  PurchaseStatus,
+  DiscoverPassesParams,
+  DiscoverPassesResponse,
+  CreatePassRequest,
+  AddVideoRequest
 } from '../types/pass';
 
 /**
@@ -62,6 +66,59 @@ export const passApi = {
     const response = await api.get<PurchaseStatus>(
       `/api/v1/passes/purchase/status/${sessionId}`
     );
+    return response.data;
+  },
+
+  /**
+   * Create a new pass for monetization
+   * @param data Pass creation data including title, price, and source URL(s)
+   * @returns The newly created pass
+   */
+  createPass: async (data: CreatePassRequest): Promise<Pass> => {
+    const response = await api.post<Pass>('/api/v1/passes', data);
+    return response.data;
+  },
+  
+  /**
+   * Get all passes created by the current user
+   * Requires authentication
+   */
+  getCreatorPasses: async (): Promise<Pass[]> => {
+    const response = await api.get<Pass[]>('/api/v1/passes/creator/all');
+    return response.data;
+  },
+  
+  /**
+   * Add a new video to an existing pass
+   * @param passId Pass ID to add the video to
+   * @param data Video source URL data
+   * @returns The updated pass with the new video
+   */
+  addVideoToPass: async (passId: string, data: AddVideoRequest): Promise<Pass> => {
+    const response = await api.post<Pass>(`/api/v1/passes/${passId}/videos`, data);
+    return response.data;
+  },
+
+  /**
+   * Discover available passes with filtering options
+   * @param params Discovery parameters and filters
+   */
+  discoverPasses: async (params: DiscoverPassesParams = {}): Promise<DiscoverPassesResponse> => {
+    // Convert params object to URL query parameters
+    const queryParams = new URLSearchParams();
+    
+    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params.offset !== undefined) queryParams.append('offset', params.offset.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.tier) queryParams.append('tier', params.tier);
+    if (params.price_min !== undefined) queryParams.append('price_min', params.price_min.toString());
+    if (params.price_max !== undefined) queryParams.append('price_max', params.price_max.toString());
+    if (params.platform) queryParams.append('platform', params.platform);
+    if (params.channel_id) queryParams.append('channel_id', params.channel_id);
+    if (params.sold_out !== undefined) queryParams.append('sold_out', params.sold_out.toString());
+    
+    const url = `/api/v1/passes/discover${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await api.get<DiscoverPassesResponse>(url);
     return response.data;
   }
 }; 

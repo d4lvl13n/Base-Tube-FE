@@ -1,25 +1,25 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
 import { Edit3, Trash2, ArrowLeft } from 'lucide-react';
-import { deleteChannel } from '../../../../api/channel';
 import { useChannelData } from '../../../../hooks/useChannelData';
 import EditChannelModal from './components/EditChannelModal';
-import DeleteConfirmationDialog from '../../../common/DeleteConfirmationDialog';
 import ChannelPreviewCard from '../../../common/CreatorHub/ChannelPreviewCard';
+import YouTubeIntegration from './components/YouTubeIntegration';
+import DeleteChannel from './components/DeleteChannel';
 
 const ChannelManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { channelId } = useParams();
+  // The URL param is named 'channelId' but could be either an ID or handle
+  const { channelId: channelIdentifier } = useParams();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [showDeleteSection, setShowDeleteSection] = useState(false);
 
-  // Use the custom hook instead of direct API call
+  // Use the custom hook instead of direct API call - it handles both IDs and handles
   const { 
     channel, 
     isLoading, 
-    error 
-  } = useChannelData(channelId);
+    error
+  } = useChannelData(channelIdentifier);
 
   if (isLoading) {
     return (
@@ -43,18 +43,8 @@ const ChannelManagement: React.FC = () => {
     );
   }
 
-  const handleDelete = async () => {
-    try {
-      await deleteChannel(channel.id.toString());
-      toast.success('Channel deleted successfully');
-      navigate('/creator-hub/channels');
-    } catch (error) {
-      toast.error('Failed to delete channel');
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-black text-white pt-16">
       {/* Channel Preview with Banner */}
       <div className="relative">
         <ChannelPreviewCard 
@@ -72,7 +62,7 @@ const ChannelManagement: React.FC = () => {
             <Edit3 className="w-5 h-5" />
           </button>
           <button
-            onClick={() => setIsDeleteDialogOpen(true)}
+            onClick={() => setShowDeleteSection(true)}
             className="p-2 bg-black/50 hover:bg-red-900/80 rounded-xl transition-all duration-300
               text-white hover:text-red-500 border border-gray-800/30 hover:border-red-500/50
               backdrop-blur-sm"
@@ -93,6 +83,21 @@ const ChannelManagement: React.FC = () => {
         </button>
       </div>
 
+      {/* Channel Management Sections */}
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+        {/* YouTube Integration Section */}
+        <YouTubeIntegration className="mb-8" />
+        
+        {/* Delete Channel Section - only show when requested */}
+        {showDeleteSection && (
+          <DeleteChannel 
+            channelId={channel.id.toString()} 
+            channelName={channel.name}
+            onDeleted={() => navigate('/creator-hub/channels')}
+          />
+        )}
+      </div>
+
       {/* Modals */}
       <EditChannelModal
         channel={channel}
@@ -100,16 +105,7 @@ const ChannelManagement: React.FC = () => {
         onClose={() => setIsEditModalOpen(false)}
         onUpdate={() => {
           setIsEditModalOpen(false);
-          // The query will automatically refetch due to React Query's cache invalidation
         }}
-      />
-
-      <DeleteConfirmationDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
-        onConfirm={handleDelete}
-        title="Delete Channel"
-        message="Are you sure you want to delete this channel? This action cannot be undone."
       />
     </div>
   );

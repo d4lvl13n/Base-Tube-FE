@@ -1,18 +1,30 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { passApi } from '../api/pass';
-import type { Pass, CheckoutSessionResponse, PurchaseStatus } from '../types/pass';
+import type { 
+  Pass, 
+  CheckoutSessionResponse, 
+  PurchaseStatus,
+  DiscoverPassesParams,
+  DiscoverPassesResponse,
+  CreatePassRequest,
+  AddVideoRequest
+} from '../types/pass';
 
 /**
  * Fetch pass details based on slug or id
  */
-export const usePassDetails = (identifier?: string | null) => {
+export const usePassDetails = (
+  identifier?: string | null,
+  options: { enabled?: boolean } = {}
+) => {
+  const { enabled = true } = options;
   return useQuery<Pass, Error>({
     queryKey: ['pass', identifier],
     queryFn: () => {
       if (!identifier) throw new Error('Pass identifier is required');
       return passApi.getPassDetails(identifier);
     },
-    enabled: Boolean(identifier),
+    enabled: enabled && Boolean(identifier),
     staleTime: 1000 * 60 * 5,
   });
 };
@@ -104,5 +116,107 @@ export const useCheckoutStatus = (
     refetchIntervalInBackground: true,
     retry: maxAttempts,
     staleTime: 0, // Always refetch
+  });
+};
+
+/**
+ * Hook to discover available passes with filtering and pagination
+ * @param params - Discovery parameters and filters
+ * @returns InfiniteQuery result for paginated pass discovery
+ */
+export const usePassDiscover = (params: DiscoverPassesParams = {}, options: { enabled?: boolean } = {}) => {
+  const { limit = 24, ...otherParams } = params;
+  const { enabled = true } = options;
+  
+  return useInfiniteQuery<DiscoverPassesResponse, Error>({
+    queryKey: ['passes-discover', otherParams],
+    queryFn: ({ pageParam = 0 }) => {
+      return passApi.discoverPasses({
+        ...otherParams,
+        limit,
+        offset: pageParam as number
+      });
+    },
+    getNextPageParam: (lastPage) => {
+      const { pagination } = lastPage;
+      
+      // If we've loaded all items, return undefined to stop further loading
+      if (pagination.offset + pagination.limit >= pagination.total) {
+        return undefined;
+      }
+      
+      // Otherwise, return the next offset
+      return pagination.offset + pagination.limit;
+    },
+    initialPageParam: 0,
+    enabled
+  });
+};
+
+/**
+ * Hook to create a new pass for monetization
+ * 
+ * @example
+ * // For a single video
+ * createPass({
+ *   title: "My Pass",
+ *   price_cents: 500,
+ *   src_url: "https://youtu.be/abcdef"
+ * })
+ * 
+ * // For multiple videos
+ * createPass({
+ *   title: "My Multi-Video Pass",
+ *   price_cents: 500,
+ *   videos: ["https://youtu.be/video1", "https://youtu.be/video2"]
+ * })
+ */
+export const useCreatePass = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation<Pass, Error, CreatePassRequest>({
+    mutationFn: (data: CreatePassRequest) => passApi.createPass(data),
+    onSuccess: (data) => {
+      // Invalidate creator passes query to refetch the list
+      queryClient.invalidateQueries({ queryKey: ['creator-passes'] });
+      
+      // Add the new pass to the creator passes cache
+      queryClient.setQueryData<Pass[]>(['creator-passes'], (oldData) => {
+        return oldData ? [...oldData, data] : [data];
+      });
+    },
+  });
+};
+
+/**
+ * Hook to fetch all passes created by the current user
+ * Requires authentication
+ */
+export const useCreatorPasses = () => {
+  return useQuery<Pass[], Error>({
+    queryKey: ['creator-passes'],
+    queryFn: () => passApi.getCreatorPasses(),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
+/**
+ * Hook to add a new video to an existing pass
+ */
+export const useAddVideoToPass = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation<Pass, Error, { passId: string; data: AddVideoRequest }>({
+    mutationFn: ({ passId, data }) => passApi.addVideoToPass(passId, data),
+    onSuccess: (updatedPass) => {
+      // Invalidate specific pass data
+      queryClient.invalidateQueries({ queryKey: ['pass', updatedPass.id] });
+      
+      // Invalidate creator passes query to refetch the list
+      queryClient.invalidateQueries({ queryKey: ['creator-passes'] });
+      
+      // Update the specific pass cache with the new version
+      queryClient.setQueryData(['pass', updatedPass.id], updatedPass);
+    },
   });
 }; 

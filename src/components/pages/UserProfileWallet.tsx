@@ -15,6 +15,7 @@ import ReferralsTab from '../common/Profile/ReferralsTab';
 import SettingsTab from '../common/Profile/SettingsTab';
 import ProfileInfoCard from '../common/Profile/ProfileInfoCard';
 import PointsTab from '../common/Profile/PointsTab';
+import PassesTab from '../common/Profile/PassesTab';
 
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -28,7 +29,7 @@ const UserProfileWallet: React.FC = () => {
   const { isAuthenticated, user: web3User } = useAuth();
   const [activeTab, setActiveTab] = useState('Dashboard');
 
-  const tabs = ['Dashboard', 'History', 'Points', 'Wallet', 'Referrals', 'Settings'];
+  const tabs = ['Dashboard', 'Passes', 'History', 'Points', 'Wallet', 'Referrals', 'Settings'];
 
   const { 
     error: profileError,
@@ -110,6 +111,8 @@ const UserProfileWallet: React.FC = () => {
             />
           );
         }
+      case 'Passes':
+        return <PassesTab />;
       default:
         return null;
     }

@@ -55,7 +55,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-8 max-w-7xl mx-auto"
+      className="p-8 pt-16 max-w-7xl mx-auto"
     >
       <div className="mb-12">
         <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#fa7517] to-orange-400 mb-3">

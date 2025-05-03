@@ -10,6 +10,8 @@ import { useAuth } from '@clerk/clerk-react';
 import { Flame, Clock, TrendingUp, Sparkles, Key } from 'lucide-react';
 import FloatingNavigation from '../../common/FloatingNavigation';
 import { LucideIcon } from 'lucide-react';
+import { usePassDiscover } from '../../../hooks/usePass';
+import PassCard from '../../pass/PassCard';
 
 type DiscoveryCategory = 'Trending' | 'Latest' | 'Popular' | 'For You' | 'NFT Content Pass';
 
@@ -17,12 +19,13 @@ const categoryMap: Record<DiscoveryCategory, {
   sort: 'trending' | 'latest' | 'popular' | 'random';
   timeFrame: 'today' | 'week' | 'month' | 'all';
   requiresAuth: boolean;
+  isPassFeed?: boolean;
 }> = {
   'Trending': { sort: 'trending', timeFrame: 'all', requiresAuth: false },
   'Latest': { sort: 'latest', timeFrame: 'all', requiresAuth: false },
   'Popular': { sort: 'popular', timeFrame: 'week', requiresAuth: false },
   'For You': { sort: 'random', timeFrame: 'all', requiresAuth: true },
-  'NFT Content Pass': { sort: 'popular', timeFrame: 'all', requiresAuth: true }
+  'NFT Content Pass': { sort: 'popular', timeFrame: 'all', requiresAuth: false, isPassFeed: true }
 };
 
 const navigationOptions: Array<{
@@ -68,20 +71,56 @@ const DiscoveryPage: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<DiscoveryCategory>('Trending');
   const limit = 24;
 
-  const { sort, timeFrame } = categoryMap[activeCategory];
+  const { sort, timeFrame, isPassFeed } = categoryMap[activeCategory];
 
+  // Fetch regular videos for non-pass tabs
   const {
-    data,
-    isLoading,
-    isError,
-    error,
-    fetchNextPage,
-    hasNextPage,
-  } = useDiscoveryFeed({ limit, sort, timeFrame });
+    data: videoData,
+    isLoading: isVideoLoading,
+    isError: isVideoError,
+    error: videoError,
+    fetchNextPage: fetchNextVideoPage,
+    hasNextPage: hasNextVideoPage,
+  } = useDiscoveryFeed({ 
+    limit, 
+    sort, 
+    timeFrame,
+  });
 
-  const videos = data?.pages.flatMap(page => page.data) ?? [];
+  // Fetch passes for the NFT Content Pass tab
+  const {
+    data: passData,
+    isLoading: isPassLoading,
+    isError: isPassError,
+    error: passError,
+    fetchNextPage: fetchNextPassPage,
+    hasNextPage: hasNextPassPage,
+  } = usePassDiscover({
+    limit,
+  }, {
+    enabled: isPassFeed
+  });
 
-  console.log('Current videos:', videos.map(v => ({ id: v.id, title: v.title })));
+  // Determine which data, loading state, and handlers to use based on active category
+  const isLoading = isPassFeed ? isPassLoading : isVideoLoading;
+  const isError = isPassFeed ? isPassError : isVideoError;
+  const error = isPassFeed ? passError : videoError;
+  const fetchNextPage = isPassFeed ? fetchNextPassPage : fetchNextVideoPage;
+  const hasNextPage = isPassFeed ? hasNextPassPage : hasNextVideoPage;
+
+  // Prepare data for rendering based on active tab
+  const videos = !isPassFeed ? (videoData?.pages.flatMap(page => page.data) ?? []) : [];
+  const passes = isPassFeed ? (passData?.pages.flatMap(page => page.data) ?? []) : [];
+
+  // Unique items logic (reuse existing videosMap logic)
+  const uniqueVideos = Array.from(
+    new Map(videos.map(video => [video.id, video])).values()
+  );
+
+  // Unique passes
+  const uniquePasses = Array.from(
+    new Map(passes.map(pass => [pass.id, pass])).values()
+  );
 
   const handleCategoryChange = (category: DiscoveryCategory) => {
     const categoryConfig = categoryMap[category];
@@ -91,12 +130,7 @@ const DiscoveryPage: React.FC = () => {
     setActiveCategory(category);
   };
 
-  // Deduplicate videos based on ID
-  const uniqueVideos = Array.from(
-    new Map(videos.map(video => [video.id, video])).values()
-  );
-
-  const showInitialLoader = isLoading && videos.length === 0;
+  const showInitialLoader = isLoading && videos.length === 0 && passes.length === 0;
 
   return (
     <div className="bg-black text-white min-h-screen relative">
@@ -110,7 +144,7 @@ const DiscoveryPage: React.FC = () => {
         >
           {isError && (
             <ErrorMessage 
-              message={error instanceof Error ? error.message : 'Failed to load discovery feed'} 
+              message={error instanceof Error ? error.message : 'Failed to load content'} 
             />
           )}
 
@@ -122,7 +156,39 @@ const DiscoveryPage: React.FC = () => {
             </VideoGrid>
           )}
 
-          {!showInitialLoader && uniqueVideos.length > 0 && (
+          {/* Render passes for NFT Content Pass tab */}
+          {isPassFeed && !showInitialLoader && uniquePasses.length > 0 && (
+            <InfiniteScroll
+              dataLength={uniquePasses.length}
+              next={fetchNextPage}
+              hasMore={!!hasNextPage}
+              loader={
+                <VideoGrid>
+                  {[...Array(6)].map((_, index) => (
+                    <PlaceholderVideoCard 
+                      key={`placeholder-${index}`}
+                      size={index === 0 ? 'large' : 'normal'}
+                    />
+                  ))}
+                </VideoGrid>
+              }
+              scrollThreshold={0.8}
+              scrollableTarget="scrollableDiv"
+            >
+              <VideoGrid>
+                {uniquePasses.map((pass, index) => (
+                  <PassCard 
+                    key={pass.id}
+                    pass={pass} 
+                    size={index === 0 ? 'large' : 'normal'} 
+                  />
+                ))}
+              </VideoGrid>
+            </InfiniteScroll>
+          )}
+
+          {/* Render videos for other tabs */}
+          {!isPassFeed && !showInitialLoader && uniqueVideos.length > 0 && (
             <InfiniteScroll
               dataLength={uniqueVideos.length}
               next={fetchNextPage}
@@ -152,8 +218,19 @@ const DiscoveryPage: React.FC = () => {
             </InfiniteScroll>
           )}
 
-          {!showInitialLoader && uniqueVideos.length === 0 && !isLoading && !isError && (
-            <p className="text-center text-gray-400 mt-8">No videos found.</p>
+          {/* Empty state message */}
+          {!showInitialLoader && uniqueVideos.length === 0 && uniquePasses.length === 0 && !isLoading && !isError && (
+            <div className="text-center mt-12">
+              {isPassFeed ? (
+                <>
+                  <Key className="w-12 h-12 text-orange-500 mx-auto mb-4 opacity-50" />
+                  <p className="text-xl font-semibold text-white mb-2">No Content Passes Available Yet</p>
+                  <p className="text-gray-400">Stay tuned for exclusive premium content coming soon!</p>
+                </>
+              ) : (
+                <p className="text-gray-400">No videos found.</p>
+              )}
+            </div>
           )}
         </main>
       </div>

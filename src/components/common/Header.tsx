@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Layout, LayoutDashboard, UserCircle, X, Palette, LogIn, Wallet, History } from 'lucide-react';
+import { Search, Layout, LayoutDashboard, UserCircle, X, Palette, LogIn, Wallet, History, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -422,6 +422,22 @@ const Header: React.FC<HeaderProps> = ({
                   </Button>
                 </motion.div>
               </Link>
+
+              {isSignedIn || isAuthenticated ? (
+                <Link
+                  to="/my-passes"
+                  className="relative text-white/80 hover:text-white hidden md:block"
+                >
+                  <motion.div
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    className="px-3 py-1 rounded-full border border-[#fa7517]/40 hover:border-[#fa7517] hover:bg-[#fa7517]/10 flex items-center gap-1.5"
+                  >
+                    <Shield className="w-4 h-4 text-[#fa7517]" />
+                    <span className="text-sm">My Passes</span>
+                  </motion.div>
+                </Link>
+              ) : null}
 
               {renderAuthButtons()}
             </div>

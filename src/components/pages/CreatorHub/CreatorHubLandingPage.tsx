@@ -16,7 +16,7 @@ const CreatorHubLandingPage: React.FC = () => {
   const hasChannel = channels.length > 0;
 
   return (
-    <div className="bg-black text-white min-h-screen">
+    <div className="bg-black text-white min-h-screen pt-16">
       {hasChannel && selectedChannel && (
         <ChannelPreviewCard channel={selectedChannel} />
       )}

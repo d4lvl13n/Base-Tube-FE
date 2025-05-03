@@ -10,7 +10,11 @@ import {
   Tv,
   Upload,
   LucideIcon,
-  ImageIcon
+  ImageIcon,
+  Shield,
+  Sparkles,
+  Crown,
+  Lock
 } from 'lucide-react';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 
@@ -38,10 +42,12 @@ interface NavItemProps {
 interface ActionButtonProps {
   icon: LucideIcon;
   label?: string;
-  badge?: number;
+  badge?: number | string;
   className?: string;
   iconClassName?: string;
   onClick?: () => void;
+  style?: React.CSSProperties;
+  customContent?: React.ReactNode;
 }
 
 interface CreatorHubNavProps {
@@ -75,7 +81,8 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
         { title: 'Videos Management', path: '/creator-hub/videos' },
         { title: 'Batch Upload', path: '/creator-hub/content-studio' },
         { title: 'Playlists', path: '/creator-hub/playlists' },
-        { title: 'Channel Management', path: '/creator-hub/channels' }
+        { title: 'Channel Management', path: '/creator-hub/channels' },
+        { title: 'Manage Content Passes', path: '/creator-hub/passes' }
       ]
     },
     {
@@ -87,7 +94,7 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
       title: 'Monetization',
       icon: DollarSign,
       path: '/creator-hub/monetization',
-      badge: 'Soon'
+      badge: 'Beta'
     },
     {
       title: 'Thumbnail Gallery',
@@ -127,6 +134,49 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
             className="w-full bg-[#fa7517] hover:bg-[#ff8c3a] text-black"
             onClick={() => navigate('/creator-hub/upload')}
           />
+          <ActionButton
+            icon={Crown}
+            iconClassName="text-white"
+            label={!isCollapsed ? "Create Content Pass" : undefined}
+            className="w-full relative overflow-hidden text-white font-semibold"
+            style={{
+              background: 'linear-gradient(45deg, rgba(0,0,0,0.8), rgba(30,30,30,0.9))',
+              boxShadow: '0 8px 20px rgba(255, 215, 0, 0.2)',
+              border: '1px solid transparent',
+              borderImageSlice: 1,
+              borderImageSource: 'linear-gradient(135deg, #FFD700, #FFA500, #fa7517)',
+              borderRadius: '0.5rem'
+            }}
+            onClick={() => navigate('/creator-hub/monetization')}
+            customContent={
+              !isCollapsed ? (
+                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-lg">
+                  <div className="absolute -top-1 -left-1 w-[200%] h-1 bg-gradient-to-r from-[#FFD700] via-[#FFA500] to-[#fa7517] opacity-70 animate-pulse"></div>
+                  <div className="absolute -bottom-1 -right-1 w-[200%] h-1 bg-gradient-to-r from-[#fa7517] via-[#FFA500] to-[#FFD700] opacity-70 animate-pulse"></div>
+                  <div className="absolute top-1 right-1 opacity-80">
+                    <Sparkles className="w-4 h-4 text-[#FFD700] animate-pulse" />
+                  </div>
+                  <div 
+                    className="absolute inset-0 bg-gradient-to-r from-[#FFD700]/0 via-[#FFD700]/10 to-[#FFD700]/0 opacity-0 hover:opacity-30 transition-opacity duration-700 animate-shimmer" 
+                    style={{
+                      backgroundSize: "200% 100%",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-lg">
+                  <div className="absolute -top-1 -left-1 w-[200%] h-1 bg-gradient-to-r from-[#FFD700] via-[#FFA500] to-[#fa7517] opacity-70 animate-pulse"></div>
+                  <div className="absolute -bottom-1 -right-1 w-[200%] h-1 bg-gradient-to-r from-[#fa7517] via-[#FFA500] to-[#FFD700] opacity-70 animate-pulse"></div>
+                  <div 
+                    className="absolute inset-0 bg-gradient-to-r from-[#FFD700]/0 via-[#FFD700]/10 to-[#FFD700]/0 opacity-0 hover:opacity-30 transition-opacity duration-700 animate-shimmer" 
+                    style={{
+                      backgroundSize: "200% 100%",
+                    }}
+                  />
+                </div>
+              )
+            }
+          />
         </div>
       </div>
 
@@ -159,20 +209,35 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
 };
 
 // Helper Components
-const ActionButton = ({ icon: Icon, label, badge, className = '', iconClassName = '', onClick }: ActionButtonProps) => (
+const ActionButton = ({ 
+  icon: Icon, 
+  label, 
+  badge, 
+  className = '', 
+  iconClassName = '', 
+  onClick,
+  style = {},
+  customContent
+}: ActionButtonProps & { style?: React.CSSProperties, customContent?: React.ReactNode }) => (
   <motion.button
-    whileHover={{ scale: 1.02 }}
-    whileTap={{ scale: 0.98 }}
+    whileHover={{ 
+      scale: 1.03, 
+      y: -1,
+      boxShadow: Icon === Crown ? '0 10px 25px rgba(255, 215, 0, 0.3)' : undefined
+    }}
+    whileTap={{ scale: 0.97 }}
     onClick={onClick}
     className={`
-      relative p-2.5 rounded-lg transition-colors flex items-center justify-center gap-2
+      relative p-2.5 rounded-lg transition-all duration-300 flex items-center justify-center gap-2
       ${className || 'hover:bg-gray-800/50'}
     `}
+    style={style}
   >
     <Icon className={`w-5 h-5 ${iconClassName || 'text-gray-400'}`} />
-    {label && <span className="text-sm font-medium whitespace-nowrap">{label}</span>}
+    {label && <span className="text-sm font-medium whitespace-nowrap flex-1">{label}</span>}
+    {customContent}
     {badge && (
-      <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#fa7517] rounded-full text-[10px] flex items-center justify-center text-black">
+      <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold">
         {badge}
       </span>
     )}

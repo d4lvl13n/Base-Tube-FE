@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Users, Video, Edit3 } from 'lucide-react';
+import { ExternalLink, Users, Video, Edit3, Trash2 } from 'lucide-react';
 import { Channel } from '../../../types/channel';
 import EditChannelModal from '../../pages/CreatorHub/ChannelManagement/components/EditChannelModal';
+import DeleteChannel from '../../pages/CreatorHub/ChannelManagement/components/DeleteChannel';
 import DOMPurify from 'dompurify';
 
 interface ChannelPreviewCardProps {
   channel: Channel;
   onUpdate?: () => void;
+  onDeleted?: () => void;
 }
 
-const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpdate }) => {
+const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpdate, onDeleted }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   const coverImageUrl = channel.channel_image_url || 
     (channel.channel_image_path
@@ -81,6 +84,13 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
                     >
                       <Edit3 className="w-5 h-5" />
                     </button>
+                    <button
+                      onClick={() => setShowDeleteDialog(true)}
+                      className="p-2 hover:bg-red-900/10 rounded-lg transition-colors text-white hover:text-red-500"
+                      title="Delete Channel"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
 
@@ -111,6 +121,29 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
           onUpdate?.();
         }}
       />
+
+      {/* Delete Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+          <div className="max-w-lg w-full">
+            <DeleteChannel
+              channelId={channel.id.toString()}
+              channelName={channel.name}
+              onDeleted={() => {
+                setShowDeleteDialog(false);
+                if (onDeleted) onDeleted();
+              }}
+              className="!mt-0 !pt-0 !border-0"
+            />
+            <button
+              onClick={() => setShowDeleteDialog(false)}
+              className="mt-4 w-full px-4 py-2 bg-zinc-800 text-white rounded-md hover:bg-zinc-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };

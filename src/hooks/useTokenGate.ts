@@ -1,6 +1,8 @@
 import { useSignedVideoUrl } from './usePass';
 import { useRequireAuth } from './useRequireAuth';
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { useAuth as useWeb3Auth } from '../contexts/AuthContext';
 
 /**
  * Hook for accessing token-gated content (any type of content that requires a Pass).
@@ -14,62 +16,64 @@ export function useTokenGate(
   videoId?: string | null,
   options: {
     autoAuth?: boolean;
-    redirectOnAuth?: boolean;
     maxRetries?: number;
   } = {}
 ) {
   const {
     autoAuth = false,
-    redirectOnAuth = false,
     maxRetries = 3
   } = options;
 
   const [retryCount, setRetryCount] = useState(0);
-  const [needsAuth, setNeedsAuth] = useState(false);
+  const [needsAuthPrompt, setNeedsAuthPrompt] = useState(false);
   
   const requireAuth = useRequireAuth();
   
+  // Determine current authentication status (Clerk or Web3)
+  const { isSignedIn } = useClerkAuth();
+  const { isAuthenticated: isWeb3Authenticated } = useWeb3Auth();
+  const isLoggedIn = isSignedIn || isWeb3Authenticated;
+
   const {
     data: signedUrl,
     error,
     isLoading,
     refetch
-  } = useSignedVideoUrl(videoId, Boolean(videoId));
+  } = useSignedVideoUrl(videoId, Boolean(videoId && isLoggedIn));
 
-  // Handle the 403 Forbidden case (no access)
-  const is403 = error && 'response' in error && (error as any).response?.status === 403;
+  // Distinguish common error codes (Axios style)
+  const statusCode = error && 'response' in error ? (error as any).response?.status : undefined;
+  const is401 = statusCode === 401;
+  const is403 = statusCode === 403;
   
-  // Check if we should try to authenticate
+  // Check if we should prompt authentication (401 or not logged in)
   useEffect(() => {
-    if (is403 && autoAuth && !needsAuth) {
-      setNeedsAuth(true);
+    if (autoAuth && (is401 || !isLoggedIn) && !needsAuthPrompt) {
+      setNeedsAuthPrompt(true);
     }
-  }, [is403, autoAuth, needsAuth]);
+  }, [autoAuth, is401, isLoggedIn, needsAuthPrompt]);
 
   // Try to authenticate if needed
   useEffect(() => {
     const authenticate = async () => {
-      if (needsAuth) {
+      if (needsAuthPrompt) {
         const ok = await requireAuth();
         if (ok) {
-          // User authenticated, retry fetching the signed URL
           refetch();
         }
-        setNeedsAuth(false);
+        setNeedsAuthPrompt(false);
       }
     };
-    
     authenticate();
-  }, [needsAuth, requireAuth, refetch]);
+  }, [needsAuthPrompt, requireAuth, refetch]);
 
-  // Handle retries for 403 errors
+  // Handle retries for 403 errors (logged-in but no access)
   useEffect(() => {
     if (is403 && retryCount < maxRetries) {
       const timer = setTimeout(() => {
         setRetryCount(prev => prev + 1);
         refetch();
-      }, 3000); // Retry every 3 seconds
-      
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [is403, retryCount, maxRetries, refetch]);
@@ -88,9 +92,11 @@ export function useTokenGate(
     signedUrl,
     isLoading,
     error,
+    is401,
     is403,
     retryCount,
     hasAccess: Boolean(signedUrl),
+    needsLogin: !isLoggedIn,
     needsAuth: is403,
     promptAuth
   };

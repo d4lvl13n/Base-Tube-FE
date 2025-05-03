@@ -1,6 +1,6 @@
 // src/components/BatchUploadForm.tsx
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useBatchUpload } from '../../../../hooks/useBatchUpload';
 import { Upload, XCircle, FileVideo, AlertCircle, CheckCircle, Info, ArrowRight, X } from 'lucide-react';
 import {
@@ -26,12 +26,14 @@ import {
 } from './styles';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import NoChannelView from '../NoChannelView';
 
 export const ContentStudio: React.FC = () => {
-  const { selectedChannelId } = useChannelSelection();
+  const { selectedChannelId, channels } = useChannelSelection();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const navigate = useNavigate();
   
   const channelId = selectedChannelId ? parseInt(selectedChannelId, 10) : 0;
   
@@ -73,7 +75,18 @@ export const ContentStudio: React.FC = () => {
     }
   }, [files.length, uploadedFiles]);
 
-  if (!selectedChannelId) {
+  // If user has no channels, show the NoChannelView
+  if (channels.length === 0) {
+    return (
+      <NoChannelView 
+        title="Upload Content to Your Channel"
+        description="Create a channel to start uploading videos to Base.Tube and share your content with the world."
+        buttonText="Create a Channel"
+      />
+    );
+  }
+
+  if (!selectedChannelId && channels.length > 0) {
     return (
       <Container>
         <Header>
@@ -86,7 +99,15 @@ export const ContentStudio: React.FC = () => {
         >
           <FileVideo className="w-16 h-16 mb-4 text-gray-500" />
           <h3 className="text-xl font-semibold mb-2">No Channel Selected</h3>
-          <p>Please select a channel to start uploading videos</p>
+          <p className="text-gray-400 mb-6">Please select a channel to start uploading videos</p>
+          
+          <Link 
+            to="/creator-hub/channels"
+            className="flex items-center gap-2 px-4 py-2 bg-[#fa7517] text-white rounded-md hover:bg-[#ff8c3a] transition-colors"
+          >
+            Select Channel
+            <ArrowRight size={16} />
+          </Link>
         </motion.div>
       </Container>
     );

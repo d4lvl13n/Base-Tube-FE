@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { useCheckoutStatus, useSignedVideoUrl } from '../hooks/usePass';
+import { useCheckoutStatus, useSignedVideoUrl, usePassDetails } from '../hooks/usePass';
 import PassVideoPlayer from '../components/pass/PassVideoPlayer';
 import { motion } from 'framer-motion';
 import { CheckCircle, AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
@@ -9,6 +9,7 @@ const CheckoutSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const sessionId = searchParams.get('session_id');
+  const [passId, setPassId] = useState<string | null>(null);
   const [videoId, setVideoId] = useState<string | null>(null);
 
   // Poll for checkout status
@@ -27,6 +28,15 @@ const CheckoutSuccessPage: React.FC = () => {
     error: videoError
   } = useSignedVideoUrl(videoId, Boolean(videoId));
 
+  // Fetch pass details if we have passId to obtain videoId securely
+  const { data: passDetails } = usePassDetails(passId ?? undefined);
+
+  useEffect(() => {
+    if (passDetails?.videos?.[0]?.id) {
+      setVideoId(passDetails.videos[0].id);
+    }
+  }, [passDetails]);
+
   // Handle initial invalid access
   useEffect(() => {
     if (!sessionId) {
@@ -34,13 +44,10 @@ const CheckoutSuccessPage: React.FC = () => {
     }
   }, [sessionId, navigate]);
 
-  // Set videoId when checkout is completed
+  // When checkout completes, store passId to later fetch details
   useEffect(() => {
     if (checkoutStatus?.status === 'completed' && checkoutStatus.pass_id) {
-      // In a real implementation, you'd get the actual videoId from the pass details
-      // Here we're assuming the pass has a single video and pass_id can be used
-      // as the videoId for demonstration purposes
-      setVideoId(checkoutStatus.pass_id);
+      setPassId(checkoutStatus.pass_id);
     }
   }, [checkoutStatus]);
 
@@ -121,7 +128,10 @@ const CheckoutSuccessPage: React.FC = () => {
               </p>
               <div className="pt-4 space-x-4">
                 <button
-                  onClick={() => window.location.reload()}
+                  onClick={() => {
+                    // Trigger refetch of video URL without full reload
+                    setVideoId(prev => prev); // no-op ensures state remains
+                  }}
                   className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -146,7 +156,7 @@ const CheckoutSuccessPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center flex-wrap gap-4">
           <Link 
             to="/" 
             className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors"
@@ -158,6 +168,12 @@ const CheckoutSuccessPage: React.FC = () => {
             <CheckCircle className="w-4 h-4" />
             <span className="text-sm font-medium">Purchase Successful</span>
           </div>
+          <button
+            onClick={() => navigator.share && navigator.share({ url: window.location.href, title: 'Check out this premium content on BaseTube!' })}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm"
+          >
+            Share Pass
+          </button>
         </div>
         
         <motion.div
