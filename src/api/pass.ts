@@ -1,15 +1,17 @@
 import api from './index';
-import {
-  // PassDetailsResponse,
+import { 
+  Pass,
+  PassDetailsResponse,
+  DiscoverPassesResponse,
+  DiscoverPassesParams,
+  CreatePassRequest,
+  AddVideoRequest,
   CheckoutSessionResponse,
   SignedUrlResponse,
-  Pass,
-  PurchaseStatus,
-  DiscoverPassesParams,
-  DiscoverPassesResponse,
-  CreatePassRequest,
-  AddVideoRequest
+  PurchaseStatus
 } from '../types/pass';
+import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
+import { ErrorCode } from '../types/error';
 
 /**
  * API helpers for Pass-as-a-Link feature
@@ -120,5 +122,125 @@ export const passApi = {
     const url = `/api/v1/passes/discover${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await api.get<DiscoverPassesResponse>(url);
     return response.data;
+  }
+};
+
+/**
+ * Creates a new content pass
+ */
+export const createContentPass = async (passData: CreatePassRequest): Promise<PassDetailsResponse> => {
+  const executeCreate = async () => {
+    const response = await api.post<PassDetailsResponse>('/api/v1/passes', passData);
+    return response.data;
+  };
+
+  try {
+    return await retryWithBackoff(executeCreate, 2, 1000);
+  } catch (error) {
+    const userError = handleApiError(error, {
+      action: 'create content pass',
+      component: 'passAPI',
+      additionalData: { 
+        title: passData.title,
+        price_cents: passData.price_cents
+      }
+    });
+
+    // Handle specific pass creation errors
+    if (userError.code === ErrorCode.VALIDATION_ERROR) {
+      if (error instanceof Error && error.message.includes('price')) {
+        userError.message = 'Invalid price. Please check the pricing format.';
+      } else if (error instanceof Error && error.message.includes('title')) {
+        userError.message = 'Pass title is required and must be unique.';
+      }
+    } else if (userError.code === ErrorCode.FORBIDDEN) {
+      userError.message = 'You don\'t have permission to create passes for this channel.';
+    }
+
+    throw userError;
+  }
+};
+
+/**
+ * Purchases a content pass by creating checkout session
+ */
+export const purchaseContentPass = async (passId: string): Promise<CheckoutSessionResponse> => {
+  const executePurchase = async () => {
+    const response = await api.post<CheckoutSessionResponse>(`/api/v1/passes/${passId}/purchase`);
+    return response.data;
+  };
+
+  try {
+    // Don't retry purchases to avoid double charging
+    return await executePurchase();
+  } catch (error) {
+    const userError = handleApiError(error, {
+      action: 'purchase content pass',
+      component: 'passAPI',
+      additionalData: { passId }
+    });
+
+    // Handle specific purchase errors
+    if (userError.code === ErrorCode.NOT_FOUND) {
+      userError.code = ErrorCode.PASS_NOT_FOUND;
+      userError.message = 'Content pass not found or no longer available.';
+    } else if (userError.code === ErrorCode.VALIDATION_ERROR) {
+      if (error instanceof Error && error.message.includes('sold out')) {
+        userError.message = 'This content pass is sold out.';
+      }
+    }
+
+    throw userError;
+  }
+};
+
+/**
+ * Gets user's purchased passes
+ */
+export const getUserPasses = async (): Promise<Pass[]> => {
+  const fetchUserPasses = async () => {
+    const response = await api.get<{ data: Pass[] }>('/api/v1/passes/my');
+    return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchUserPasses, 2, 1000);
+  } catch (error) {
+    const userError = handleApiError(error, {
+      action: 'fetch user passes',
+      component: 'passAPI'
+    });
+
+    throw userError;
+  }
+};
+
+/**
+ * Checks if user has access to specific content
+ */
+export const checkPassAccess = async (passId: string): Promise<boolean> => {
+  const checkAccess = async () => {
+    const response = await api.get<{ hasAccess: boolean }>(`/api/v1/passes/${passId}/access`);
+    return response.data.hasAccess;
+  };
+
+  try {
+    return await retryWithBackoff(checkAccess, 2, 1000);
+  } catch (error) {
+    const userError = handleApiError(error, {
+      action: 'check pass access',
+      component: 'passAPI',
+      additionalData: { passId }
+    });
+
+    // Handle access check errors gracefully
+    if (userError.code === ErrorCode.NOT_FOUND) {
+      userError.code = ErrorCode.INSUFFICIENT_ACCESS;
+      userError.message = 'You need to purchase a content pass to access this content.';
+    } else if (userError.code === ErrorCode.UNAUTHORIZED) {
+      userError.message = 'Please sign in to check your pass access.';
+    }
+
+    throw userError;
   }
 }; 
