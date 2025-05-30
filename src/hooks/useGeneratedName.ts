@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { web3AuthApi } from '../api/web3authapi';
+import web3AuthApi from '../api/web3authapi';
 
 export const MAX_SUGGESTIONS = 6; // or 8 for a 2x4 grid
 export const MAX_REFRESHES = 5;
