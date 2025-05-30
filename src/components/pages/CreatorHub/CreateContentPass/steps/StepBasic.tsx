@@ -56,7 +56,7 @@ const StepBasic = ({ register, errors, watch, setValue, control, getValues }: St
       
       <S.FormGroup>
         <S.Label>Select Tier *</S.Label>
-        <S.OptionGroup>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {tiers.map(tier => {
             const isSelected = watchedFields.tier === tier.id;
             return (
@@ -65,6 +65,7 @@ const StepBasic = ({ register, errors, watch, setValue, control, getValues }: St
                 type="button"
                 selected={isSelected}
                 onClick={() => setValue('tier', tier.id, { shouldValidate: true })}
+                className="flex flex-col items-center h-full"
               >
                 <S.TierBadge tier={tier.id}>{tier.name}</S.TierBadge>
                 <div className={`w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center ${isSelected ? 'bg-[#fa7517]/20' : 'bg-gray-700/50'}`}>
@@ -74,7 +75,7 @@ const StepBasic = ({ register, errors, watch, setValue, control, getValues }: St
               </S.TierOption>
             );
           })}
-        </S.OptionGroup>
+        </div>
         <input type="hidden" {...register('tier', { required: 'Tier selection is required' })} />
         {errors.tier && (
           <S.ErrorText>{errors.tier.message}</S.ErrorText>

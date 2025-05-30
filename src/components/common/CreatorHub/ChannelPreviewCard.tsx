@@ -40,7 +40,7 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
 
   return (
     <>
-      <div className="w-full bg-black/50 rounded-xl p-6">
+      <div className="w-full bg-black/50 rounded-xl p-3 sm:p-6">
         <motion.div
           whileHover={{ scale: 1.02 }}
           className="bg-gray-900/30 rounded-xl border border-gray-800/30 backdrop-blur-sm overflow-hidden"
@@ -54,48 +54,49 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent">
               {/* Channel Info Overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <div className="flex items-end justify-between">
+              <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-0">
                   <div>
-                    <h3 className="text-xl font-bold text-white mb-1">{channel.name}</h3>
-                    <p className="text-gray-300">@{channel.handle}</p>
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-1">{channel.name}</h3>
+                    <p className="text-sm text-gray-300">@{channel.handle}</p>
                     
                     {/* Channel description - render HTML safely */}
                     {channel.description && (
                       <div 
-                        className="text-sm text-gray-400 mt-1 line-clamp-2 overflow-hidden"
+                        className="text-xs sm:text-sm text-gray-400 mt-1 line-clamp-2 overflow-hidden"
                         dangerouslySetInnerHTML={sanitizeHTML(channel.description)}
                         aria-label={createPlainText(channel.description)}
                       />
                     )}
                   </div>
-                  <div className="flex items-center space-x-2">
+                  
+                  <div className="flex items-center space-x-1 sm:space-x-2 mt-2 sm:mt-0">
                     <Link
                       to={`/channel/${channel.handle}`}
-                      className="p-2 hover:bg-[#fa7517]/10 rounded-lg transition-colors text-white hover:text-[#fa7517]"
+                      className="p-1.5 sm:p-2 hover:bg-[#fa7517]/10 rounded-lg transition-colors text-white hover:text-[#fa7517]"
                       title="View Channel"
                     >
-                      <ExternalLink className="w-5 h-5" />
+                      <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5" />
                     </Link>
                     <button
                       onClick={() => setIsEditModalOpen(true)}
-                      className="p-2 hover:bg-[#fa7517]/10 rounded-lg transition-colors text-white hover:text-[#fa7517]"
+                      className="p-1.5 sm:p-2 hover:bg-[#fa7517]/10 rounded-lg transition-colors text-white hover:text-[#fa7517]"
                       title="Edit Channel"
                     >
-                      <Edit3 className="w-5 h-5" />
+                      <Edit3 className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                     <button
                       onClick={() => setShowDeleteDialog(true)}
-                      className="p-2 hover:bg-red-900/10 rounded-lg transition-colors text-white hover:text-red-500"
+                      className="p-1.5 sm:p-2 hover:bg-red-900/10 rounded-lg transition-colors text-white hover:text-red-500"
                       title="Delete Channel"
                     >
-                      <Trash2 className="w-5 h-5" />
+                      <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
                 </div>
 
                 {/* Quick Stats */}
-                <div className="flex items-center space-x-4 mt-2 text-gray-300">
+                <div className="flex items-center flex-wrap gap-4 mt-2 text-xs sm:text-sm text-gray-300">
                   <span className="flex items-center">
                     <Users size={14} className="mr-1 text-[#fa7517]" />
                     {(channel.subscribers_count ?? 0).toLocaleString()} subscribers

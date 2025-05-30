@@ -5,12 +5,20 @@ export const Container = styled(motion.div)`
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1rem;
+  
+  @media (min-width: 768px) {
+    padding: 2rem;
+  }
 `;
 
 export const PageHeader = styled.div`
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
   text-align: center;
+  
+  @media (min-width: 768px) {
+    margin-bottom: 3rem;
+  }
 `;
 
 export const Title = styled.h1`
@@ -18,30 +26,44 @@ export const Title = styled.h1`
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  font-size: 3rem;
+  font-size: 2rem;
   font-weight: bold;
   margin-bottom: 0.5rem;
+  
+  @media (min-width: 768px) {
+    font-size: 3rem;
+  }
 `;
 
 export const SubTitle = styled.p`
   color: #adadad;
-  font-size: 1.25rem;
+  font-size: 1rem;
   max-width: 800px;
   margin: 0 auto;
+  
+  @media (min-width: 768px) {
+    font-size: 1.25rem;
+  }
 `;
 
 export const FormContainer = styled(motion.div)`
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(10px);
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 2.5rem;
-  margin-bottom: 2rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
   position: relative;
   overflow: hidden;
+  
+  @media (min-width: 768px) {
+    gap: 2rem;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+  }
 
   &::before {
     content: '';
@@ -252,19 +274,35 @@ export const InputWithPrefix = styled(Input)`
 
 export const NavigationContainer = styled.div`
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  margin-top: 2rem;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  
+  @media (min-width: 768px) {
+    flex-wrap: nowrap;
+    margin-top: 2rem;
+  }
 `;
 
 export const Button = styled(motion.button)<{ variant?: 'primary' | 'secondary' }>`
-  padding: 0.75rem 2rem;
+  padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
   font-weight: 500;
+  font-size: 0.875rem;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   transition: all 0.2s ease;
+  width: ${props => props.variant === 'primary' ? '100%' : 'auto'};
+  
+  @media (min-width: 768px) {
+    width: auto;
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+  }
   
   background: ${props => props.variant === 'primary' 
     ? 'linear-gradient(to right, #fa7517, #ff8c3a)' 
@@ -404,16 +442,17 @@ export const TwoColumns = styled.div`
 
 export const ThreeColumns = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
+  grid-template-columns: 1fr;
+  gap: 1rem;
   margin-bottom: 1.5rem;
   
-  @media (max-width: 990px) {
+  @media (min-width: 640px) {
     grid-template-columns: repeat(2, 1fr);
   }
   
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
+  @media (min-width: 990px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
   }
 `;
 
@@ -482,9 +521,15 @@ export const SuccessIcon = styled(motion.div)`
 
 export const ShareContainer = styled.div`
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   justify-content: center;
   margin-top: 2rem;
+  
+  @media (min-width: 640px) {
+    flex-wrap: nowrap;
+    gap: 1rem;
+  }
 `;
 
 export const ShareButton = styled.button`
@@ -495,7 +540,14 @@ export const ShareButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-size: 0.875rem;
   transition: all 0.2s ease;
+  width: 100%;
+  justify-content: center;
+  
+  @media (min-width: 640px) {
+    width: auto;
+  }
   
   &:hover {
     background: rgba(255, 255, 255, 0.2);

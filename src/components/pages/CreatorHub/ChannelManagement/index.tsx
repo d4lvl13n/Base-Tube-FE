@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Edit3, Trash2, ArrowLeft } from 'lucide-react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import { Edit3, Trash2, ArrowLeft, Hexagon, Plus, BarChart3 } from 'lucide-react';
 import { useChannelData } from '../../../../hooks/useChannelData';
 import EditChannelModal from './components/EditChannelModal';
 import ChannelPreviewCard from '../../../common/CreatorHub/ChannelPreviewCard';
 import YouTubeIntegration from './components/YouTubeIntegration';
 import DeleteChannel from './components/DeleteChannel';
+import ChannelList from './ChannelList';
 
 const ChannelManagement: React.FC = () => {
   const navigate = useNavigate();
   // The URL param is named 'channelId' but could be either an ID or handle
-  const { channelId: channelIdentifier } = useParams();
+  const { channelId } = useParams();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showDeleteSection, setShowDeleteSection] = useState(false);
 
@@ -19,7 +20,7 @@ const ChannelManagement: React.FC = () => {
     channel, 
     isLoading, 
     error
-  } = useChannelData(channelIdentifier);
+  } = useChannelData(channelId);
 
   if (isLoading) {
     return (
@@ -45,68 +46,111 @@ const ChannelManagement: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black text-white pt-16">
-      {/* Channel Preview with Banner */}
-      <div className="relative">
-        <ChannelPreviewCard 
-          channel={channel} 
-        />
-        
-        {/* Action Buttons Overlay */}
-        <div className="absolute top-6 right-6 flex items-center gap-3">
-          <button
-            onClick={() => setIsEditModalOpen(true)}
-            className="p-2 bg-black/50 hover:bg-gray-800/80 rounded-xl transition-all duration-300
-              text-white hover:text-[#fa7517] border border-gray-800/30 hover:border-[#fa7517]/50
-              backdrop-blur-sm"
-          >
-            <Edit3 className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setShowDeleteSection(true)}
-            className="p-2 bg-black/50 hover:bg-red-900/80 rounded-xl transition-all duration-300
-              text-white hover:text-red-500 border border-gray-800/30 hover:border-red-500/50
-              backdrop-blur-sm"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
-        </div>
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:py-10">
+        {channelId ? (
+          // Single channel view
+          <div className="relative">
+            {/* Back button */}
+            <button
+              onClick={() => navigate('/creator-hub/channels')}
+              className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors"
+            >
+              <ArrowLeft size={16} className="mr-2" />
+              Back to Channels
+            </button>
 
-        {/* Back Button */}
-        <button
-          onClick={() => navigate('/creator-hub/channels')}
-          className="absolute top-6 left-6 p-2 bg-black/50 hover:bg-gray-800/80 
-            rounded-xl transition-all duration-300 text-white hover:text-[#fa7517]
-            border border-gray-800/30 hover:border-[#fa7517]/50
-            backdrop-blur-sm"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-      </div>
+            {/* Channel Preview */}
+            <div className="mb-6">
+              <ChannelPreviewCard 
+                channel={channel} 
+                onUpdate={() => {
+                  setIsEditModalOpen(false);
+                }} 
+                onDeleted={() => navigate('/creator-hub/channels')}
+              />
+            </div>
 
-      {/* Channel Management Sections */}
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-        {/* YouTube Integration Section */}
-        <YouTubeIntegration className="mb-8" />
-        
-        {/* Delete Channel Section - only show when requested */}
-        {showDeleteSection && (
-          <DeleteChannel 
-            channelId={channel.id.toString()} 
-            channelName={channel.name}
-            onDeleted={() => navigate('/creator-hub/channels')}
-          />
+            {/* YouTube Integration Section */}
+            <YouTubeIntegration className="mb-6" />
+
+            {/* Delete Channel Section */}
+            <DeleteChannel 
+              channelId={channelId} 
+              channelName={channel?.name || 'this channel'} 
+              onDeleted={() => navigate('/creator-hub/channels')}
+            />
+          </div>
+        ) : (
+          // Channel list view
+          <>
+            {/* Header */}
+            <div className="mb-6 sm:mb-10">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Channel Management</h1>
+              <p className="text-sm sm:text-base text-gray-400">
+                Manage your channels and connectivity with other platforms
+              </p>
+            </div>
+
+            {/* Main content */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left column (1/3 width on large screens, full width on mobile) */}
+              <div className="order-2 lg:order-1 lg:col-span-1">
+                <YouTubeIntegration className="mb-6" />
+                
+                {/* Additional integrations can be added here */}
+                <div className="bg-zinc-900 rounded-lg p-4 sm:p-6">
+                  <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
+                    <Hexagon className="mr-2 text-blue-400" size={20} />
+                    Channel Analytics
+                  </h3>
+                  <p className="text-zinc-400 text-sm sm:text-base mb-4">
+                    View detailed analytics and performance metrics for your channel.
+                  </p>
+                  <Link 
+                    to="/creator-hub/analytics"
+                    className="inline-flex items-center px-4 py-2 bg-zinc-800 text-white rounded-md hover:bg-zinc-700 text-xs sm:text-sm transition-colors"
+                  >
+                    <BarChart3 size={16} className="mr-2" />
+                    View Analytics
+                  </Link>
+                </div>
+              </div>
+              
+              {/* Right column (2/3 width on large screens, full width on mobile) */}
+              <div className="order-1 lg:order-2 lg:col-span-2">
+                <div className="bg-zinc-900 rounded-lg p-4 sm:p-6 mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                    <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-0">Your Channels</h3>
+                    
+                    <Link
+                      to="/creator-hub/channels/new"
+                      className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 bg-[#fa7517] text-black text-xs sm:text-sm rounded-md hover:bg-[#ff8c3a] transition-colors"
+                    >
+                      <Plus size={16} className="mr-2" />
+                      Create New Channel
+                    </Link>
+                  </div>
+                  
+                  <ChannelList />
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
       {/* Modals */}
-      <EditChannelModal
-        channel={channel}
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onUpdate={() => {
-          setIsEditModalOpen(false);
-        }}
-      />
+      {channel && (
+        <EditChannelModal
+          channel={channel}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onUpdate={() => {
+            setIsEditModalOpen(false);
+            // Refresh channel data if needed
+          }}
+        />
+      )}
     </div>
   );
 };
