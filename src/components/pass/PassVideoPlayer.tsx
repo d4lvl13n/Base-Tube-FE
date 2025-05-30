@@ -217,6 +217,11 @@ const PassVideoPlayer: React.FC<PassVideoPlayerProps> = ({
     if (!youTubeId || !isPlaying || !youtubePlayerRef.current) return;
     
     const interval = setInterval(() => {
+      // MEMORY LEAK FIX: Only update if tab is visible
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
+
       if (youtubePlayerRef.current) {
         try {
           setCurrentTime(youtubePlayerRef.current.getCurrentTime() || 0);
@@ -226,7 +231,9 @@ const PassVideoPlayer: React.FC<PassVideoPlayerProps> = ({
       }
     }, 1000);
     
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, [youTubeId, isPlaying]);
   
   // YouTube player event handlers
