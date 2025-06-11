@@ -1,5 +1,5 @@
 import api from './index';
-import { 
+import {
   Pass,
   PassDetailsResponse,
   DiscoverPassesResponse,

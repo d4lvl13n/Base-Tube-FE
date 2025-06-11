@@ -53,7 +53,7 @@ class Web3AuthApi {
         userError.message = 'Wallet not found. Please sign up first.';
       } else if (userError.code === ErrorCode.UNAUTHORIZED) {
         userError.message = 'Login failed. Please check your wallet connection.';
-      }
+        }
 
       throw userError;
     }
@@ -88,8 +88,8 @@ class Web3AuthApi {
       if (userError.code === ErrorCode.VALIDATION_ERROR && 
           error instanceof Error && error.message.includes('409')) {
         userError.message = 'Wallet already registered. Please login instead.';
-      }
-
+        }
+        
       throw userError;
     }
   }
@@ -120,7 +120,7 @@ class Web3AuthApi {
       if (userError.code === ErrorCode.VALIDATION_ERROR &&
           error instanceof Error && error.message.includes('409')) {
         userError.message = 'Wallet already linked to another account.';
-      }
+        }
 
       throw userError;
     }
@@ -192,32 +192,32 @@ class Web3AuthApi {
   /**
    * Validates username format
    */
-  private isValidUsername(username: string): boolean {
-    // Must start with 0x_
-    // Can contain letters, numbers, and underscores
-    // Total length: 5-20 characters (including 0x_)
-    const usernameRegex = /^0x_[a-zA-Z0-9_]{2,17}$/;
-    
-    if (!usernameRegex.test(username)) {
-      return false;
-    }
-
-    // Additional validation rules could go here
-    // e.g., no consecutive underscores, no reserved words, etc.
-
-    return true;
+ private isValidUsername(username: string): boolean {
+  // Must start with 0x_
+  // Can contain letters, numbers, and underscores
+  // Total length: 5-20 characters (including 0x_)
+  const usernameRegex = /^0x_[a-zA-Z0-9_]{2,17}$/;
+  
+  if (!usernameRegex.test(username)) {
+    return false;
   }
 
-  private getValidationError(username: string): string | null {
-    if (!username.startsWith('0x_')) {
-      return 'Username must start with 0x_';
-    }
-    if (username.length < 5) {
+  // Additional validation rules could go here
+  // e.g., no consecutive underscores, no reserved words, etc.
+
+  return true;
+}
+
+private getValidationError(username: string): string | null {
+  if (!username.startsWith('0x_')) {
+    return 'Username must start with 0x_';
+  }
+  if (username.length < 5) {
       return 'Username too short (minimum 5 characters including 0x_)';
-    }
-    if (username.length > 20) {
+  }
+  if (username.length > 20) {
       return 'Username too long (maximum 20 characters including 0x_)';
-    }
+  }
     
     // Check if it contains only valid characters after 0x_
     const afterPrefix = username.slice(3);

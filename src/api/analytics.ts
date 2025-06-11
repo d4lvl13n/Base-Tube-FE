@@ -259,8 +259,8 @@ export const getChannelViewMetrics = async (
   };
 
   const data = await retryWithBackoffLocal(async () => {
-    const response = await api.get<{
-      success: boolean;
+    const response = await api.get<{ 
+      success: boolean; 
       data: BasicViewMetrics | DetailedViewMetrics;
     }>(endpoint);
 
@@ -338,13 +338,13 @@ export const getChannelWatchHours = async (
       `/api/v1/analytics/channels/${channelId}/watch-hours`,
       { params: { period } }
     );
-    
+
     if (!response.data.success) {
       throw new Error(`Failed to fetch watch hours for channel ${channelId}`);
     }
 
     return response.data.data;
-  };
+    };
 
   try {
     return await retryWithBackoff(fetchWatchTime, 2, 1000);

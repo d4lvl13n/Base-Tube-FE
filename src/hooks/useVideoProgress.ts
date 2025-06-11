@@ -46,7 +46,7 @@ export const useVideoProgress = (videoId: number | string): UseVideoProgressRetu
       
       // Only update state if component is still mounted
       if (isMountedRef.current) {
-        setIsProcessing(isAnyVideoProcessing);
+      setIsProcessing(isAnyVideoProcessing);
       }
 
       // Only poll if:
