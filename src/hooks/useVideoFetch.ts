@@ -1,26 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { getVideoById } from '../api/video';
 import { Video } from '../types/video';
+import { queryKeys } from '../utils/queryKeys';
 
 export const useVideoFetch = (id: string) => {
-  const [video, setVideo] = useState<Video | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    const loadVideo = async () => {
-      try {
-        const response = await getVideoById(id);
-        setVideo(response.data);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setLoading(false);
+  return useQuery({
+    queryKey: queryKeys.video.byId(id),
+    queryFn: async () => {
+      const response = await getVideoById(id);
+      return response.data;
+    },
+    enabled: !!id, // Only run query if id exists
+    staleTime: 5 * 60 * 1000, // 5 minutes - videos don't change frequently
+    gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache
+    retry: (failureCount, error: any) => {
+      // Don't retry on 404 (video not found)
+      if (error?.status === 404 || error?.response?.status === 404) {
+        return false;
       }
-    };
-
-    loadVideo();
-  }, [id]);
-
-  return { video, loading, error };
+      return failureCount < 2; // Retry up to 2 times for other errors
+    },
+  });
 };
