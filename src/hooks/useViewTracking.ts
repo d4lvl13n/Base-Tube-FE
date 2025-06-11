@@ -212,14 +212,14 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
   return {
     startTracking: useCallback(() => {
       if (isMountedRef.current) {
-        isTrackingRef.current = true;
+      isTrackingRef.current = true;
       }
     }, []),
 
     pauseTracking: useCallback(() => {
       if (isMountedRef.current) {
-        isTrackingRef.current = false;
-        void updateView(true);
+      isTrackingRef.current = false;
+      void updateView(true);
       }
     }, [updateView]),
 

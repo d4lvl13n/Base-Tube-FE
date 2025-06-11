@@ -158,14 +158,14 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
       const interval = setInterval(() => {
         // MEMORY LEAK FIX: Only update if tab is visible
         if (document.visibilityState === 'visible') {
-          // Get a new random message, but make sure it's different from the current one
-          let newIndex;
-          do {
-            newIndex = Math.floor(Math.random() * funnyLoadingMessages.length);
-          } while (newIndex === loadingMessageIndex && funnyLoadingMessages.length > 1);
-          
-          setLoadingMessageIndex(newIndex);
-          setCurrentLoadingMessage(funnyLoadingMessages[newIndex]);
+        // Get a new random message, but make sure it's different from the current one
+        let newIndex;
+        do {
+          newIndex = Math.floor(Math.random() * funnyLoadingMessages.length);
+        } while (newIndex === loadingMessageIndex && funnyLoadingMessages.length > 1);
+        
+        setLoadingMessageIndex(newIndex);
+        setCurrentLoadingMessage(funnyLoadingMessages[newIndex]);
         }
       }, 3000);
       

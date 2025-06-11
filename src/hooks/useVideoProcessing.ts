@@ -44,7 +44,7 @@ export const useVideoProcessing = (videoIds: number[]) => {
 
       if (incompleteVideos.length === 0) {
         if (isMountedRef.current) {
-          setIsPolling(false);
+        setIsPolling(false);
         }
         return;
       }
@@ -82,13 +82,13 @@ export const useVideoProcessing = (videoIds: number[]) => {
       // Stop polling if no videos are still processing
       if (!validUpdates.some(video => video.status === 'pending' || video.status === 'processing')) {
         if (isMountedRef.current) {
-          setIsPolling(false);
+        setIsPolling(false);
         }
       }
     } catch (error) {
       console.error('Error checking video progress:', error);
       if (isMountedRef.current) {
-        setIsPolling(false);
+      setIsPolling(false);
       }
     }
   }, [videoIds]);

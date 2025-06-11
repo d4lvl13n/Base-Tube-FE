@@ -79,10 +79,10 @@ export const getVideoShareStats = async (videoId: string): Promise<{
         userError.code === ErrorCode.DATA_PROCESSING_ERROR ||
         userError.code === ErrorCode.NOT_FOUND) {
       console.warn('Share statistics unavailable, returning empty data:', userError.message);
-      return {
-        totalShares: 0,
-        byPlatform: {}
-      };
+    return {
+      totalShares: 0,
+      byPlatform: {}
+    };
     }
 
     throw userError;

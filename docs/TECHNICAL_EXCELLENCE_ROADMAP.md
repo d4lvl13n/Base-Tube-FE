@@ -182,8 +182,8 @@ const { data, isLoading, error } = useQuery({
 
 ### Week 7-8: TypeScript Enhancement
 
-**Task 1.5: Complete Type Coverage**
-```typescript
+**Task 1.5: Complete Type Coverage** -- Are not there in /types
+```typescript 
 // Add missing interfaces for all API responses
 interface VideoAnalyticsResponse {
   success: true;
