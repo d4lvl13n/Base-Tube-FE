@@ -2,7 +2,8 @@ import api from './index';
 import { RecommendedVideo, PaginationResponse, TrendingVideoResponse, Video, RecommendedVideosResponse } from '../types/video';
 import { AxiosProgressEvent } from 'axios';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
-import axios from 'axios';
+import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
+import { ErrorCode } from '../types/error';
 
 
 interface InitViewResponse {
@@ -140,7 +141,7 @@ export const getTrendingVideos = async ({
   timeFrame = 'week',
   sort = 'trending'
 }: GetTrendingVideosParams = {}): Promise<TrendingVideoResponse> => {
-  try {
+  const fetchTrending = async () => {
     const response = await api.get<TrendingVideoResponse>(
       `/api/v1/videos/trending`,
       {
@@ -153,9 +154,18 @@ export const getTrendingVideos = async ({
       }
     );
     return response.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchTrending, 2, 1000);
   } catch (error) {
-    console.error('Error fetching trending videos:', error);
-    throw error;
+    const userError = handleApiError(error, {
+      action: 'fetch trending videos',
+      component: 'videoAPI',
+      additionalData: { page, limit, timeFrame, sort }
+    });
+
+    throw userError;
   }
 };
 
@@ -166,7 +176,7 @@ export const getVideos = (category: string, limit: number = 4) =>
   api.get<Video[]>(`/api/v1/videos?category=${category}&limit=${limit}`);
 
 export const uploadVideo = async (formData: FormData, onUploadProgress?: (progressEvent: AxiosProgressEvent) => void) => {
-  try {
+  const executeUpload = async () => {
     // Log the FormData contents
     console.log('Upload API - FormData contents:', {
       hasVideo: formData.has('video'),
@@ -176,18 +186,6 @@ export const uploadVideo = async (formData: FormData, onUploadProgress?: (progre
       hasThumbnail: formData.has('thumbnail'),
       hasChannelId: formData.has('channel_id'),
       hasVisibility: formData.has('is_public'),
-    });
-
-    // Log request configuration
-    console.log('Upload API - Request configuration:', {
-      endpoint: '/api/v1/videos/upload',
-      contentType: 'multipart/form-data',
-      formDataSize: Array.from(formData.entries()).reduce((total, [_, value]) => {
-        if (value instanceof File) {
-          return total + value.size;
-        }
-        return total + new Blob([String(value)]).size;
-      }, 0) / (1024 * 1024), // Size in MB
     });
 
     const response = await api.post<{
@@ -211,7 +209,6 @@ export const uploadVideo = async (formData: FormData, onUploadProgress?: (progre
           onUploadProgress(progressEvent);
         }
       },
-      // Add timeout and max content length configurations
       timeout: 300000, // 5 minutes
       maxContentLength: Infinity,
       maxBodyLength: Infinity
@@ -224,48 +221,38 @@ export const uploadVideo = async (formData: FormData, onUploadProgress?: (progre
     });
 
     return response;
-  } catch (error: any) {
-    console.error('Upload API - Error details:', {
-      name: error.name,
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      responseData: error.response?.data,
-      requestConfig: {
-        url: error.config?.url,
-        method: error.config?.method,
-        headers: error.config?.headers,
-        timeout: error.config?.timeout,
+  };
+
+  try {
+    // Note: Upload shouldn't be retried automatically due to large file size
+    return await executeUpload();
+  } catch (error) {
+    const userError = handleApiError(error, {
+      action: 'video upload',
+      component: 'videoAPI',
+      additionalData: {
+        hasVideo: formData.has('video'),
+        videoSize: formData.get('video') instanceof File ? (formData.get('video') as File).size : 0
       }
     });
 
-    // Log specific error types
-    if (error.response) {
-      // Server responded with error
-      console.error('Upload API - Server error:', {
-        status: error.response.status,
-        data: error.response.data,
-        headers: error.response.headers
-      });
-    } else if (error.request) {
-      // Request made but no response
-      console.error('Upload API - Network error:', {
-        request: error.request,
-        message: 'No response received from server'
-      });
-    } else {
-      // Error in request configuration
-      console.error('Upload API - Request configuration error:', {
-        message: error.message
-      });
+    // Custom error handling for upload-specific errors
+    if (userError.code === ErrorCode.REQUEST_FAILED && error instanceof Error) {
+      if (error.message.includes('413') || error.message.includes('file too large')) {
+        userError.code = ErrorCode.FILE_TOO_LARGE;
+        userError.message = 'Video file is too large. Please choose a smaller file or compress your video.';
+      } else if (error.message.includes('timeout')) {
+        userError.code = ErrorCode.CONNECTION_TIMEOUT;
+        userError.message = 'Upload timed out. Please check your connection and try again.';
+      }
     }
 
-    throw error;
+    throw userError;
   }
 };
 
 export const updateVideo = async (id: string, formData: FormData): Promise<UpdateVideoResponse> => {
-  try {
+  const executeUpdate = async () => {
     const response = await api.put<UpdateVideoResponse>(
       `/api/v1/videos/${id}`,
       formData,
@@ -274,66 +261,108 @@ export const updateVideo = async (id: string, formData: FormData): Promise<Updat
       }
     );
     return response.data;
+  };
+
+  try {
+    return await retryWithBackoff(executeUpdate, 2, 1000);
   } catch (error) {
-    console.error('Error updating video:', error);
-    // Properly handle different error types
-    if (axios.isAxiosError(error)) {
-      const message = error.response?.data?.message || 'Failed to update video';
-      throw new Error(message);
-    }
-    throw error;
+    const userError = handleApiError(error, {
+      action: 'update video',
+      component: 'videoAPI',
+      additionalData: { videoId: id }
+    });
+
+    throw userError;
   }
 };
 
 export const deleteVideo = async (id: string): Promise<DeleteVideoResponse> => {
-  try {
+  const executeDelete = async () => {
     const response = await api.delete<DeleteVideoResponse>(`/api/v1/videos/${id}`);
     return response.data;
+  };
+
+  try {
+    return await retryWithBackoff(executeDelete, 2, 1000);
   } catch (error) {
-    console.error('Error deleting video:', error);
-    // Properly handle different error types
-    if (axios.isAxiosError(error)) {
-      const message = error.response?.data?.message || 'Failed to delete video';
-      throw new Error(message);
+    const userError = handleApiError(error, {
+      action: 'delete video',
+      component: 'videoAPI',
+      additionalData: { videoId: id }
+    });
+
+    // Handle specific delete scenarios
+    if (userError.code === ErrorCode.NOT_FOUND) {
+      userError.message = 'Video not found. It may have already been deleted.';
+    } else if (userError.code === ErrorCode.FORBIDDEN) {
+      userError.message = 'You don\'t have permission to delete this video.';
     }
-    throw error;
+
+    throw userError;
   }
 };
 
 export const toggleVideoLike = async (videoId: string): Promise<LikeResponse> => {
-  try {
+  const executeLike = async () => {
     const response = await api.post<LikeResponse>(
       `/api/v1/likes/videos/${videoId}/toggle`
     );
     return response.data;
+  };
+
+  try {
+    return await retryWithBackoff(executeLike, 2, 1000);
   } catch (error) {
-    console.error('Error toggling video like:', error);
-    throw error;
+    const userError = handleApiError(error, {
+      action: 'toggle video like',
+      component: 'videoAPI',
+      additionalData: { videoId }
+    });
+
+    throw userError;
   }
 };
 
 export const getLikedVideos = async (page: number = 1, limit: number = 10): Promise<LikedVideosResponse> => {
-  try {
+  const fetchLiked = async () => {
     const response = await api.get<LikedVideosResponse>(
       `/api/v1/likes/videos?page=${page}&limit=${limit}`
     );
     return response.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchLiked, 2, 1000);
   } catch (error) {
-    console.error('Error fetching liked videos:', error);
-    throw error;
+    const userError = handleApiError(error, {
+      action: 'fetch liked videos',
+      component: 'videoAPI',
+      additionalData: { page, limit }
+    });
+
+    throw userError;
   }
 };
 
 export const getBatchLikeStatus = async (videoIds: number[]): Promise<BatchLikeStatusResponse> => {
-  try {
+  const fetchBatchStatus = async () => {
     const response = await api.post<BatchLikeStatusResponse>(
       '/api/v1/likes/videos/batch-status',
       { videoIds }
     );
     return response.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchBatchStatus, 2, 1000);
   } catch (error) {
-    console.error('Error fetching batch like status:', error);
-    throw error;
+    const userError = handleApiError(error, {
+      action: 'fetch batch like status',
+      component: 'videoAPI',
+      additionalData: { videoCount: videoIds.length }
+    });
+
+    throw userError;
   }
 };
 

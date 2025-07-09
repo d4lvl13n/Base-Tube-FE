@@ -20,22 +20,33 @@ import {
   CreatorWatchHours 
 } from '../types/analytics';
 import axios from 'axios';
+import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
+import { ErrorCode } from '../types/error';
 
 export const getMyChannels = async (
   options: ChannelQueryOptions = {}
 ): Promise<Channel[]> => {
   const { page = 1, limit = 10, sort = 'createdAt' } = options;
   
-  try {
+  const fetchChannels = async () => {
     const response = await api.get<ChannelsResponse>(
       `/api/v1/channels/my`, {
         params: { page, limit, sort, include: 'owner' }
       }
     );
     return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchChannels, 2, 1000);
   } catch (error: unknown) {
-    console.error('Error fetching my channels:', error);
-    throw error;
+    const userError = handleApiError(error, {
+      action: 'fetch my channels',
+      component: 'channelAPI',
+      additionalData: { page, limit, sort }
+    });
+
+    throw userError;
   }
 };
 
@@ -48,7 +59,7 @@ export const getChannels = async (options: GetChannelsOptions = {}): Promise<Get
     search 
   } = options;
 
-  try {
+  const fetchChannels = async () => {
     const pageNumber = typeof page === 'string' ? parseInt(page, 10) : page;
     
     const queryParams = new URLSearchParams({
@@ -82,9 +93,18 @@ export const getChannels = async (options: GetChannelsOptions = {}): Promise<Get
       currentPage: response.data.currentPage || 1,
       itemsPerPage: response.data.itemsPerPage || limit
     };
+  };
+
+  try {
+    return await retryWithBackoff(fetchChannels, 2, 1000);
   } catch (error: unknown) {
-    console.error('Error fetching channels:', error);
-    throw error;
+    const userError = handleApiError(error, {
+      action: 'fetch channels',
+      component: 'channelAPI',
+      additionalData: { page, limit, sort, search, minSubscribers }
+    });
+
+    throw userError;
   }
 };
 
@@ -114,7 +134,7 @@ export const getPopularChannels = async (
 };
 
 export const createChannel = async (channelData: FormData) => {
-  try {
+  const executeCreate = async () => {
     // Log the request details (but sanitize sensitive data)
     console.log('Creating channel with data:', {
       name: channelData.get('name'),
@@ -139,14 +159,30 @@ export const createChannel = async (channelData: FormData) => {
     });
 
     return response.data;
+  };
+
+  try {
+    return await retryWithBackoff(executeCreate, 2, 1000);
   } catch (error: any) {
-    console.error('Channel creation error:', {
-      name: error.name,
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data
+    const userError = handleApiError(error, {
+      action: 'create channel',
+      component: 'channelAPI',
+      additionalData: {
+        channelName: channelData.get('name'),
+        hasImage: Boolean(channelData.get('channel_image'))
+      }
     });
-    throw error;
+
+    // Handle specific channel creation errors
+    if (userError.code === ErrorCode.VALIDATION_ERROR) {
+      if (error?.response?.data?.message?.includes('handle')) {
+        userError.message = 'Channel handle already exists. Please choose a different handle.';
+      } else if (error?.response?.data?.message?.includes('name')) {
+        userError.message = 'Channel name is invalid or already taken.';
+      }
+    }
+
+    throw userError;
   }
 };
 
@@ -205,7 +241,7 @@ export const getChannelDetails = async (identifier: number | string): Promise<Ch
 };
 
 export const getChannelVideos = async (channelId: string | number, page: number = 1) => {
-  try {
+  const fetchVideos = async () => {
     const response = await api.get(`/api/v1/channels/${channelId}/videos`, {
       params: {
         page,
@@ -213,9 +249,18 @@ export const getChannelVideos = async (channelId: string | number, page: number 
       }
     });
     return response.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchVideos, 2, 1000);
   } catch (error) {
-    console.error('Failed to fetch channel videos:', error);
-    throw error;
+    const userError = handleApiError(error, {
+      action: 'fetch channel videos',
+      component: 'channelAPI',
+      additionalData: { channelId, page }
+    });
+
+    throw userError;
   }
 };
 
@@ -303,18 +348,29 @@ export const checkHandleAvailability = async (
 };
 
 // Fetch channel by ID
-export const getChannelById = async (id: string | number): Promise<ChannelDetailsResponse> => {
-  const response = await api.get(`/api/v1/channels/${id}`);
-  
-  const channel = {
-    ...response.data.channel,
-    videos_count: response.data.channel.videos_count ?? 0
+export const getChannelById = async (id: string): Promise<ChannelDetailsResponse> => {
+  const fetchChannel = async () => {
+    const response = await api.get<ChannelDetailsResponse>(`/api/v1/channels/${id}`);
+    return response.data;
   };
-  
-  return {
-    ...response.data,
-    channel
-  };
+
+  try {
+    return await retryWithBackoff(fetchChannel, 2, 1000);
+  } catch (error) {
+    const userError = handleApiError(error, {
+      action: 'fetch channel details',
+      component: 'channelAPI',
+      additionalData: { channelId: id }
+    });
+
+    // Handle specific channel not found error
+    if (userError.code === ErrorCode.NOT_FOUND) {
+      userError.code = ErrorCode.CHANNEL_NOT_FOUND;
+      userError.message = 'Channel not found. It may have been removed or made private.';
+    }
+
+    throw userError;
+  }
 };
 
 export const getHandleSuggestions = async (

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
-import { web3AuthApi } from '../api/web3authapi';
+import web3AuthApi from '../api/web3authapi';
 import { useAuth } from '../contexts/AuthContext';
 
 type ModalState = {

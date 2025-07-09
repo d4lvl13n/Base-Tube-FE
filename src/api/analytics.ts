@@ -18,6 +18,17 @@ import {
   VideoPerformanceResponse,
   ChannelAnalyticsInsight
 } from '../types/analytics';
+import { handleApiError as handleError, retryWithBackoff } from '../utils/errorHandler';
+import { ErrorCode } from '../types/error';
+
+// Add the missing WatchTimeData interface
+interface WatchTimeData {
+  totalWatchTime: number;
+  avgSessionDuration: number;
+  uniqueViewers: number;
+  retentionRate: number;
+  periodLabel: string;
+}
 
 // ===========================================
 // VIEWER-FOCUSED ANALYTICS ENDPOINTS
@@ -41,7 +52,7 @@ export const getWatchPatterns = async (): Promise<WatchPatterns> => {
  * @param channelId The ID of the channel to get watch patterns for
  */
 export const getChannelWatchPatterns = async (channelId: string): Promise<ChannelWatchPatterns> => {
-  try {
+  const fetchPatterns = async () => {
     const response = await api.get<{ success: boolean; data: ChannelWatchPatterns }>(
       `/api/v1/creators/channels/${channelId}/watch-patterns`
     );
@@ -51,9 +62,36 @@ export const getChannelWatchPatterns = async (channelId: string): Promise<Channe
     }
     
     return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchPatterns, 2, 1000);
   } catch (error) {
-    console.error('Failed to fetch channel watch patterns:', error);
-    return handleApiError(error, 'channel watch patterns');
+    const userError = handleError(error, {
+      action: 'fetch channel watch patterns',
+      component: 'analytics',
+      additionalData: { channelId }
+    });
+    
+    // For analytics, return empty data structure instead of throwing
+    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE || 
+        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
+      console.warn('Analytics unavailable, returning empty data:', userError.message);
+      return {
+        hourlyPatterns: [],
+        weekdayPatterns: [],
+        durationStats: {
+          averageWatchDuration: 0,
+          maxWatchDuration: 0,
+          totalViews: 0,
+          uniqueViewers: 0
+        },
+        retentionByDuration: [],
+        topRetainedVideos: []
+      };
+    }
+    
+    throw userError;
   }
 };
 
@@ -62,7 +100,7 @@ export const getChannelWatchPatterns = async (channelId: string): Promise<Channe
  * @param channelId The ID of the channel to get social metrics for
  */
 export const getSocialMetrics = async (channelId: string): Promise<SocialMetrics> => {
-  try {
+  const fetchMetrics = async () => {
     const response = await api.get<{ success: boolean; data: SocialMetrics }>(
       `/api/v1/analytics/channels/${channelId}/social-metrics`
     );
@@ -72,9 +110,42 @@ export const getSocialMetrics = async (channelId: string): Promise<SocialMetrics
     }
 
     return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchMetrics, 2, 1000);
   } catch (error) {
-    console.error('Failed to fetch social metrics:', error);
-    throw error;
+    const userError = handleError(error, {
+      action: 'fetch social metrics',
+      component: 'analytics',
+      additionalData: { channelId }
+    });
+
+    // For social metrics, return default structure on analytics errors or network issues
+    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
+        userError.code === ErrorCode.DATA_PROCESSING_ERROR ||
+        userError.code === ErrorCode.NETWORK_ERROR ||
+        userError.code === ErrorCode.INTERNAL_SERVER_ERROR) {
+      console.warn('Social metrics unavailable, returning empty data:', userError.message);
+      return {
+        interactions: {
+          commentsReceived: 0,
+          responseRate: 0,
+          averageResponseTime: 0,
+          recentEngagement: {
+            total: 0,
+            likes: 0,
+            comments: 0
+          }
+        },
+        community: {
+          subscriberCount: 0,
+          recentSubscribers: 0
+        }
+      };
+    }
+
+    throw userError;
   }
 };
 
@@ -84,7 +155,7 @@ export const getSocialMetrics = async (channelId: string): Promise<SocialMetrics
  * @param channelId The ID of the channel to get growth metrics for
  */
 export const getGrowthMetrics = async (period: '7d' | '30d' | 'all', channelId: string): Promise<GrowthMetrics> => {
-  try {
+  const fetchGrowthMetrics = async () => {
     // Add cache-busting timestamp to prevent 304 responses
     const timestamp = new Date().getTime();
     // Construct endpoint with the correct period ('7d', '30d', or 'all')
@@ -98,8 +169,45 @@ export const getGrowthMetrics = async (period: '7d' | '30d' | 'all', channelId: 
     // reflecting what was used ('7d', '30d', or potentially 'all' indicating totals)
     // No change needed here if the GrowthMetrics type already accommodates this.
     return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchGrowthMetrics, 2, 1000);
   } catch (error) {
-    return handleApiError(error, 'growth metrics');
+    const userError = handleError(error, {
+      action: 'fetch growth metrics',
+      component: 'analytics',
+      additionalData: { channelId, period }
+    });
+
+    // For growth metrics, return empty structure on analytics errors or network issues
+    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
+        userError.code === ErrorCode.DATA_PROCESSING_ERROR ||
+        userError.code === ErrorCode.NETWORK_ERROR ||
+        userError.code === ErrorCode.INTERNAL_SERVER_ERROR) {
+      console.warn('Growth metrics unavailable, returning empty data:', userError.message);
+      return {
+        metrics: {
+          subscribers: {
+            total: 0,
+            trend: 0,
+            data: []
+          },
+          views: {
+            total: 0,
+            trend: 0,
+            data: []
+          },
+          engagement: {
+            total: 0,
+            trend: 0,
+            data: []
+          }
+        }
+      };
+    }
+
+    throw userError;
   }
 };
 
@@ -136,7 +244,7 @@ export const getChannelViewMetrics = async (
   const timestamp = new Date().getTime();
   const endpoint = `/api/v1/analytics/channels/${channelId}/views${detailed ? '?withTimePeriods=true' : ''}${detailed ? '&' : '?'}_t=${timestamp}`;
   
-  const retryWithBackoff = async <T>(
+  const retryWithBackoffLocal = async <T>(
     fn: () => Promise<T>,
     retries: number = 3,
     delay: number = 1000
@@ -146,23 +254,24 @@ export const getChannelViewMetrics = async (
     } catch (error) {
       if (retries === 0) throw error;
       await new Promise(resolve => setTimeout(resolve, delay));
-      return retryWithBackoff(fn, retries - 1, delay * 2);
+      return retryWithBackoffLocal(fn, retries - 1, delay * 2);
     }
   };
 
-  const data = await retryWithBackoff(async () => {
+  const data = await retryWithBackoffLocal(async () => {
     const response = await api.get<{ 
       success: boolean; 
-      data: BasicViewMetrics | DetailedViewMetrics 
+      data: BasicViewMetrics | DetailedViewMetrics;
     }>(endpoint);
 
     if (!response.data.success) {
-      throw new Error('Failed to fetch channel view metrics');
+      throw new Error(`Failed to fetch view metrics for channel ${channelId}`);
     }
 
     return response.data.data;
   });
 
+  // Update cache with fresh data
   metricsCache.set(cacheKey, {
     data,
     timestamp: Date.now()
@@ -222,41 +331,44 @@ export const getLikeViewRatio = async (creatorId: string, videoId: number): Prom
  */
 export const getChannelWatchHours = async (
   channelId: string, 
-  period?: '7d' | '30d'
-): Promise<CreatorWatchHours> => {
-  if (!channelId) {
-    throw new Error('Channel ID is required');
-  }
-
-  try {
-    // Add a cache-busting timestamp to prevent 304 responses when switching periods
-    const timestamp = new Date().getTime();
-    const endpoint = period 
-      ? `/api/v1/analytics/channels/${channelId}/watch-hours?period=${period}&_t=${timestamp}`
-      : `/api/v1/analytics/channels/${channelId}/watch-hours?_t=${timestamp}`;
-
-    const response = await api.get<{ 
-      success: boolean; 
-      data: {
-        channelId: string;
-        totalWatchHours: number;
-        period?: '7d' | '30d';
-        formattedHours: string;
-      }
-    }>(endpoint);
+  period: '7d' | '30d' | '90d' | '1y' = '30d'
+): Promise<WatchTimeData> => {
+  const fetchWatchTime = async () => {
+    const response = await api.get<{ success: boolean; data: WatchTimeData }>(
+      `/api/v1/analytics/channels/${channelId}/watch-hours`,
+      { params: { period } }
+    );
 
     if (!response.data.success) {
       throw new Error(`Failed to fetch watch hours for channel ${channelId}`);
     }
 
-    return {
-      totalWatchHours: response.data.data.totalWatchHours,
-      formattedHours: response.data.data.formattedHours,
-      trend: 0 // We'll need to calculate this separately if needed
+    return response.data.data;
     };
+
+  try {
+    return await retryWithBackoff(fetchWatchTime, 2, 1000);
   } catch (error) {
-    console.error('Failed to fetch channel watch hours:', error);
-    throw error;
+    const userError = handleError(error, {
+      action: 'fetch channel watch hours',
+      component: 'analytics',
+      additionalData: { channelId, period }
+    });
+
+    // For watch time data, return zero values on analytics errors
+    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
+        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
+      console.warn('Watch hours unavailable, returning empty data:', userError.message);
+      return {
+        totalWatchTime: 0,
+        avgSessionDuration: 0,
+        uniqueViewers: 0,
+        retentionRate: 0,
+        periodLabel: period
+      };
+    }
+
+    throw userError;
   }
 };
 
@@ -269,7 +381,7 @@ export const getEngagementTrends = async (
   channelId: string,
   period?: '7d' | '30d' | 'all'
 ): Promise<EngagementTrends> => {
-  try {
+  const fetchEngagementTrends = async () => {
     // Add timestamp to bust browser cache
     const timestamp = new Date().getTime();
     const params: Record<string, string | number> = { _t: timestamp };
@@ -285,9 +397,29 @@ export const getEngagementTrends = async (
     }
     
     return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchEngagementTrends, 2, 1000);
   } catch (error) {
-    console.error('Failed to fetch engagement trends:', error);
-    return handleApiError(error, 'engagement trends');
+    const userError = handleError(error, {
+      action: 'fetch engagement trends',
+      component: 'analytics',
+      additionalData: { channelId, period }
+    });
+
+    // For engagement trends, return empty structure on analytics errors
+    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
+        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
+      console.warn('Engagement trends unavailable, returning empty data:', userError.message);
+      return {
+        likeGrowth: [],
+        commentGrowth: [],
+        shareGrowth: []
+      };
+    }
+
+    throw userError;
   }
 };
 
@@ -300,7 +432,7 @@ export const getTopLikedContent = async (
   channelId: string,
   limit?: number
 ): Promise<TopContentItem[]> => {
-  try {
+  const fetchTopContent = async () => {
     const params = limit ? { limit } : {};
     
     const response = await api.get<{ success: boolean; data: TopContentItem[] }>(
@@ -313,9 +445,25 @@ export const getTopLikedContent = async (
     }
     
     return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchTopContent, 2, 1000);
   } catch (error) {
-    console.error('Failed to fetch top liked content:', error);
-    return handleApiError(error, 'top liked content');
+    const userError = handleError(error, {
+      action: 'fetch top liked content',
+      component: 'analytics',
+      additionalData: { channelId, limit }
+    });
+
+    // Return empty array for content lists on analytics errors
+    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
+        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
+      console.warn('Top liked content unavailable, returning empty data:', userError.message);
+      return [];
+    }
+
+    throw userError;
   }
 };
 
@@ -328,7 +476,7 @@ export const getTopSharedContent = async (
   channelId: string,
   limit?: number
 ): Promise<TopSharedItem[]> => {
-  try {
+  const fetchTopShared = async () => {
     const params = limit ? { limit } : {};
     
     const response = await api.get<{ success: boolean; data: TopSharedItem[] }>(
@@ -341,9 +489,25 @@ export const getTopSharedContent = async (
     }
     
     return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchTopShared, 2, 1000);
   } catch (error) {
-    console.error('Failed to fetch top shared content:', error);
-    return handleApiError(error, 'top shared content');
+    const userError = handleError(error, {
+      action: 'fetch top shared content', 
+      component: 'analytics',
+      additionalData: { channelId, limit }
+    });
+
+    // Return empty array for content lists on analytics errors
+    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
+        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
+      console.warn('Top shared content unavailable, returning empty data:', userError.message);
+      return [];
+    }
+
+    throw userError;
   }
 };
 
@@ -358,7 +522,7 @@ export const getTopComments = async (
   period?: '7d' | '30d' | 'all',
   limit?: number
 ): Promise<TopComment[]> => {
-  try {
+  const fetchTopComments = async () => {
     const params: Record<string, string | number> = {};
     if (period) params.period = period;
     if (limit) params.limit = limit;
@@ -373,9 +537,25 @@ export const getTopComments = async (
     }
     
     return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchTopComments, 2, 1000);
   } catch (error) {
-    console.error('Failed to fetch top comments:', error);
-    return handleApiError(error, 'top comments');
+    const userError = handleError(error, {
+      action: 'fetch top comments',
+      component: 'analytics',
+      additionalData: { channelId, period, limit }
+    });
+
+    // For top comments, return empty array on analytics errors
+    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
+        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
+      console.warn('Top comments unavailable, returning empty data:', userError.message);
+      return [];
+    }
+
+    throw userError;
   }
 };
 
@@ -394,7 +574,7 @@ export const getChannelVideosPerformance = async (
     period?: 'all' | '7d' | '30d' | '90d'; // Add period parameter for time filtering
   }
 ): Promise<VideoPerformanceResponse> => {
-  try {
+  const fetchVideoPerformance = async () => {
     // Default options
     const page = options?.page || 1;
     const limit = options?.limit || 20;
@@ -433,14 +613,33 @@ export const getChannelVideosPerformance = async (
     }
     
     return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchVideoPerformance, 2, 1000);
   } catch (error) {
-    console.error('Failed to fetch channel videos performance:', error);
-    // Ensure handleApiError is defined or handle the error directly
-    if (typeof handleApiError === 'function') {
-      return handleApiError(error, 'video performance metrics');
-    } else {
-      throw error; // Re-throw if handleApiError is not available
+    const userError = handleError(error, {
+      action: 'fetch video performance metrics',
+      component: 'analytics',
+      additionalData: { channelId, options }
+    });
+
+    // For video performance, return empty structure on analytics errors
+    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
+        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
+      console.warn('Video performance unavailable, returning empty data:', userError.message);
+      return {
+        videos: [],
+        pagination: {
+          page: options?.page || 1,
+          limit: options?.limit || 20,
+          total: 0,
+          totalPages: 0
+        }
+      };
     }
+
+    throw userError;
   }
 };
 
@@ -475,7 +674,7 @@ export const getChannelDemographics = async (
   channelId: string, 
   period?: 'last7' | 'last30' | 'last90' | 'allTime'
 ): Promise<ChannelDemographics> => {
-  try {
+  const fetchDemographics = async () => {
     const params = period ? { period } : {};
     
     const response = await api.get<{ success: boolean; data: ChannelDemographics }>(
@@ -488,9 +687,28 @@ export const getChannelDemographics = async (
     }
     
     return response.data.data;
+  };
+
+  try {
+    return await retryWithBackoff(fetchDemographics, 2, 1000);
   } catch (error) {
-    console.error('Failed to fetch channel demographics:', error);
-    return handleApiError(error, 'channel demographics');
+    const userError = handleError(error, {
+      action: 'fetch channel demographics',
+      component: 'analytics',
+      additionalData: { channelId, period }
+    });
+
+    // For demographics, return empty structure on analytics errors
+    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
+        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
+      console.warn('Channel demographics unavailable, returning empty data:', userError.message);
+      return {
+        geoDistribution: [],
+        deviceUsage: []
+      };
+    }
+
+    throw userError;
   }
 };
 
@@ -534,14 +752,3 @@ export const getChannelAnalyticsInsights = async (
 // ===========================================
 // HELPER FUNCTIONS
 // ===========================================
-
-/**
- * Consistent error handling for API requests
- * @param error The error to handle
- * @param context Context for the error (e.g., what was being fetched)
- */
-const handleApiError = (error: any, context: string) => {
-  console.error(`Failed to fetch ${context}:`, error);
-  // Potentially throw a more specific error or return a default error structure
-  throw error;
-};

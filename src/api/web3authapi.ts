@@ -1,6 +1,7 @@
 import api from './index';
 import { LoginResponse, SignupResponse, LinkWalletResponse } from '../types/auth';
-import axios from 'axios';
+import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
+import { ErrorCode } from '../types/error';
 
 interface UsernameOptions {
   suggestions: string[];
@@ -16,7 +17,7 @@ class Web3AuthApi {
    * Logs in with a connected wallet.
    */
   async login(walletAddress: string): Promise<LoginResponse> {
-    try {
+    const executeLogin = async () => {
       const normalizedAddress = walletAddress.toLowerCase();
       
       console.log('Attempting login with address:', normalizedAddress);
@@ -36,23 +37,25 @@ class Web3AuthApi {
       });
       
       return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('Failed to login:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        });
+    };
 
-        if (error.response?.status === 404) {
-          throw new Error('User not found. Please sign up first.');
+    try {
+      return await retryWithBackoff(executeLogin, 2, 1000);
+    } catch (error) {
+      const userError = handleApiError(error, {
+        action: 'Web3 login',
+        component: 'web3authAPI',
+        additionalData: { walletAddress: walletAddress.slice(0, 6) + '...' }
+      });
+
+      // Handle specific Web3 auth errors
+      if (userError.code === ErrorCode.NOT_FOUND) {
+        userError.message = 'Wallet not found. Please sign up first.';
+      } else if (userError.code === ErrorCode.UNAUTHORIZED) {
+        userError.message = 'Login failed. Please check your wallet connection.';
         }
-        
-        if (error.response?.data?.error) {
-          throw new Error(error.response.data.error);
-        }
-      }
-      throw error;
+
+      throw userError;
     }
   }
 
@@ -60,7 +63,7 @@ class Web3AuthApi {
    * Signs up a new user with connected wallet.
    */
   async signup(walletAddress: string): Promise<SignupResponse> {
-    try {
+    const executeSignup = async () => {
       const normalizedAddress = walletAddress.toLowerCase();
       
       const response = await api.post('/api/v1/web3auth/signup', {
@@ -70,23 +73,24 @@ class Web3AuthApi {
       });
 
       return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('Failed to signup:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        });
+    };
 
-        if (error.response?.status === 409) {
-          throw new Error('Wallet already registered. Please login instead.');
+    try {
+      return await retryWithBackoff(executeSignup, 2, 1000);
+    } catch (error) {
+      const userError = handleApiError(error, {
+        action: 'Web3 signup',
+        component: 'web3authAPI',
+        additionalData: { walletAddress: walletAddress.slice(0, 6) + '...' }
+      });
+
+      // Handle specific signup errors
+      if (userError.code === ErrorCode.VALIDATION_ERROR && 
+          error instanceof Error && error.message.includes('409')) {
+        userError.message = 'Wallet already registered. Please login instead.';
         }
         
-        if (error.response?.data?.error) {
-          throw new Error(error.response.data.error);
-        }
-      }
-      throw error;
+      throw userError;
     }
   }
 
@@ -94,24 +98,31 @@ class Web3AuthApi {
    * Links a wallet to an existing user account.
    */
   async linkWallet(walletAddress: string): Promise<LinkWalletResponse> {
-    try {
+    const executeLinkWallet = async () => {
       const response = await api.post('/api/v1/web3auth/link', {
         walletAddress: walletAddress.toLowerCase()
       }, {
         withCredentials: true
       });
       return response.data;
+    };
+
+    try {
+      return await retryWithBackoff(executeLinkWallet, 2, 1000);
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('Failed to link wallet:', error);
-        if (error.response?.status === 409) {
-          throw new Error('Wallet already linked to another account.');
+      const userError = handleApiError(error, {
+        action: 'link wallet',
+        component: 'web3authAPI',
+        additionalData: { walletAddress: walletAddress.slice(0, 6) + '...' }
+      });
+
+      // Handle specific link wallet errors
+      if (userError.code === ErrorCode.VALIDATION_ERROR &&
+          error instanceof Error && error.message.includes('409')) {
+        userError.message = 'Wallet already linked to another account.';
         }
-        if (error.response?.data?.error) {
-          throw new Error(error.response.data.error);
-        }
-      }
-      throw error;
+
+      throw userError;
     }
   }
 
@@ -119,23 +130,22 @@ class Web3AuthApi {
    * Fetches AI-generated username suggestions
    */
   async getUsernameSuggestions(): Promise<UsernameOptions> {
-    try {
+    const fetchSuggestions = async () => {
       const response = await api.get('/api/v1/web3auth/username/options', {
         withCredentials: true
       });
       return response.data;
+    };
+
+    try {
+      return await retryWithBackoff(fetchSuggestions, 2, 1000);
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('Failed to fetch username suggestions:', {
-          status: error.response?.status,
-          data: error.response?.data
-        });
-        
-        if (error.response?.data?.error) {
-          throw new Error(error.response.data.error);
-        }
-      }
-      throw new Error('Failed to fetch username suggestions');
+      const userError = handleApiError(error, {
+        action: 'fetch username suggestions',
+        component: 'web3authAPI'
+      });
+
+      throw userError;
     }
   }
 
@@ -143,7 +153,7 @@ class Web3AuthApi {
    * Updates the user's username
    */
   async updateUsername(username: string): Promise<UpdateUsernameResponse> {
-    try {
+    const executeUpdate = async () => {
       // Validate username format
       if (!this.isValidUsername(username)) {
         throw new Error('Invalid username format. Must start with "0x_" and be 5-20 characters long.');
@@ -155,22 +165,27 @@ class Web3AuthApi {
         withCredentials: true
       });
       return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('Failed to update username:', {
-          status: error.response?.status,
-          data: error.response?.data
-        });
+    };
 
-        if (error.response?.status === 409) {
-          throw new Error('Username already taken');
-        }
-        
-        if (error.response?.data?.error) {
-          throw new Error(error.response.data.error);
+    try {
+      return await retryWithBackoff(executeUpdate, 2, 1000);
+    } catch (error) {
+      const userError = handleApiError(error, {
+        action: 'update username',
+        component: 'web3authAPI',
+        additionalData: { username }
+      });
+
+      // Handle specific username errors
+      if (userError.code === ErrorCode.VALIDATION_ERROR) {
+        if (error instanceof Error && error.message.includes('409')) {
+          userError.message = 'Username already taken. Please choose a different one.';
+        } else if (error instanceof Error && error.message.includes('Invalid username format')) {
+          userError.message = 'Invalid username format. Must start with "0x_" and be 5-20 characters long.';
         }
       }
-      throw error;
+
+      throw userError;
     }
   }
 
@@ -198,28 +213,44 @@ private getValidationError(username: string): string | null {
     return 'Username must start with 0x_';
   }
   if (username.length < 5) {
-    return 'Username is too short (minimum 5 characters)';
+      return 'Username too short (minimum 5 characters including 0x_)';
   }
   if (username.length > 20) {
-    return 'Username is too long (maximum 20 characters)';
+      return 'Username too long (maximum 20 characters including 0x_)';
   }
-  if (!/^[a-zA-Z0-9_]+$/.test(username.slice(3))) {
-      return 'Username can only contain letters, numbers, and underscores';
+    
+    // Check if it contains only valid characters after 0x_
+    const afterPrefix = username.slice(3);
+    if (!/^[a-zA-Z0-9_]+$/.test(afterPrefix)) {
+      return 'Username can only contain letters, numbers, and underscores after 0x_';
     }
+    
     return null;
   }
 
-  // New dedicated logout method for web3 users
+  /**
+   * Logout user and clear session
+   */
   async logout(): Promise<void> {
-    try {
-      await api.post('/api/v1/web3auth/logout', {}, {
+    const executeLogout = async () => {
+      const response = await api.post('/api/v1/web3auth/logout', {}, {
         withCredentials: true
       });
+      return response.data;
+    };
+
+    try {
+      await retryWithBackoff(executeLogout, 2, 1000);
     } catch (error) {
-      console.error('Failed to logout via Web3Auth API:', error);
-      // Optionally, you can re-throw or handle the error as needed.
+      const userError = handleApiError(error, {
+        action: 'logout',
+        component: 'web3authAPI'
+      });
+
+      // Don't throw errors for logout - just log them
+      console.warn('Logout error (non-critical):', userError.message);
     }
   }
 }
 
-export const web3AuthApi = new Web3AuthApi();
+export default new Web3AuthApi();

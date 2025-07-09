@@ -1,9 +1,9 @@
-import { useReducer, useEffect, useCallback } from 'react';
-import { useAccount, useChainId, useSwitchChain, useDisconnect } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { useCallback, useEffect, useReducer } from 'react';
+import { useAccount, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
+import web3AuthApi from '../api/web3authapi';
 import { AuthenticationStep, User, AuthMethod } from '../types/auth';
-import { web3AuthApi } from '../api/web3authapi';
 import { useNavigate } from 'react-router-dom';
+import { baseSepolia } from 'wagmi/chains';
 
 interface AuthState {
   step: AuthenticationStep;
