@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getVideoProgress } from '../api/video';
 import type { ProgressResponse, VideoProgress, VideoStatus } from '../types/video';
@@ -19,6 +19,7 @@ interface UseVideoProgressReturn {
 
 export const useVideoProgress = (videoId: number | string): UseVideoProgressReturn => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const isMountedRef = useRef<boolean>(true);
 
   const { 
     data: progressResponse, 
@@ -29,14 +30,32 @@ export const useVideoProgress = (videoId: number | string): UseVideoProgressRetu
     queryFn: () => getVideoProgress(Number(videoId)) as Promise<ProgressResponse>,
     enabled: Boolean(videoId),
     refetchInterval: (query) => {
-      const status = query.state.data?.data?.status;
-      
-      // Check if any video is processing
-      const isAnyVideoProcessing = status === 'processing' || status === 'pending';
-      setIsProcessing(isAnyVideoProcessing);
+      // MEMORY LEAK FIX: Check if component is mounted and tab is visible
+      if (!isMountedRef.current) {
+        console.log('[useVideoProgress] Component unmounted, stopping polling');
+        return false;
+      }
 
-      // Only poll if there are videos processing
-      return isAnyVideoProcessing ? POLLING_INTERVAL : false;
+      if (document.visibilityState === 'hidden') {
+        console.log('[useVideoProgress] Tab hidden, pausing polling');
+        return false;
+      }
+
+      const status = query.state.data?.data?.status;
+      const isAnyVideoProcessing = status === 'processing' || status === 'pending';
+      
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setIsProcessing(isAnyVideoProcessing);
+      }
+
+      // Only poll if:
+      // 1. Component is mounted
+      // 2. Tab is visible  
+      // 3. Video is processing
+      return isAnyVideoProcessing && isMountedRef.current && document.visibilityState === 'visible' 
+        ? POLLING_INTERVAL 
+        : false;
     },
     refetchOnMount: true,
     retry: MAX_RETRIES,
@@ -45,12 +64,49 @@ export const useVideoProgress = (videoId: number | string): UseVideoProgressRetu
     gcTime: CACHE_TIME,
   });
 
+  // Handle status updates with mount check
   useEffect(() => {
+    if (!isMountedRef.current) return;
+    
     const status = progressResponse?.data?.status;
     setIsProcessing(status === 'processing');
     
-    return () => setIsProcessing(false);
+    return () => {
+      if (isMountedRef.current) {
+        setIsProcessing(false);
+      }
+    };
   }, [progressResponse?.data?.status]);
+
+  // MEMORY LEAK FIX: Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    
+    return () => {
+      console.log('[useVideoProgress] Component unmounting, cleaning up');
+      isMountedRef.current = false;
+      setIsProcessing(false);
+    };
+  }, []);
+
+  // MEMORY LEAK FIX: Handle visibility change events
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!isMountedRef.current) return;
+      
+      if (document.visibilityState === 'hidden') {
+        console.log('[useVideoProgress] Tab hidden, will pause polling');
+      } else {
+        console.log('[useVideoProgress] Tab visible, will resume polling if needed');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const defaultProgress: VideoProgress = {
     videoId: Number(videoId),

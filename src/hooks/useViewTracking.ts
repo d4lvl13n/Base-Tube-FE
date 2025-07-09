@@ -15,6 +15,8 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
   const viewIdRef = useRef<string | null>(null);
   const hasMetThresholdRef = useRef(false);
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef<boolean>(true);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const hasMetViewThreshold = useCallback((duration: number): boolean => {
     if (!viewConfig?.thresholds || !videoDuration) return false;
@@ -40,13 +42,18 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
   }, [videoDuration]);
 
   const updateView = useCallback(async (force: boolean = false) => {
-    if (!viewIdRef.current || watchedDurationRef.current <= 0) return;
+    if (!isMountedRef.current || !viewIdRef.current || watchedDurationRef.current <= 0) return;
     
     if (!force && updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
     }
 
     const doUpdate = async () => {
+      if (!isMountedRef.current) {
+        console.log('[useViewTracking] Component unmounted, skipping view update');
+        return;
+      }
+
       try {
         const isComplete = isVideoComplete(watchedDurationRef.current);
         await updateVideoView(
@@ -68,7 +75,7 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
   }, [videoId, isVideoComplete, viewConfig?.updateInterval]);
 
   const initializeView = useCallback(async () => {
-    if (viewIdRef.current) return;
+    if (!isMountedRef.current || viewIdRef.current) return;
     
     try {
       if (!hasMetThresholdRef.current) {
@@ -79,9 +86,14 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
       console.debug('Initializing view with duration:', watchedDurationRef.current);
       const response = await initializeVideoView(videoId, watchedDurationRef.current);
       
+      if (!isMountedRef.current) {
+        console.log('[useViewTracking] Component unmounted during view initialization');
+        return;
+      }
+      
       if (response.success && response.data.viewId) {
         viewIdRef.current = response.data.viewId;
-        void updateView(); // Start periodic updates once we have a viewId
+        void updateView();
       }
     } catch (error) {
       console.error('Failed to initialize view:', error);
@@ -89,31 +101,26 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
   }, [videoId, updateView]);
 
   const updateWatchedDuration = useCallback((currentTime: number) => {
-    if (!isTrackingRef.current) return;
+    if (!isMountedRef.current || !isTrackingRef.current) return;
     
-    // Ensure currentTime doesn't exceed video duration
     const validatedTime = Math.min(currentTime, videoDuration);
     
-    // Update the watched duration, but don't let it exceed video duration
     watchedDurationRef.current = Math.min(
       Math.max(watchedDurationRef.current, validatedTime),
       videoDuration
     );
     
-    // Check if we've met the threshold
     if (!hasMetThresholdRef.current && hasMetViewThreshold(currentTime)) {
       console.debug('View threshold met, initializing view');
       hasMetThresholdRef.current = true;
       void initializeView();
     }
 
-    // If we have a viewId, schedule an update
     if (viewIdRef.current) {
       void updateView();
     }
   }, [hasMetViewThreshold, initializeView, updateView, videoDuration]);
 
-  // Reset refs when video changes
   useEffect(() => {
     isTrackingRef.current = false;
     watchedDurationRef.current = 0;
@@ -121,45 +128,105 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
     hasMetThresholdRef.current = false;
   }, [videoId]);
 
-  // Cleanup
   useEffect(() => {
     return () => {
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
       }
-      if (hasMetThresholdRef.current) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (hasMetThresholdRef.current && isMountedRef.current) {
         void initializeView();
       }
     };
   }, [initializeView]);
 
-  // Periodic updates
   useEffect(() => {
     if (!viewConfig?.updateInterval) return;
 
-    const intervalId = setInterval(() => {
-      if (isTrackingRef.current && viewIdRef.current) {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    intervalRef.current = setInterval(() => {
+      if (isMountedRef.current && 
+          isTrackingRef.current && 
+          viewIdRef.current && 
+          document.visibilityState === 'visible') {
         void updateView();
+      } else {
+        console.log('[useViewTracking] Skipping periodic update - component unmounted, not tracking, no viewId, or tab hidden');
       }
     }, viewConfig.updateInterval);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [updateView, viewConfig?.updateInterval]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!isMountedRef.current) return;
+
+      if (document.visibilityState === 'hidden') {
+        console.log('[useViewTracking] Tab hidden, pausing tracking');
+        if (isTrackingRef.current && viewIdRef.current) {
+          void updateView(true);
+        }
+      } else {
+        console.log('[useViewTracking] Tab visible, resuming tracking');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [updateView]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      console.log('[useViewTracking] Component unmounting, cleaning up');
+      isMountedRef.current = false;
+      
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, []);
 
   return {
     startTracking: useCallback(() => {
-      isTrackingRef.current = true;
+      if (isMountedRef.current) {
+        isTrackingRef.current = true;
+      }
     }, []),
 
     pauseTracking: useCallback(() => {
-      isTrackingRef.current = false;
-      void updateView(true);
+      if (isMountedRef.current) {
+        isTrackingRef.current = false;
+        void updateView(true);
+      }
     }, [updateView]),
 
     updateWatchedDuration,
     
     finalize: useCallback(async () => {
-      if (!viewIdRef.current) return;
+      if (!isMountedRef.current || !viewIdRef.current) return;
       await updateView(true);
     }, [updateView])
   };
