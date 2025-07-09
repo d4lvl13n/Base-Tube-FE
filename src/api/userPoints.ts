@@ -11,11 +11,18 @@ export const fetchUserPoints = async (
   userId: string
 ): Promise<UserPointsData> => {
   try {
-    const response = await api.get<{ success: boolean; data: UserPointsData }>(`/api/v1/user/${userId}/points`);
+    const response = await api.get<{ 
+      success: boolean; 
+      data?: UserPointsData;
+      error?: { code: string; message: string };
+      message?: string;
+    }>(`/api/v1/user/${userId}/points`);
     if (response.data.success) {
-      return response.data.data;
+      return response.data.data!;
     }
-    throw new Error('Failed to fetch user points');
+    // Handle new error format
+    const errorMessage = response.data.error?.message || response.data.message || 'Failed to fetch user points';
+    throw new Error(errorMessage);
   } catch (error) {
     console.error('Error in fetchUserPoints:', error);
     throw error;
@@ -35,13 +42,20 @@ export const fetchUserPointsHistory = async (
   period: '24h' | '7d' | '30d' = '24h'
 ): Promise<UserPointsHistoryData[]> => {
   try {
-    const response = await api.get<{ success: boolean; data: UserPointsHistoryData[] }>(`/api/v1/user/${userId}/points/history`, {
+    const response = await api.get<{ 
+      success: boolean; 
+      data?: UserPointsHistoryData[];
+      error?: { code: string; message: string };
+      message?: string;
+    }>(`/api/v1/user/${userId}/points/history`, {
       params: { period }
     });
     if (response.data.success) {
-      return response.data.data;
+      return response.data.data!;
     }
-    throw new Error('Failed to fetch user points history');
+    // Handle new error format
+    const errorMessage = response.data.error?.message || response.data.message || 'Failed to fetch user points history';
+    throw new Error(errorMessage);
   } catch (error) {
     console.error('Error in fetchUserPointsHistory:', error);
     throw error;

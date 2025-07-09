@@ -7,8 +7,8 @@ export function useWallet() {
   return useQuery({
     queryKey: queryKeys.user.wallet(),
     queryFn: async () => {
-      const data = await getMyWallet();
-      console.log('Wallet data received:', data); // Debug log
+        const data = await getMyWallet();
+        console.log('Wallet data received:', data); // Debug log
       return data;
     },
     staleTime: 30 * 1000, // 30 seconds - wallet data can change frequently

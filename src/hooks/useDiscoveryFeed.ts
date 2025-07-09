@@ -130,8 +130,8 @@ export const useDiscoveryFeed = (options: GetDiscoveryOptions) => {
       
       return lastPage.pagination.hasMore ? lastPage.pagination.page + 1 : undefined;
     },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 1 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: 2,
     refetchOnWindowFocus: false
   });

@@ -14,15 +14,17 @@ export interface Channel {
   instagram_link?: string;
   twitter_link?: string;
   subscribers_count: number;
-  videos_count: number;
+  videos_count: number;          // Always included by backend, no separate API call needed
   isOwner: boolean;
-  isSubscribed: boolean;
+  isSubscribed: boolean;         // Included when user is authenticated, no separate API call needed
   ownerUsername: string;
   createdAt: string;
   updatedAt: string;
   ownerProfileImage?: string | null;
   last_video_at?: string;
   hasNewContent?: boolean;
+  // Note: When accessed via video.channel, may also include nested user data:
+  // user?: { username: string; profile_image_url: string | null }
 }
 
 // Response Types

@@ -16,14 +16,14 @@ export const useCurrentUser = () => {
       return profileData;
     },
     enabled: isSignedIn && isLoaded && !!user?.id,
-    staleTime: 2 * 60 * 1000, // 2 minutes - profile data changes occasionally  
-    gcTime: 5 * 60 * 1000, // 5 minutes - keep in cache
+    staleTime: 5 * 60 * 1000, // 5 minutes - user data changes infrequently  
+    gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache longer
     retry: (failureCount, error: any) => {
       // Don't retry on 401/403 (auth issues)
       if (error?.status === 401 || error?.status === 403 || 
           error?.response?.status === 401 || error?.response?.status === 403) {
         return false;
-      }
+    }
       return failureCount < 2;
     },
   });

@@ -3,7 +3,7 @@ import { SignIn } from '@clerk/clerk-react';
 import { dark } from '@clerk/themes';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Play, Coins } from 'lucide-react';
+import { Play, Coins, Library } from 'lucide-react';
 import { FeatureCard } from './SignInWeb3/components/FeatureCard';
 
 export const SignInPage: React.FC = () => (
@@ -45,12 +45,8 @@ export const SignInPage: React.FC = () => (
             transition={{ delay: 0.3 }}
           >
             <h1 className="text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight">
-              <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                Welcome Back to
-              </span>
-              <br />
               <span className="bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent">
-                The Digital Revolution
+                Welcome Back
               </span>
             </h1>
           </motion.div>
@@ -65,9 +61,9 @@ export const SignInPage: React.FC = () => (
             <div className="relative group">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
               <FeatureCard 
-                icon={<Play className="w-5 h-5 text-[#fa7517]" />}
-                title="Web3 Video Platform"
-                description="Decentralized content sharing with true ownership"
+                icon={<Library className="w-5 h-5 text-[#fa7517]" />}
+                title="Your Library"
+                description="Content you own. Forever."
                 className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
               />
             </div>
@@ -76,8 +72,8 @@ export const SignInPage: React.FC = () => (
               <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
               <FeatureCard 
                 icon={<Coins className="w-5 h-5 text-[#fa7517]" />}
-                title="Creator Economy"
-                description="Earn rewards for quality content and engagement"
+                title="Your Earnings"
+                description="See what you've made while away."
                 className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
               />
             </div>
@@ -92,9 +88,7 @@ export const SignInPage: React.FC = () => (
           >
             <blockquote className="text-xl lg:text-2xl font-medium leading-relaxed text-center max-w-2xl">
               <span className="bg-gradient-to-r from-[#fa7517]/80 to-orange-400/80 bg-clip-text text-transparent">
-                "Where every view supports creators,
-                <br />
-                and every creation finds its audience"
+                "Where supporting creators is finally sustainable."
               </span>
             </blockquote>
           </motion.div>

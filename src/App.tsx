@@ -56,6 +56,7 @@ import { PassDetailView } from './components/pages/CreatorHub/ManagePasses';
 import MyPasses from './components/pages/MyPasses';
 import YouTubeAuthCallback from './components/pages/CreatorHub/YouTubeAuthCallback';
 import LandingPage from './components/pages/landingPage';
+import ThumbnailLanding from './components/pages/ThumbnailLanding';
 
 // Lazy-loaded components
 const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
@@ -142,6 +143,9 @@ function App() {
                   <Route path="/video/:id" element={<SingleVideo />} />
                   <Route path="/nft-marketplace" element={<NFTMarketplace />} />
                   <Route path="/leaderboard" element={<Leaderboard />} />
+
+                  {/* AI Thumbnail Landing Page */}
+                  <Route path="/ai-thumbnails" element={<ThumbnailLanding />} />
 
                   {/* Content Pass Landing Page */}
                   <Route path="/content-passes" element={<LandingPage />} />
