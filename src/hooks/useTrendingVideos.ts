@@ -167,10 +167,10 @@ export const useTrendingVideos = (initialParams: GetDiscoveryOptions = {}): UseT
     getNextPageParam: (lastPage, allPages) => {
       return lastPage.hasMore ? allPages.length + 1 : undefined;
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes - trending videos update frequently
+    staleTime: 1 * 60 * 1000, // 1 minute - video lists are dynamic but cached
     gcTime: 5 * 60 * 1000, // 5 minutes cache
     retry: (failureCount, error: any) => {
-      console.error('Error fetching trending videos:', error);
+        console.error('Error fetching trending videos:', error);
       return failureCount < 2;
     },
   });

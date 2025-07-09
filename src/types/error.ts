@@ -37,6 +37,11 @@ export enum ErrorCode {
   UNAUTHORIZED = 'UNAUTHORIZED',
   TOKEN_EXPIRED = 'TOKEN_EXPIRED',
   FORBIDDEN = 'FORBIDDEN',
+  AUTH_RATE_LIMIT = 'AUTH_RATE_LIMIT',
+  NO_AUTH_TOKEN = 'NO_AUTH_TOKEN',
+  INVALID_TOKEN_FORMAT = 'INVALID_TOKEN_FORMAT',
+  TOKEN_FROM_FUTURE = 'TOKEN_FROM_FUTURE',
+  CORS_ERROR = 'CORS_ERROR',
   
   // Validation Errors
   VALIDATION_ERROR = 'VALIDATION_ERROR',
@@ -91,6 +96,11 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.UNAUTHORIZED]: 'Please sign in to continue.',
   [ErrorCode.TOKEN_EXPIRED]: 'Your session has expired. Please sign in again.',
   [ErrorCode.FORBIDDEN]: 'You don\'t have permission to access this resource.',
+  [ErrorCode.AUTH_RATE_LIMIT]: 'Too many authentication attempts. Please wait 15 minutes before trying again.',
+  [ErrorCode.NO_AUTH_TOKEN]: 'Authentication required. Please sign in.',
+  [ErrorCode.INVALID_TOKEN_FORMAT]: 'Invalid authentication token. Please sign in again.',
+  [ErrorCode.TOKEN_FROM_FUTURE]: 'Authentication error. Please check your system time and try again.',
+  [ErrorCode.CORS_ERROR]: 'Cross-origin request blocked. Please contact support if this persists.',
   
   // Validation Errors
   [ErrorCode.VALIDATION_ERROR]: 'Please check your input and try again.',

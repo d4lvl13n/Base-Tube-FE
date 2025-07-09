@@ -64,12 +64,26 @@ api.interceptors.response.use(
         }
         // For Clerk users, let Clerk handle it
       }
+      
+      // Handle 429 Rate Limit errors
+      if (error.response?.status === 429) {
+        const errorCode = error.response?.data?.error?.code;
+        const message = error.response?.data?.error?.message || 
+                       error.response?.data?.message || 
+                       'Too many requests. Please wait a moment and try again.';
+        
+        // Dispatch rate limit event for UI handling
+        window.dispatchEvent(new CustomEvent('auth:rate-limited', { 
+          detail: { errorCode, message } 
+        }));
+      }
 
       // Log error details (keep your existing logging)
       const errorDetails = {
         status: error.response?.status,
         data: error.response?.data,
-        message: error.response?.data?.message,
+        message: error.response?.data?.error?.message || error.response?.data?.message,
+        errorCode: error.response?.data?.error?.code,
         url: error.config?.url,
         method: error.config?.method,
         authMethod: localStorage.getItem('auth_method'),
