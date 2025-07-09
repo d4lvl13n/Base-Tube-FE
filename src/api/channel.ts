@@ -120,13 +120,20 @@ export const getPopularChannels = async (
   limit: number = 15
 ): Promise<Channel[]> => {
   try {
-    const response = await api.get<ChannelsResponse>(
+    const response = await api.get<ChannelsResponse & {
+      error?: { code: string; message: string };
+      message?: string;
+    }>(
       `/api/v1/channels/popular?page=${page}&limit=${limit}`
     );
     if (response.data.success) {
       return response.data.data;
     }
-    throw new Error('Failed to fetch popular channels');
+    // Handle new error format
+    const errorMessage = response.data.error?.message || 
+                        response.data.message || 
+                        'Failed to fetch popular channels';
+    throw new Error(errorMessage);
   } catch (error) {
     console.error('Error fetching popular channels:', error);
     throw error;

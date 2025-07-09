@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 // We keep both type systems because:
 // 1. TrendingVideoResponse matches our API response structure
 // 2. Video type is used throughout the rest of the application
@@ -9,6 +10,7 @@ import {
   GetDiscoveryOptions
 } from '../types/discovery';
 import { getTrendingVideos } from '../api/video';
+import { queryKeys } from '../utils/queryKeys';
 
 // Define the return type for our hook to maintain consistent interface
 interface UseTrendingVideosReturn {
@@ -18,8 +20,8 @@ interface UseTrendingVideosReturn {
   hasMore: boolean;
   total: number;
   timeFrame: TimeFrame;     // Using TimeFrame from discovery as it's more specific
-  loadMore: () => Promise<void>;
-  refresh: () => Promise<void>;
+  loadMore: () => void;
+  refresh: () => void;
 }
 
 // Transform function to convert DiscoveryVideo to Video format
@@ -111,43 +113,23 @@ const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
 export const useTrendingVideos = (initialParams: GetDiscoveryOptions = {}): UseTrendingVideosReturn => {
   // Use refs for values that shouldn't trigger re-renders
   const stableParams = useRef(initialParams);
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [total, setTotal] = useState(0);
   const [timeFrame, setTimeFrame] = useState<TimeFrame>(initialParams.timeFrame || 'week');
-  const [page, setPage] = useState(1);
-  
-  // Refs for managing request state and cleanup
-  const requestInProgress = useRef(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchVideos = useCallback(async (
-    isLoadMore: boolean = false, 
-    currentTimeFrame: TimeFrame = timeFrame
-  ): Promise<void> => {
-    // Cleanup previous request if exists
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+  interface PageData {
+    videos: Video[];
+    hasMore: boolean;
+    total: number;
+    actualTimeFrame: TimeFrame;
+  }
 
-    abortControllerRef.current = new AbortController();
-
-    try {
-      // Prevent multiple simultaneous requests
-      if (requestInProgress.current) {
-        return;
-      }
-
-      requestInProgress.current = true;
-      setLoading(true);
-      setError(null);
-
+  const infiniteQuery = useInfiniteQuery<PageData>({
+    queryKey: queryKeys.videos.trending(timeFrame, stableParams.current),
+    queryFn: async ({ pageParam }) => {
+      const page = pageParam as number || 1;
       const params: GetDiscoveryOptions = {
         ...stableParams.current,
-        page: isLoadMore ? page : 1,
-        timeFrame: currentTimeFrame,
+        page,
+        timeFrame,
         sort: 'trending',
         limit: stableParams.current.limit || 10
       };
@@ -158,59 +140,62 @@ export const useTrendingVideos = (initialParams: GetDiscoveryOptions = {}): UseT
       console.log('Raw API Response:', response);
 
       if (response.success && Array.isArray(response.data)) {
-        // If no videos found for current timeframe, try 'all' timeframe
-        if (response.data.length === 0 && currentTimeFrame !== 'all') {
-          console.log('No videos found for timeframe:', currentTimeFrame, 'trying all timeframe');
-          return fetchVideos(isLoadMore, 'all');
+        // If no videos found for current timeframe and we're on first page, try 'all' timeframe
+        if (response.data.length === 0 && timeFrame !== 'all' && page === 1) {
+          console.log('No videos found for timeframe:', timeFrame, 'trying all timeframe');
+          setTimeFrame('all');
+          // Return empty result, the query will refetch with new timeFrame
+          return { videos: [], hasMore: false, total: 0, actualTimeFrame: 'all' };
         }
 
         // Transform the response data to match Video type expected by the app
         const transformedVideos = response.data.map(transformToVideo);
         console.log('Transformed videos:', transformedVideos);
         
-        setVideos(prev => isLoadMore ? [...prev, ...transformedVideos] : transformedVideos);
-        setHasMore(response.data.hasMore);
-        setTotal(response.data.total);
-        setTimeFrame(currentTimeFrame);
+        return {
+          videos: transformedVideos,
+          hasMore: response.data.hasMore || false,
+          total: response.data.total || 0,
+          actualTimeFrame: timeFrame
+        };
       } else {
         console.warn('API request succeeded but returned no videos:', response);
+        return { videos: [], hasMore: false, total: 0, actualTimeFrame: timeFrame };
       }
-    } catch (error: unknown) {
-      // Only handle non-abort errors
-      if (error instanceof Error && error.name !== 'AbortError') {
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.hasMore ? allPages.length + 1 : undefined;
+    },
+    staleTime: 1 * 60 * 1000, // 1 minute - video lists are dynamic but cached
+    gcTime: 5 * 60 * 1000, // 5 minutes cache
+    retry: (failureCount, error: any) => {
         console.error('Error fetching trending videos:', error);
-        setError(error);
-      }
-    } finally {
-      requestInProgress.current = false;
-      setLoading(false);
+      return failureCount < 2;
+    },
+  });
+
+  // Flatten the paginated data
+  const videos = infiniteQuery.data?.pages.flatMap(page => page.videos) || [];
+  const total = infiniteQuery.data?.pages?.[0]?.total || 0;
+  const hasMore = infiniteQuery.hasNextPage || false;
+
+  // Simplified load more function
+  const loadMore = useCallback(() => {
+    if (hasMore && !infiniteQuery.isFetchingNextPage) {
+      infiniteQuery.fetchNextPage();
     }
-  }, [page, timeFrame]);
+  }, [hasMore, infiniteQuery.isFetchingNextPage, infiniteQuery.fetchNextPage]);
 
-  // Initial fetch and cleanup
-  useEffect(() => {
-    const currentController = abortControllerRef.current;
-    
-    fetchVideos();
-
-    return () => {
-      if (currentController) {
-        currentController.abort();
-      }
-    };
-  }, [fetchVideos]);
-
-  // Utility functions for pagination and refresh
-  const loadMore = useCallback(() => fetchVideos(true), [fetchVideos]);
+  // Refresh function
   const refresh = useCallback(() => {
-    setPage(1);
-    return fetchVideos();
-  }, [fetchVideos]);
+    infiniteQuery.refetch();
+  }, [infiniteQuery.refetch]);
 
   return {
     videos,
-    loading,
-    error,
+    loading: infiniteQuery.isLoading,
+    error: infiniteQuery.error,
     hasMore,
     total,
     timeFrame,

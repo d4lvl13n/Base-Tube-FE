@@ -47,8 +47,9 @@ const SignUpPage: React.FC = () => {
             >
               <h1 className="text-3xl lg:text-5xl xl:text-6xl font-bold leading-tight">
                 <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                  Join the Future of
-                  <span className="bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent"> Content</span>
+                  Own What You Love.
+                  <br />
+                  <span className="bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent"> Earn From What You Create.</span>
                 </span>
               </h1>
             </motion.div>
@@ -64,8 +65,8 @@ const SignUpPage: React.FC = () => {
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
                 <FeatureCard 
                   icon={<Play className="w-5 h-5 text-[#fa7517]" />}
-                  title="Own Your Content"
-                  description="True ownership with NFT Content Pass"
+                  title="For Creators"
+                  description="Set your price. Keep 90%. Earn forever."
                   className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
                 />
               </div>
@@ -74,8 +75,8 @@ const SignUpPage: React.FC = () => {
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
                 <FeatureCard 
                   icon={<Wallet className="w-5 h-5 text-[#fa7517]" />}
-                  title="Earn $TUBE"
-                  description="Get rewarded for your contributions"
+                  title="For Fans"
+                  description="Buy once. Own forever. Resell anytime."
                   className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
                 />
               </div>
@@ -84,8 +85,8 @@ const SignUpPage: React.FC = () => {
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
                 <FeatureCard 
                   icon={<Users className="w-5 h-5 text-[#fa7517]" />}
-                  title="Join Community"
-                  description="Be part of decentralized governance"
+                  title="True Ownership"
+                  description="Your content. Your collection. Your choice."
                   className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
                 />
               </div>
@@ -94,8 +95,8 @@ const SignUpPage: React.FC = () => {
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
                 <FeatureCard 
                   icon={<Trophy className="w-5 h-5 text-[#fa7517]" />}
-                  title="Exclusive Access"
-                  description="Special perks for creators"
+                  title="Join the First 500"
+                  description="Genesis Pass holders unlock everything."
                   className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
                 />
               </div>
@@ -110,7 +111,7 @@ const SignUpPage: React.FC = () => {
             >
               <blockquote className="text-xl lg:text-2xl font-medium leading-relaxed text-center max-w-2xl">
                 <span className="bg-gradient-to-r from-[#fa7517]/80 to-orange-400/80 bg-clip-text text-transparent">
-                  "Your Content, Your Rules, Your Digital Legacy"
+                  "The first platform where everyone wins."
                 </span>
               </blockquote>
             </motion.div>

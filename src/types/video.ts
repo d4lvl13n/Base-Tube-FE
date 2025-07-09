@@ -52,7 +52,12 @@ export interface Video {
   updatedAt: string;
   
   // Relations
-  channel?: Channel;
+  channel?: Channel & {
+    user?: {
+      username: string;
+      profile_image_url: string | null;
+    };
+  };
   user?: User;
   
   // Counts

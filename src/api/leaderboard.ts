@@ -13,7 +13,9 @@ export interface LeaderboardEntry {
 
 export interface LeaderboardResponse {
   success: boolean;
-  data: LeaderboardEntry[];
+  data?: LeaderboardEntry[];
+  error?: { code: string; message: string };
+  message?: string;
 }
 
 /**
@@ -25,9 +27,13 @@ export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
     const response = await api.get<LeaderboardResponse>('/api/v1/leaderboard');
     
     if (response.data.success) {
-      return response.data.data;
+      return response.data.data!;
     } else {
-      throw new Error('Failed to fetch leaderboard: API returned unsuccessful response');
+      // Handle new error format
+      const errorMessage = response.data.error?.message || 
+                          response.data.message || 
+                          'Failed to fetch leaderboard: API returned unsuccessful response';
+      throw new Error(errorMessage);
     }
   } catch (error: any) {
     console.error('Error fetching leaderboard:', error);

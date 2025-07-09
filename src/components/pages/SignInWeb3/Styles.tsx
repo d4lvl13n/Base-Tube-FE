@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Shield, Coins, Wallet, Sparkles } from 'lucide-react';
+import { Shield, Coins, Wallet, Sparkles, Zap } from 'lucide-react';
 import { FeatureCard } from './components/FeatureCard';
 import { WalletSection } from './components/WalletSection';
 
@@ -44,8 +44,8 @@ export const SignInWeb3UI: React.FC = () => (
           >
             <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight">
               <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                Start Creating on  
-                <span className="bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent"> Base.Tube</span>
+                Connect. Create.  
+                <span className="bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent"> Earn.</span>
               </span>
             </h1>
           </motion.div>
@@ -62,8 +62,8 @@ export const SignInWeb3UI: React.FC = () => (
               <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
               <FeatureCard 
                 icon={<Shield className="w-5 h-5 text-[#fa7517]" />}
-                title="Censorship-Resistant"
-                description="Censorship-resistant content through decentralized storage"
+                title="You Own It"
+                description="No takedowns. No demonetization. Your content, your rules."
                 className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
               />
             </div>
@@ -71,9 +71,9 @@ export const SignInWeb3UI: React.FC = () => (
             <div className="relative group">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
               <FeatureCard 
-                icon={<Coins className="w-5 h-5 text-[#fa7517]" />}
-                title="Base Chain"
-                description="Built on Base for mainstream Web3 adoption"
+                icon={<Zap className="w-5 h-5 text-[#fa7517]" />}
+                title="Lightning Fast"
+                description="Base L2 = instant transactions, minimal fees."
                 className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
               />
             </div>
@@ -82,8 +82,8 @@ export const SignInWeb3UI: React.FC = () => (
               <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
               <FeatureCard 
                 icon={<Wallet className="w-5 h-5 text-[#fa7517]" />}
-                title="NFT Content Pass"
-                description="Control access to your content through NFT passes"
+                title="Tradeable Access"
+                description="Your fans can buy, own, and resell access."
                 className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
               />
             </div>
@@ -92,8 +92,8 @@ export const SignInWeb3UI: React.FC = () => (
               <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-xl opacity-0 group-hover:opacity-100 blur transition-all duration-500" />
               <FeatureCard 
                 icon={<Sparkles className="w-5 h-5 text-[#fa7517]" />}
-                title="Web3 Features"
-                description="Token-gated content and rewards"
+                title="Built for Tomorrow"
+                description="On-chain earnings. Real ownership. Future-proof."
                 className="relative bg-black/40 backdrop-blur-xl border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300"
               />
             </div>
@@ -108,9 +108,9 @@ export const SignInWeb3UI: React.FC = () => (
           >
             <blockquote className="text-xl lg:text-2xl font-medium leading-relaxed text-center max-w-2xl">
               <span className="bg-gradient-to-r from-[#fa7517]/80 to-orange-400/80 bg-clip-text text-transparent">
-                "Where Creators Truly Own Their Story
+                "Your wallet. Your content. Your earnings.
                 <br className="hidden md:block" />
-                The Web3 Future of Content is Here"
+                Welcome home."
               </span>
             </blockquote>
           </motion.div>
