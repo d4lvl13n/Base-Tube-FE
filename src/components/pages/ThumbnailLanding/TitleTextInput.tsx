@@ -159,73 +159,73 @@ export const TitleTextInput: React.FC<TitleTextInputProps> = ({
            <div className="flex items-center gap-1">
              <span className="text-xs text-gray-400 mr-2">Style:</span>
              <Tooltip content="Make text bold and prominent">
-               <motion.button
-                 whileHover={{ scale: 1.05 }}
-                 whileTap={{ scale: 0.95 }}
-                 onClick={() => handleStyleToggle('bold')}
-                 className={`
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => handleStyleToggle('bold')}
+            className={`
                    p-2 rounded-lg border transition-all duration-200
-                   ${style.bold
-                     ? 'border-[#fa7517] bg-[#fa7517]/20 text-white'
-                     : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20'
-                   }
-                 `}
-               >
-                 <Bold className="w-4 h-4" />
-               </motion.button>
+              ${style.bold
+                ? 'border-[#fa7517] bg-[#fa7517]/20 text-white'
+                : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20'
+              }
+            `}
+          >
+            <Bold className="w-4 h-4" />
+          </motion.button>
              </Tooltip>
 
              <Tooltip content="Add black outline around text">
-               <motion.button
-                 whileHover={{ scale: 1.05 }}
-                 whileTap={{ scale: 0.95 }}
-                 onClick={() => handleStyleToggle('outline')}
-                 className={`
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => handleStyleToggle('outline')}
+            className={`
                    p-2 rounded-lg border transition-all duration-200
-                   ${style.outline
-                     ? 'border-[#fa7517] bg-[#fa7517]/20 text-white'
-                     : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20'
-                   }
-                 `}
-               >
-                 <SquareIcon className="w-4 h-4" />
-               </motion.button>
+              ${style.outline
+                ? 'border-[#fa7517] bg-[#fa7517]/20 text-white'
+                : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20'
+              }
+            `}
+          >
+            <SquareIcon className="w-4 h-4" />
+          </motion.button>
              </Tooltip>
 
              <Tooltip content="Add shadow behind text for depth">
-               <motion.button
-                 whileHover={{ scale: 1.05 }}
-                 whileTap={{ scale: 0.95 }}
-                 onClick={() => handleStyleToggle('shadow')}
-                 className={`
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => handleStyleToggle('shadow')}
+            className={`
                    p-2 rounded-lg border transition-all duration-200
-                   ${style.shadow
-                     ? 'border-[#fa7517] bg-[#fa7517]/20 text-white'
-                     : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20'
-                   }
-                 `}
-               >
-                 <Circle className="w-4 h-4" />
-               </motion.button>
+              ${style.shadow
+                ? 'border-[#fa7517] bg-[#fa7517]/20 text-white'
+                : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20'
+              }
+            `}
+          >
+            <Circle className="w-4 h-4" />
+          </motion.button>
              </Tooltip>
 
              <Tooltip content="Convert text to UPPERCASE">
-               <motion.button
-                 whileHover={{ scale: 1.05 }}
-                 whileTap={{ scale: 0.95 }}
-                 onClick={() => handleStyleToggle('uppercase')}
-                 className={`
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => handleStyleToggle('uppercase')}
+            className={`
                    p-2 rounded-lg border transition-all duration-200
-                   ${style.uppercase
-                     ? 'border-[#fa7517] bg-[#fa7517]/20 text-white'
-                     : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20'
-                   }
-                 `}
-               >
-                 <Type className="w-4 h-4" />
-               </motion.button>
+              ${style.uppercase
+                ? 'border-[#fa7517] bg-[#fa7517]/20 text-white'
+                : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20'
+              }
+            `}
+          >
+            <Type className="w-4 h-4" />
+          </motion.button>
              </Tooltip>
-           </div>
+      </div>
 
           {/* Divider */}
           <div className="w-px h-8 bg-white/10" />
@@ -233,65 +233,65 @@ export const TitleTextInput: React.FC<TitleTextInputProps> = ({
                      {/* Position Group */}
            <div className="flex items-center gap-1">
              <span className="text-xs text-gray-400 mr-2">Position:</span>
-             
-             {/* Vertical Position */}
+        
+        {/* Vertical Position */}
              <div className="relative">
                <div className="flex bg-white/5 rounded-lg border border-white/10">
                  {(['top', 'center', 'bottom'] as const).map((pos, index) => (
                    <Tooltip key={pos} content={`Position text at ${pos} of thumbnail`}>
-                     <motion.button
-                       whileHover={{ scale: 1.05 }}
-                       whileTap={{ scale: 0.95 }}
-                       onClick={() => handlePositionChange(pos)}
-                       className={`
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handlePositionChange(pos)}
+                className={`
                          px-3 py-1 text-xs transition-all duration-200 relative
-                         ${position.vertical === pos
+                  ${position.vertical === pos
                            ? 'bg-[#fa7517] text-white'
                            : 'text-gray-300 hover:bg-white/10'
-                         }
+                  }
                          ${index !== 0 ? 'border-l border-white/10' : ''}
                          ${index === 0 ? 'rounded-l-lg' : ''}
                          ${index === 2 ? 'rounded-r-lg' : ''}
-                       `}
-                     >
+                `}
+              >
                        {pos === 'top' && '↑'}
                        {pos === 'center' && '•'}
                        {pos === 'bottom' && '↓'}
-                     </motion.button>
+              </motion.button>
                    </Tooltip>
-                 ))}
-               </div>
-             </div>
+            ))}
+          </div>
+        </div>
 
-             {/* Horizontal Position */}
+        {/* Horizontal Position */}
              <div className="relative ml-1">
                <div className="flex bg-white/5 rounded-lg border border-white/10">
                  {(['left', 'center', 'right'] as const).map((pos, index) => (
                    <Tooltip key={pos} content={`Align text to the ${pos}`}>
-                     <motion.button
-                       whileHover={{ scale: 1.05 }}
-                       whileTap={{ scale: 0.95 }}
-                       onClick={() => handlePositionChange(undefined, pos)}
-                       className={`
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handlePositionChange(undefined, pos)}
+                className={`
                          p-1 transition-all duration-200 relative
-                         ${position.horizontal === pos
+                  ${position.horizontal === pos
                            ? 'bg-[#fa7517] text-white'
                            : 'text-gray-300 hover:bg-white/10'
-                         }
+                  }
                          ${index !== 0 ? 'border-l border-white/10' : ''}
                          ${index === 0 ? 'rounded-l-lg' : ''}
                          ${index === 2 ? 'rounded-r-lg' : ''}
-                       `}
-                     >
-                       {pos === 'left' && <AlignLeft className="w-4 h-4" />}
-                       {pos === 'center' && <AlignCenter className="w-4 h-4" />}
-                       {pos === 'right' && <AlignRight className="w-4 h-4" />}
-                     </motion.button>
+                `}
+              >
+                {pos === 'left' && <AlignLeft className="w-4 h-4" />}
+                {pos === 'center' && <AlignCenter className="w-4 h-4" />}
+                {pos === 'right' && <AlignRight className="w-4 h-4" />}
+              </motion.button>
                    </Tooltip>
-                 ))}
-               </div>
-             </div>
-           </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
           {/* Divider */}
           <div className="w-px h-8 bg-white/10" />
@@ -348,34 +348,34 @@ export const TitleTextInput: React.FC<TitleTextInputProps> = ({
                    <div className="flex gap-1">
                      {titleColors.slice(6).map((colorOption) => (
                        <Tooltip key={colorOption.primary} content={`Set text color to ${colorOption.name.toLowerCase()}`}>
-                         <motion.button
+            <motion.button
                            whileHover={{ scale: 1.1 }}
                            whileTap={{ scale: 0.9 }}
-                           onClick={() => onColorChange(colorOption)}
-                           className={`
+              onClick={() => onColorChange(colorOption)}
+              className={`
                              w-5 h-5 rounded-full border transition-all duration-200
-                             ${color.primary === colorOption.primary
+                ${color.primary === colorOption.primary
                                ? 'border-[#fa7517] ring-1 ring-[#fa7517]/30'
                                : 'border-white/20 hover:border-white/40'
-                             }
-                           `}
-                         >
-                           <div 
-                             className={`
+                }
+              `}
+            >
+              <div 
+                className={`
                                w-full h-full rounded-full
-                               ${colorOption.primary === 'white' ? 'bg-white' : ''}
-                               ${colorOption.primary === 'black' ? 'bg-black' : ''}
-                               ${colorOption.primary === 'red' ? 'bg-red-500' : ''}
-                               ${colorOption.primary === 'blue' ? 'bg-blue-500' : ''}
-                               ${colorOption.primary === 'green' ? 'bg-green-500' : ''}
-                               ${colorOption.primary === 'yellow' ? 'bg-yellow-500' : ''}
-                               ${colorOption.primary === 'purple' ? 'bg-purple-500' : ''}
-                               ${colorOption.primary === 'orange' ? 'bg-orange-500' : ''}
-                             `}
-                           />
-                         </motion.button>
+                  ${colorOption.primary === 'white' ? 'bg-white' : ''}
+                  ${colorOption.primary === 'black' ? 'bg-black' : ''}
+                  ${colorOption.primary === 'red' ? 'bg-red-500' : ''}
+                  ${colorOption.primary === 'blue' ? 'bg-blue-500' : ''}
+                  ${colorOption.primary === 'green' ? 'bg-green-500' : ''}
+                  ${colorOption.primary === 'yellow' ? 'bg-yellow-500' : ''}
+                  ${colorOption.primary === 'purple' ? 'bg-purple-500' : ''}
+                  ${colorOption.primary === 'orange' ? 'bg-orange-500' : ''}
+                `}
+              />
+            </motion.button>
                        </Tooltip>
-                     ))}
+          ))}
                    </div>
                  </div>
                </div>
@@ -428,4 +428,4 @@ export const TitleTextInput: React.FC<TitleTextInputProps> = ({
       )}
     </div>
   );
-};
+}; 

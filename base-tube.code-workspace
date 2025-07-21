@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../basetube/base-be"
+		},
+		{
+			"path": "../contracts"
+		}
+	]
+}

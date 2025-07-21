@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, Check, Copy, Calendar, Zap, Mail, Eye, Sparkles, ExternalLink, ArrowRight } from 'lucide-react';
+import { X, Download, Check, Copy, Calendar, Zap, Mail, Eye, Sparkles, ExternalLink, ArrowRight, Share2 } from 'lucide-react';
 import { usePublicThumbnailGenerator } from '../../../hooks/usePublicThumbnailGenerator';
 import Button from '../../common/Button';
+import { ViralSharePopup } from './ViralSharePopup';
 
 interface GeneratedThumbnail {
   id: string;
@@ -37,6 +38,8 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
   const [emailSubmitting, setEmailSubmitting] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'downloading' | 'downloaded'>('idle');
   const [emailSuccess, setEmailSuccess] = useState(false);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'shared'>('idle');
+  const [isViralShareOpen, setIsViralShareOpen] = useState(false);
 
   // ESC key to close drawer
   useEffect(() => {
@@ -120,6 +123,12 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
     } finally {
       setEmailSubmitting(false);
     }
+  };
+
+  // Handle viral sharing
+  const handleShare = () => {
+    if (!thumbnail) return;
+    setIsViralShareOpen(true);
   };
 
   // Format date
@@ -367,6 +376,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
+                    className="space-y-4"
                   >
                     <Button
                       onClick={handleDownload}
@@ -391,6 +401,17 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                         </div>
                       )}
                     </Button>
+                    
+                    {/* Share Button */}
+                    <motion.button
+                      onClick={handleShare}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all duration-300 shadow-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 hover:shadow-purple-500/30 text-white"
+                    >
+                      <Share2 className="w-5 h-5" />
+                      <span>Share Your Creation</span>
+                    </motion.button>
                   </motion.div>
 
                 </motion.div>
@@ -559,6 +580,13 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
           </AnimatePresence>
         </>
       )}
+      
+      {/* Viral Share Popup */}
+      <ViralSharePopup
+        thumbnail={thumbnail}
+        isOpen={isViralShareOpen}
+        onClose={() => setIsViralShareOpen(false)}
+      />
     </AnimatePresence>
   );
 }; 

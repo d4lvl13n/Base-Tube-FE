@@ -98,7 +98,7 @@ const ThumbnailHero: React.FC<ThumbnailHeroProps> = ({ onSignUpClick }) => {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-full border border-[#fa7517]/30 mb-6"
                 >
                   <Sparkles className="w-4 h-4 text-[#fa7517]" />
-                  <span className="text-sm font-medium text-white">AI-Powered • Instant • Professional</span>
+                  <span className="text-sm font-medium text-white">For Creators Who Refuse to Settle</span>
                 </motion.div>
 
                 {/* Main Headline */}
@@ -109,11 +109,11 @@ const ThumbnailHero: React.FC<ThumbnailHeroProps> = ({ onSignUpClick }) => {
                   className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6"
                 >
                   <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                    Thumbnails That
+                    Your Ideas Deserve
                   </span>
                   <br />
                   <span className="bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent">
-                    Get Clicked
+                    Perfect Thumbnails
                   </span>
                 </motion.h1>
 
@@ -124,8 +124,7 @@ const ThumbnailHero: React.FC<ThumbnailHeroProps> = ({ onSignUpClick }) => {
                   transition={{ delay: 0.4 }}
                   className="text-xl text-gray-300 mb-8 leading-relaxed"
                 >
-                  Transform your video ideas into <span className="text-[#fa7517] font-semibold">scroll-stopping thumbnails</span> in seconds. 
-                  No design skills needed. Just pure AI magic.
+                  Stop losing views to boring thumbnails. Create images that make people <span className="text-[#fa7517] font-semibold">stop scrolling</span> and start watching.
                 </motion.p>
 
                 {/* Stats */}
@@ -138,23 +137,23 @@ const ThumbnailHero: React.FC<ThumbnailHeroProps> = ({ onSignUpClick }) => {
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-1 text-2xl font-bold text-white mb-1">
                       <TrendingUp className="w-6 h-6 text-[#fa7517]" />
-                      <span>3.2x</span>
+                      <span>More</span>
                     </div>
-                    <p className="text-sm text-gray-400">Higher CTR</p>
+                    <p className="text-sm text-gray-400">Views</p>
                   </div>
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-1 text-2xl font-bold text-white mb-1">
                       <Zap className="w-6 h-6 text-[#fa7517]" />
-                      <span>&lt;30s</span>
+                      <span>Instant</span>
                     </div>
-                    <p className="text-sm text-gray-400">Generation Time</p>
+                    <p className="text-sm text-gray-400">Results</p>
                   </div>
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-1 text-2xl font-bold text-white mb-1">
                       <Eye className="w-6 h-6 text-[#fa7517]" />
-                      <span>100%</span>
+                      <span>Zero</span>
                     </div>
-                    <p className="text-sm text-gray-400">Unique Designs</p>
+                    <p className="text-sm text-gray-400">Design Skills</p>
                   </div>
                 </motion.div>
 
@@ -170,7 +169,7 @@ const ThumbnailHero: React.FC<ThumbnailHeroProps> = ({ onSignUpClick }) => {
                     className="group relative bg-gradient-to-r from-[#fa7517] to-orange-400 hover:from-[#fa7517]/90 hover:to-orange-400/90 text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg shadow-[#fa7517]/25 hover:shadow-[#fa7517]/40 transition-all duration-300"
                   >
                     <span className="flex items-center gap-2">
-                      Start Creating Free
+                      Create Your First Thumbnail
                       <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </span>
                     <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-full opacity-0 group-hover:opacity-100 blur transition-all duration-300" />
@@ -184,9 +183,9 @@ const ThumbnailHero: React.FC<ThumbnailHeroProps> = ({ onSignUpClick }) => {
                   transition={{ delay: 0.7 }}
                   className="flex items-center gap-4 text-sm text-gray-400"
                 >
-                  <span>✓ No credit card required</span>
-                  <span>✓ 2 variations per generation</span>
-                  <span>✓ HD 1536x1024 quality</span>
+                  <span>✓ Free to try</span>
+                  <span>✓ No experience required</span>
+                  <span>✓ Professional quality</span>
                 </motion.div>
               </motion.div>
 

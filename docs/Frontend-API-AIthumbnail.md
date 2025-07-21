@@ -192,25 +192,68 @@ async function generateAsync(prompt, apiKey) {
 
 ## 5. KPIs & 90-Day Roadmap
 
-### 5.1 Success Metrics
+### 5.1 Success Metrics (Traction Phase)
 
-- 1,000+ unique users generate at least 1 thumbnail
-- 100+ signups (email or Clerk)
-- 10+ paid upgrades (if paywall enabled)
-- < $1 CAC for first 100 users (organic/earned, not paid ads)
-- 10+ backlinks from creator blogs/forums
+**Green Light Indicators (Build Dashboard):**
+- 1,000+ unique thumbnail generations
+- 100+ email signups  
+- 20+ organic mentions/shares
+- 5+ user testimonials
+- 50+ daily active users
+- < $1 CAC for first 100 users (organic/earned)
 
-### 5.2 Timeline
+**Red Flags (Pivot/Improve):**
+- <100 generations after 2 weeks
+- High bounce rate (>80%)
+- No organic sharing
+- No user feedback
+
+### 5.2 Phase 1: Traction & Growth (Weeks 1-6)
+
+| Week | Milestone                                      | Success Metric |
+|------|------------------------------------------------|----------------|
+| 1    | Landing page live, analytics tracking         | 100+ visitors |
+| 2    | Social proof, testimonials, before/after      | 50+ generations |
+| 3    | SEO content, blog posts, social launch        | 200+ visitors |
+| 4    | Community outreach (Reddit, Facebook groups)  | 500+ visitors |
+| 5    | Influencer DMs, Product Hunt launch           | 1000+ visitors |
+| 6    | Viral features (watermark, sharing, referral) | 100+ signups |
+
+### 5.3 Phase 2: Dashboard & Retention (Weeks 7-12)
+
+**Only proceed if Phase 1 metrics are hit**
 
 | Week | Milestone                                      |
 |------|------------------------------------------------|
-| 1    | Landing page live, free API key integration    |
-| 2    | Analytics, quota logic, download tracking      |
-| 3    | Clerk/signup flow, upgrade modal               |
-| 4    | SEO content, blog posts, social launch         |
-| 5-6  | Community outreach, influencer DMs             |
-| 7-8  | Chrome extension MVP, referral program         |
-| 9-12 | Monitor, iterate, launch paid tier if demand   |
+| 7-8  | Simple user dashboard (view, re-download)     |
+| 9-10 | Usage analytics, billing integration          |
+| 11-12| Advanced features, API documentation          |
+
+### 5.4 Growth Tactics (Implement Immediately)
+
+**Viral Mechanisms:**
+- Subtle "Made with Base.Tube" watermark on free downloads
+- Social sharing: "I just created this thumbnail with AI" + link
+- Referral system: "Share for 5 extra free generations"
+- Live counter: "🔥 2,847 thumbnails generated today"
+
+**Social Proof:**
+- Before/after thumbnail gallery
+- User testimonials carousel
+- Competitor comparison table
+- "Featured on" logos (after press coverage)
+
+**SEO Content:**
+- "How to make YouTube thumbnails that get clicks"
+- "AI vs Designer: Thumbnail showdown"
+- "Case study: 10x CTR with AI thumbnails"
+- Target: "free AI thumbnail generator", "YouTube thumbnail maker"
+
+**Community Distribution:**
+- r/NewTubers, r/YouTube, r/SmallYoutubers
+- YouTube creator Facebook groups
+- Indie Hackers, Product Hunt
+- TikTok/YouTube creator Discord servers
 
 ---
 

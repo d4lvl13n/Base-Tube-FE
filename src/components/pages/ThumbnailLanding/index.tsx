@@ -101,7 +101,7 @@ const ThumbnailLanding: React.FC = () => {
                 </div>
               </div>
               <p className="text-sm text-gray-400 leading-relaxed">
-                Create stunning thumbnails with AI. Built for creators, optimized for conversions.
+                Transform your content with thumbnails that actually work. Built for creators who refuse to settle.
               </p>
             </div>
 

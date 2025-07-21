@@ -8,11 +8,13 @@ import {
   ChevronUp,
   ChevronDown,
   Zap,
-  X
+  X,
+  Share2
 } from 'lucide-react';
 import { usePublicThumbnailGenerator } from '../../../hooks/usePublicThumbnailGenerator';
 import Button from '../../common/Button';
 import { ThumbnailDetailDrawer } from './ThumbnailDetailDrawer';
+import { ViralSharePopup } from './ViralSharePopup';
 import { SizeFormatSelector } from './SizeFormatSelector';
 import { TitleTextInput, TitleStyle, TitlePosition, TitleColor } from './TitleTextInput';
 
@@ -48,6 +50,8 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
   const [internalExpanded, setInternalExpanded] = useState(false);
   const [selectedThumbnail, setSelectedThumbnail] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isViralShareOpen, setIsViralShareOpen] = useState(false);
+  const [shareSelectedThumbnail, setShareSelectedThumbnail] = useState<any>(null);
   
   // Use external professional mode if provided, otherwise use internal state
   const isExpanded = externalProfessionalMode !== undefined ? externalProfessionalMode : internalExpanded;
@@ -121,6 +125,13 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
   const handleDrawerClose = () => {
     setIsDrawerOpen(false);
     setSelectedThumbnail(null);
+  };
+
+  // Viral sharing function
+  const handleShare = (thumbnail: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShareSelectedThumbnail(thumbnail);
+    setIsViralShareOpen(true);
   };
 
   const toggleExpanded = () => {
@@ -516,16 +527,29 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
                         </div>
                       </div>
                       
+                      {/* Action buttons */}
+                      <div className="absolute top-2 right-2 flex gap-2">
+                        {/* Share button */}
+                        <Button
+                          onClick={(e) => handleShare(thumbnail, e)}
+                          variant="ghost"
+                          size="sm"
+                          className="bg-black/60 hover:bg-black/80 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          title="Share your creation"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </Button>
+                      
                       {/* Regenerate button */}
                       <Button
                         onClick={(e) => {
                           e.stopPropagation();
                           generateThumbnail(thumbnail.prompt, {
                             size: selectedSize,
-                            quality: selectedQuality,
-                            style: selectedStyle.trim() || undefined,
-                            n: selectedVariations,
-                            referenceImage: referenceImage || undefined,
+                              quality: selectedQuality,
+                              style: selectedStyle.trim() || undefined,
+                              n: selectedVariations,
+                              referenceImage: referenceImage || undefined,
                             title: title.trim() || undefined,
                             titleStyle: title.trim() ? titleStyle : undefined,
                             titlePosition: title.trim() ? titlePosition : undefined,
@@ -534,11 +558,12 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
                         }}
                         variant="ghost"
                         size="sm"
-                        className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          className="bg-black/60 hover:bg-black/80 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                         title="Regenerate with current settings"
                       >
                         <RefreshCw className="w-4 h-4" />
                       </Button>
+                      </div>
                     </div>
                     
                     {/* Thumbnail Info */}
@@ -579,6 +604,13 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
         thumbnail={selectedThumbnail}
         isOpen={isDrawerOpen}
         onClose={handleDrawerClose}
+      />
+
+      {/* Viral Share Popup */}
+      <ViralSharePopup
+        thumbnail={shareSelectedThumbnail}
+        isOpen={isViralShareOpen}
+        onClose={() => setIsViralShareOpen(false)}
       />
     </div>
   );

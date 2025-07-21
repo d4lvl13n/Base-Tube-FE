@@ -124,11 +124,12 @@ const MomentNFTMintPage: React.FC = () => {
           </div>
 
           {/* Timeline Section */}
-          <div ref={containerRef} className="relative">
+          <div ref={containerRef} className="relative min-h-screen">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: showTimeline ? 1 : 0 }}
               transition={{ duration: 0.5 }}
+              className="h-full"
             >
               <TimelineTrack progress={smoothProgress}>
                 {RANKS.map((rank, index) => (

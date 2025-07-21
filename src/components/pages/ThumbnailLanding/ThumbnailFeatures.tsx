@@ -16,58 +16,58 @@ const ThumbnailFeatures: React.FC = () => {
   const mainFeatures = [
     {
       icon: <Brain className="w-8 h-8" />,
-      title: "Smart AI Recognition",
-      description: "Our AI understands your content and creates thumbnails that match your video's mood, style, and message perfectly.",
-      benefits: ["Context-aware generation", "Style matching", "Mood detection"]
+      title: "Understands Your Vision",
+      description: "Describe your video in plain words. Our technology translates your ideas into visuals that capture exactly what you meant.",
+      benefits: ["Reads between the lines", "Captures your style", "Gets your message"]
     },
     {
       icon: <Zap className="w-8 h-8" />,
-      title: "Lightning Fast",
-      description: "Generate professional thumbnails in under 30 seconds. No more waiting hours for designers or struggling with complex tools.",
-      benefits: ["< 30 second generation", "Instant results", "No queue time"]
+      title: "Instant Gratification",
+      description: "No more waiting. No more revisions. Your perfect thumbnail appears in moments, ready to captivate your audience.",
+      benefits: ["Ready in seconds", "No waiting", "Immediate results"]
     },
     {
       icon: <TrendingUp className="w-8 h-8" />,
-      title: "Proven to Convert",
-      description: "Our thumbnails are designed using psychology and data science to maximize click-through rates and engagement.",
-      benefits: ["3.2x higher CTR", "Data-driven design", "A/B tested elements"]
+      title: "Built to Perform",
+      description: "Every thumbnail is crafted using principles that make people click. Your content gets the attention it deserves.",
+      benefits: ["Attention-grabbing", "Scroll-stopping", "Click-worthy"]
     },
     {
       icon: <Palette className="w-8 h-8" />,
-      title: "Multiple Variations",
-      description: "Get 2 unique thumbnail variations with every generation. Choose the perfect one or A/B test for maximum performance.",
-      benefits: ["2 variations per generation", "1536x1024 HD quality", "Platform optimized"]
+      title: "Options That Matter",
+      description: "Get multiple variations instantly. Choose the one that feels right, or test different approaches to find your winner.",
+      benefits: ["Multiple options", "High resolution", "Perfect for any platform"]
     }
   ];
 
   const comparisonFeatures = [
     {
-      title: "Traditional Design",
+      title: "Old Way",
       points: [
-        { feature: "Time to create", value: "2-4 hours", negative: true },
-        { feature: "Cost per thumbnail", value: "$25-100", negative: true },
-        { feature: "Design skills needed", value: "Advanced", negative: true },
-        { feature: "Consistency", value: "Variable", negative: true },
-        { feature: "Variations", value: "Extra cost", negative: true }
+        { feature: "Time investment", value: "Hours of work", negative: true },
+        { feature: "Skills required", value: "Design expertise", negative: true },
+        { feature: "Cost per thumbnail", value: "$50-200", negative: true },
+        { feature: "Consistency", value: "Hit or miss", negative: true },
+        { feature: "Revisions", value: "Costly & slow", negative: true }
       ]
     },
     {
-      title: "AI Thumbnails",
+      title: "New Way",
       points: [
-        { feature: "Time to create", value: "< 30 seconds", negative: false },
+        { feature: "Time investment", value: "Seconds", negative: false },
+        { feature: "Skills required", value: "None", negative: false },
         { feature: "Cost per thumbnail", value: "Free", negative: false },
-        { feature: "Design skills needed", value: "None", negative: false },
-        { feature: "Consistency", value: "Perfect", negative: false },
-        { feature: "Variations", value: "2 per generation", negative: false }
+        { feature: "Consistency", value: "Every time", negative: false },
+        { feature: "Revisions", value: "Instant", negative: false }
       ]
     }
   ];
 
   const stats = [
-    { value: "50k+", label: "Thumbnails Generated", icon: <Star className="w-5 h-5" /> },
-    { value: "98%", label: "User Satisfaction", icon: <Users className="w-5 h-5" /> },
-    { value: "3.2x", label: "Average CTR Increase", icon: <TrendingUp className="w-5 h-5" /> },
-    { value: "< 30s", label: "Generation Time", icon: <Clock className="w-5 h-5" /> }
+    { value: "Creators", label: "Trust Our Platform", icon: <Users className="w-5 h-5" /> },
+    { value: "Better", label: "Than Design Tools", icon: <Star className="w-5 h-5" /> },
+    { value: "More", label: "Engaging Content", icon: <TrendingUp className="w-5 h-5" /> },
+    { value: "Seconds", label: "To Perfect Thumbnail", icon: <Clock className="w-5 h-5" /> }
   ];
 
   return (
@@ -83,20 +83,20 @@ const ThumbnailFeatures: React.FC = () => {
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-full border border-[#fa7517]/30 mb-6">
             <Shield className="w-4 h-4 text-[#fa7517]" />
-            <span className="text-sm font-medium text-white">Why Choose Our AI</span>
+            <span className="text-sm font-medium text-white">The Future of Content Creation</span>
           </div>
           
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            The Most Advanced
+            Stop Settling for
             <br />
             <span className="bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent">
-              Thumbnail Generator
+              Mediocre Thumbnails
             </span>
           </h2>
           
           <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-            Built specifically for content creators who want professional results without the complexity. 
-            Our AI understands what makes thumbnails click.
+            Your content deserves thumbnails that match its quality. 
+            Create images that make viewers choose you over everyone else.
           </p>
         </motion.div>
 
@@ -179,10 +179,10 @@ const ThumbnailFeatures: React.FC = () => {
         >
           <div className="text-center mb-12">
             <h3 className="text-3xl font-bold text-white mb-4">
-              AI vs Traditional Design
+              The Old Way vs The New Way
             </h3>
             <p className="text-gray-400 text-lg">
-              See why thousands of creators are switching to AI
+              Why creators are making the switch
             </p>
           </div>
 
@@ -252,15 +252,15 @@ const ThumbnailFeatures: React.FC = () => {
             <div className="absolute -inset-4 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-300" />
             <div className="relative bg-gradient-to-br from-black/80 to-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-8 hover:border-[#fa7517]/30 transition-all duration-300">
               <h3 className="text-2xl font-bold text-white mb-4">
-                Ready to Create Stunning Thumbnails?
+                Your Content Deserves Better
               </h3>
               <p className="text-gray-300 mb-6">
-                Join thousands of creators who've transformed their content with AI
+                Stop letting boring thumbnails hold back your amazing content
               </p>
               <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-400">
-                <span>✓ Free to start</span>
-                <span>✓ No credit card required</span>
-                <span>✓ 2 variations per generation</span>
+                <span>✓ Free to try</span>
+                <span>✓ No experience required</span>
+                <span>✓ Professional results</span>
               </div>
             </div>
           </div>

@@ -7,44 +7,44 @@ const ThumbnailFAQ: React.FC = () => {
 
   const faqs = [
     {
-      question: "How does AI thumbnail generation work?",
-      answer: "Our AI analyzes your text prompt and generates thumbnails using advanced machine learning models trained on millions of high-performing thumbnails. It understands context, style, and visual elements that drive clicks and engagement."
+      question: "How does this work?",
+      answer: "Simply describe your video in plain words. Our technology understands your vision and creates thumbnails that capture exactly what you meant. No design skills needed."
     },
     {
-      question: "Do I need design skills to use this tool?",
-      answer: "Not at all! Simply describe your video content in plain English, and our AI will create professional thumbnails for you. For example, 'cooking tutorial for beginners' or 'iPhone review with pros and cons' work perfectly."
+      question: "Do I need any design experience?",
+      answer: "None at all. If you can describe your video, you can create stunning thumbnails. Our technology handles all the design complexity behind the scenes."
     },
     {
-      question: "What makes AI thumbnails better than traditional design?",
-      answer: "AI thumbnails are created in seconds, not hours. They're based on data from millions of successful thumbnails, ensuring they follow proven design principles. Plus, you can generate unlimited variations until you find the perfect one."
+      question: "What makes these thumbnails special?",
+      answer: "Every thumbnail is crafted using principles that make people stop scrolling and start clicking. Your content gets the attention it deserves, not just another generic image."
     },
     {
-      question: "Can I use these thumbnails commercially?",
-      answer: "Yes! All thumbnails generated are yours to use commercially. You can use them for YouTube videos, social media posts, marketing materials, or any other purpose. There are no licensing restrictions."
+      question: "Can I use these for my business?",
+      answer: "Absolutely. All thumbnails are yours to use however you want - YouTube, social media, marketing materials, anywhere. No restrictions, no licensing headaches."
     },
     {
-      question: "What's the difference between free and premium accounts?",
-      answer: "Free accounts get 3 thumbnail generations per day, while premium accounts get unlimited generations, priority processing, advanced customization options, and access to premium styles and templates."
+      question: "How much does this cost?",
+      answer: "You can try it free to see if it works for you. If you love it, our plans start at just a few dollars per month - less than what you'd pay for a single designer thumbnail."
     },
     {
-      question: "How long does it take to generate a thumbnail?",
-      answer: "Most thumbnails are generated in under 30 seconds. During peak times, it might take up to 1 minute. Premium users get priority processing for even faster results."
+      question: "How fast will I get my thumbnail?",
+      answer: "Your thumbnail appears in seconds, not hours or days. No waiting for designers, no back-and-forth revisions. Just instant results when inspiration strikes."
     },
     {
-      question: "What image formats and sizes are supported?",
-      answer: "All thumbnails are generated in 1280x720 HD resolution in PNG format, perfect for YouTube and other platforms. We also support custom sizes and formats for premium users."
+      question: "What if I don't like the result?",
+      answer: "Try a different description or generate new variations. There's no limit to experimenting until you find exactly what feels right for your content."
     },
     {
-      question: "Can I edit the generated thumbnails?",
-      answer: "While the AI creates complete thumbnails, you can always request variations by adjusting your prompt. Premium users get access to our built-in editor for fine-tuning colors, text, and elements."
+      question: "Will my thumbnails look unique?",
+      answer: "Every thumbnail is created fresh for your specific content. No templates, no cookie-cutter designs. Your thumbnails will be as unique as your videos."
     },
     {
-      question: "Do you store my generated thumbnails?",
-      answer: "Your thumbnails are temporarily stored for 30 days so you can re-download them. After that, they're automatically deleted. We never use your content for training or share it with third parties."
+      question: "How do I know this will work for my content?",
+      answer: "Try it free with your actual video ideas. See for yourself how it transforms your content presentation. Most creators are amazed by their first result."
     },
     {
-      question: "What if I'm not satisfied with the results?",
-      answer: "You can regenerate thumbnails with different prompts at no extra cost. Our AI learns from feedback, so the more specific your prompt, the better the results. Premium users also get priority support."
+      question: "Is my content private?",
+      answer: "Your ideas and thumbnails are yours alone. We don't store, share, or use your content for anything other than creating your thumbnails."
     }
   ];
 
@@ -65,19 +65,19 @@ const ThumbnailFAQ: React.FC = () => {
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-full border border-[#fa7517]/30 mb-6">
             <HelpCircle className="w-4 h-4 text-[#fa7517]" />
-            <span className="text-sm font-medium text-white">Got Questions?</span>
+            <span className="text-sm font-medium text-white">Your Questions Answered</span>
           </div>
           
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
             <span className="bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent">
-              Frequently Asked
+              Everything You Need
             </span>
             <br />
-            Questions
+            to Know
           </h2>
           
           <p className="text-xl text-gray-300 leading-relaxed">
-            Everything you need to know about AI thumbnail generation
+            The answers that help you make the right choice for your content
           </p>
         </motion.div>
 
@@ -155,10 +155,10 @@ const ThumbnailFAQ: React.FC = () => {
             <div className="absolute -inset-4 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-300" />
             <div className="relative bg-gradient-to-br from-black/80 to-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-8 hover:border-[#fa7517]/30 transition-all duration-300">
               <h3 className="text-2xl font-bold text-white mb-4">
-                Still have questions?
+                Ready to Transform Your Content?
               </h3>
               <p className="text-gray-300 mb-6">
-                We're here to help! Get in touch with our support team for personalized assistance.
+                Join creators who've discovered the secret to thumbnails that actually work.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-400">
                 <a 
@@ -170,7 +170,7 @@ const ThumbnailFAQ: React.FC = () => {
                 <span>•</span>
                 <span>💬 Live chat available</span>
                 <span>•</span>
-                <span>⚡ 24/7 support</span>
+                <span>⚡ Quick support</span>
               </div>
             </div>
           </div>

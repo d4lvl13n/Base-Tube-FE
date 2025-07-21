@@ -67,7 +67,7 @@ const buildTitleInstructions = (
   
   // Add style instructions
   if (titleStyle) {
-    const styles = [];
+    const styles: string[] = [];
     if (titleStyle.bold) styles.push('bold');
     if (titleStyle.uppercase) styles.push('uppercase');
     if (titleStyle.outline) styles.push('outlined');
@@ -151,11 +151,9 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
   const pollJobStatus = async (jobId: string): Promise<void> => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/v1/images/job/${jobId}`, {
+      const response = await fetch(`${apiUrl}/v1/images/job/${jobId}/public`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${process.env.REACT_APP_MASTER_API_KEY}`,
-        },
+        // Remove the Authorization header since we're using public endpoints
       });
 
       if (!response.ok) {
@@ -239,11 +237,6 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       return;
     }
 
-    if (!process.env.REACT_APP_MASTER_API_KEY) {
-      setError('API configuration error. Please contact support.');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
@@ -258,8 +251,8 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
 
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
       
-      // Determine endpoint based on whether we have a reference image
-      let endpoint = '/v1/images/generate';
+      // Use public endpoints that don't require authentication
+      let endpoint = '/v1/images/generate/public';
       let requestBody: any = {
         prompt: enhancedPrompt,
         size: options?.size || 'auto',
@@ -273,12 +266,13 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       }
 
       let headers: any = {
-        'Authorization': `Bearer ${process.env.REACT_APP_MASTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        // Remove Authorization header - using public endpoints
       };
 
       // Handle reference image upload
       if (options?.referenceImage) {
-        endpoint = '/v1/images/edit';
+        endpoint = '/v1/images/edit/public';
         const formData = new FormData();
         formData.append('image', options.referenceImage);
         formData.append('prompt', enhancedPrompt);
@@ -295,9 +289,12 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
           formData.append('mask', options.mask);
         }
         
+        // Remove Content-Type header for FormData
+        delete headers['Content-Type'];
+        
         const response = await fetch(`${apiUrl}${endpoint}`, {
           method: 'POST',
-          headers,
+          headers: Object.keys(headers).length > 0 ? headers : undefined,
           body: formData,
         });
 
@@ -359,8 +356,6 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
 
       } else {
         // Regular text-to-image generation
-        headers['Content-Type'] = 'application/json';
-        
         const response = await fetch(`${apiUrl}${endpoint}`, {
           method: 'POST',
           headers,

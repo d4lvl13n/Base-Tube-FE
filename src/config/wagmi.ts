@@ -32,7 +32,10 @@ export const config = createConfig({
   multiInjectedProviderDiscovery: false,
   connectors,
   transports: {
-    [baseSepolia.id]: http(),
+    // Prefer custom RPC if provided, otherwise use default wagmi endpoint.
+    [baseSepolia.id]: http(
+      process.env.REACT_APP_BASE_SEPOLIA_RPC_URL || undefined,
+    ),
   },
 });
 
