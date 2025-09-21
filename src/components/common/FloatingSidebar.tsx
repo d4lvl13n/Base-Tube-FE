@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Flame, Compass, PlayCircle, User, Tv, Palette, Trophy } from 'lucide-react';
 
+const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
+
 interface NavigationItem {
   path: string;
   icon: React.ReactNode;
@@ -128,7 +130,9 @@ const FloatingSidebar: React.FC = () => {
                     className={`p-3 rounded-full transition-all duration-300 relative
                       ${location.pathname === path 
                         ? 'bg-[#fa7517] text-black shadow-lg shadow-[#fa7517]/20' 
-                        : 'bg-black/50 text-white hover:bg-black/70'
+                        : (!PASSES_ENABLED && path === '/nft-marketplace' 
+                            ? 'bg-black/30 text-white/50' 
+                            : 'bg-black/50 text-white hover:bg-black/70')
                       }`}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}

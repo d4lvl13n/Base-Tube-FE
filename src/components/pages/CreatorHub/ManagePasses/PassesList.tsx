@@ -6,6 +6,8 @@ import { useCreatorPasses } from '../../../../hooks/usePass';
 import { Crown, Plus } from 'lucide-react';
 import CreatorPassCard from './CreatorPassCard';
 
+const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
+
 const PassesList: React.FC = () => {
   const { data: passes, isLoading, error } = useCreatorPasses();
 
@@ -38,16 +40,23 @@ const PassesList: React.FC = () => {
         <p className="text-gray-400 max-w-md mb-6">
           You haven't created any content passes yet. Start monetizing your content by creating your first pass!
         </p>
-        <Link to="/creator-hub/monetization">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-6 py-3 bg-gradient-to-r from-[#FFD700] to-[#fa7517] rounded-lg text-black font-bold flex items-center"
-          >
+        {PASSES_ENABLED ? (
+          <Link to="/creator-hub/monetization">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+              className="px-6 py-3 bg-gradient-to-r from-[#FFD700] to-[#fa7517] rounded-lg text-black font-bold flex items-center"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Create Content Pass
+            </motion.button>
+          </Link>
+        ) : (
+          <div className="px-6 py-3 bg-gray-700/50 rounded-lg text-white/70 font-bold flex items-center cursor-not-allowed">
             <Plus className="w-5 h-5 mr-2" />
-            Create Content Pass
-          </motion.button>
-        </Link>
+            Coming Soon
+          </div>
+        )}
       </div>
     );
   }

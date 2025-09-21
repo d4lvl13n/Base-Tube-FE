@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 
+const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
+
 interface SubItem {
   title: string;
   path: string;
@@ -333,8 +335,11 @@ const NavItem: React.FC<NavItemProps> = ({ item, isCollapsed, isActive, onClick,
               to={subItem.path}
               className={`
                 block px-4 py-2 rounded-lg text-sm
-                ${isSubItemActive(subItem.path) ? 'text-[#fa7517] bg-[#fa7517]/10' 
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/30'}
+                ${(!PASSES_ENABLED && subItem.title === 'Manage Content Passes')
+                  ? 'text-gray-500 hover:text-gray-500 hover:bg-gray-800/20'
+                  : (isSubItemActive(subItem.path)
+                      ? 'text-[#fa7517] bg-[#fa7517]/10'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800/30')}
                 transition-colors
               `}
             >

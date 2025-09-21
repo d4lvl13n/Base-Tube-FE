@@ -15,6 +15,8 @@ import Header from '../common/Header';
 import { useNavigation } from '../../contexts/NavigationContext';
 import PassCard from '../pass/PassCard';
 
+const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
+
 const BaseTubeHomepage: React.FC = () => {
   const { navStyle } = useNavigation();
   const isFloatingNav = navStyle === 'floating';
@@ -31,10 +33,10 @@ const BaseTubeHomepage: React.FC = () => {
     data: passesData,
     isLoading: passesLoading,
     error: passesError
-  } = usePassDiscover({ limit: 4 });
+  } = usePassDiscover({ limit: 4 }, { enabled: PASSES_ENABLED });
   
-  // Extract passes from the first page
-  const contentPasses = passesData?.pages?.[0]?.data || [];
+  // Extract passes from the first page (disabled when feature is off)
+  const contentPasses = PASSES_ENABLED ? (passesData?.pages?.[0]?.data || []) : [];
 
   const { 
     videos: trendingVideos,
@@ -98,7 +100,7 @@ const BaseTubeHomepage: React.FC = () => {
     fetchHomePageData();
   }, [channelsPage, channelsLimit]);
 
-  if (loading || trendingLoading || passesLoading) {
+  if (loading || trendingLoading || (PASSES_ENABLED && passesLoading)) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
 
@@ -113,6 +115,31 @@ const BaseTubeHomepage: React.FC = () => {
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       {contentPasses.map(pass => (
         <PassCard key={pass.id} pass={pass} />
+      ))}
+    </div>
+  );
+
+  // Placeholder cards matching PassCard style
+  const renderPassPlaceholders = (count: number = 4) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {Array.from({ length: count }).map((_, index) => (
+        <div 
+          key={index}
+          className="rounded-xl overflow-hidden bg-black border border-gray-800 hover:border-gray-700 relative group shadow-lg hover:shadow-xl"
+          style={{ aspectRatio: '4/5', height: 'auto', width: '100%' }}
+        >
+          <div className="absolute inset-0 w-full h-full overflow-hidden">
+            <img 
+              src="/assets/Content-pass.webp" 
+              alt="Premium Content Pass — Coming soon" 
+              className="w-full h-full object-cover filter brightness-90 group-hover:brightness-100"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-70" />
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-white font-semibold tracking-wide bg-black/50 px-3 py-1 rounded">Coming soon</span>
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -146,14 +173,18 @@ const BaseTubeHomepage: React.FC = () => {
               <div className="mt-12">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl md:text-2xl font-bold">Premium Content Passes</h2>
-                  <a 
-                    href="/discover?tab=passes" 
-                    className="text-sm text-orange-500 hover:text-orange-400 transition-colors duration-200"
-                  >
-                    See All
-                  </a>
+                  {PASSES_ENABLED && (
+                    <a 
+                      href="/discover?tab=passes" 
+                      className="text-sm text-orange-500 hover:text-orange-400 transition-colors duration-200"
+                    >
+                      See All
+                    </a>
+                  )}
                 </div>
-                {passesError ? (
+                {!PASSES_ENABLED ? (
+                  renderPassPlaceholders(4)
+                ) : passesError ? (
                   <div className="text-red-500">Failed to load content passes</div>
                 ) : passesLoading ? (
                   renderPlaceholders(4)

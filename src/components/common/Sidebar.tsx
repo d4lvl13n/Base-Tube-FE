@@ -4,6 +4,8 @@ import FloatingSidebar from './FloatingSidebar';
 import { Link } from 'react-router-dom';
 import { Home, Flame, Compass, PlayCircle, User, Tv, Palette, Trophy } from 'lucide-react';
 
+const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
+
 const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
   const { navStyle } = useNavigation();
 
@@ -22,7 +24,7 @@ const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
         <Link to="/discover" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
           <Flame size={24} />
         </Link>
-        <Link to="/nft-marketplace" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
+        <Link to="/nft-marketplace" className={`${!PASSES_ENABLED ? 'text-gray-600 hover:text-gray-600' : 'text-gray-400 hover:text-[#fa7517]'} cursor-pointer`}>
           <Compass size={24} />
         </Link>
         <Link to="/subscribed" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">

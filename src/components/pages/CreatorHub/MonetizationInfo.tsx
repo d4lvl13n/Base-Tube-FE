@@ -7,6 +7,8 @@ import CreatorHubNav from './CreatorHubNav';
 import { ChannelSelectionProvider } from '../../../contexts/ChannelSelectionContext';
 import ContentPassAnimation from '../../animations/ContentPassAnimation';
 
+const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
+
 // FAQ Items
 const faqItems = [
   {
@@ -58,6 +60,7 @@ const MonetizationInfo: React.FC = () => {
   };
 
   const handleCreatePass = () => {
+    if (!PASSES_ENABLED) return;
     setShowAnimation(true);
   };
 
@@ -142,12 +145,12 @@ const MonetizationInfo: React.FC = () => {
                   >
                     <motion.button
                       onClick={handleCreatePass}
-                      whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(250, 117, 23, 0.3)' }}
-                      whileTap={{ scale: 0.95 }}
-                      className="px-8 py-4 bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black rounded-xl font-semibold shadow-lg shadow-[#fa7517]/20 flex items-center gap-3"
+                      whileHover={PASSES_ENABLED ? { scale: 1.05, boxShadow: '0 10px 25px rgba(250, 117, 23, 0.3)' } : {}}
+                      whileTap={PASSES_ENABLED ? { scale: 0.95 } : {}}
+                      className={`px-8 py-4 rounded-xl font-semibold flex items-center gap-3 shadow-lg ${PASSES_ENABLED ? 'bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black shadow-[#fa7517]/20' : 'bg-gray-700/50 text-white/70 cursor-not-allowed'}`}
                     >
                       <Star className="w-5 h-5" />
-                      Create Your First Pass
+                      {PASSES_ENABLED ? 'Create Your First Pass' : 'Coming Soon'}
                     </motion.button>
                     <Link to="/creator-hub/nft-simulator">
                       <motion.button
@@ -370,12 +373,12 @@ const MonetizationInfo: React.FC = () => {
                     
                     <motion.button
                       onClick={handleCreatePass}
-                      whileHover={{ scale: 1.05, boxShadow: '0 10px 30px rgba(250, 117, 23, 0.3)' }}
-                      whileTap={{ scale: 0.95 }}
-                      className="px-10 py-5 bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black rounded-xl text-lg font-bold shadow-lg shadow-[#fa7517]/20 flex items-center gap-3 mx-auto"
+                      whileHover={PASSES_ENABLED ? { scale: 1.05, boxShadow: '0 10px 30px rgba(250, 117, 23, 0.3)' } : {}}
+                      whileTap={PASSES_ENABLED ? { scale: 0.95 } : {}}
+                      className={`px-10 py-5 rounded-xl text-lg font-bold flex items-center gap-3 mx-auto ${PASSES_ENABLED ? 'bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black shadow-lg shadow-[#fa7517]/20' : 'bg-gray-700/50 text-white/70 cursor-not-allowed'}`}
                     >
                       <Crown className="w-6 h-6" />
-                      Create Content Pass
+                      {PASSES_ENABLED ? 'Create Content Pass' : 'Coming Soon'}
                     </motion.button>
                   </motion.div>
                 </div>

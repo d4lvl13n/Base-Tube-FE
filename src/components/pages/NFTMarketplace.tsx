@@ -5,6 +5,8 @@ import { useNavigation } from '../../contexts/NavigationContext';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 
+const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
+
 const getCategoryStyle = (category: string) => {
   const styles = {
     Crypto: 'bg-[#fa7517]/20 text-[#fa7517] border border-[#fa7517]/30',
@@ -22,6 +24,32 @@ const getCategoryStyle = (category: string) => {
 
 const NFTMarketplace: React.FC = () => {
   const { navStyle } = useNavigation();
+  
+  if (!PASSES_ENABLED) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-black to-gray-900">
+        <Header />
+        <div className="flex">
+          {navStyle === 'classic' && <Sidebar />}
+          <div className={`flex-1 ${navStyle === 'classic' ? 'ml-16' : ''} pt-16`}>
+            <motion.div 
+              className="bg-[#fa7517]/10 border border-[#fa7517]/20 rounded-lg m-4 p-6"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="flex items-center space-x-2 text-[#fa7517]">
+                <AlertCircle size={20} />
+                <span className="font-semibold">Coming Soon</span>
+              </div>
+              <p className="text-gray-300 mt-2">
+                The NFT Marketplace is not available yet. Check back soon!
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   const mockNFTs = [
     {
