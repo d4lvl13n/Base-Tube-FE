@@ -107,10 +107,12 @@ export const useCheckoutStatus = (
     },
     enabled: enabled && Boolean(sessionId),
     refetchInterval: (query) => {
-      // Stop polling if we get a final status
-      if (query.state.data && ['completed', 'expired'].includes(query.state.data.status)) {
-        return false;
-      }
+      // Stop polling when we have enough info to proceed, or if the session expired
+      const data = query.state.data as PurchaseStatus | undefined;
+      if (!data) return pollingInterval;
+      if (data.status === 'expired') return false;
+      // Backend returns purchase_id (or pass_id) when webhook finishes; stop then
+      if (data.purchase_id || (data as any).pass_id) return false;
       return pollingInterval;
     },
     refetchIntervalInBackground: true,

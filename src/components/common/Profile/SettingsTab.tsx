@@ -55,7 +55,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     setSelectedUsername,
     setCustomUsername,
     refreshSuggestions,
-  } = useGeneratedName();
+  } = useGeneratedName({ enabled: false });
 
   // Issue #2: Track a preview to show on upload
   const [previewImage, setPreviewImage] = useState<string | null>(null);

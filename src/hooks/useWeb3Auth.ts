@@ -131,25 +131,33 @@ export function useWeb3Auth() {
       }
 
       try {
+        const isOnSuccessPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/pay/success');
         // Attempt login
         const auth = await web3AuthApi.login(address);
         handleAuthSuccess(auth);
         
-        navigate(
-          auth.user.onboarding_status === 'PENDING' ? '/onboarding/web3' : '/',
-          { replace: true }
-        );
+        if (!isOnSuccessPage) {
+          navigate(
+            auth.user.onboarding_status === 'PENDING' ? '/onboarding/web3' : '/',
+            { replace: true }
+          );
+        }
         return auth;
       } catch (error: any) {
         // If user not found, handle signup flow
-        if (error.message?.includes('User not found') || error?.response?.status === 404) {
+        const status = error?.response?.status;
+        const code = (error as any)?.code;
+        const msg = (error as any)?.message || '';
+        if (status === 404 || code === 'NOT_FOUND' || msg.includes('User not found') || msg.includes('Wallet not found')) {
           dispatch({ type: 'SET_STEP', payload: AuthenticationStep.CREATING_ACCOUNT });
           
           await web3AuthApi.signup(address);
           const authData = await web3AuthApi.login(address);
           handleAuthSuccess(authData);
-          
-          navigate('/onboarding/web3', { replace: true });
+          const isOnSuccessPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/pay/success');
+          if (!isOnSuccessPage) {
+            navigate('/onboarding/web3', { replace: true });
+          }
           return authData;
         }
         
@@ -161,6 +169,24 @@ export function useWeb3Auth() {
       throw error;
     }
   }, [address, isConnected, chainId, switchChain, handleAuthSuccess, navigate]);
+
+  // Auto-attempt connect after wallet connects to OnchainKit/wagmi
+  const attemptedOnceRef = ((): { current: boolean } => {
+    // simple local ref without importing useRef twice
+    if (!(window as any).__web3AttemptRef) (window as any).__web3AttemptRef = { current: false };
+    return (window as any).__web3AttemptRef;
+  })();
+
+  useEffect(() => {
+    if (isConnected && address && !state.isAuthenticated && !attemptedOnceRef.current) {
+      attemptedOnceRef.current = true;
+      // fire and forget; connect() handles redirects
+      void connect().catch(() => {
+        // allow retry on error
+        attemptedOnceRef.current = false;
+      });
+    }
+  }, [isConnected, address, state.isAuthenticated, connect, attemptedOnceRef]);
 
   /**
    * disconnect() logs the user out in the backend
@@ -181,6 +207,8 @@ export function useWeb3Auth() {
       console.warn('Failed to cleanup auth state', error);
     }
     dispatch({ type: 'RESET' });
+    // allow auto-attempt in future
+    try { (window as any).__web3AttemptRef && ((window as any).__web3AttemptRef.current = false); } catch {}
   }, [wagmiDisconnect]);
 
   // Optional debug
@@ -200,6 +228,7 @@ export function useWeb3Auth() {
       dispatch({ type: 'RESET' });
       localStorage.removeItem('auth_user');
       localStorage.removeItem('auth_method');
+      try { (window as any).__web3AttemptRef && ((window as any).__web3AttemptRef.current = false); } catch {}
     };
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);

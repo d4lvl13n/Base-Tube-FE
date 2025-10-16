@@ -3,6 +3,12 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { PlayCircle, Shield, ShoppingBag, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import UnlockButton from './UnlockButton';
+import { useAccount } from 'wagmi';
+// Pricing is computed by backend via quote; no client-side ETH parsing needed
+import { useState } from 'react';
+import { useCryptoDirectBuy, useCryptoCheckout } from '../../hooks/useOnchainPass';
+import { onchainPassApi } from '../../api/onchainPass';
+import { Wallet } from 'lucide-react';
 
 interface PassActionButtonProps {
   pass: {
@@ -64,6 +70,16 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
 }) => {
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
+  const { isConnected } = useAccount();
+  // const chainId = useChainId();
+  // const { switchChain } = useSwitchChain();
+  const cryptoDirect = useCryptoDirectBuy(pass.id);
+  const cryptoCheckout = useCryptoCheckout(pass.id);
+  const [requestingQuote, setRequestingQuote] = useState(false);
+  const [quantity] = useState(1);
+  // const [, setMinPriceWei] = useState<string | undefined>(undefined); // kept for potential UI display/debug
+  const { address } = useAccount();
+  // Derive total minPriceWei from displayed ETH price as a fallback (prefer backend-calculated values if exposed)
 
   if (isAccessLoading) {
     return (
@@ -129,6 +145,51 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
         passId={pass.id} 
         className="relative group overflow-hidden bg-gradient-to-r from-orange-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-orange-500/20 transition-all duration-300 w-full flex items-center justify-center gap-2" 
       />
+      
+      {/* Crypto checkout button */}
+      <button
+        disabled={cryptoCheckout.isPending}
+        onClick={async () => {
+          try { console.log('[CryptoPay] click', { passId: pass.id, isConnected, address, quantity, useRelayer: process.env.REACT_APP_CRYPTO_USE_RELAYER }); } catch {}
+          if (!isConnected) {
+            try { (window as any).dispatchEvent?.(new CustomEvent('wallet:connect:open')); } catch {}
+            return;
+          }
+          try {
+            const useRelayer = process.env.REACT_APP_CRYPTO_USE_RELAYER === 'true';
+            setRequestingQuote(true);
+            if (useRelayer) {
+              try { console.log('[CryptoPay] requesting quote (relayer)', { passId: pass.id, buyer: address, quantity }); } catch {}
+              const quote = await onchainPassApi.getCryptoQuote(pass.id, { buyer: address as string, quantity });
+              try { console.log('[CryptoPay] quote ok (relayer)', { minPriceWei: (quote as any)?.minPriceWei, passId: (quote as any)?.passId, validUntil: (quote as any)?.validUntil }); } catch {}
+              setRequestingQuote(false);
+              try { console.log('[CryptoPay] invoking relayer purchase mutate'); } catch {}
+              await cryptoCheckout.mutateAsync({});
+            } else {
+              // Direct on-chain path: request quote, then wallet sends tx with value = minPriceWei
+              try { console.log('[CryptoPay] invoking direct buy mutate', { passId: pass.id, quantity }); } catch {}
+              const { hash, explorerUrl } = await cryptoDirect.mutateAsync({ quantity });
+              setRequestingQuote(false);
+              if (explorerUrl) {
+                try { (window as any).dispatchEvent?.(new CustomEvent('tx:submitted', { detail: { hash, explorerUrl } })); } catch {}
+              }
+            }
+          } catch (err) {
+            try { console.error('[CryptoPay] error', err); } catch {}
+            setRequestingQuote(false);
+          }
+        }}
+        className="relative group overflow-hidden bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 w-full flex items-center justify-center gap-2 border border-white/10"
+      >
+        <Wallet className="w-5 h-5" />
+        {requestingQuote
+          ? 'Requesting quote…'
+          : cryptoDirect.isPending || cryptoCheckout.isPending
+          ? 'Confirm in wallet…'
+          : isConnected
+          ? 'Buy with Crypto'
+          : 'Connect wallet to buy with crypto'}
+      </button>
       
       <div className="flex items-center justify-center gap-6 py-3">
         <div className="flex items-center gap-1 text-xs text-white/60">

@@ -6,7 +6,8 @@ export const MAX_SUGGESTIONS = 6; // or 8 for a 2x4 grid
 export const MAX_REFRESHES = 5;
 export const REFRESH_DELAY = 1000; // 1 second delay
 
-export const useGeneratedName = () => {
+export const useGeneratedName = (options: { enabled?: boolean } = {}) => {
+  const { enabled = false } = options;
   const [refreshCount, setRefreshCount] = useState(0);
   const [selectedUsername, setSelectedUsername] = useState<string>('');
   const [customUsername, setCustomUsername] = useState<string>('');
@@ -23,6 +24,7 @@ export const useGeneratedName = () => {
     queryFn: () => web3AuthApi.getUsernameSuggestions(),
     staleTime: 0, // Don't cache suggestions
     retry: 2,
+    enabled,
     select: (data) => ({
       ...data,
       suggestions: data.suggestions.slice(0, MAX_SUGGESTIONS)

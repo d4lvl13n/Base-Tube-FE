@@ -12,12 +12,14 @@ api.interceptors.request.use(
   async (config) => {
     try {
       const authMethod = localStorage.getItem('auth_method');
-      console.log('Request:', {
-        url: config.url,
-        method: config.method,
-        authMethod,
-        cookies: document.cookie // Log cookies being sent
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Request:', {
+          url: config.url,
+          method: config.method,
+          authMethod,
+          cookies: document.cookie
+        });
+      }
 
       if (authMethod !== 'web3') {
         // Clerk-based auth:
@@ -39,16 +41,17 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
-    // Example logging; optional
-    if (response.data?.data?.thumbnail_url || response.data?.data?.video_url) {
-      console.log('Media URLs in response:', {
-        thumbnail: response.data.data.thumbnail_url,
-        video: response.data.data.video_url,
-        isStorj: {
-          thumbnail: response.data.data.thumbnail_url?.includes('storjshare.io'),
-          video: response.data.data.video_url?.includes('storjshare.io')
-        }
-      });
+    if (process.env.NODE_ENV !== 'production') {
+      if (response.data?.data?.thumbnail_url || response.data?.data?.video_url) {
+        console.log('Media URLs in response:', {
+          thumbnail: response.data.data.thumbnail_url,
+          video: response.data.data.video_url,
+          isStorj: {
+            thumbnail: response.data.data.thumbnail_url?.includes('storjshare.io'),
+            video: response.data.data.video_url?.includes('storjshare.io')
+          }
+        });
+      }
     }
     return response;
   },
@@ -88,7 +91,9 @@ api.interceptors.response.use(
         method: error.config?.method,
         authMethod: localStorage.getItem('auth_method'),
       };
-      console.error('API Error:', errorDetails);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('API Error:', errorDetails);
+      }
     }
     return Promise.reject(error);
   }

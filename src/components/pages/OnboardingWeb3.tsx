@@ -26,7 +26,7 @@ const OnboardingWeb3: React.FC = () => {
     maxRefreshes,
     customUsername,
     setCustomUsername
-  } = useGeneratedName();
+  } = useGeneratedName({ enabled: step === 'username' });
 
   const handleComplete = async () => {
     const finalUsername = customUsername || selectedUsername;

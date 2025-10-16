@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { usePurchasedPasses } from '../../../hooks/usePass';
+import { useAccessList } from '../../../hooks/useOnchainPass';
 import { Film, Play, Calendar, ExternalLink, Lock, Shield } from 'lucide-react';
 import { Pass } from '../../../types/pass';
+import type { OnchainAccessData } from '../../../types/onchainPass';
 
 interface PassCardProps {
   pass: Pass;
+  access?: OnchainAccessData;
 }
 
-const PassCard: React.FC<PassCardProps> = ({ pass }) => {
+const PassCard: React.FC<PassCardProps> = ({ pass, access }) => {
   // Get the first video's thumbnail or use fallback
   const thumbnail = pass.videos?.[0]?.thumbnail_url || '/assets/Content-pass.webp';
   
@@ -59,9 +62,16 @@ const PassCard: React.FC<PassCardProps> = ({ pass }) => {
         
         {/* Owned badge */}
         <div className="absolute top-2 left-2">
-          <div className="bg-green-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-            <Shield className="w-3 h-3" />
-            <span>Owned</span>
+          <div className="flex items-center gap-2">
+            <div className="bg-green-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+              <Shield className="w-3 h-3" />
+              <span>Owned</span>
+            </div>
+            {process.env.REACT_APP_FEATURE_ONCHAIN_PASSES !== 'false' && access?.hasAccess ? (
+              <div className="bg-emerald-700 text-white text-xs px-2 py-1 rounded-full" title={`source: ${access.source}\nupdated: ${new Date(access.timestamp).toLocaleString()}`}>
+                On-chain
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -100,7 +110,18 @@ const PassCard: React.FC<PassCardProps> = ({ pass }) => {
 
 const PassesTab = () => {
   const { data: passes, isLoading, error } = usePurchasedPasses();
+  const isOnchainEnabled = process.env.REACT_APP_FEATURE_ONCHAIN_PASSES !== 'false';
+  const { data: accessList } = useAccessList({ enabled: isOnchainEnabled });
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const accessByPassId = useMemo(() => {
+    const map = new Map<string, OnchainAccessData>();
+    const items = accessList?.data || [];
+    for (const item of items) {
+      if (item?.passId) map.set(item.passId, item);
+    }
+    return map;
+  }, [accessList]);
   
   // Filter passes based on search query
   const filteredPasses = passes?.filter(pass => 
@@ -177,7 +198,7 @@ const PassesTab = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredPasses?.map((pass) => (
-          <PassCard key={pass.id} pass={pass} />
+          <PassCard key={pass.id} pass={pass} access={accessByPassId.get(pass.id)} />
         ))}
       </div>
     </div>

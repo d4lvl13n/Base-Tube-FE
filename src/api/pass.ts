@@ -77,7 +77,19 @@ export const passApi = {
    * @returns The newly created pass
    */
   createPass: async (data: CreatePassRequest): Promise<Pass> => {
-    const response = await api.post<Pass>('/api/v1/passes', data);
+    // Simple deterministic hash from payload to dedupe accidental double-submits client-side
+    const payloadString = JSON.stringify(data);
+    let hash = 0;
+    for (let i = 0; i < payloadString.length; i++) {
+      hash = ((hash << 5) - hash) + payloadString.charCodeAt(i);
+      hash |= 0; // 32-bit
+    }
+    const idempotencyKey = `pass-create-${Math.abs(hash)}`;
+    const response = await api.post<Pass>('/api/v1/passes', data, {
+      headers: {
+        'Idempotency-Key': idempotencyKey
+      }
+    });
     return response.data;
   },
   

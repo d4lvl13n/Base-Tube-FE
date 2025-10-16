@@ -43,7 +43,7 @@ const WatchPassPage: React.FC = () => {
     isLoading: isGateLoading,
     is403,
     promptAuth,
-  } = useTokenGate(selectedVideoId, { autoAuth: false });
+  } = useTokenGate(selectedVideoId, { autoAuth: false, passId: passId });
 
   // Prompt auth if needed
   useEffect(() => {

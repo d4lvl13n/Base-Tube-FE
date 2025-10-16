@@ -1,4 +1,5 @@
 import { useSignedVideoUrl } from './usePass';
+import { useAccess } from './useOnchainPass';
 import { useRequireAuth } from './useRequireAuth';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
@@ -17,11 +18,13 @@ export function useTokenGate(
   options: {
     autoAuth?: boolean;
     maxRetries?: number;
+    passId?: string;
   } = {}
 ) {
   const {
     autoAuth = false,
-    maxRetries = 3
+    maxRetries = 3,
+    passId
   } = options;
 
   const [retryCount, setRetryCount] = useState(0);
@@ -34,12 +37,19 @@ export function useTokenGate(
   const { isAuthenticated: isWeb3Authenticated } = useWeb3Auth();
   const isLoggedIn = isSignedIn || isWeb3Authenticated;
 
+  // Optional onchain access assertion to avoid unnecessary signed-url calls
+  const { data: accessResp, isLoading: isAccessLoading } = useAccess(passId, { enabled: Boolean(passId) });
+  const hasOnchainAccess = Boolean(accessResp?.data?.hasAccess);
+
   const {
     data: signedUrl,
     error,
     isLoading,
     refetch
-  } = useSignedVideoUrl(videoId, Boolean(videoId && isLoggedIn));
+  } = useSignedVideoUrl(
+    videoId,
+    Boolean(videoId && isLoggedIn && (!passId || hasOnchainAccess))
+  );
 
   // Distinguish common error codes (Axios style)
   const statusCode = error && 'response' in error ? (error as any).response?.status : undefined;
@@ -69,7 +79,7 @@ export function useTokenGate(
 
   // Handle retries for 403 errors (logged-in but no access)
   useEffect(() => {
-    if (is403 && retryCount < maxRetries) {
+  if (is403 && retryCount < maxRetries) {
       const timer = setTimeout(() => {
         setRetryCount(prev => prev + 1);
         refetch();
@@ -90,12 +100,12 @@ export function useTokenGate(
 
   return {
     signedUrl,
-    isLoading,
+    isLoading: isLoading || isAccessLoading,
     error,
     is401,
-    is403,
+    is403: is403 || (passId ? !hasOnchainAccess && !isAccessLoading && isLoggedIn : false),
     retryCount,
-    hasAccess: Boolean(signedUrl),
+    hasAccess: Boolean(signedUrl) || hasOnchainAccess,
     needsLogin: !isLoggedIn,
     needsAuth: is403,
     promptAuth

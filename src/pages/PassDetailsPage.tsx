@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePassDetails, usePurchasedPasses } from '../hooks/usePass';
 import { useTokenGate } from '../hooks/useTokenGate';
+import { useAccess } from '../hooks/useOnchainPass';
 import { motion, useReducedMotion } from 'framer-motion';
 import { LockIcon, TrendingUp, Award, Clock, Star, Shield, PlayCircle, ShoppingBag, CreditCard, Unlock, Crown } from 'lucide-react';
 import PremiumHeader from '../components/pass/PremiumHeader';
@@ -59,9 +60,13 @@ const PassDetailsPage: React.FC = () => {
   const { hasAccess: hasSignedAccess, isLoading: isAccessLoading } = useTokenGate(firstVideoId, {
     autoAuth: false,
     maxRetries: 0,
+    passId: pass?.id
   });
 
-  const alreadyOwns = ownsViaList || hasSignedAccess;
+  // Lightweight access assertion from onchain access endpoint (caches list)
+  const { data: accessData } = useAccess(pass?.id, { enabled: Boolean(pass?.id) });
+
+  const alreadyOwns = ownsViaList || hasSignedAccess || Boolean(accessData?.data?.hasAccess);
 
   // Scroll position tracking for sticky header
   useEffect(() => {

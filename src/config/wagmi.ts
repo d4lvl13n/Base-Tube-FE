@@ -5,7 +5,7 @@ import {
   rainbowWallet,
 } from '@rainbow-me/rainbowkit/wallets';
 import { createConfig, http } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { base, baseSepolia } from 'wagmi/chains';
 
 const projectId = process.env.REACT_APP_WALLETCONNECT_PROJECT_ID;
 if (!projectId) throw new Error('Missing REACT_APP_WALLETCONNECT_PROJECT_ID');
@@ -28,11 +28,14 @@ const connectors = connectorsForWallets(
 );
 
 export const config = createConfig({
-  chains: [baseSepolia],
+  chains: [base, baseSepolia],
   multiInjectedProviderDiscovery: false,
   connectors,
   transports: {
     // Prefer custom RPC if provided, otherwise use default wagmi endpoint.
+    [base.id]: http(
+      process.env.REACT_APP_BASE_MAINNET_RPC_URL || undefined,
+    ),
     [baseSepolia.id]: http(
       process.env.REACT_APP_BASE_SEPOLIA_RPC_URL || undefined,
     ),

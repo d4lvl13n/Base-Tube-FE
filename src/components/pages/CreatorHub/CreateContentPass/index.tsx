@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useForm, Controller, UseFormReturn } from 'react-hook-form';
+import { useForm, UseFormReturn } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, 
@@ -10,7 +10,6 @@ import {
   Shield,
   Check,
   Info,
-  Share,
   Copy,
   Twitter,
   Facebook,
@@ -18,7 +17,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useCreatePass } from '../../../../hooks/usePass';
-import { CreatePassRequest } from '../../../../types/pass';
+// import { CreatePassRequest } from '../../../../types/pass';
 import * as S from './styles';
 import { FormData, transformFormToApiFormat } from './types';
 import { useYouTubeAuth } from '../../../../hooks/useYouTubeAuth';
@@ -46,11 +45,11 @@ const formatCurrency = (amount: number | undefined, currency: string | undefined
   return formatter.format(amount / 100);
 };
 
-const tiers = [
-  { id: 'bronze', name: 'Bronze', description: 'Basic tier for standard content' },
-  { id: 'silver', name: 'Silver', description: 'Premium tier with enhanced value' },
-  { id: 'gold', name: 'Gold', description: 'Exclusive tier for your best content' }
-];
+// const tiers = [
+//   { id: 'bronze', name: 'Bronze', description: 'Basic tier for standard content' },
+//   { id: 'silver', name: 'Silver', description: 'Premium tier with enhanced value' },
+//   { id: 'gold', name: 'Gold', description: 'Exclusive tier for your best content' }
+// ];
 
 const CreateContentPass: React.FC = () => {
   const [step, setStep] = useState(1);
@@ -89,7 +88,7 @@ const CreateContentPass: React.FC = () => {
     formState: { errors } 
   } = formMethods;
   
-  const watchedFields = watch();
+  // const watchedFields = watch();
   
   // Refetch YouTube status when ?ytLinked=1 is present after OAuth callback
   useEffect(() => {
@@ -99,7 +98,10 @@ const CreateContentPass: React.FC = () => {
   }, [location.search, youtubeAuth]);
   
   // Handle form submission
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const onSubmit = async (data: FormData) => {
+    if (hasSubmitted) return; // guard against double-submit
+    setHasSubmitted(true);
     setIsLoading(true);
     
     const priceInCents = data.price_cents;
@@ -146,6 +148,7 @@ const CreateContentPass: React.FC = () => {
       
       toast.error(message);
       setIsLoading(false);
+      setHasSubmitted(false);
     }
   };
   

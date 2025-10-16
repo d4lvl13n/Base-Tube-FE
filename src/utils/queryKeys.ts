@@ -105,6 +105,15 @@ export const queryKeys = {
     byChannel: (channelId: string) => [...queryKeys.passes.all, 'channel', channelId] as const,
   },
 
+  // Onchain pass (access + purchase status)
+  onchainPass: {
+    all: ['onchainPass'] as const,
+    access: (passId: string) => [...queryKeys.onchainPass.all, 'access', passId] as const,
+    accessList: () => [...queryKeys.onchainPass.all, 'accessList'] as const,
+    purchaseStatus: (purchaseId: string) => [...queryKeys.onchainPass.all, 'purchaseStatus', purchaseId] as const,
+    cryptoQuote: (passId: string) => [...queryKeys.onchainPass.all, 'cryptoQuote', passId] as const,
+  },
+
   // Comments
   comments: {
     // Comments root key

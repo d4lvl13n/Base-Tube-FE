@@ -34,6 +34,15 @@ window.Buffer = window.Buffer || Buffer;
 
 const queryClient = new QueryClient();
 
+// Invalidate caches on auth changes (web3 cookie or Clerk)
+window.addEventListener('auth:unauthorized', () => {
+  queryClient.invalidateQueries();
+});
+
+window.addEventListener('auth:rate-limited', () => {
+  // No invalidation; informational only
+});
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
