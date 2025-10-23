@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Video } from '../../../types/video';
 import { useWindowSize } from '../../../hooks/useWindowSize';
 import RichTextDisplay from '../RichTextDisplay';
+import { useDescriptionDock } from '../../../contexts/DescriptionDockContext';
 
 interface VideoInfoOverlayProps {
   video: Video;
@@ -12,6 +13,7 @@ interface VideoInfoOverlayProps {
 export const VideoInfoOverlay: React.FC<VideoInfoOverlayProps> = ({ video }) => {
   const { width } = useWindowSize();
   const isMobile = width <= 768;
+  const { open } = useDescriptionDock();
 
   return (
     <motion.div
@@ -30,6 +32,12 @@ export const VideoInfoOverlay: React.FC<VideoInfoOverlayProps> = ({ video }) => 
         <div className="text-sm text-gray-300 line-clamp-3">
           <RichTextDisplay content={video.description || ''} />
         </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); open(video); }}
+          className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-white/90 bg-[#fa7517] hover:bg-[#fa7517]/80 px-3 py-1.5 rounded-full"
+        >
+          View more
+        </button>
       </div>
     </motion.div>
   );

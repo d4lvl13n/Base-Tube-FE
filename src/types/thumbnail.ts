@@ -53,14 +53,24 @@ export interface ThumbnailWithReferenceOptions extends ThumbnailGenerationOption
   videoId?: number;
   customPrompt?: string;
   referenceImageDetail?: 'low' | 'high' | 'auto';
+  // Async mode and generation tuning
+  async?: boolean;
+  size?: '1024x1024' | '1536x1024' | '1024x1536';
+  n?: number; // 1–10
 }
 
 export interface ThumbnailWithReferenceResponse {
   success: boolean;
   data: {
-    thumbnailUrl: string;
-    thumbnailPath: string;
-    prompt: string;
+    // Single result
+    thumbnailUrl?: string;
+    thumbnailPath?: string;
+    prompt?: string;
+    // Multiple results
+    thumbnails?: Array<{
+      thumbnailUrl: string;
+      thumbnailPath?: string;
+    }>;
   };
 }
 

@@ -7,6 +7,8 @@ import '@coinbase/onchainkit/styles.css';
 import '@rainbow-me/rainbowkit/styles.css';
 import App from './App';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { PlaybackProvider } from './contexts/PlaybackContext';
+import { DescriptionDockProvider } from './contexts/DescriptionDockContext';
 
 import { Buffer } from 'buffer';
 
@@ -71,7 +73,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                   <RainbowKitProvider modalSize="wide">
                     <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
                       <ClerkLoaded>
-                        <App />
+                        <PlaybackProvider>
+                          <DescriptionDockProvider>
+                            <App />
+                          </DescriptionDockProvider>
+                        </PlaybackProvider>
                       </ClerkLoaded>
                     </ClerkProvider>
                   </RainbowKitProvider>

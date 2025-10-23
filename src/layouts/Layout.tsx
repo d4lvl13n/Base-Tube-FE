@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Hexagon } from 'lucide-react';
+// Providers and globals are now mounted at the app root
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="bg-gray-900 p-4 flex justify-between items-center">
+        <div className="min-h-screen bg-black text-white">
+          <header className="bg-gray-900 p-4 flex justify-between items-center">
         <Link to="/" className="flex items-center space-x-2">
           <Hexagon size={32} className="text-base-orange" />
           <span className="text-2xl font-bold">Base.Tube</span>
@@ -19,11 +20,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <li><Link to="/profile" className="hover:text-base-orange">Profile</Link></li>
           </ul>
         </nav>
-      </header>
-      <main>
-        {children}
-      </main>
-    </div>
+          </header>
+          <main>
+            {children}
+          </main>
+        </div>
   );
 };
 

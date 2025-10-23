@@ -30,6 +30,8 @@ import CreatorResourcesPage from './components/common/CreatorHub/CreatorResource
 import { VideoProvider } from './contexts/VideoContext';
 import { ConfigProvider } from './contexts/ConfigContext';
 import './styles/prosemirror.css';
+import MiniPlayer from './components/common/Video/MiniPlayer/MiniPlayer';
+import DescriptionDock from './components/common/Video/DescriptionDock/DescriptionDock';
 import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
 import VideosManagement from './components/pages/CreatorHub/VideosManagement';
 import ChannelManagement from './components/pages/CreatorHub/ChannelManagement';
@@ -433,6 +435,8 @@ function App() {
                     }
                   />
                 </Routes>
+                <DescriptionDock />
+                <MiniPlayer />
                 <ToastContainer />
                 <ReactQueryDevtools initialIsOpen={false} />
               </div>

@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getVideoById } from '../../api/video';
 import { getChannelById } from '../../api/channel';
 import VideoPlayer, { VideoPlayerRef } from '../common/Video/VideoPlayer';
+import { usePlayback } from '../../contexts/PlaybackContext';
 import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';
 import Header from '../common/Header';
@@ -38,6 +39,7 @@ const SingleVideo: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<VideoPlayerRef | null>(null) as MutableRefObject<VideoPlayerRef | null>;
   const { isCommentsPanelOpen, setIsCommentsPanelOpen } = useVideoContext();
+  const playback = usePlayback();
   const commentsData = useComments({
     videoId: video?.id.toString() || '',
     initialLimit: 30,
@@ -128,6 +130,17 @@ const SingleVideo: React.FC = () => {
       try {
         const videoData = await getVideoById(id);
         setVideo(videoData);
+        // Update global playback source so mini player has context
+        try {
+          playback.setSource({
+            videoId: videoData.id.toString(),
+            title: videoData.title,
+            src: videoData.video_url || `${API_BASE_URL}/${videoData.video_path}`,
+            thumbnailUrl: videoData.thumbnail_url || `${API_BASE_URL}/${videoData.thumbnail_path}`,
+            duration: videoData.duration,
+            watchUrl: `/video/${videoData.id}`,
+          });
+        } catch {}
 
         if (videoData.channel_id) {
           const channelData = await getChannelById(videoData.channel_id);
@@ -140,7 +153,7 @@ const SingleVideo: React.FC = () => {
     };
 
     fetchVideoAndChannel();
-  }, [id, navigate]);
+  }, [id, navigate, playback]);
 
   // Handle mouse and touch events for UI visibility
   useEffect(() => {
@@ -191,6 +204,7 @@ const SingleVideo: React.FC = () => {
 
   const handlePlayerReady = useCallback((player: VideoPlayerRef) => {
     playerRef.current = player;
+    try { playback.setPrimaryRef(player); } catch {}
 
     // Listen for user to become active/inactive
     player.on('useractive', () => {
@@ -214,7 +228,7 @@ const SingleVideo: React.FC = () => {
     player.on('pause', () => {
       setIsPlaying(false);
     });
-  }, [isPlaying]);
+  }, [isPlaying, playback]);
 
   const [isSharePopupOpen, setIsSharePopupOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState('');

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Bot, Wand2, Upload, Image, Check, Video, Info, Zap, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, Sparkles, Wand2, Upload, Check, Video, Info, Zap, AlertCircle, RefreshCw } from 'lucide-react';
 import { ThumbnailGenerationOptions, CustomThumbnailGenerationOptions, ThumbnailWithReferenceOptions } from '../../types/thumbnail';
 
 interface AIThumbnailPanelProps {
@@ -94,7 +94,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
   const [lastGenerationOptions, setLastGenerationOptions] = useState<any | null>(null);
   
   // Funny loading messages that rotate during generation
-  const funnyLoadingMessages = [
+  const funnyLoadingMessages = React.useMemo(() => ([
     "Mixing special pixel paint...",
     "Convincing AI to be creative...",
     "Teaching robots about aesthetics...",
@@ -144,7 +144,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
     "Letting the AI stretch its creative muscles...",
     "Making sure the thumbnail is selfie-ready...",
     "Triple-checking the awesomeness factor..."
-  ];
+  ]), []);
   
   // Current loading message state
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState("");
@@ -171,7 +171,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
       
       return () => clearInterval(interval);
     }
-  }, [isGeneratingForVideo, isGeneratingFromPrompt, isGeneratingWithReference, loadingMessageIndex]);
+  }, [isGeneratingForVideo, isGeneratingFromPrompt, isGeneratingWithReference, loadingMessageIndex, funnyLoadingMessages]);
   
   // Handle reference image upload
   const handleReferenceImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -255,7 +255,11 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
             customPrompt,
             style,
             background,
-            referenceImageDetail
+            referenceImageDetail,
+            // async mode defaults (no size override to keep thumbnail format)
+            async: true,
+            quality: 'medium' as const,
+            n: 1
           };
           
           result = await generateWithReference(options);

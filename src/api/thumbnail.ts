@@ -146,18 +146,11 @@ export const thumbnailApi = {
       formData.append('customPrompt', options.customPrompt);
     }
     
-    // These parameters are kept for backward compatibility but are no longer used
-    if (options.width) {
-      formData.append('width', options.width.toString());
-    }
-    
-    if (options.height) {
-      formData.append('height', options.height.toString());
-    }
-    
-    if (options.quality) {
-      formData.append('quality', options.quality);
-    }
+    // Async mode and tuning
+    if (options.async) formData.append('async', 'true');
+    if (options.size) formData.append('size', options.size);
+    if (options.quality) formData.append('quality', options.quality);
+    if (options.n) formData.append('n', String(options.n));
     
     if (options.style) {
       formData.append('style', options.style);

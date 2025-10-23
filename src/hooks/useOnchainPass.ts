@@ -13,10 +13,13 @@ import type {
 } from '../types/onchainPass';
 import type { CryptoQuote } from '../types/onchainPass';
 import { trackOnchainEvent } from '../utils/metrics';
-import { useAccount, useChainId, useSwitchChain, useWalletClient } from 'wagmi';
+import { useAccount, useChainId, useConfig, useSwitchChain, useWalletClient } from 'wagmi';
 import { encodeFunctionData } from 'viem';
 import { contractsApi } from '../api/contracts';
 import type { ContractAbiResponse } from '../types/contracts';
+import type { Chain } from 'wagmi/chains';
+import { base, baseSepolia } from 'wagmi/chains';
+import { getWalletClient } from 'wagmi/actions';
 
 export const usePurchaseStatus = (
   sessionId?: string | null,
@@ -162,6 +165,7 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
   const { address } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
+  const wagmiConfig = useConfig();
   const client = useQueryClient();
   // Using walletClient.sendTransaction to align with SignInWeb3 working path
   const { data: walletClient } = useWalletClient();
@@ -182,13 +186,27 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
       if (!address) throw new Error('Wallet not connected');
       const abiResp = abiQuery.data || (await contractsApi.getContentLedgerAbi());
       try { console.log('[CryptoPay] ABI loaded', { address: abiResp.address, chainIdServer: abiResp.chainId, chainIdClient: chainId, hasFn: Array.isArray((abiResp as any).abi) && (abiResp as any).abi.some((f: any) => f?.name === 'buyPassWithQuote') }); } catch {}
-      if (abiResp.chainId && chainId !== Number(abiResp.chainId)) {
+      const desiredChainId = Number(abiResp.chainId ?? chainId);
+      if (!Number.isInteger(desiredChainId)) {
+        throw new Error('Unsupported contract chain');
+      }
+      const targetChain = CHAIN_BY_ID[desiredChainId];
+      if (!targetChain) {
+        throw new Error(`Unsupported chain id ${desiredChainId}`);
+      }
+      if (abiResp.chainId && chainId !== desiredChainId) {
         try { console.log('[CryptoPay] switching chain', { from: chainId, to: abiResp.chainId }); } catch {}
-        await switchChainAsync({ chainId: Number(abiResp.chainId) as any });
+        await switchChainAsync({ chainId: desiredChainId as any });
       }
       // Request signed quote from backend
       try { console.log('[CryptoPay] requesting quote (direct)', { passId, buyer: address, quantity }); } catch {}
       const quote = await onchainPassApi.getCryptoQuote(passId, { buyer: address, quantity, validSeconds });
+      const refreshedWalletClient = await getWalletClient(wagmiConfig, { chainId: desiredChainId }).catch(() => undefined);
+      const activeWalletClient = refreshedWalletClient ?? walletClient;
+      if (!activeWalletClient) throw new Error('Wallet client unavailable');
+      if ((activeWalletClient as any)?.chain?.id !== desiredChainId) {
+        throw new Error(`Wallet client on unexpected chain ${(activeWalletClient as any)?.chain?.id}; expected ${desiredChainId}`);
+      }
       try { console.log('[CryptoPay] quote ok (direct)', { minPriceWei: quote.minPriceWei, passId: quote.passId, validUntil: quote.validUntil }); } catch {}
       // Validate and normalize args
       const isHex = (v: string) => /^0x[0-9a-fA-F]*$/.test(v);
@@ -211,7 +229,6 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
       const validUntilBN = BigInt(quote.validUntil);
       try { console.log('[CryptoPay] normalized args', { passIdBN: passIdBN.toString(), quantityBN: quantityBN.toString(), minPriceBN: minPriceBN.toString(), validUntilBN: validUntilBN.toString(), nonceLen: normalizedNonce.length, sigLen: quote.signature.length }); } catch {}
       // Use the same approach as SignInWeb3 stack: encode data and sendTransaction via wallet client
-      if (!walletClient) throw new Error('Wallet client unavailable');
       const data = encodeFunctionData({
         abi: abiResp.abi as any,
         functionName: 'buyPassWithQuote',
@@ -225,16 +242,16 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
           quote.signature as `0x${string}`,
         ],
       });
-      try { console.log('[CryptoPay] sendTransaction', { to: abiResp.address, value: minPriceBN.toString(), dataLen: data.length, chainId: Number(abiResp.chainId) }); } catch {}
-      const hash = await walletClient.sendTransaction({
+      try { console.log('[CryptoPay] sendTransaction', { to: abiResp.address, value: minPriceBN.toString(), dataLen: data.length, chainId: desiredChainId }); } catch {}
+      const hash = await activeWalletClient.sendTransaction({
         account: address as `0x${string}`,
         to: abiResp.address as `0x${string}`,
         value: minPriceBN,
         data,
-        chain: undefined,
-      } as any);
+        chain: targetChain,
+      });
       try { console.log('[CryptoPay] tx submitted', { hash }); } catch {}
-      const explorerUrl = getExplorerTxUrl(Number(abiResp.chainId), hash as string);
+      const explorerUrl = getExplorerTxUrl(desiredChainId, hash as string);
       return { hash: hash as `0x${string}`, explorerUrl };
     },
     onSuccess: () => {
@@ -249,4 +266,9 @@ function getExplorerTxUrl(chainId: number | string, hash: string): string | unde
   if (id === 84532) return `https://sepolia.basescan.org/tx/${hash}`;
   return undefined;
 }
+
+const CHAIN_BY_ID: Record<number, Chain> = {
+  [base.id]: base,
+  [baseSepolia.id]: baseSepolia,
+};
 
