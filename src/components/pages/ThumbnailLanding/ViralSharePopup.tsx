@@ -21,6 +21,7 @@ interface GeneratedThumbnail {
   prompt: string;
   imageUrl: string;
   createdAt: string;
+  shareUrl?: string;
 }
 
 interface ViralSharePopupProps {
@@ -38,8 +39,11 @@ export const ViralSharePopup: React.FC<ViralSharePopupProps> = ({
 
   if (!thumbnail) return null;
 
-  const shareText = `🔥 Just created this amazing thumbnail with AI!\n\n"${thumbnail.prompt}"\n\nTry it yourself for free:`;
-  const shareUrl = `${window.location.origin}/ai-thumbnails`;
+  // Use the API-provided shareUrl if available, otherwise fall back to generic URL
+  const shareUrl = thumbnail.shareUrl || `${window.location.origin}/ai-thumbnails`;
+  const shareText = thumbnail.shareUrl 
+    ? `🔥 Just created this amazing thumbnail with AI!\n\n"${thumbnail.prompt}"\n\nCheck it out:`
+    : `🔥 Just created this amazing thumbnail with AI!\n\n"${thumbnail.prompt}"\n\nTry it yourself for free:`;
   const fullShareText = `${shareText} ${shareUrl}`;
 
   const shareOptions = [

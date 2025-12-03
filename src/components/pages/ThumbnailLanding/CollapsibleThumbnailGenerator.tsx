@@ -9,13 +9,19 @@ import {
   ChevronDown,
   Zap,
   X,
-  Share2
+  Share2,
+  UserPlus,
+  Crown,
+  ArrowUpCircle
 } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
 import { usePublicThumbnailGenerator } from '../../../hooks/usePublicThumbnailGenerator';
 import Button from '../../common/Button';
 import { ThumbnailDetailDrawer } from './ThumbnailDetailDrawer';
 import { ViralSharePopup } from './ViralSharePopup';
-import { SizeFormatSelector } from './SizeFormatSelector';
+import { AspectRatioSelector, AspectRatio } from './AspectRatioSelector';
+import { ResolutionSelector, Resolution } from './ResolutionSelector';
+import { FaceConsistencyToggle } from './FaceConsistencyToggle';
 import { TitleTextInput, TitleStyle, TitlePosition, TitleColor } from './TitleTextInput';
 
 interface CollapsibleThumbnailGeneratorProps {
@@ -25,6 +31,7 @@ interface CollapsibleThumbnailGeneratorProps {
   isProfessionalMode?: boolean;
   onEnterProfessionalMode?: () => void;
   onExitProfessionalMode?: () => void;
+  onSignUpClick?: () => void;
 }
 
 const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps> = ({
@@ -33,8 +40,10 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
   onThumbnailGenerated,
   isProfessionalMode: externalProfessionalMode,
   onEnterProfessionalMode,
-  onExitProfessionalMode
+  onExitProfessionalMode,
+  onSignUpClick
 }) => {
+  const { isSignedIn } = useUser();
   const {
     generateThumbnail,
     thumbnails,
@@ -43,6 +52,7 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
     quotaUsed,
     maxQuota,
     canGenerate,
+    quotaInfo,
     clearError,
   } = usePublicThumbnailGenerator();
 
@@ -59,12 +69,14 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
   // Form State
   const [prompt, setPrompt] = useState(initialPrompt);
   
-  // Enhanced options (with sensible defaults)
-  const [selectedSize, setSelectedSize] = useState<'1024x1024' | '1536x1024' | '1024x1536' | 'auto'>('auto'); // Default to auto (API default)
-  const [selectedQuality, setSelectedQuality] = useState<'medium' | 'high'>('high');
+  // NEW: Gemini 3 Pro options (default model)
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
+  const [resolution, setResolution] = useState<Resolution>('1K');
+  const [includeFace, setIncludeFace] = useState(false);
+  
+  // Style & variations
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedVariations, setSelectedVariations] = useState(2);
-  const [referenceImage, setReferenceImage] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [titleStyle, setTitleStyle] = useState<TitleStyle>({
     bold: true,
@@ -96,11 +108,14 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
     
     clearError();
     const result = await generateThumbnail(prompt, {
-      size: selectedSize,
-      quality: selectedQuality,
+      // Gemini 3 Pro options (default model)
+      aspectRatio,
+      resolution,
+      includeFace,
+      // Style & variations
       style: selectedStyle.trim() || undefined,
       n: selectedVariations,
-      referenceImage: referenceImage || undefined,
+      // Title overlay
       title: title.trim() || undefined,
       titleStyle: title.trim() ? titleStyle : undefined,
       titlePosition: title.trim() ? titlePosition : undefined,
@@ -265,50 +280,67 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
                   transition={{ duration: 0.15, ease: "easeOut" }}
                   className="space-y-6 border-t border-white/10 pt-6"
                 >
-                  {/* Size Format Selector */}
-                  <SizeFormatSelector
-                    selectedFormat={selectedSize}
-                    onFormatChange={(format) => setSelectedSize(format as typeof selectedSize)}
+                  {/* Gemini 3 Pro Badge */}
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className="px-2 py-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-full text-blue-300 font-medium flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      Gemini 3 Pro
+                    </div>
+                    <span className="text-gray-500">• Face consistency • Up to 4K • 10 aspect ratios</span>
+                  </div>
+
+                  {/* Aspect Ratio Selector */}
+                  <AspectRatioSelector
+                    selectedRatio={aspectRatio}
+                    onRatioChange={setAspectRatio}
+                    disabled={loading}
                   />
 
-                  {/* Quality & Style Controls */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Quality Selector */}
-                    <div>
-                      <label className="text-sm font-medium text-gray-300 mb-2 block">
-                        Quality
-                      </label>
-                      <select
-                        value={selectedQuality}
-                        onChange={(e) => setSelectedQuality(e.target.value as 'medium' | 'high')}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#fa7517]/50 focus:ring-2 focus:ring-[#fa7517]/20 transition-all duration-300"
-                      >
-                        <option value="medium">Medium (Faster)</option>
-                        <option value="high">High (Better)</option>
-                      </select>
-                    </div>
+                  {/* Resolution & Variations Row */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Resolution Selector */}
+                    <ResolutionSelector
+                      selectedResolution={resolution}
+                      onResolutionChange={setResolution}
+                      disabled={loading}
+                      isPremiumUser={quotaInfo?.tier === 'pro' || quotaInfo?.tier === 'enterprise'}
+                    />
 
                     {/* Variations Count */}
                     <div>
-                      <label className="text-sm font-medium text-gray-300 mb-2 block">
+                      <label className="text-sm font-semibold text-white mb-3 block">
                         Variations
                       </label>
-                      <select
-                        value={selectedVariations}
-                        onChange={(e) => setSelectedVariations(parseInt(e.target.value))}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#fa7517]/50 focus:ring-2 focus:ring-[#fa7517]/20 transition-all duration-300"
-                      >
-                        <option value={1}>1 Thumbnail</option>
-                        <option value={2}>2 Thumbnails</option>
-                        <option value={3}>3 Thumbnails</option>
-                        <option value={4}>4 Thumbnails</option>
-                      </select>
+                      <div className="flex gap-2">
+                        {[1, 2, 3, 4].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => setSelectedVariations(num)}
+                            disabled={loading}
+                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all border-2
+                                       ${selectedVariations === num
+                                         ? 'border-[#fa7517] bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
+                                         : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20 hover:bg-white/10'
+                                       }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
+                  {/* Face Consistency Toggle */}
+                  <FaceConsistencyToggle
+                    enabled={includeFace}
+                    onToggle={setIncludeFace}
+                    disabled={loading}
+                  />
+
                   {/* Style Preset */}
                   <div>
-                    <label className="text-sm font-medium text-gray-300 mb-2 block">
+                    <label className="text-sm font-semibold text-white mb-2 block">
                       Style Preset (Optional)
                     </label>
                     <input
@@ -320,74 +352,36 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
                     />
                   </div>
 
-                  {/* Reference Image Upload */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-300 mb-2 block">
-                      Reference Image (Optional)
-                    </label>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-center w-full">
-                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-white/10 border-dashed rounded-xl cursor-pointer bg-white/5 hover:bg-white/10 transition-all duration-300">
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <svg className="w-8 h-8 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                            </svg>
-                            <p className="mb-2 text-sm text-gray-400">
-                              <span className="font-semibold">Click to upload</span> reference image
-                            </p>
-                            <p className="text-xs text-gray-500">PNG, JPG, WebP (MAX. 10MB)</p>
-                          </div>
-                          <input
-                            type="file"
-                            className="hidden"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) setReferenceImage(file);
-                            }}
-                          />
-                        </label>
-                      </div>
-                      {referenceImage && (
-                        <div className="flex items-center justify-between bg-white/5 rounded-xl p-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-[#fa7517]/20 rounded-lg flex items-center justify-center">
-                              <svg className="w-5 h-5 text-[#fa7517]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <p className="text-white text-sm font-medium">{referenceImage.name}</p>
-                              <p className="text-gray-400 text-xs">{(referenceImage.size / 1024 / 1024).toFixed(2)} MB</p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setReferenceImage(null)}
-                            className="text-gray-400 hover:text-white transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Quota Display */}
-            <div className="flex items-center justify-between text-sm bg-white/5 rounded-xl p-3">
+            {/* Tier-Aware Quota Display */}
+            <div className="bg-white/5 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
+                  {quotaInfo?.tier === 'anonymous' ? (
                 <Clock className="w-4 h-4 text-[#fa7517]" />
+                  ) : quotaInfo?.tier === 'pro' || quotaInfo?.tier === 'enterprise' ? (
+                    <Crown className="w-4 h-4 text-[#fa7517]" />
+                  ) : (
+                    <Zap className="w-4 h-4 text-[#fa7517]" />
+                  )}
                 <span className="text-gray-400">
-                  Daily generations: {quotaUsed}/{maxQuota} used
+                    {quotaInfo?.tier === 'anonymous' 
+                      ? 'Free preview' 
+                      : quotaInfo?.tier === 'enterprise'
+                        ? 'Unlimited generations'
+                        : `${quotaInfo?.tier || 'Free'} plan`}
                 </span>
               </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-medium">
+                    {maxQuota === -1 ? '∞' : `${quotaUsed}/${maxQuota}`}
+                  </span>
+                  {quotaInfo?.tier !== 'enterprise' && maxQuota > 0 && maxQuota <= 10 && (
               <div className="flex gap-1">
-                {Array.from({ length: maxQuota }).map((_, i) => (
+                      {Array.from({ length: Math.min(maxQuota, 10) }).map((_, i) => (
                   <div
                     key={i}
                     className={`w-2 h-2 rounded-full ${
@@ -396,6 +390,41 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
                   />
                 ))}
               </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Upgrade prompt for anonymous users */}
+              {quotaInfo?.isAnonymous && onSignUpClick && (
+                <motion.button
+                  onClick={onSignUpClick}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full flex items-center justify-center gap-2 py-2 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 hover:from-[#fa7517]/30 hover:to-orange-400/30 border border-[#fa7517]/30 rounded-lg text-[#fa7517] text-sm font-medium transition-all duration-200"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Create free account for 10 daily generations</span>
+                </motion.button>
+              )}
+              
+              {/* Upgrade prompt for free users who hit quota */}
+              {!canGenerate && quotaInfo?.tier === 'free' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center justify-between gap-2 py-2 px-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-lg"
+                >
+                  <span className="text-purple-300 text-sm">
+                    Daily limit reached
+                  </span>
+                  <button className="flex items-center gap-1 text-purple-300 hover:text-white text-sm font-medium transition-colors">
+                    <ArrowUpCircle className="w-4 h-4" />
+                    Upgrade to Pro
+                  </button>
+                </motion.div>
+              )}
             </div>
 
             {/* Error Display */}
@@ -413,6 +442,18 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
             )}
 
             {/* Generate Button */}
+            {!canGenerate && quotaInfo?.isAnonymous && onSignUpClick ? (
+              <Button
+                type="button"
+                onClick={onSignUpClick}
+                className="w-full bg-gradient-to-r from-[#fa7517] to-orange-400 hover:from-[#fa7517]/90 hover:to-orange-400/90 text-white py-4 rounded-xl font-semibold text-lg transition-all duration-300"
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <UserPlus className="w-6 h-6" />
+                  <span>Sign Up for More Generations</span>
+                </div>
+              </Button>
+            ) : (
             <Button
               type="button"
               onClick={handleGenerate}
@@ -428,7 +469,9 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
                 <div className="flex items-center justify-center gap-3">
                   <Sparkles className="w-6 h-6" />
                   <span>
-                    {canGenerate ? 'Generate Thumbnail' : 'Daily Limit Reached'}
+                      {canGenerate ? 'Generate Thumbnail' : 
+                       quotaInfo?.tier === 'free' ? 'Daily Limit Reached - Upgrade' : 
+                       'Daily Limit Reached'}
                   </span>
                   {isExpanded && title && (
                     <span className="text-sm opacity-75">+ Title</span>
@@ -436,6 +479,7 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
                 </div>
               )}
             </Button>
+            )}
 
             {/* Current Settings Summary (Expanded Mode) */}
             {isExpanded && (
@@ -447,36 +491,35 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
                 <div className="flex items-center gap-3 mb-2">
                   <Zap className="w-5 h-5 text-[#fa7517]" />
                   <h4 className="text-white font-medium">Generation Settings</h4>
+                  <span className="text-xs text-gray-500">Gemini 3 Pro</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-400">Format:</span>
-                    <span className="text-white ml-2">{selectedSize}</span>
+                    <span className="text-gray-400">Aspect:</span>
+                    <span className="text-white ml-2">{aspectRatio}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Quality:</span>
-                    <span className="text-white ml-2">{selectedQuality}</span>
+                    <span className="text-gray-400">Resolution:</span>
+                    <span className="text-white ml-2">{resolution}</span>
                   </div>
                   <div>
                     <span className="text-gray-400">Variations:</span>
                     <span className="text-white ml-2">{selectedVariations}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Style:</span>
-                    <span className="text-white ml-2">
-                      {selectedStyle ? `"${selectedStyle.substring(0, 15)}..."` : 'Default'}
-                    </span>
+                    <span className="text-gray-400">Face:</span>
+                    <span className="text-white ml-2">{includeFace ? 'Yes' : 'No'}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Reference:</span>
+                    <span className="text-gray-400">Style:</span>
                     <span className="text-white ml-2">
-                      {referenceImage ? referenceImage.name.substring(0, 15) + '...' : 'None'}
+                      {selectedStyle ? `"${selectedStyle.substring(0, 12)}..."` : 'Default'}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-400">Title:</span>
                     <span className="text-white ml-2">
-                      {title ? `"${title.substring(0, 15)}..."` : 'None'}
+                      {title ? `"${title.substring(0, 12)}..."` : 'None'}
                     </span>
                   </div>
                 </div>
@@ -545,11 +588,11 @@ const CollapsibleThumbnailGenerator: React.FC<CollapsibleThumbnailGeneratorProps
                         onClick={(e) => {
                           e.stopPropagation();
                           generateThumbnail(thumbnail.prompt, {
-                            size: selectedSize,
-                              quality: selectedQuality,
+                            aspectRatio,
+                            resolution,
+                            includeFace,
                               style: selectedStyle.trim() || undefined,
                               n: selectedVariations,
-                              referenceImage: referenceImage || undefined,
                             title: title.trim() || undefined,
                             titleStyle: title.trim() ? titleStyle : undefined,
                             titlePosition: title.trim() ? titlePosition : undefined,

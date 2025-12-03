@@ -59,6 +59,8 @@ import MyPasses from './components/pages/MyPasses';
 import YouTubeAuthCallback from './components/pages/CreatorHub/YouTubeAuthCallback';
 import LandingPage from './components/pages/landingPage';
 import ThumbnailLanding from './components/pages/ThumbnailLanding';
+import { AuditPage as CTRAuditPage, GeneratePage as CTRGeneratePage, SettingsPage as CTRSettingsPage, CreativePage as CTRCreativePage, GalleryPage as CTRGalleryPage } from './components/pages/CTREngine';
+import AuditHistoryPage from './components/pages/CTREngine/AuditHistoryPage';
 
 // Lazy-loaded components
 const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
@@ -148,6 +150,14 @@ function App() {
 
                   {/* AI Thumbnail Landing Page */}
                   <Route path="/ai-thumbnails" element={<ThumbnailLanding />} />
+
+                  {/* CTR Thumbnail Engine Routes (under ai-thumbnails namespace) */}
+                  <Route path="/ai-thumbnails/creative" element={<CTRCreativePage />} />
+                  <Route path="/ai-thumbnails/audit" element={<CTRAuditPage />} />
+                  <Route path="/ai-thumbnails/generate" element={<CTRGeneratePage />} />
+                  <Route path="/ai-thumbnails/gallery" element={<CTRGalleryPage />} />
+                  <Route path="/ai-thumbnails/history" element={<AuditHistoryPage />} />
+                  <Route path="/ai-thumbnails/settings" element={<CTRSettingsPage />} />
 
                   {/* Content Pass Landing Page */}
                   <Route path="/content-passes" element={<LandingPage />} />

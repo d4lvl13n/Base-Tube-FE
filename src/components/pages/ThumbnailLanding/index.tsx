@@ -12,6 +12,7 @@ import ThumbnailFAQ from './ThumbnailFAQ';
 const ThumbnailLanding: React.FC = () => {
   const [showSignIn, setShowSignIn] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
+  const [isAppMode, setIsAppMode] = useState(false);
 
   const handleSignInClick = () => {
     setShowSignIn(true);
@@ -72,15 +73,19 @@ const ThumbnailLanding: React.FC = () => {
       />
 
       {/* Hero Section */}
-      <ThumbnailHero onSignUpClick={handleSignUpClick} />
+      <ThumbnailHero 
+        onSignUpClick={handleSignUpClick} 
+        onAppModeChange={setIsAppMode}
+      />
 
-      {/* Features Section */}
-      <ThumbnailFeatures />
+      {/* Features Section - Hidden in App Mode */}
+      {!isAppMode && <ThumbnailFeatures />}
 
-      {/* FAQ Section */}
-      <ThumbnailFAQ />
+      {/* FAQ Section - Hidden in App Mode */}
+      {!isAppMode && <ThumbnailFAQ />}
 
-      {/* Footer */}
+      {/* Footer - Hidden in App Mode */}
+      {!isAppMode && (
       <footer className="bg-gradient-to-br from-black/80 to-black/60 backdrop-blur-xl border-t border-white/10 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8">
@@ -184,11 +189,13 @@ const ThumbnailLanding: React.FC = () => {
           </div>
         </div>
       </footer>
+      )}
 
       {/* Auth Modals */}
       <AnimatePresence>
-        <AuthModal isOpen={showSignIn}>
-          <SignIn
+        {showSignIn && (
+          <AuthModal key="signin-modal" isOpen={showSignIn}>
+            <SignIn
             routing="virtual"
             signUpUrl=""
             afterSignInUrl="/ai-thumbnails"
@@ -235,10 +242,12 @@ const ThumbnailLanding: React.FC = () => {
               }
             }}
           />
-        </AuthModal>
+          </AuthModal>
+        )}
 
-        <AuthModal isOpen={showSignUp}>
-          <SignUp
+        {showSignUp && (
+          <AuthModal key="signup-modal" isOpen={showSignUp}>
+            <SignUp
             routing="virtual"
             signInUrl=""
             afterSignUpUrl="/ai-thumbnails"
@@ -285,7 +294,8 @@ const ThumbnailLanding: React.FC = () => {
               }
             }}
           />
-        </AuthModal>
+          </AuthModal>
+        )}
       </AnimatePresence>
     </div>
   );

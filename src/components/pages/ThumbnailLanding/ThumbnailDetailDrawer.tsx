@@ -10,6 +10,7 @@ interface GeneratedThumbnail {
   prompt: string;
   imageUrl: string;
   createdAt: string;
+  shareUrl?: string;
 }
 
 interface ThumbnailDetailDrawerProps {
