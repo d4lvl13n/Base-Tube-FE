@@ -36,19 +36,21 @@ const QuotaBar: React.FC<{
           {icon}
           {label}
         </span>
-        <span className={`font-semibold ${isExhausted ? 'text-red-400' : isLow ? 'text-[#fa7517]' : 'text-white'}`}>
-          {info.used}/{formatQuotaLimit(info.limit)}
+        {/* Reframed as progress/achievement */}
+        <span className={`font-semibold flex items-center gap-1.5 ${isExhausted ? 'text-gray-500' : 'text-white'}`}>
+          <span className="text-[#fa7517]">{info.used}</span>
+          <span className="text-gray-500">of {formatQuotaLimit(info.limit)}</span>
+          {!isExhausted && <span className="text-emerald-400 text-xs">✓</span>}
         </span>
       </div>
       
-      <div className="h-2 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
+      {/* Progress bar - always positive feeling */}
+      <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-gray-800/50">
         <motion.div
           className={`h-full rounded-full ${
             isExhausted
-              ? 'bg-gradient-to-r from-red-500 to-red-600'
-              : isLow
-              ? 'bg-gradient-to-r from-[#fa7517] to-orange-500'
-              : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+              ? 'bg-gradient-to-r from-gray-600 to-gray-500'
+              : 'bg-gradient-to-r from-[#fa7517] to-orange-400'
           }`}
           initial={{ width: 0 }}
           animate={{ width: isUnlimited ? '0%' : `${Math.min(percentage, 100)}%` }}
@@ -95,26 +97,51 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
   const tier = tierConfig[quota.tier];
 
   if (variant === 'compact') {
+    const auditProgress = quota.audit.limit === -1 ? 0 : (quota.audit.used / quota.audit.limit) * 100;
+    const genProgress = quota.generate.limit === -1 ? 0 : (quota.generate.used / quota.generate.limit) * 100;
+    
     return (
-      <div className={`flex items-center gap-4 px-4 py-2.5 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm ${className}`}>
+      <div className={`flex items-center gap-4 px-4 py-2.5 bg-black/50 rounded-xl border border-gray-800/50 backdrop-blur-sm ${className}`}>
         <div className="flex items-center gap-2">
           <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${tier.color}`}>
             {tier.icon}
             {tier.label}
           </span>
         </div>
-        <div className="w-px h-6 bg-white/10" />
+        <div className="w-px h-6 bg-gray-800" />
         <div className="flex items-center gap-4 text-sm">
-          <span className="text-gray-400">
-            <BarChart2 className="w-4 h-4 inline mr-1.5 opacity-60" />
-            <span className="text-white font-medium">{quota.audit.used}</span>
-            <span className="text-gray-500">/{formatQuotaLimit(quota.audit.limit)}</span>
-          </span>
-          <span className="text-gray-400">
-            <Zap className="w-4 h-4 inline mr-1.5 opacity-60" />
-            <span className="text-white font-medium">{quota.generate.used}</span>
-            <span className="text-gray-500">/{formatQuotaLimit(quota.generate.limit)}</span>
-          </span>
+          {/* Audits - progress style */}
+          <div className="flex items-center gap-2">
+            <BarChart2 className="w-4 h-4 text-gray-500" />
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500">Audits</span>
+              <div className="flex items-center gap-1.5">
+                <div className="w-12 h-1.5 bg-black/60 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-full transition-all"
+                    style={{ width: `${Math.min(auditProgress, 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-400">{quota.audit.used}/{formatQuotaLimit(quota.audit.limit)}</span>
+              </div>
+            </div>
+          </div>
+          {/* Generations - progress style */}
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-[#fa7517]" />
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500">Creates</span>
+              <div className="flex items-center gap-1.5">
+                <div className="w-12 h-1.5 bg-black/60 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-full transition-all"
+                    style={{ width: `${Math.min(genProgress, 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-400">{quota.generate.used}/{formatQuotaLimit(quota.generate.limit)}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -124,12 +151,12 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-sm ${className}`}
+      className={`bg-black/50 border border-gray-800/30 rounded-2xl p-5 backdrop-blur-sm ${className}`}
     >
       <div className="flex items-center justify-between mb-5">
         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-[#fa7517]" />
-          Usage Quota
+          Today's Progress
         </h3>
         <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${tier.color}`}>
           {tier.icon}
@@ -139,37 +166,37 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
       
       <div className="space-y-4">
         <QuotaBar
-          label="Audits"
+          label="Audits completed"
           info={quota.audit}
           delay={0.1}
           icon={<BarChart2 className="w-4 h-4" />}
         />
         
         <QuotaBar
-          label="Generations"
+          label="Thumbnails created"
           info={quota.generate}
           delay={0.2}
           icon={<Zap className="w-4 h-4" />}
         />
       </div>
       
-      <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between">
+      <div className="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-xs text-gray-500">
           <Clock className="w-3.5 h-3.5" />
-          Resets at {resetTime} UTC
+          Fresh start at {resetTime}
         </span>
         {quota.tier === 'free' && (
           <a 
             href="/pricing" 
             className="text-xs font-medium text-[#fa7517] hover:text-orange-400 transition-colors flex items-center gap-1"
           >
-            Upgrade to Pro
+            Get more
             <TrendingUp className="w-3 h-3" />
           </a>
         )}
         {quota.tier === 'anonymous' && (
           <span className="text-xs font-medium text-blue-400">
-            Sign in for more
+            Sign in for 10x more
           </span>
         )}
       </div>
@@ -177,7 +204,7 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
   );
 };
 
-// Inline quota indicator for buttons
+// Inline quota indicator for buttons - reframed as progress
 export const QuotaIndicator: React.FC<{
   used: number;
   limit: number;
@@ -186,15 +213,25 @@ export const QuotaIndicator: React.FC<{
   const isUnlimited = limit === -1;
   const remaining = isUnlimited ? -1 : limit - used;
   const isExhausted = !isUnlimited && remaining <= 0;
+  const typeLabel = type === 'audit' ? 'audit' : 'creation';
   
   return (
-    <span className={`text-xs ${isExhausted ? 'text-red-400' : 'text-gray-500'}`}>
+    <span className={`text-xs flex items-center gap-1 ${isExhausted ? 'text-gray-500' : 'text-gray-400'}`}>
       {isUnlimited ? (
-        '∞ remaining'
+        <>
+          <Zap className="w-3 h-3 text-[#fa7517]" />
+          Unlimited
+        </>
       ) : isExhausted ? (
-        `No ${type}s remaining`
+        <>
+          <Clock className="w-3 h-3" />
+          Back tomorrow
+        </>
       ) : (
-        `${remaining} ${type}${remaining !== 1 ? 's' : ''} remaining`
+        <>
+          <span className="text-[#fa7517]">{used}</span>
+          <span>of {limit} {typeLabel}s today</span>
+        </>
       )}
     </span>
   );

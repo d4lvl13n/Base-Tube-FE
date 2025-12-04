@@ -21,34 +21,37 @@ const PersonaVoteCard: React.FC<{
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 + index * 0.1 }}
-      className={`p-5 rounded-xl border backdrop-blur-sm transition-all ${
-        vote.wouldClick
-          ? 'bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-500/40'
-          : 'bg-red-500/10 border-red-500/20 hover:border-red-500/40'
-      }`}
+      className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm transition-all hover:border-gray-800/50 relative overflow-hidden"
+      style={{
+        boxShadow: `
+          0 0 20px 5px rgba(250, 117, 23, 0.1),
+          0 0 40px 10px rgba(250, 117, 23, 0.05),
+          inset 0 0 60px 15px rgba(250, 117, 23, 0.03)
+        `
+      }}
     >
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
             vote.wouldClick 
-              ? 'bg-emerald-500/20 border border-emerald-500/30' 
-              : 'bg-red-500/20 border border-red-500/30'
+              ? 'bg-[#fa7517]/20 border border-[#fa7517]/30' 
+              : 'bg-gray-800/50 border border-gray-700/30'
           }`}>
             {vote.wouldClick ? (
-              <ThumbsUp className="w-5 h-5 text-emerald-400" />
+              <ThumbsUp className="w-5 h-5 text-[#fa7517]" />
             ) : (
-              <ThumbsDown className="w-5 h-5 text-red-400" />
+              <ThumbsDown className="w-5 h-5 text-gray-400" />
             )}
           </div>
           <div>
             <h4 className="font-semibold text-white">{vote.personaName}</h4>
-            <p className="text-xs text-gray-500">{vote.personaDescription}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{vote.personaDescription}</p>
           </div>
         </div>
         <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold ${
           vote.wouldClick
-            ? 'bg-emerald-500/20 text-emerald-400'
-            : 'bg-red-500/20 text-red-400'
+            ? 'bg-[#fa7517]/20 text-[#fa7517]'
+            : 'bg-gray-800/50 text-gray-400'
         }`}>
           {vote.wouldClick ? (
             <>
@@ -65,16 +68,16 @@ const PersonaVoteCard: React.FC<{
       </div>
       
       {/* Confidence Bar */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between text-xs mb-1.5">
+      <div className="mb-4">
+        <div className="flex items-center justify-between text-xs mb-2">
           <span className="text-gray-500">Confidence</span>
-          <span className={vote.wouldClick ? 'text-emerald-400' : 'text-red-400'}>
+          <span className={vote.wouldClick ? 'text-[#fa7517]' : 'text-gray-400'}>
             {vote.confidence}%
           </span>
         </div>
-        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+        <div className="h-2 bg-black/60 border border-gray-800/50 rounded-full overflow-hidden">
           <motion.div
-            className={vote.wouldClick ? 'bg-emerald-500' : 'bg-red-500'}
+            className={vote.wouldClick ? 'bg-gradient-to-r from-[#fa7517] to-orange-500' : 'bg-gray-600'}
             initial={{ width: 0 }}
             animate={{ width: `${vote.confidence}%` }}
             transition={{ delay: 0.2 + index * 0.1, duration: 0.5 }}
@@ -84,9 +87,9 @@ const PersonaVoteCard: React.FC<{
       </div>
       
       {/* Reasoning Quote */}
-      <div className="flex items-start gap-2 pt-3 border-t border-white/10">
+      <div className="flex items-start gap-2 pt-4 border-t border-gray-800/30">
         <MessageSquare className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-        <p className="text-sm text-gray-400 italic">"{vote.reasoning}"</p>
+        <p className="text-sm text-gray-300 leading-relaxed">"{vote.reasoning}"</p>
       </div>
     </motion.div>
   );
@@ -101,11 +104,11 @@ export const PersonaVotesDisplay: React.FC<PersonaVotesDisplayProps> = ({
   const consensusConfig = {
     unanimous: { 
       text: 'All personas agree', 
-      color: 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30' 
+      color: 'text-[#fa7517] bg-[#fa7517]/20 border-[#fa7517]/30' 
     },
     strong: { 
       text: 'Strong consensus', 
-      color: 'text-blue-400 bg-blue-500/20 border-blue-500/30' 
+      color: 'text-[#fa7517] bg-[#fa7517]/20 border-[#fa7517]/30' 
     },
     mixed: { 
       text: 'Mixed opinions', 
@@ -113,7 +116,7 @@ export const PersonaVotesDisplay: React.FC<PersonaVotesDisplayProps> = ({
     },
     divided: { 
       text: 'Opinions divided', 
-      color: 'text-orange-400 bg-orange-500/20 border-orange-500/30' 
+      color: 'text-gray-400 bg-gray-800/50 border-gray-700/30' 
     },
   };
   
@@ -128,36 +131,40 @@ export const PersonaVotesDisplay: React.FC<PersonaVotesDisplayProps> = ({
       className={`space-y-5 ${className}`}
     >
       {/* Summary Header */}
-      <div className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#fa7517]/20 to-orange-500/20 flex items-center justify-center border border-[#fa7517]/30">
-            <Users className="w-6 h-6 text-[#fa7517]" />
+      <div className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm relative overflow-hidden"
+        style={{
+          boxShadow: `
+            0 0 20px 5px rgba(250, 117, 23, 0.1),
+            0 0 40px 10px rgba(250, 117, 23, 0.05),
+            inset 0 0 60px 15px rgba(250, 117, 23, 0.03)
+          `
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#fa7517]/20 to-orange-500/20 flex items-center justify-center border border-[#fa7517]/30">
+              <Users className="w-6 h-6 text-[#fa7517]" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                Persona Analysis
+                <span className="text-2xl">{consensusIcon}</span>
+              </h3>
+              <p className="text-sm text-gray-400 mt-1">
+                {wouldClickCount}/{votes.votes.length} personas would click • Aggregate score: <span className="text-[#fa7517] font-semibold">{votes.aggregateScore.toFixed(1)}</span>
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              Persona Analysis
-              <span className="text-2xl">{consensusIcon}</span>
-            </h3>
-            <p className="text-sm text-gray-400 mt-0.5">
-              {wouldClickCount}/{votes.votes.length} personas would click
-            </p>
-          </div>
-        </div>
-        
-        <div className="text-right">
+          
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${consensus.color}`}>
             <Target className="w-4 h-4" />
             <span className="font-semibold">{consensus.text}</span>
-          </div>
-          <div className="mt-2 text-sm">
-            <span className="text-gray-500">Aggregate: </span>
-            <span className="text-white font-bold">{votes.aggregateScore.toFixed(1)}</span>
           </div>
         </div>
       </div>
       
       {/* Individual Votes Grid */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {votes.votes.map((vote, index) => (
           <PersonaVoteCard key={index} vote={vote} index={index} />
         ))}
@@ -176,21 +183,19 @@ export const PersonaVotesSummary: React.FC<{
   const percentage = Math.round((wouldClickCount / totalCount) * 100);
   
   return (
-    <div className={`flex items-center gap-4 p-4 bg-white/5 border border-white/10 rounded-xl ${className}`}>
+    <div className={`flex items-center gap-4 p-4 bg-black/50 border border-gray-800/30 rounded-xl backdrop-blur-sm ${className}`}>
       <span className="text-2xl">{getConsensusIcon(votes.consensusLevel)}</span>
       <div className="flex-1">
         <div className="flex items-center justify-between text-sm mb-2">
           <span className="text-gray-400">Persona Approval</span>
           <span className="text-white font-semibold">{wouldClickCount}/{totalCount}</span>
         </div>
-        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+        <div className="h-2 bg-black/60 border border-gray-800/50 rounded-full overflow-hidden">
           <motion.div
             className={`h-full rounded-full ${
-              percentage >= 70
-                ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
-                : percentage >= 50
-                ? 'bg-gradient-to-r from-[#fa7517] to-orange-400'
-                : 'bg-gradient-to-r from-red-500 to-red-400'
+              percentage >= 50
+                ? 'bg-gradient-to-r from-[#fa7517] to-orange-500'
+                : 'bg-gray-600'
             }`}
             initial={{ width: 0 }}
             animate={{ width: `${percentage}%` }}

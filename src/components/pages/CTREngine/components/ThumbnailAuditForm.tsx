@@ -84,31 +84,43 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
     }
   };
 
-  const modes: { id: InputMode; label: string; icon: React.ReactNode }[] = [
-    { id: 'url', label: 'Image URL', icon: <Link2 className="w-4 h-4" /> },
-    { id: 'upload', label: 'Upload', icon: <Upload className="w-4 h-4" /> },
-    { id: 'youtube', label: 'YouTube', icon: <PlayCircle className="w-4 h-4" /> },
+  const modes: { id: InputMode; label: string; icon: React.ReactNode; description: string }[] = [
+    { id: 'url', label: 'Image URL', icon: <Link2 className="w-4 h-4" />, description: 'Paste a link to any thumbnail' },
+    { id: 'upload', label: 'Upload', icon: <Upload className="w-4 h-4" />, description: 'Drag or select from your device' },
+    { id: 'youtube', label: 'YouTube', icon: <PlayCircle className="w-4 h-4" />, description: "We'll grab the thumbnail automatically" },
   ];
 
   return (
     <form onSubmit={handleSubmit} className={className}>
-      {/* Input Mode Tabs - Premium Glass Style */}
-      <div className="flex gap-1 p-1.5 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm mb-6">
-        {modes.map((mode) => (
-          <button
-            key={mode.id}
-            type="button"
-            onClick={() => setInputMode(mode.id)}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                       ${inputMode === mode.id
-                         ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
-                         : 'text-gray-400 hover:text-white hover:bg-white/5'
-                       }`}
-          >
-            {mode.icon}
-            {mode.label}
-          </button>
-        ))}
+      {/* Input Mode Tabs - Premium Dark Style with descriptions */}
+      <div className="mb-6">
+        <div className="flex gap-1 p-1.5 bg-black/50 rounded-xl border border-gray-800/30 backdrop-blur-sm">
+          {modes.map((mode) => (
+            <button
+              key={mode.id}
+              type="button"
+              onClick={() => setInputMode(mode.id)}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                         ${inputMode === mode.id
+                           ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
+                           : 'text-gray-400 hover:text-white hover:bg-white/5'
+                         }`}
+            >
+              {mode.icon}
+              {mode.label}
+            </button>
+          ))}
+        </div>
+        {/* Description for selected mode */}
+        <motion.p
+          key={inputMode}
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-2 text-xs text-gray-500 text-center flex items-center justify-center gap-1.5"
+        >
+          <span className="text-[#fa7517]">→</span>
+          {modes.find(m => m.id === inputMode)?.description}
+        </motion.p>
       </div>
 
       {/* Input Fields */}
@@ -125,7 +137,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="https://example.com/thumbnail.jpg"
-              className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white 
+              className="w-full px-4 py-3.5 bg-black/40 border border-gray-800/50 rounded-xl text-white 
                         placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 
                         focus:border-[#fa7517]/50 backdrop-blur-sm transition-all"
               disabled={isLoading}
@@ -147,7 +159,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
               className={`relative border-2 border-dashed rounded-xl transition-all cursor-pointer overflow-hidden
                          ${selectedFile 
                            ? 'border-[#fa7517] bg-[#fa7517]/10' 
-                           : 'border-white/20 hover:border-white/40 bg-white/5'}`}
+                           : 'border-gray-700 hover:border-gray-600 bg-black/40'}`}
             >
               <input
                 ref={fileInputRef}
@@ -214,7 +226,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
                 value={youtubeUrl}
                 onChange={(e) => setYoutubeUrl(e.target.value)}
                 placeholder="https://www.youtube.com/watch?v=..."
-                className="w-full px-4 py-3.5 pl-12 bg-white/5 border border-white/10 rounded-xl text-white 
+                className="w-full px-4 py-3.5 pl-12 bg-black/40 border border-gray-800/50 rounded-xl text-white 
                           placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 
                           focus:border-red-500/50 backdrop-blur-sm transition-all"
                 disabled={isLoading}
@@ -229,12 +241,12 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Persona Toggle - Premium Card */}
+      {/* Persona Toggle - Dark Card */}
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="mt-6 p-4 bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-xl backdrop-blur-sm"
+        className="mt-6 p-4 bg-black/40 border border-gray-800/50 rounded-xl backdrop-blur-sm"
       >
         <label className="flex items-center justify-between cursor-pointer group">
           <div className="flex items-center gap-3">
@@ -304,7 +316,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
                       value={context.title || ''}
                       onChange={(e) => setContext({ ...context, title: e.target.value })}
                       placeholder="Video title (optional)"
-                      className="w-full px-4 py-2.5 pl-10 bg-white/5 border border-white/10 rounded-lg text-white 
+                      className="w-full px-4 py-2.5 pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
                                 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50"
                       disabled={isLoading}
                     />
@@ -316,7 +328,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
                       value={context.niche || ''}
                       onChange={(e) => setContext({ ...context, niche: e.target.value })}
                       placeholder="Niche (e.g., Gaming, Tech, Finance)"
-                      className="w-full px-4 py-2.5 pl-10 bg-white/5 border border-white/10 rounded-lg text-white 
+                      className="w-full px-4 py-2.5 pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
                                 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50"
                       disabled={isLoading}
                     />

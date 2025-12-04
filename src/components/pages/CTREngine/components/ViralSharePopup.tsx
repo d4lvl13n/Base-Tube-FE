@@ -8,18 +8,17 @@ import {
   MessageCircle, 
   Link2, 
   Mail,
-  Instagram,
   Linkedin,
-  Download,
   Sparkles,
   Zap
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface GeneratedThumbnail {
-  id: string;
+  id: string | number;
   prompt: string;
-  imageUrl: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
   createdAt: string;
   shareUrl?: string;
 }
@@ -39,11 +38,39 @@ export const ViralSharePopup: React.FC<ViralSharePopupProps> = ({
 
   if (!thumbnail) return null;
 
-  // Use the API-provided shareUrl if available, otherwise fall back to generic URL
-  const shareUrl = thumbnail.shareUrl || `${window.location.origin}/ai-thumbnails`;
-  const shareText = thumbnail.shareUrl 
-    ? `🔥 Just created this amazing thumbnail with AI!\n\n"${thumbnail.prompt}"\n\nCheck it out:`
-    : `🔥 Just created this amazing thumbnail with AI!\n\n"${thumbnail.prompt}"\n\nTry it yourself for free:`;
+  // Construct share URL properly
+  const getShareUrl = (): string => {
+    if (!thumbnail.shareUrl) {
+      // Fallback: Use thumbnail image URL directly or create gallery link with ID
+      if (thumbnail.thumbnailUrl || thumbnail.imageUrl) {
+        return thumbnail.thumbnailUrl || thumbnail.imageUrl || '';
+      }
+      // Last resort: gallery link with thumbnail ID
+      return `${window.location.origin}/ai-thumbnails/gallery?thumbnail=${thumbnail.id}`;
+    }
+
+    const shareUrlValue = thumbnail.shareUrl.trim();
+    
+    // Check if it's already a full URL
+    try {
+      const url = new URL(shareUrlValue);
+      // If it's a full URL, normalize it to use current origin but keep the path
+      // This handles cases where API returns https://base.tube/t/xxx but we're on localhost
+      const path = url.pathname + url.search + url.hash;
+      return `${window.location.origin}${path}`;
+    } catch {
+      // Not a valid URL, treat as path or ID
+      // If it starts with /, it's a relative path
+      if (shareUrlValue.startsWith('/')) {
+        return `${window.location.origin}${shareUrlValue}`;
+      }
+      // Otherwise, treat it as a short ID and construct share URL
+      return `${window.location.origin}/t/${shareUrlValue}`;
+    }
+  };
+
+  const shareUrl = getShareUrl();
+  const shareText = `🔥 Just created this amazing thumbnail with AI!\n\n"${thumbnail.prompt}"\n\nCheck it out:`;
   const fullShareText = `${shareText} ${shareUrl}`;
 
   const shareOptions = [
@@ -243,7 +270,7 @@ export const ViralSharePopup: React.FC<ViralSharePopupProps> = ({
                   <div className="absolute -inset-2 bg-gradient-to-r from-[#fa7517]/50 via-orange-400/50 to-[#fa7517]/50 rounded-xl blur-xl opacity-75" />
                   <div className="relative bg-black/60 rounded-xl overflow-hidden border border-white/20 aspect-video">
                     <img
-                      src={thumbnail.imageUrl}
+                      src={thumbnail.imageUrl || thumbnail.thumbnailUrl || ''}
                       alt="AI Generated Thumbnail"
                       className="w-full h-full object-cover"
                     />

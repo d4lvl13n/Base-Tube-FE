@@ -1,5 +1,5 @@
 import React, { useState, useMemo, lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -59,7 +59,7 @@ import MyPasses from './components/pages/MyPasses';
 import YouTubeAuthCallback from './components/pages/CreatorHub/YouTubeAuthCallback';
 import LandingPage from './components/pages/landingPage';
 import ThumbnailLanding from './components/pages/ThumbnailLanding';
-import { AuditPage as CTRAuditPage, GeneratePage as CTRGeneratePage, SettingsPage as CTRSettingsPage, CreativePage as CTRCreativePage, GalleryPage as CTRGalleryPage } from './components/pages/CTREngine';
+import { AuditPage as CTRAuditPage, GeneratePage as CTRGeneratePage, SettingsPage as CTRSettingsPage, GalleryPage as CTRGalleryPage } from './components/pages/CTREngine';
 import AuditHistoryPage from './components/pages/CTREngine/AuditHistoryPage';
 
 // Lazy-loaded components
@@ -152,7 +152,7 @@ function App() {
                   <Route path="/ai-thumbnails" element={<ThumbnailLanding />} />
 
                   {/* CTR Thumbnail Engine Routes (under ai-thumbnails namespace) */}
-                  <Route path="/ai-thumbnails/creative" element={<CTRCreativePage />} />
+                  <Route path="/ai-thumbnails/creative" element={<Navigate to="/ai-thumbnails/generate" replace />} />
                   <Route path="/ai-thumbnails/audit" element={<CTRAuditPage />} />
                   <Route path="/ai-thumbnails/generate" element={<CTRGeneratePage />} />
                   <Route path="/ai-thumbnails/gallery" element={<CTRGalleryPage />} />

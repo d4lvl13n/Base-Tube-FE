@@ -54,7 +54,7 @@ const HeuristicItem: React.FC<HeuristicItemProps> = ({ label, value, type, icon,
     
     return (
       <div className="flex items-center gap-3 flex-1">
-        <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+        <div className="flex-1 h-2 bg-black/60 border border-gray-800/50 rounded-full overflow-hidden">
           <motion.div
             className={`h-full rounded-full ${
               color === 'emerald' ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' :
@@ -82,9 +82,9 @@ const HeuristicItem: React.FC<HeuristicItemProps> = ({ label, value, type, icon,
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.05 }}
-      className="flex items-center gap-4 py-3 border-b border-white/5 last:border-0"
+      className="flex items-center gap-4 py-3 border-b border-gray-800/30 last:border-0"
     >
-      <span className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-400">
+      <span className="w-8 h-8 rounded-lg bg-black/50 border border-gray-800/30 flex items-center justify-center text-gray-400">
         {icon}
       </span>
       <span className="text-gray-300 text-sm font-medium min-w-[140px]">{label}</span>
@@ -153,7 +153,7 @@ export const HeuristicScores: React.FC<HeuristicScoresProps> = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className={`bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm ${className}`}
+      className={`bg-black/50 border border-gray-800/30 rounded-2xl p-6 backdrop-blur-sm ${className}`}
     >
       <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#fa7517]/20 to-orange-500/20 flex items-center justify-center border border-[#fa7517]/30">

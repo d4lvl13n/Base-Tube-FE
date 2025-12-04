@@ -5,6 +5,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, User, Trash2, RefreshCw, Check, X, AlertCircle, Camera, Sparkles, Info } from 'lucide-react';
 import { FaceReference } from '../../../../types/ctr';
+import { cardStyles } from '../styles/cardTokens';
 
 interface FaceReferenceUploaderProps {
   faceReference: FaceReference | null;
@@ -66,18 +67,18 @@ export const FaceReferenceUploader: React.FC<FaceReferenceUploaderProps> = ({
 
   if (isLoading) {
     return (
-      <div className={`bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm ${className}`}>
+      <div className={`${cardStyles.elevated} rounded-2xl p-6 ${className}`}>
         <div className="animate-pulse space-y-4">
-          <div className="h-5 bg-white/10 rounded w-1/3"></div>
-          <div className="h-3 bg-white/10 rounded w-2/3"></div>
-          <div className="h-40 bg-white/10 rounded-xl"></div>
+          <div className="h-5 bg-gray-800 rounded w-1/3"></div>
+          <div className="h-3 bg-gray-800 rounded w-2/3"></div>
+          <div className="h-40 bg-gray-800 rounded-xl"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm ${className}`}>
+    <div className={`${cardStyles.elevated} rounded-2xl p-6 ${className}`}>
       {/* Header */}
       <div className="flex items-center gap-3 mb-2">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#fa7517]/20 to-orange-500/20 flex items-center justify-center border border-[#fa7517]/30">
@@ -103,14 +104,14 @@ export const FaceReferenceUploader: React.FC<FaceReferenceUploaderProps> = ({
             className="space-y-4"
           >
             {/* Current Face Reference */}
-            <div className="flex items-start gap-4 p-5 bg-white/5 border border-white/10 rounded-xl">
+            <div className="flex items-start gap-4 p-5 bg-black/60 border border-gray-800/50 rounded-xl">
               <div className="relative">
                 <img
                   src={faceReference.thumbnailUrl}
                   alt="Your face reference"
                   className="w-24 h-24 rounded-xl object-cover border-2 border-[#fa7517]/50 shadow-lg shadow-[#fa7517]/20"
                 />
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg">
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#fa7517] rounded-lg flex items-center justify-center shadow-lg">
                   <Check className="w-4 h-4 text-white" />
                 </div>
               </div>
@@ -130,7 +131,7 @@ export const FaceReferenceUploader: React.FC<FaceReferenceUploaderProps> = ({
                     whileTap={{ scale: 0.98 }}
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                    className="px-4 py-2 bg-[#fa7517]/10 hover:bg-[#fa7517]/20 border border-[#fa7517]/30 text-[#fa7517] rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                   >
                     <RefreshCw className="w-4 h-4" />
                     Replace
@@ -178,7 +179,7 @@ export const FaceReferenceUploader: React.FC<FaceReferenceUploaderProps> = ({
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setShowDeleteConfirm(false)}
                         disabled={isUploading}
-                        className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition-colors border border-white/10"
+                        className="px-4 py-2 bg-black/60 hover:bg-black/80 text-white rounded-lg text-sm font-medium transition-colors border border-gray-800/50"
                       >
                         Cancel
                       </motion.button>
@@ -204,13 +205,13 @@ export const FaceReferenceUploader: React.FC<FaceReferenceUploaderProps> = ({
               className={`relative border-2 border-dashed rounded-2xl transition-all cursor-pointer overflow-hidden
                          ${isDragOver
                            ? 'border-[#fa7517] bg-[#fa7517]/10'
-                           : 'border-white/20 hover:border-white/40 bg-white/5'
+                           : 'border-[#fa7517]/30 hover:border-[#fa7517]/60 bg-black/60'
                          }
                          ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
             >
               {/* Preview during upload */}
               {isUploading && previewUrl && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-2xl z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90 rounded-2xl z-10">
                   <div className="text-center">
                     <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-[#fa7517]/20 flex items-center justify-center">
                       <svg className="w-6 h-6 text-[#fa7517] animate-spin" fill="none" viewBox="0 0 24 24">
@@ -246,26 +247,28 @@ export const FaceReferenceUploader: React.FC<FaceReferenceUploaderProps> = ({
       />
 
       {/* Tips */}
-      <div className="mt-6 p-4 bg-white/5 border border-white/10 rounded-xl">
+      <div className="mt-6 p-4 bg-black/60 border border-gray-800/50 rounded-xl">
         <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-          <Info className="w-4 h-4 text-[#fa7517]" />
+          <div className="w-6 h-6 rounded-lg bg-[#fa7517]/20 flex items-center justify-center border border-[#fa7517]/30">
+            <Info className="w-3.5 h-3.5 text-[#fa7517]" />
+          </div>
           Tips for best results
         </h4>
         <ul className="space-y-2 text-sm text-gray-400">
           <li className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-500" />
+            <Check className="w-4 h-4 text-[#fa7517]" />
             Clear, well-lit photo
           </li>
           <li className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-500" />
+            <Check className="w-4 h-4 text-[#fa7517]" />
             Face centered and visible
           </li>
           <li className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-500" />
+            <Check className="w-4 h-4 text-[#fa7517]" />
             Neutral or expressive emotion
           </li>
           <li className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-500" />
+            <Check className="w-4 h-4 text-[#fa7517]" />
             High resolution (512×512 minimum)
           </li>
           <li className="flex items-center gap-2">

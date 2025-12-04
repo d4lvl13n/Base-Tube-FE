@@ -1,183 +1,177 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { ChevronDown, HelpCircle, BarChart2 } from 'lucide-react';
+
+interface FAQItemProps {
+  question: string;
+  answer: string;
+  isOpen: boolean;
+  onClick: () => void;
+  index: number;
+}
+
+const FAQItem: React.FC<FAQItemProps> = ({ question, answer, isOpen, onClick, index }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
+    transition={{ delay: index * 0.05 }}
+    className={`border rounded-xl overflow-hidden transition-all duration-300 ${
+      isOpen 
+        ? 'bg-black/60 border-[#fa7517]/30' 
+        : 'bg-black/30 border-gray-800/30 hover:border-gray-700/50'
+    }`}
+  >
+    <button
+      onClick={onClick}
+      className="w-full px-6 py-5 flex items-center justify-between text-left"
+    >
+      <span className={`font-semibold transition-colors ${isOpen ? 'text-white' : 'text-gray-300'}`}>
+        {question}
+      </span>
+      <motion.div
+        animate={{ rotate: isOpen ? 180 : 0 }}
+        transition={{ duration: 0.2 }}
+        className={`flex-shrink-0 ml-4 ${isOpen ? 'text-[#fa7517]' : 'text-gray-500'}`}
+      >
+        <ChevronDown className="w-5 h-5" />
+      </motion.div>
+    </button>
+    
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="overflow-hidden"
+        >
+          <div className="px-6 pb-5 text-gray-400 leading-relaxed">
+            {answer}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </motion.div>
+);
 
 const ThumbnailFAQ: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   const faqs = [
     {
-      question: "How does this work?",
-      answer: "Simply describe your video in plain words. Our technology understands your vision and creates thumbnails that capture exactly what you meant. No design skills needed."
+      question: "What exactly is a CTR Audit?",
+      answer: "A CTR (Click-Through Rate) Audit is an AI-powered analysis of your thumbnail that scores it against 15+ factors known to influence viewer clicks. Unlike generic feedback, our audit shows you specific metrics like color contrast, text readability, facial prominence, and composition—all with actionable scores and recommendations."
     },
     {
-      question: "Do I need any design experience?",
-      answer: "None at all. If you can describe your video, you can create stunning thumbnails. Our technology handles all the design complexity behind the scenes."
+      question: "How accurate is the CTR prediction?",
+      answer: "Our CTR predictions are based on analyzing millions of YouTube thumbnails and their actual performance data. While no prediction is 100% accurate (CTR also depends on title, timing, and audience), our users typically see their actual CTR fall within ±0.5% of our prediction. The real value is in the relative improvement—thumbnails that score higher in our audit consistently outperform their lower-scoring counterparts."
     },
     {
-      question: "What makes these thumbnails special?",
-      answer: "Every thumbnail is crafted using principles that make people stop scrolling and start clicking. Your content gets the attention it deserves, not just another generic image."
+      question: "What makes this different from other thumbnail generators?",
+      answer: "Most AI thumbnail tools focus solely on generation—making something that 'looks good.' We focus on optimization. Our CTR Audit tells you exactly why a thumbnail performs well or poorly, then helps you either fix your existing thumbnail or generate a new one based on those insights. It's the difference between guessing and knowing."
     },
     {
-      question: "Can I use these for my business?",
-      answer: "Absolutely. All thumbnails are yours to use however you want - YouTube, social media, marketing materials, anywhere. No restrictions, no licensing headaches."
+      question: "Can I audit thumbnails I didn't create here?",
+      answer: "Absolutely! You can upload any thumbnail image or paste a YouTube URL to audit thumbnails from any video. This is great for analyzing competitor thumbnails, understanding what works in your niche, or auditing your existing catalog to find underperformers worth updating."
     },
     {
-      question: "How much does this cost?",
-      answer: "You can try it free to see if it works for you. If you love it, our plans start at just a few dollars per month - less than what you'd pay for a single designer thumbnail."
+      question: "What metrics does the audit analyze?",
+      answer: "The audit analyzes: Mobile Readability (how clear it is on small screens), Color Contrast (visibility and attention-grabbing potential), Composition Score (visual balance and focal points), Brightness (overall luminosity and appeal), Text Clarity (font size, legibility, and impact), Face Prominence (presence and positioning of faces), plus niche-specific factors based on your content category."
     },
     {
-      question: "How fast will I get my thumbnail?",
-      answer: "Your thumbnail appears in seconds, not hours or days. No waiting for designers, no back-and-forth revisions. Just instant results when inspiration strikes."
+      question: "How long does an audit take?",
+      answer: "Most audits complete in under 5 seconds. You'll get your CTR score, detailed metric breakdown, and AI-generated recommendations almost instantly. No waiting around—iterate quickly and find your best-performing thumbnail."
     },
     {
-      question: "What if I don't like the result?",
-      answer: "Try a different description or generate new variations. There's no limit to experimenting until you find exactly what feels right for your content."
+      question: "Is it free to try?",
+      answer: "Yes! You can run your first audits and generations for free without a credit card. We want you to see the value before committing. Free users get a limited number of audits and generations per day, with premium tiers unlocking unlimited access and advanced features."
     },
     {
-      question: "Will my thumbnails look unique?",
-      answer: "Every thumbnail is created fresh for your specific content. No templates, no cookie-cutter designs. Your thumbnails will be as unique as your videos."
+      question: "Can the AI generate thumbnails based on my audit results?",
+      answer: "Yes! After an audit, you can click 'Generate Better Thumbnail' to create a new version that addresses the weaknesses identified. The AI uses your audit insights to produce an optimized alternative, or you can manually adjust the prompt to keep creative control."
     },
-    {
-      question: "How do I know this will work for my content?",
-      answer: "Try it free with your actual video ideas. See for yourself how it transforms your content presentation. Most creators are amazed by their first result."
-    },
-    {
-      question: "Is my content private?",
-      answer: "Your ideas and thumbnails are yours alone. We don't store, share, or use your content for anything other than creating your thumbnails."
-    }
   ];
 
-  const toggleFAQ = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index);
-  };
-
   return (
-    <div className="py-20 bg-gradient-to-br from-[#09090B] via-[#111114] to-[#09090B]">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+    <section id="faq" className="py-24 bg-gradient-to-b from-black to-[#09090B]">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-16"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-full border border-[#fa7517]/30 mb-6">
-            <HelpCircle className="w-4 h-4 text-[#fa7517]" />
-            <span className="text-sm font-medium text-white">Your Questions Answered</span>
-          </div>
+        <div className="text-center mb-12">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-black/60 border border-gray-800/50 rounded-full text-xs font-medium text-gray-400 mb-6"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-[#fa7517]" />
+            FREQUENTLY ASKED
+          </motion.div>
           
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            <span className="bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent">
-              Everything You Need
-            </span>
-            <br />
-            to Know
-          </h2>
+          <motion.h2
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-3xl md:text-4xl font-bold text-white mb-4"
+          >
+            Questions About CTR Optimization
+          </motion.h2>
           
-          <p className="text-xl text-gray-300 leading-relaxed">
-            The answers that help you make the right choice for your content
-          </p>
-        </motion.div>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="text-gray-400"
+          >
+            Everything you need to know about auditing and optimizing your thumbnails.
+          </motion.p>
+        </div>
 
         {/* FAQ Items */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {faqs.map((faq, index) => (
-            <motion.div
+            <FAQItem
               key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
-              className="group"
-            >
-              <div className="relative">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-2xl opacity-0 group-hover:opacity-100 blur transition-all duration-300" />
-                <div className="relative bg-gradient-to-br from-black/80 to-black/60 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:border-[#fa7517]/30 transition-all duration-300">
-                  
-                  {/* Question */}
-                  <button
-                    onClick={() => toggleFAQ(index)}
-                    className="w-full px-6 py-6 text-left flex items-center justify-between group/button hover:bg-white/5 transition-colors duration-200"
-                  >
-                    <h3 className="text-lg font-semibold text-white pr-4 group-hover/button:text-[#fa7517] transition-colors duration-200">
-                      {faq.question}
-                    </h3>
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover/button:bg-[#fa7517]/20 transition-colors duration-200">
-                      <motion.div
-                        animate={{ rotate: openIndex === index ? 180 : 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        {openIndex === index ? (
-                          <ChevronUp className="w-5 h-5 text-white" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5 text-white" />
-                        )}
-                      </motion.div>
-                    </div>
-                  </button>
-
-                  {/* Answer */}
-                  <AnimatePresence>
-                    {openIndex === index && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="px-6 pb-6">
-                          <div className="border-t border-white/10 pt-4">
-                            <p className="text-gray-300 leading-relaxed">
-                              {faq.answer}
-                            </p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            </motion.div>
+              question={faq.question}
+              answer={faq.answer}
+              isOpen={openIndex === index}
+              onClick={() => setOpenIndex(openIndex === index ? null : index)}
+              index={index}
+            />
           ))}
         </div>
 
-        {/* Bottom Contact */}
+        {/* Bottom CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mt-16"
+          className="mt-12 text-center"
         >
-          <div className="relative group inline-block">
-            <div className="absolute -inset-4 bg-gradient-to-r from-[#fa7517]/20 to-orange-400/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-300" />
-            <div className="relative bg-gradient-to-br from-black/80 to-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-8 hover:border-[#fa7517]/30 transition-all duration-300">
-              <h3 className="text-2xl font-bold text-white mb-4">
-                Ready to Transform Your Content?
-              </h3>
-              <p className="text-gray-300 mb-6">
-                Join creators who've discovered the secret to thumbnails that actually work.
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-400">
-                <a 
-                  href="mailto:support@base.tube" 
-                  className="hover:text-[#fa7517] transition-colors duration-200"
-                >
-                  📧 support@base.tube
-                </a>
-                <span>•</span>
-                <span>💬 Live chat available</span>
-                <span>•</span>
-                <span>⚡ Quick support</span>
-              </div>
-            </div>
+          <p className="text-gray-400 mb-4">Still have questions?</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a
+              href="mailto:support@base.tube"
+              className="text-[#fa7517] hover:text-orange-400 font-medium transition-colors"
+            >
+              Contact Support →
+            </a>
+            <span className="hidden sm:inline text-gray-600">or</span>
+            <a
+              href="/ai-thumbnails/audit"
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#fa7517]/10 hover:bg-[#fa7517]/20 border border-[#fa7517]/30 rounded-full text-[#fa7517] font-medium transition-colors"
+            >
+              <BarChart2 className="w-4 h-4" />
+              Try Your First Audit
+            </a>
           </div>
         </motion.div>
       </div>
-    </div>
+    </section>
   );
 };
 
-export default ThumbnailFAQ; 
+export default ThumbnailFAQ;

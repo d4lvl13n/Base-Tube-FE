@@ -323,7 +323,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         credentials: 'include',
         headers,
       });
-      
+    
       if (!response.ok) {
         console.error('Failed to increment quota:', response.status);
         return null;
@@ -555,7 +555,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
           },
           n: Math.min(options?.n || 2, 4),
         };
-        
+            
         // Add style if provided
         if (options?.style) {
           requestBody.config.style = options.style;
@@ -617,11 +617,11 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
           }
           
           response = await fetch(`${API_URL}${endpoint}`, {
-            method: 'POST',
+          method: 'POST',
             credentials: 'include',
             headers: publicHeaders,
-            body: JSON.stringify(requestBody),
-          });
+          body: JSON.stringify(requestBody),
+        });
         }
       }
 

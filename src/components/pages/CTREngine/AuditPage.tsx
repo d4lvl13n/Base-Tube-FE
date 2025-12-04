@@ -1,11 +1,11 @@
 // src/components/pages/CTREngine/AuditPage.tsx
-// Premium CTR Thumbnail Audit Page
+// Premium CTR Thumbnail Audit Page - Clean layout
 
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Target, TrendingUp, BarChart2, AlertCircle, X, ArrowLeft, RefreshCw } from 'lucide-react';
-import CTREngineLayout from './CTREngineLayout';
+import { Zap, Target, TrendingUp, AlertCircle, X, ArrowLeft, RefreshCw } from 'lucide-react';
+import AIThumbnailsLayout from './AIThumbnailsLayout';
 import { ThumbnailAuditForm } from './components/ThumbnailAuditForm';
 import { ThumbnailAuditResult } from './components/ThumbnailAuditResult';
 import useCTREngine from '../../../hooks/useCTREngine';
@@ -77,40 +77,7 @@ const AuditPage: React.FC = () => {
   const isViewingHistorical = !!historicalAudit;
 
   return (
-    <CTREngineLayout quota={quota} isLoadingQuota={isLoadingQuota}>
-      {/* Page Header */}
-      <div className="text-center mb-10">
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-[#fa7517]/10 border border-[#fa7517]/30 rounded-full text-[#fa7517] text-sm font-medium mb-4"
-        >
-          <BarChart2 className="w-4 h-4" />
-          CTR Analysis Engine
-        </motion.div>
-        
-        <motion.h1 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="text-3xl md:text-4xl font-bold text-white mb-3"
-        >
-          Audit Your Thumbnail's{' '}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fa7517] to-orange-400">
-            Click Power
-          </span>
-        </motion.h1>
-        
-        <motion.p 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="text-gray-400 max-w-lg mx-auto"
-        >
-          Get AI-powered insights and actionable suggestions to maximize your thumbnail's click-through rate
-        </motion.p>
-      </div>
-
+    <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
       {/* Error Display */}
       <AnimatePresence>
         {error && (
@@ -151,14 +118,14 @@ const AuditPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-xl mx-auto text-center py-16"
         >
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center backdrop-blur-sm">
             <AlertCircle className="w-10 h-10 text-red-400" />
           </div>
           <h3 className="text-xl font-semibold text-white mb-2">Audit Not Found</h3>
           <p className="text-gray-400 mb-6">{historicalError}</p>
           <button
             onClick={handleReset}
-            className="py-3 px-6 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white font-medium transition-all flex items-center gap-2 mx-auto"
+            className="py-3 px-6 bg-black/50 hover:bg-black/60 border border-gray-800/30 hover:border-gray-800/50 rounded-xl text-white font-medium transition-all flex items-center gap-2 mx-auto backdrop-blur-sm"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Audit
@@ -174,27 +141,6 @@ const AuditPage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
           >
-            {/* Historical Audit Banner */}
-            {isViewingHistorical && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="max-w-3xl mx-auto mb-6 p-4 bg-[#fa7517]/10 border border-[#fa7517]/20 rounded-xl flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <RefreshCw className="w-5 h-5 text-[#fa7517]" />
-                  <span className="text-gray-300">Viewing historical audit #{auditIdParam}</span>
-                </div>
-                <button
-                  onClick={handleReset}
-                  className="text-sm text-[#fa7517] hover:text-[#fa7517]/80 font-medium flex items-center gap-1"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  New Audit
-                </button>
-              </motion.div>
-            )}
-            
             <ThumbnailAuditResult 
               audit={displayAudit} 
               thumbnailUrl={auditThumbnailUrl || undefined}
@@ -233,7 +179,7 @@ const AuditPage: React.FC = () => {
                 ].map((feature) => (
                   <div
                     key={feature.title}
-                    className="p-4 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm text-center group hover:border-[#fa7517]/30 transition-colors"
+                    className="p-4 bg-black/50 border border-gray-800/30 rounded-xl backdrop-blur-sm text-center group hover:border-[#fa7517]/30 transition-colors"
                   >
                     <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#fa7517]/20 to-orange-500/10 flex items-center justify-center border border-[#fa7517]/20 group-hover:border-[#fa7517]/40 transition-colors">
                       <feature.icon className="w-5 h-5 text-[#fa7517]" />
@@ -247,7 +193,7 @@ const AuditPage: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </CTREngineLayout>
+    </AIThumbnailsLayout>
   );
 };
 

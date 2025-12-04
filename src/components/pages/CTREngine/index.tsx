@@ -4,10 +4,11 @@
 export { default as AuditPage } from './AuditPage';
 export { default as GeneratePage } from './GeneratePage';
 export { default as SettingsPage } from './SettingsPage';
-export { default as CreativePage } from './CreativePage';
 export { default as GalleryPage } from './GalleryPage';
 export { default as AuditHistoryPage } from './AuditHistoryPage';
-export { default as CTREngineLayout } from './CTREngineLayout';
+export { default as AIThumbnailsLayout } from './AIThumbnailsLayout';
+export { default as AIThumbnailsHeader } from './components/AIThumbnailsHeader';
+export { default as AIThumbnailsSidebar } from './components/AIThumbnailsSidebar';
 
 // Component exports
 export { ScoreGauge, ScoreBadge } from './components/ScoreGauge';

@@ -4,11 +4,26 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SignInButton } from '@clerk/clerk-react';
-import { Lock, Sparkles, AlertCircle, X, Image, BarChart2, User, Shield, ArrowRight, Info } from 'lucide-react';
-import CTREngineLayout from './CTREngineLayout';
+import { 
+  Lock, 
+  Sparkles, 
+  AlertCircle, 
+  X, 
+  Image, 
+  BarChart2, 
+  User, 
+  Shield, 
+  ArrowRight, 
+  Info,
+  Zap,
+  CheckCircle2
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import AIThumbnailsLayout from './AIThumbnailsLayout';
 import { FaceReferenceUploader } from './components/FaceReferenceUploader';
 import { CTRQuotaDisplay } from './components/CTRQuotaDisplay';
 import useCTREngine from '../../../hooks/useCTREngine';
+import { cardStyles } from './styles/cardTokens';
 
 const SettingsPage: React.FC = () => {
   // Auth is handled inside useCTREngine which checks both Clerk and Web3
@@ -28,7 +43,7 @@ const SettingsPage: React.FC = () => {
   // Auth gate for anonymous users (checks both Clerk and Web3)
   if (!isAuthenticated) {
     return (
-      <CTREngineLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+      <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
         <div className="max-w-xl mx-auto text-center py-16">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
@@ -68,12 +83,12 @@ const SettingsPage: React.FC = () => {
             </SignInButton>
           </motion.div>
         </div>
-      </CTREngineLayout>
+      </AIThumbnailsLayout>
     );
   }
 
   return (
-    <CTREngineLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+    <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
       <div className="max-w-5xl mx-auto">
         {/* Error Display */}
         <AnimatePresence>
@@ -126,11 +141,13 @@ const SettingsPage: React.FC = () => {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.15 }}
-              className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-sm"
+              className={`${cardStyles.elevated} rounded-2xl p-5`}
             >
               <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <Info className="w-4 h-4 text-[#fa7517]" />
-                How Face Reference Works
+                <div className="w-7 h-7 rounded-lg bg-[#fa7517]/20 flex items-center justify-center border border-[#fa7517]/30">
+                  <Zap className="w-4 h-4 text-[#fa7517]" />
+                </div>
+                How It Works
               </h3>
               <ol className="space-y-3">
                 {[
@@ -139,8 +156,8 @@ const SettingsPage: React.FC = () => {
                   'AI incorporates your likeness',
                   'Build consistent branding',
                 ].map((text, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-gray-400">
-                    <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-lg bg-[#fa7517]/20 text-[#fa7517] text-xs font-bold border border-[#fa7517]/30">
+                  <li key={i} className="flex items-start gap-3 text-sm text-gray-300">
+                    <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-lg bg-gradient-to-br from-[#fa7517]/20 to-orange-500/20 text-[#fa7517] text-xs font-bold border border-[#fa7517]/30">
                       {i + 1}
                     </span>
                     {text}
@@ -154,15 +171,27 @@ const SettingsPage: React.FC = () => {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-sm"
+              className={`${cardStyles.base} rounded-2xl p-5 border-[#fa7517]/20`}
             >
-              <h3 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
-                <Shield className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#fa7517]/10 flex items-center justify-center border border-[#fa7517]/20">
+                  <Shield className="w-4 h-4 text-[#fa7517]" />
+                </div>
                 Your Privacy
               </h3>
-              <p className="text-sm text-gray-400">
-                Your face reference is stored securely and only used for your own thumbnail generations. You can delete it at any time.
-              </p>
+              <ul className="space-y-2">
+                {[
+                  'Stored securely on our servers',
+                  'Only used for your generations',
+                  'Delete anytime with one click',
+                  'Never shared with third parties',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm text-gray-400">
+                    <CheckCircle2 className="w-4 h-4 text-[#fa7517]" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </motion.div>
 
             {/* Quick Links */}
@@ -170,33 +199,35 @@ const SettingsPage: React.FC = () => {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.25 }}
-              className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-sm"
+              className={`${cardStyles.base} rounded-2xl p-5`}
             >
-              <h3 className="text-sm font-semibold text-white mb-3">Quick Links</h3>
-              <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-white mb-4">Quick Links</h3>
+              <div className="space-y-1">
                 {[
-                  { href: '/ai-thumbnails/generate', icon: Image, label: 'Generate Thumbnails' },
-                  { href: '/ai-thumbnails/audit', icon: BarChart2, label: 'Audit Thumbnails' },
-                  { href: '/profile/settings', icon: User, label: 'Account Settings' },
+                  { href: '/ai-thumbnails/generate', icon: Sparkles, label: 'Generate Thumbnails', color: 'text-[#fa7517]' },
+                  { href: '/ai-thumbnails/audit', icon: BarChart2, label: 'Audit Thumbnails', color: 'text-[#fa7517]' },
+                  { href: '/ai-thumbnails/gallery', icon: Image, label: 'My Gallery', color: 'text-[#fa7517]' },
                 ].map((link, i) => (
-                  <a
+                  <Link
                     key={i}
-                    href={link.href}
-                    className="flex items-center justify-between gap-2 text-sm text-gray-400 hover:text-white transition-colors p-2 -mx-2 rounded-lg hover:bg-white/5"
+                    to={link.href}
+                    className="group flex items-center justify-between gap-2 text-sm text-gray-400 hover:text-white transition-all p-3 -mx-1 rounded-xl hover:bg-[#fa7517]/10 border border-transparent hover:border-[#fa7517]/20"
                   >
-                    <span className="flex items-center gap-2">
-                      <link.icon className="w-4 h-4" />
+                    <span className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-[#fa7517]/10 flex items-center justify-center group-hover:bg-[#fa7517]/20 transition-colors">
+                        <link.icon className={`w-4 h-4 ${link.color}`} />
+                      </div>
                       {link.label}
                     </span>
-                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </a>
+                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-[#fa7517]" />
+                  </Link>
                 ))}
               </div>
             </motion.div>
           </div>
         </div>
       </div>
-    </CTREngineLayout>
+    </AIThumbnailsLayout>
   );
 };
 

@@ -6,13 +6,14 @@ import { X } from 'lucide-react';
 
 import ThumbnailLandingHeader from './ThumbnailLandingHeader';
 import ThumbnailHero from './ThumbnailHero';
+import CTRAuditPipeline from './CTRAuditPipeline';
 import ThumbnailFeatures from './ThumbnailFeatures';
 import ThumbnailFAQ from './ThumbnailFAQ';
+import FinalCTA from './FinalCTA';
 
 const ThumbnailLanding: React.FC = () => {
   const [showSignIn, setShowSignIn] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
-  const [isAppMode, setIsAppMode] = useState(false);
 
   const handleSignInClick = () => {
     setShowSignIn(true);
@@ -72,21 +73,23 @@ const ThumbnailLanding: React.FC = () => {
         onSignUpClick={handleSignUpClick}
       />
 
-      {/* Hero Section */}
-      <ThumbnailHero 
-        onSignUpClick={handleSignUpClick} 
-        onAppModeChange={setIsAppMode}
-      />
+      {/* Hero Section - CTR-focused messaging */}
+      <ThumbnailHero onSignUpClick={handleSignUpClick} />
 
-      {/* Features Section - Hidden in App Mode */}
-      {!isAppMode && <ThumbnailFeatures />}
+      {/* CTR Audit Pipeline - The main USP visualization */}
+      <CTRAuditPipeline />
 
-      {/* FAQ Section - Hidden in App Mode */}
-      {!isAppMode && <ThumbnailFAQ />}
+      {/* Features Section - CTR-focused */}
+      <ThumbnailFeatures />
 
-      {/* Footer - Hidden in App Mode */}
-      {!isAppMode && (
-      <footer className="bg-gradient-to-br from-black/80 to-black/60 backdrop-blur-xl border-t border-white/10 py-16">
+      {/* FAQ Section */}
+      <ThumbnailFAQ />
+
+      {/* Final CTA */}
+      <FinalCTA />
+
+      {/* Footer */}
+      <footer className="bg-black border-t border-gray-800/30 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8">
             
@@ -102,11 +105,11 @@ const ThumbnailLanding: React.FC = () => {
                   <span className="text-lg font-bold bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent">
                     Base.Tube
                   </span>
-                  <p className="text-xs text-gray-400">AI Thumbnails</p>
+                  <p className="text-xs text-gray-400">CTR Optimization</p>
                 </div>
               </div>
               <p className="text-sm text-gray-400 leading-relaxed">
-                Transform your content with thumbnails that actually work. Built for creators who refuse to settle.
+                The AI-powered thumbnail optimization engine. Audit, analyze, and generate thumbnails that actually convert.
               </p>
             </div>
 
@@ -114,17 +117,17 @@ const ThumbnailLanding: React.FC = () => {
             <div>
               <h3 className="text-white font-semibold mb-4">Product</h3>
               <div className="space-y-2">
-                <a href="#features" className="block text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="/ai-thumbnails/audit" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
+                  CTR Audit
+                </a>
+                <a href="/ai-thumbnails/generate" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
+                  Generate Thumbnails
+                </a>
+                <a href="/ai-thumbnails/gallery" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
+                  My Gallery
+                </a>
+                <a href="#features" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Features
-                </a>
-                <a href="#pricing" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                  Pricing
-                </a>
-                <a href="#faq" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                  FAQ
-                </a>
-                <a href="#examples" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                  Examples
                 </a>
               </div>
             </div>
@@ -133,16 +136,16 @@ const ThumbnailLanding: React.FC = () => {
             <div>
               <h3 className="text-white font-semibold mb-4">Company</h3>
               <div className="space-y-2">
-                <a href="/" className="block text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="/" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Base.Tube Platform
                 </a>
-                <a href="/creator-hub" className="block text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="/creator-hub" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Creator Hub
                 </a>
-                <a href="/about" className="block text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="/about" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   About Us
                 </a>
-                <a href="/contact" className="block text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="/contact" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Contact
                 </a>
               </div>
@@ -152,36 +155,36 @@ const ThumbnailLanding: React.FC = () => {
             <div>
               <h3 className="text-white font-semibold mb-4">Support</h3>
               <div className="space-y-2">
-                <a href="mailto:support@base.tube" className="block text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="mailto:support@base.tube" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Help Center
                 </a>
-                <a href="/privacy" className="block text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="/privacy" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Privacy Policy
                 </a>
-                <a href="/terms" className="block text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="/terms" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Terms of Service
                 </a>
-                <a href="/api-docs" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                  API Documentation
+                <a href="#faq" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
+                  FAQ
                 </a>
               </div>
             </div>
           </div>
 
           {/* Bottom Footer */}
-          <div className="mt-12 pt-8 border-t border-white/10">
+          <div className="mt-12 pt-8 border-t border-gray-800/30">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-gray-400">
-                © 2024 Base.Tube. All rights reserved.
+              <div className="text-sm text-gray-500">
+                © 2025 Base.Tube. All rights reserved.
               </div>
               <div className="flex items-center gap-6">
-                <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="https://twitter.com/basetube" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Twitter
                 </a>
-                <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="https://youtube.com/@basetube" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   YouTube
                 </a>
-                <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">
+                <a href="https://discord.gg/basetube" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Discord
                 </a>
               </div>
@@ -189,16 +192,15 @@ const ThumbnailLanding: React.FC = () => {
           </div>
         </div>
       </footer>
-      )}
 
       {/* Auth Modals */}
       <AnimatePresence>
         {showSignIn && (
           <AuthModal key="signin-modal" isOpen={showSignIn}>
-            <SignIn
+          <SignIn
             routing="virtual"
             signUpUrl=""
-            afterSignInUrl="/ai-thumbnails"
+            afterSignInUrl="/ai-thumbnails/audit"
             appearance={{
               baseTheme: dark,
               variables: {
@@ -242,15 +244,15 @@ const ThumbnailLanding: React.FC = () => {
               }
             }}
           />
-          </AuthModal>
+        </AuthModal>
         )}
 
         {showSignUp && (
           <AuthModal key="signup-modal" isOpen={showSignUp}>
-            <SignUp
+          <SignUp
             routing="virtual"
             signInUrl=""
-            afterSignUpUrl="/ai-thumbnails"
+            afterSignUpUrl="/ai-thumbnails/audit"
             appearance={{
               baseTheme: dark,
               variables: {
@@ -294,11 +296,11 @@ const ThumbnailLanding: React.FC = () => {
               }
             }}
           />
-          </AuthModal>
+        </AuthModal>
         )}
       </AnimatePresence>
     </div>
   );
 };
 
-export default ThumbnailLanding; 
+export default ThumbnailLanding;

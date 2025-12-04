@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Sparkles, Upload, Check, X, Loader2 } from 'lucide-react';
+import { User, Sparkles, Upload, Check, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface FaceReference {
@@ -23,7 +23,6 @@ export const FaceConsistencyToggle: React.FC<FaceConsistencyToggleProps> = ({
 }) => {
   const [faceReference, setFaceReference] = useState<FaceReference | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Fetch user's face reference on mount
   useEffect(() => {

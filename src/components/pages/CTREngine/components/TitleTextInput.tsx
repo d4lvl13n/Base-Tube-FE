@@ -3,8 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Type, 
   Bold, 
-  Italic, 
-  Underline, 
   Zap, 
   AlignLeft, 
   AlignCenter, 
@@ -12,7 +10,6 @@ import {
   Circle,
   Square as SquareIcon,
   Info,
-  MoreVertical,
   MoreHorizontal
 } from 'lucide-react';
 
