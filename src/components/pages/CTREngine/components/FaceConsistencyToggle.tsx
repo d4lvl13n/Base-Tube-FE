@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Sparkles, Upload, Check, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ctrApi } from '../../../../api/ctr';
 
 interface FaceReference {
   faceReferenceKey: string;
@@ -13,8 +14,6 @@ interface FaceConsistencyToggleProps {
   onToggle: (enabled: boolean) => void;
   disabled?: boolean;
 }
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export const FaceConsistencyToggle: React.FC<FaceConsistencyToggleProps> = ({
   enabled,
@@ -29,19 +28,22 @@ export const FaceConsistencyToggle: React.FC<FaceConsistencyToggleProps> = ({
     const fetchFaceReference = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${API_URL}/api/v1/ctr/face-reference`, {
-          method: 'GET',
-          credentials: 'include',
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.data?.faceReferenceKey) {
-            setFaceReference(result.data);
-          }
+        // Use ctrApi which has auth interceptor and handles 404 as empty state
+        const result = await ctrApi.getFaceReference();
+        
+        if (result?.faceReferenceKey) {
+          setFaceReference({
+            faceReferenceKey: result.faceReferenceKey,
+            thumbnailUrl: result.thumbnailUrl || '',
+          });
+        } else {
+          // No face reference (404 returns null from ctrApi)
+          setFaceReference(null);
         }
       } catch (err) {
-        console.error('Failed to fetch face reference:', err);
+        console.error('[FaceConsistencyToggle] Failed to fetch face reference:', err);
+        // Treat errors as no face reference
+        setFaceReference(null);
       } finally {
         setIsLoading(false);
       }

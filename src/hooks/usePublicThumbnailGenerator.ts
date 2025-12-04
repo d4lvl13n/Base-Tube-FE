@@ -504,12 +504,13 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       }
 
       // Step 2: Call the generation API
-      let endpoint = '/v1/images/generate';
-      let response: Response;
-
+      // Use isSignedIn from useUser() hook for consistent auth detection
+      console.log('[generateThumbnail] isSignedIn:', isSignedIn);
+      console.log('[generateThumbnail] Auth method:', localStorage.getItem('auth_method'));
+      
       if (options?.referenceImage) {
-        // Reference image upload
-        endpoint = '/v1/images/edit';
+        // Reference image upload - always use fetch for FormData
+        const endpoint = '/v1/images/edit';
         const formData = new FormData();
         formData.append('image', options.referenceImage);
         formData.append('prompt', enhancedPrompt);
@@ -529,132 +530,199 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         // Remove Content-Type for FormData - browser sets it with boundary
         delete formHeaders['Content-Type'];
         
-        response = await fetch(`${API_URL}${endpoint}`, {
+        const response = await fetch(`${API_URL}${endpoint}`, {
           method: 'POST',
           credentials: 'include',
           headers: formHeaders,
           body: formData,
         });
-      } else {
-        // Text-to-image generation
-        // Build config based on model (Gemini 3 Pro is default)
-        const useGemini = !options?.model || options.model === 'gemini-3-pro';
-        
-        const requestBody: Record<string, any> = {
-          prompt: enhancedPrompt,
-          config: useGemini ? {
-            // Gemini 3 Pro options
-            aspectRatio: options?.aspectRatio || '16:9',
-            resolution: options?.resolution || '1K',
-            includeFace: options?.includeFace || false,
-          } : {
-            // OpenAI fallback options
-            model: 'gpt-image-1',
-            size: options?.size || 'auto',
-            quality: options?.quality || 'high',
-          },
-          n: Math.min(options?.n || 2, 4),
-        };
-            
-        // Add style if provided
-        if (options?.style) {
-          requestBody.config.style = options.style;
-        }
 
-        // Check if user is authenticated (Clerk or Web3)
-        const authMethod = localStorage.getItem('auth_method');
-        const isAuthenticated = authMethod === 'web3' || (window.Clerk?.session ? true : false);
-        
-        console.log('[generateThumbnail] Auth method:', authMethod);
-        console.log('[generateThumbnail] Is authenticated:', isAuthenticated);
-        
-        if (isAuthenticated) {
-          // Use axios api client with proper auth interceptor for authenticated users
-          // Route through /api/v1/ctr/generate which handles Clerk/Web3 auth properly
-          console.log('[generateThumbnail] Using authenticated endpoint: /api/v1/ctr/generate');
-          
-          try {
-            const axiosResponse = await api.post('/api/v1/ctr/generate', {
-              title: enhancedPrompt,
-              niche: options?.style || 'general',
-              generateCount: Math.min(options?.n || 2, 4),
-              config: requestBody.config,
-            });
-            
-            // Convert axios response to match fetch response format for downstream handling
-            const result = axiosResponse.data;
-            if (result.success && result.data?.thumbnails) {
-              // Transform CTR response to match expected format
-              const newThumbnails: GeneratedThumbnail[] = result.data.thumbnails.map((t: any) => ({
-                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            prompt: prompt.trim(),
-                imageUrl: t.imageUrl,
-            createdAt: new Date().toISOString(),
-          }));
-              
-              setThumbnails(prev => [...newThumbnails, ...prev]);
-              
-              // Increment quota after successful generation
-              await incrementQuota();
-              
-              setLoading(false);
-              return;
-            }
-            throw new Error(result.error?.message || 'Failed to generate thumbnail');
-          } catch (axiosError: any) {
-            console.error('[generateThumbnail] Axios error:', axiosError);
-            throw new Error(axiosError.response?.data?.error?.message || axiosError.message || 'Failed to generate thumbnail');
-          }
-        } else {
-          // Anonymous user - use fetch with /v1/images/generate (public API endpoint)
-          // This requires an API key, not Clerk auth
-          console.log('[generateThumbnail] Using public API endpoint:', `${API_URL}${endpoint}`);
-          
-          const publicHeaders = getPublicApiHeaders();
-          
-          if (!PUBLIC_API_KEY) {
-            throw new Error('Public API key not configured. Please set REACT_APP_BASETUBE_PUBLIC_API_KEY in your environment.');
-          }
-          
-          response = await fetch(`${API_URL}${endpoint}`, {
-          method: 'POST',
-            credentials: 'include',
-            headers: publicHeaders,
-          body: JSON.stringify(requestBody),
-        });
-        }
-      }
-
-      // Handle async job (202 response)
+        // Handle async job (202 response)
         if (response.status === 202) {
           const result = await response.json();
           if (result.success && result.jobId) {
             setPollingJobs(prev => new Set(prev).add(result.jobId));
-          pollJobStatus(result.jobId, prompt.trim());
-          return; // Don't increment quota yet - will do after job completes
+            pollJobStatus(result.jobId, prompt.trim());
+            return; // Don't increment quota yet - will do after job completes
+          }
         }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error?.message || 'Failed to generate thumbnail. Please try again.');
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error?.message || 'Failed to generate thumbnail.');
+        }
+
+        // Handle response
+        let generatedThumbnails: GeneratedThumbnail[] = [];
+        if (result.data.thumbnails) {
+          generatedThumbnails = result.data.thumbnails.map((thumb: any, index: number) => ({
+            id: thumb.id ? thumb.id.toString() : `${Date.now()}-${index}`,
+            prompt: prompt.trim(),
+            imageUrl: thumb.thumbnailUrl,
+            createdAt: new Date().toISOString(),
+            shareUrl: thumb.shareUrl,
+          }));
+        } else if (result.data.thumbnailUrl) {
+          generatedThumbnails = [{
+            id: result.data.id ? result.data.id.toString() : Date.now().toString(),
+            prompt: prompt.trim(),
+            imageUrl: result.data.thumbnailUrl,
+            createdAt: new Date().toISOString(),
+            shareUrl: result.data.shareUrl,
+          }];
+        } else {
+          throw new Error('No thumbnail URL found in response.');
+        }
+
+        setThumbnails(prev => [...generatedThumbnails, ...prev]);
+        await incrementQuota();
+        setLoading(false);
+        return;
       }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      // Text-to-image generation
+      // Build config based on model (Gemini 3 Pro is default)
+      const useGemini = !options?.model || options.model === 'gemini-3-pro';
+      
+      const requestBody: Record<string, any> = {
+        prompt: enhancedPrompt,
+        config: useGemini ? {
+          // Gemini 3 Pro options
+          aspectRatio: options?.aspectRatio || '16:9',
+          resolution: options?.resolution || '1K',
+          includeFace: options?.includeFace || false,
+        } : {
+          // OpenAI fallback options
+          model: 'gpt-image-1',
+          size: options?.size || 'auto',
+          quality: options?.quality || 'high',
+        },
+        n: Math.min(options?.n || 2, 4),
+      };
+          
+      // Add style if provided
+      if (options?.style) {
+        requestBody.config.style = options.style;
+      }
+
+      // Use isSignedIn for consistent auth detection
+      if (isSignedIn) {
+        // Authenticated user - use axios with /api/v1/ctr/generate
+        console.log('[generateThumbnail] Using authenticated endpoint: /api/v1/ctr/generate');
         
-        // Handle quota exceeded from API
-        if (response.status === 429) {
-          if (errorData.error) {
-            setQuotaInfo({
-              used: errorData.error.used || 0,
-              limit: errorData.error.limit || 1,
-              remaining: errorData.error.remaining || 0,
-              isAnonymous: errorData.error.isAnonymous ?? true,
-              tier: errorData.error.tier || 'anonymous',
-              resetsAt: errorData.error.resetsAt || '',
-              upgradeUrl: errorData.error.upgradeUrl,
-              message: errorData.error.message,
-            });
+        try {
+          const axiosResponse = await api.post('/api/v1/ctr/generate', {
+            title: enhancedPrompt,
+            niche: options?.style || 'general',
+            generateCount: Math.min(options?.n || 2, 4),
+            config: requestBody.config,
+          });
+          
+          const result = axiosResponse.data;
+          console.log('[generateThumbnail] Axios response:', result);
+          
+          // CTR API returns "concepts" not "thumbnails", and uses "thumbnailUrl" not "imageUrl"
+          if (result.success && result.data?.concepts) {
+            // Transform CTR response to match expected format
+            const newThumbnails: GeneratedThumbnail[] = result.data.concepts.map((concept: any) => ({
+              id: concept.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              prompt: concept.prompt || prompt.trim(),
+              imageUrl: concept.thumbnailUrl, // CTR API uses thumbnailUrl
+              createdAt: new Date().toISOString(),
+              shareUrl: concept.shareUrl,
+            }));
+            
+            console.log('[generateThumbnail] Transformed thumbnails:', newThumbnails);
+            
+            setThumbnails(prev => [...newThumbnails, ...prev]);
+            await incrementQuota();
+            setLoading(false);
+            return;
           }
-          throw new Error(errorData.error?.message || 'Daily quota exceeded.');
+          
+          // Fallback: also check for "thumbnails" field (for backwards compatibility)
+          if (result.success && result.data?.thumbnails) {
+            const newThumbnails: GeneratedThumbnail[] = result.data.thumbnails.map((t: any) => ({
+              id: t.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              prompt: t.prompt || prompt.trim(),
+              imageUrl: t.thumbnailUrl || t.imageUrl,
+              createdAt: new Date().toISOString(),
+              shareUrl: t.shareUrl,
+            }));
+            
+            setThumbnails(prev => [...newThumbnails, ...prev]);
+            await incrementQuota();
+            setLoading(false);
+            return;
+          }
+          
+          console.error('[generateThumbnail] Unexpected response structure:', result);
+          throw new Error(result.error?.message || 'Failed to generate thumbnail - unexpected response format');
+        } catch (axiosError: any) {
+          console.error('[generateThumbnail] Axios error details:', {
+            message: axiosError.message,
+            response: axiosError.response?.data,
+            status: axiosError.response?.status,
+            url: axiosError.config?.url,
+          });
+          const errorMessage = axiosError.response?.data?.error?.message 
+            || axiosError.response?.data?.message 
+            || axiosError.message 
+            || 'Failed to generate thumbnail';
+          throw new Error(errorMessage);
+        }
+      } else {
+        // Anonymous user - use fetch with /v1/images/generate (public API endpoint)
+        console.log('[generateThumbnail] Using public API endpoint: /v1/images/generate');
+        
+        const publicHeaders = getPublicApiHeaders();
+        
+        if (!PUBLIC_API_KEY) {
+          throw new Error('Public API key not configured. Please set REACT_APP_BASETUBE_PUBLIC_API_KEY in your environment.');
         }
         
+        const response = await fetch(`${API_URL}/v1/images/generate`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: publicHeaders,
+          body: JSON.stringify(requestBody),
+        });
+
+        // Handle async job (202 response)
+        if (response.status === 202) {
+          const result = await response.json();
+          if (result.success && result.jobId) {
+            setPollingJobs(prev => new Set(prev).add(result.jobId));
+            pollJobStatus(result.jobId, prompt.trim());
+            return; // Don't increment quota yet - will do after job completes
+          }
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          
+          // Handle quota exceeded from API
+          if (response.status === 429) {
+            if (errorData.error) {
+              setQuotaInfo({
+                used: errorData.error.used || 0,
+                limit: errorData.error.limit || 1,
+                remaining: errorData.error.remaining || 0,
+                isAnonymous: errorData.error.isAnonymous ?? true,
+                tier: errorData.error.tier || 'anonymous',
+                resetsAt: errorData.error.resetsAt || '',
+                upgradeUrl: errorData.error.upgradeUrl,
+                message: errorData.error.message,
+              });
+            }
+            throw new Error(errorData.error?.message || 'Daily quota exceeded.');
+          }
+          
           throw new Error(errorData.error?.message || 'Failed to generate thumbnail. Please try again.');
         }
 
@@ -664,40 +732,48 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
           throw new Error(result.error?.message || 'Failed to generate thumbnail.');
         }
 
-      // Handle response
+        // Handle response
         let generatedThumbnails: GeneratedThumbnail[] = [];
         
         if (result.data.thumbnails) {
           generatedThumbnails = result.data.thumbnails.map((thumb: any, index: number) => ({
-          id: thumb.id ? thumb.id.toString() : `${Date.now()}-${index}`,
+            id: thumb.id ? thumb.id.toString() : `${Date.now()}-${index}`,
             prompt: prompt.trim(),
             imageUrl: thumb.thumbnailUrl,
             createdAt: new Date().toISOString(),
-          shareUrl: thumb.shareUrl,
+            shareUrl: thumb.shareUrl,
           }));
         } else if (result.data.thumbnailUrl) {
           generatedThumbnails = [{
-          id: result.data.id ? result.data.id.toString() : Date.now().toString(),
+            id: result.data.id ? result.data.id.toString() : Date.now().toString(),
             prompt: prompt.trim(),
             imageUrl: result.data.thumbnailUrl,
             createdAt: new Date().toISOString(),
-          shareUrl: result.data.shareUrl,
+            shareUrl: result.data.shareUrl,
           }];
         } else {
           throw new Error('No thumbnail URL found in response.');
         }
 
         setThumbnails(prev => [...generatedThumbnails, ...prev]);
-        
-      // Step 3: Increment quota after successful generation
-      await incrementQuota();
+        await incrementQuota();
+        setLoading(false);
+        return;
+      }
 
     } catch (err) {
+      console.error('[generateThumbnail] Error caught:', {
+        error: err,
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : undefined,
+        isSignedIn,
+        authMethod: localStorage.getItem('auth_method'),
+      });
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
-  }, [fetchQuota, incrementQuota, pollJobStatus]);
+  }, [isSignedIn, fetchQuota, incrementQuota, pollJobStatus]);
 
   // ---------------------------------------------------------------------------
   // Email Capture (for anonymous downloads)
@@ -767,9 +843,13 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     try {
       const downloadUrl = `${API_URL}/api/v1/thumbnails/${thumbnailId}/download`;
       
+      // Get auth headers for Clerk token
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(downloadUrl, {
         method: 'GET',
         credentials: 'include',
+        headers,
       });
       
       if (!response.ok) {
@@ -797,7 +877,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         URL.revokeObjectURL(url);
       }, 100);
     } catch (error) {
-      console.error('Download error:', error);
+      console.error('[downloadThumbnail] Error:', error);
       setError('Failed to download thumbnail. Please try right-clicking the image and saving it manually.');
     }
   }, [isSignedIn, userEmail, thumbnails]);
@@ -808,9 +888,13 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     try {
       const downloadUrl = `${API_URL}/api/v1/thumbnails/${thumbnailId}/download`;
       
+      // Get auth headers for Clerk token
+      const headers = await getAuthHeaders();
+      
       const response = await fetch(downloadUrl, {
         method: 'GET',
         credentials: 'include',
+        headers,
       });
       
       if (!response.ok) {
@@ -838,7 +922,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         URL.revokeObjectURL(url);
       }, 100);
     } catch (error) {
-      console.error('Download error:', error);
+      console.error('[forceDownload] Error:', error);
       setError('Failed to download thumbnail. Please try right-clicking the image and saving it manually.');
     }
   }, [thumbnails]);
@@ -858,38 +942,36 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       const limit = 20;
       const offset = page * limit;
       
-      const response = await fetch(
-        `${API_URL}/api/v1/users/me/thumbnails?limit=${limit}&offset=${offset}`,
-        { credentials: 'include' }
-      );
+      // Use axios api client which has auth interceptor for Clerk token
+      const response = await api.get(`/api/v1/users/me/thumbnails?limit=${limit}&offset=${offset}`);
+      const result = response.data;
       
-      if (response.status === 401) {
-        console.log('User not authenticated for gallery');
-        setGalleryLoading(false);
-        return;
-      }
-      
-      if (!response.ok) {
-        throw new Error('Failed to load gallery');
-      }
-      
-      const result = await response.json();
+      console.log('[loadGallery] Response:', result);
       
       if (result.success && result.data) {
+        // Gallery endpoint returns "thumbnails" array
+        const thumbnails = result.data.thumbnails || [];
+        console.log('[loadGallery] Thumbnails count:', thumbnails.length);
+        
         if (page === 0) {
-          setGallery(result.data.thumbnails);
+          setGallery(thumbnails);
         } else {
-          setGallery(prev => [...prev, ...result.data.thumbnails]);
+          setGallery(prev => [...prev, ...thumbnails]);
         }
         
         // Update quota from gallery response
         if (result.data.quotaInfo) {
           setQuotaInfo(result.data.quotaInfo);
         }
+      } else {
+        console.warn('[loadGallery] Unexpected response:', result);
       }
-    } catch (err) {
-      console.error('Error loading gallery:', err);
-      setError('Failed to load your thumbnail gallery.');
+    } catch (err: any) {
+      console.error('[loadGallery] Error:', err);
+      // Don't show error for 401 - user might just need to re-login
+      if (err.response?.status !== 401) {
+        setError('Failed to load your thumbnail gallery.');
+      }
     } finally {
       setGalleryLoading(false);
     }
@@ -901,23 +983,14 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     }
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/users/me/thumbnails/${thumbnailId}`,
-        { 
-          method: 'DELETE',
-          credentials: 'include' 
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete thumbnail');
-      }
+      // Use axios api client which has auth interceptor for Clerk token
+      await api.delete(`/api/v1/users/me/thumbnails/${thumbnailId}`);
       
       // Remove from local state
       setGallery(prev => prev.filter(t => t.id !== thumbnailId));
       setThumbnails(prev => prev.filter(t => t.id !== thumbnailId.toString()));
     } catch (err) {
-      console.error('Error deleting thumbnail:', err);
+      console.error('[deleteFromGallery] Error:', err);
       setError('Failed to delete thumbnail.');
     }
   }, [isSignedIn]);

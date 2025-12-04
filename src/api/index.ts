@@ -5,7 +5,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true
+  withCredentials: true,
+  timeout: 120000, // 2 minutes timeout for long operations like image generation
 });
 
 api.interceptors.request.use(
