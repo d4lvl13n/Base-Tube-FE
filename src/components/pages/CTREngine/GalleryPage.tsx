@@ -202,20 +202,20 @@ const GalleryPage: React.FC = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className={`${cardStyles.base} rounded-xl p-4`}
+          className={`${cardStyles.base} rounded-xl p-3 sm:p-4`}
         >
-          <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
             {/* Search - Full width on mobile */}
             <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search thumbnails by prompt..."
-                className="w-full pl-10 pr-10 py-3 bg-black/40 border border-gray-800/50 rounded-xl text-white 
+                placeholder="Search thumbnails..."
+                className="w-full pl-9 sm:pl-10 pr-9 sm:pr-10 py-2.5 sm:py-3 bg-black/40 border border-gray-800/50 rounded-xl text-white text-sm sm:text-base
                         placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 
-                        focus:border-[#fa7517]/50 transition-all text-sm"
+                        focus:border-[#fa7517]/50 transition-all min-h-[44px] sm:min-h-0"
             />
               {searchQuery && (
                 <button
@@ -228,61 +228,61 @@ const GalleryPage: React.FC = () => {
           </div>
 
             {/* Controls Row */}
-            <div className="flex items-center gap-3 flex-wrap lg:flex-nowrap">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap lg:flex-nowrap">
               {/* Sort Pills */}
-              <div className="flex items-center gap-1 p-1 bg-black/40 border border-gray-800/50 rounded-xl">
-                <span className="px-2 text-xs text-gray-500 hidden sm:inline">
+              <div className="flex items-center gap-1 p-0.5 sm:p-1 bg-black/40 border border-gray-800/50 rounded-xl">
+                <span className="px-1.5 sm:px-2 text-xs text-gray-500 hidden sm:inline">
                   <ArrowUpDown className="w-3.5 h-3.5" />
                 </span>
                 <button
                   onClick={() => setSortBy('newest')}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-medium transition-all min-h-[40px] sm:min-h-0 ${
                     sortBy === 'newest' 
                       ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/20' 
                       : 'text-gray-400 hover:text-white hover:bg-white/10'
                   }`}
                 >
-                  <ArrowDown className="w-3 h-3" />
-                  Newest
+                  <ArrowDown className="w-3 h-3 flex-shrink-0" />
+                  <span className="hidden xs:inline">Newest</span>
                 </button>
                 <button
                   onClick={() => setSortBy('oldest')}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-medium transition-all min-h-[40px] sm:min-h-0 ${
                     sortBy === 'oldest' 
                       ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/20' 
                       : 'text-gray-400 hover:text-white hover:bg-white/10'
                   }`}
                 >
-                  <ArrowUp className="w-3 h-3" />
-                  Oldest
+                  <ArrowUp className="w-3 h-3 flex-shrink-0" />
+                  <span className="hidden xs:inline">Oldest</span>
                 </button>
               </div>
 
               {/* Divider */}
-              <div className="w-px h-8 bg-gray-800/50 hidden lg:block" />
+              <div className="w-px h-6 sm:h-8 bg-gray-800/50 hidden lg:block" />
 
           {/* View Mode Toggle */}
-              <div className="flex items-center gap-1 p-1 bg-black/40 border border-gray-800/50 rounded-xl">
+              <div className="flex items-center gap-1 p-0.5 sm:p-1 bg-black/40 border border-gray-800/50 rounded-xl">
             <button
               onClick={() => setViewMode('grid')}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-medium transition-all min-h-[40px] sm:min-h-0 ${
                 viewMode === 'grid' 
                       ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/20' 
                   : 'text-gray-400 hover:text-white hover:bg-white/10'
               }`}
             >
-                  <Grid className="w-3.5 h-3.5" />
+                  <Grid className="w-3.5 h-3.5 flex-shrink-0" />
                   <span className="hidden sm:inline">Grid</span>
             </button>
             <button
               onClick={() => setViewMode('list')}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-medium transition-all min-h-[40px] sm:min-h-0 ${
                 viewMode === 'list' 
                       ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/20' 
                   : 'text-gray-400 hover:text-white hover:bg-white/10'
               }`}
             >
-                  <List className="w-3.5 h-3.5" />
+                  <List className="w-3.5 h-3.5 flex-shrink-0" />
                   <span className="hidden sm:inline">List</span>
             </button>
               </div>
@@ -375,8 +375,8 @@ const GalleryPage: React.FC = () => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
           className={viewMode === 'grid' 
-            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
-            : 'space-y-4'
+            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5'
+            : 'space-y-3 sm:space-y-4'
           }
         >
           {filteredThumbnails.map((thumbnail, index) => (
@@ -392,7 +392,7 @@ const GalleryPage: React.FC = () => {
             >
               {/* Thumbnail Image */}
               <div className={`relative overflow-hidden ${
-                viewMode === 'list' ? 'w-48 flex-shrink-0' : 'aspect-video'
+                viewMode === 'list' ? 'w-32 sm:w-48 flex-shrink-0' : 'aspect-video'
               }`}>
                 <img
                   src={thumbnail.thumbnailUrl}
@@ -403,13 +403,13 @@ const GalleryPage: React.FC = () => {
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 
-                {/* Hover Actions */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
+                {/* Hover Actions - Show on mobile too */}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={(e) => handleDownload(thumbnail, e)}
-                    className="p-2.5 bg-white/20 text-white rounded-xl shadow-lg backdrop-blur-sm border border-white/20"
+                    className="p-2 sm:p-2.5 bg-white/20 text-white rounded-xl shadow-lg backdrop-blur-sm border border-white/20 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                     title="Download"
                   >
                     <Download className="w-4 h-4" />
@@ -418,7 +418,7 @@ const GalleryPage: React.FC = () => {
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={(e) => handleShare(thumbnail, e)}
-                    className="p-2.5 bg-white/20 text-white rounded-xl shadow-lg backdrop-blur-sm border border-white/20"
+                    className="p-2 sm:p-2.5 bg-white/20 text-white rounded-xl shadow-lg backdrop-blur-sm border border-white/20 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                     title="Share"
                   >
                     <Share2 className="w-4 h-4" />
@@ -426,7 +426,7 @@ const GalleryPage: React.FC = () => {
                   <Link
                     to={`/ai-thumbnails/audit?url=${encodeURIComponent(thumbnail.thumbnailUrl)}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="p-2.5 bg-white/20 text-white rounded-xl shadow-lg backdrop-blur-sm border border-white/20 hover:bg-white/30 transition-colors"
+                    className="p-2 sm:p-2.5 bg-white/20 text-white rounded-xl shadow-lg backdrop-blur-sm border border-white/20 hover:bg-white/30 transition-colors min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                     title="Audit this thumbnail"
                   >
                     <BarChart2 className="w-4 h-4" />
@@ -436,7 +436,7 @@ const GalleryPage: React.FC = () => {
                     whileTap={{ scale: 0.9 }}
                     onClick={(e) => handleDelete(thumbnail.id, e)}
                     disabled={deletingId === thumbnail.id}
-                    className="p-2.5 bg-red-500/20 text-red-400 rounded-xl shadow-lg backdrop-blur-sm border border-red-500/20 hover:bg-red-500/30 disabled:opacity-50"
+                    className="p-2 sm:p-2.5 bg-red-500/20 text-red-400 rounded-xl shadow-lg backdrop-blur-sm border border-red-500/20 hover:bg-red-500/30 disabled:opacity-50 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                     title="Delete"
                   >
                     {deletingId === thumbnail.id ? (

@@ -2,7 +2,7 @@
 // Header for AI Thumbnails - Identical to Header.tsx but without search bar
 
 import React, { useState } from 'react';
-import { Layout, LayoutDashboard, UserCircle, LogIn, Wallet, Palette, Shield } from 'lucide-react';
+import { Layout, LayoutDashboard, UserCircle, LogIn, Wallet, Palette, Shield, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../../../common/Button';
 import { Link } from 'react-router-dom';
@@ -177,14 +177,31 @@ const AIThumbnailsHeader: React.FC<AIThumbnailsHeaderProps> = ({
     <div className={`max-w-[1920px] mx-auto ${className}`}>
       <div className="flex items-center justify-between h-16 relative">
         {/* Left Section */}
-        <div className="flex items-center gap-4 shrink-0">
-          {/* Sidebar Toggle Button */}
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          {/* Mobile Hamburger Menu Button */}
+          {onToggleMobileMenu && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleMobileMenu}
+              className="md:hidden text-white/80 hover:text-white hover:bg-white/5 p-2"
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
+            </Button>
+          )}
+
+          {/* Desktop Sidebar Toggle Button */}
           {onNavToggle && (
             <Button
               variant="ghost"
               size="sm"
               onClick={onNavToggle}
-              className="hover:rotate-180 transition-transform duration-300 text-white/80 hover:text-white hover:bg-white/5"
+              className="hidden md:flex hover:rotate-180 transition-transform duration-300 text-white/80 hover:text-white hover:bg-white/5"
             >
               {isNavOpen ? (
                 <LayoutDashboard className="w-5 h-5" />

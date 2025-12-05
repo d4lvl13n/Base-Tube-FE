@@ -240,38 +240,40 @@ const GeneratePage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto w-full">
         {/* Mode Toggle */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          className="mb-4 sm:mb-6"
         >
-          <div className="flex gap-2 p-1.5 bg-black/50 rounded-xl border border-gray-800/30 backdrop-blur-sm w-fit">
+          <div className="flex gap-1.5 sm:gap-2 p-1 sm:p-1.5 bg-black/50 rounded-xl border border-gray-800/30 backdrop-blur-sm w-full sm:w-fit">
             <button
               onClick={() => setMode('creative')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 flex-1 sm:flex-none px-3 sm:px-5 py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 min-h-[44px] sm:min-h-0
                 ${mode === 'creative'
                   ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
             >
-              <Palette className="w-4 h-4" />
-              Free-form
+              <Palette className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">Free-form</span>
+              <span className="xs:hidden">Free</span>
             </button>
             <button
               onClick={() => setMode('ctr')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 flex-1 sm:flex-none px-3 sm:px-5 py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 min-h-[44px] sm:min-h-0
                 ${mode === 'ctr'
                   ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
             >
-              <Target className="w-4 h-4" />
-              CTR-Optimized
+              <Target className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden xs:inline">CTR-Optimized</span>
+              <span className="xs:hidden">CTR</span>
             </button>
           </div>
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-gray-500 px-1">
             {mode === 'creative' 
               ? 'Describe your thumbnail with a creative prompt'
               : 'Enter your video title for AI-optimized thumbnail concepts'}
@@ -282,7 +284,7 @@ const GeneratePage: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-black/50 border border-gray-800/30 rounded-2xl p-6 backdrop-blur-sm mb-8"
+          className="bg-black/50 border border-gray-800/30 rounded-2xl p-4 sm:p-6 backdrop-blur-sm mb-6 sm:mb-8"
         >
           <AnimatePresence mode="wait">
             {mode === 'creative' ? (
@@ -297,17 +299,17 @@ const GeneratePage: React.FC = () => {
                 onSubmit={handleCreativeGenerate}
               >
                 {/* Prompt Input */}
-                <div className="mb-6">
-                  <label className="block text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                    <Wand2 className="w-4 h-4 text-[#fa7517]" />
-                    Describe Your Thumbnail
+                <div className="mb-4 sm:mb-6">
+                  <label className="block text-sm font-semibold text-white mb-2 sm:mb-3 flex items-center gap-2">
+                    <Wand2 className="w-4 h-4 text-[#fa7517] flex-shrink-0" />
+                    <span className="text-xs sm:text-sm">Describe Your Thumbnail</span>
                   </label>
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder="A vibrant gaming thumbnail featuring a surprised face with glowing neon effects and bold 3D text..."
-                    rows={3}
-                    className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white 
+                    rows={4}
+                    className="w-full px-3 sm:px-4 py-3 sm:py-3.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm sm:text-base
                               placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 
                               focus:border-[#fa7517]/50 backdrop-blur-sm transition-all resize-none"
                     disabled={loading}
@@ -316,23 +318,23 @@ const GeneratePage: React.FC = () => {
                 </div>
 
                 {/* Example Prompts */}
-                <div className="mb-6 p-4 bg-black/40 border border-gray-800/50 rounded-xl">
-                  <p className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#fa7517]" />
+                <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-black/40 border border-gray-800/50 rounded-xl">
+                  <p className="text-xs sm:text-sm font-medium text-white mb-2 sm:mb-3 flex items-center gap-2">
+                    <Sparkles className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-[#fa7517] flex-shrink-0" />
                     Try an example
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                     {examplePrompts.map((example, i) => (
                       <button
                         key={i}
                         type="button"
                         onClick={() => setPrompt(example.text)}
-                        className="group flex items-center gap-2 px-3 py-2 bg-black/50 hover:bg-[#fa7517]/10 border border-gray-800/50 hover:border-[#fa7517]/30 rounded-lg transition-all"
+                        className="group flex items-center gap-2 px-3 py-2.5 sm:py-2 bg-black/50 hover:bg-[#fa7517]/10 border border-gray-800/50 hover:border-[#fa7517]/30 rounded-lg transition-all min-h-[44px] sm:min-h-0 text-left"
                       >
-                        <span className="px-1.5 py-0.5 bg-[#fa7517]/20 text-[#fa7517] text-[10px] font-semibold rounded">
+                        <span className="px-1.5 py-0.5 bg-[#fa7517]/20 text-[#fa7517] text-[10px] font-semibold rounded flex-shrink-0">
                           {example.category}
                         </span>
-                        <span className="text-xs text-gray-400 group-hover:text-white transition-colors truncate max-w-[180px]">
+                        <span className="text-xs text-gray-400 group-hover:text-white transition-colors truncate flex-1">
                           {example.text}
                         </span>
                       </button>
@@ -341,22 +343,22 @@ const GeneratePage: React.FC = () => {
                 </div>
 
                 {/* Style Presets */}
-                <div className="mb-6">
-                  <label className="block text-sm font-semibold text-white mb-3">Style</label>
-                  <div className="flex flex-wrap gap-2">
+                <div className="mb-4 sm:mb-6">
+                  <label className="block text-xs sm:text-sm font-semibold text-white mb-2 sm:mb-3">Style</label>
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
                     {stylePresets.map((style) => (
                       <button
                         key={style.id}
                         type="button"
                         onClick={() => setSelectedStyle(style.id)}
                         disabled={loading}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all
+                        className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all min-h-[44px] sm:min-h-0
                                   ${selectedStyle === style.id
                                     ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
                                     : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/10'
                                   }`}
                       >
-                        <span>{style.icon}</span>
+                        <span className="text-base sm:text-lg">{style.icon}</span>
                         <span>{style.label}</span>
                       </button>
                     ))}
@@ -447,8 +449,8 @@ const GeneratePage: React.FC = () => {
                   disabled={loading || !canGenerateCreative || !prompt.trim()}
                   whileHover={{ scale: canGenerateCreative && !loading && prompt.trim() ? 1.02 : 1 }}
                   whileTap={{ scale: canGenerateCreative && !loading && prompt.trim() ? 0.98 : 1 }}
-                  className={`relative w-full py-4 px-6 rounded-xl font-semibold text-white transition-all
-                             flex items-center justify-center gap-2 overflow-hidden
+                  className={`relative w-full py-4 sm:py-4 px-4 sm:px-6 rounded-xl font-semibold text-white transition-all
+                             flex items-center justify-center gap-2 overflow-hidden min-h-[52px] sm:min-h-[48px]
                              ${canGenerateCreative && !loading && prompt.trim()
                                ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 shadow-lg shadow-[#fa7517]/25 hover:shadow-[#fa7517]/40'
                                : 'bg-white/10 cursor-not-allowed text-gray-400'
@@ -456,20 +458,20 @@ const GeneratePage: React.FC = () => {
                 >
                   {loading ? (
                     <>
-                      <RefreshCw className="w-5 h-5 animate-spin" />
-                      <span>Creating {selectedVariations} thumbnail{selectedVariations > 1 ? 's' : ''}...</span>
+                      <RefreshCw className="w-5 h-5 animate-spin flex-shrink-0" />
+                      <span className="text-sm sm:text-base">Creating {selectedVariations} thumbnail{selectedVariations > 1 ? 's' : ''}...</span>
                     </>
                   ) : !canGenerateCreative ? (
                     <>
-                      <Clock className="w-5 h-5" />
-                      <span>Daily limit reached</span>
+                      <Clock className="w-5 h-5 flex-shrink-0" />
+                      <span className="text-sm sm:text-base">Daily limit reached</span>
                     </>
                   ) : !prompt.trim() ? (
-                    'Describe your thumbnail idea'
+                    <span className="text-sm sm:text-base">Describe your thumbnail idea</span>
                   ) : (
                     <>
-                      <Sparkles className="w-5 h-5" />
-                      <span>Create {selectedVariations} Thumbnail{selectedVariations > 1 ? 's' : ''}</span>
+                      <Sparkles className="w-5 h-5 flex-shrink-0" />
+                      <span className="text-sm sm:text-base">Create {selectedVariations} Thumbnail{selectedVariations > 1 ? 's' : ''}</span>
                     </>
                   )}
                 </motion.button>
@@ -552,8 +554,8 @@ const GeneratePage: React.FC = () => {
                 </div>
 
                 {/* Niche Selection */}
-                <div className="mb-5">
-                  <label className="block text-sm font-semibold text-white mb-3">Content Niche</label>
+                <div className="mb-4 sm:mb-5">
+                  <label className="block text-xs sm:text-sm font-semibold text-white mb-2 sm:mb-3">Content Niche</label>
                   <NicheSelector
                 niches={niches}
                     selectedNiche={selectedNiche}
@@ -564,8 +566,8 @@ const GeneratePage: React.FC = () => {
                 </div>
 
                 {/* Text Overlay */}
-                <div className="mb-5">
-                  <label className="block text-sm font-semibold text-white mb-2">
+                <div className="mb-4 sm:mb-5">
+                  <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
                     Text Overlay <span className="text-gray-500 font-normal">(optional)</span>
                   </label>
                   <input
@@ -573,9 +575,9 @@ const GeneratePage: React.FC = () => {
                     value={textOverlay}
                     onChange={(e) => setTextOverlay(e.target.value)}
                     placeholder="$10K IN 1 DAY"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white 
+                    className="w-full px-3 sm:px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm sm:text-base
                               placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 
-                              focus:border-[#fa7517]/50 backdrop-blur-sm transition-all"
+                              focus:border-[#fa7517]/50 backdrop-blur-sm transition-all min-h-[44px] sm:min-h-0"
                     disabled={ctrProgress.status === 'generating'}
                     maxLength={50}
                   />
@@ -586,11 +588,11 @@ const GeneratePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-4"
+                  className="flex items-center gap-2 text-xs sm:text-sm text-gray-400 hover:text-white transition-colors mb-3 sm:mb-4 min-h-[44px] sm:min-h-0"
                 >
-                  <Settings className="w-4 h-4" />
+                  <Settings className="w-4 h-4 flex-shrink-0" />
                   <span>Advanced Options</span>
-                  {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  {showAdvanced ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
                 </button>
 
                 {/* Advanced Options */}
@@ -605,17 +607,17 @@ const GeneratePage: React.FC = () => {
                       <div className="p-5 bg-black/40 border border-gray-800/50 rounded-xl space-y-5 mb-6">
                         {/* Number of Concepts */}
                         <div>
-                          <label className="block text-sm font-medium text-white mb-3">
+                          <label className="block text-xs sm:text-sm font-medium text-white mb-2 sm:mb-3">
                             Number of Concepts
                           </label>
-                          <div className="flex gap-2">
+                          <div className="grid grid-cols-5 gap-2">
                             {[1, 2, 3, 4, 5].map((num) => (
                               <button
                                 key={num}
                                 type="button"
                                 onClick={() => setConcepts(num)}
                                 disabled={ctrProgress.status === 'generating'}
-                                className={`flex-1 py-2.5 rounded-lg font-medium text-sm transition-all
+                                className={`py-2.5 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all min-h-[44px] sm:min-h-0
                                            ${concepts === num
                                              ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
                                              : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
@@ -630,8 +632,8 @@ const GeneratePage: React.FC = () => {
 
                         {/* Quality */}
                         <div>
-                          <label className="block text-sm font-medium text-white mb-3">Quality</label>
-                          <div className="flex gap-2">
+                          <label className="block text-xs sm:text-sm font-medium text-white mb-2 sm:mb-3">Quality</label>
+                          <div className="grid grid-cols-3 gap-2">
                             {[
                               { value: 'low', label: 'Draft' },
                               { value: 'medium', label: 'Standard' },
@@ -642,7 +644,7 @@ const GeneratePage: React.FC = () => {
                                 type="button"
                                 onClick={() => setQuality(opt.value as 'low' | 'medium' | 'high')}
                                 disabled={ctrProgress.status === 'generating'}
-                                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-all
+                                className={`py-2.5 sm:py-2.5 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-medium transition-all min-h-[44px] sm:min-h-0
                                            ${quality === opt.value
                                              ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
                                              : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
@@ -731,8 +733,8 @@ const GeneratePage: React.FC = () => {
                   disabled={ctrProgress.status === 'generating' || !canGenerateCTR}
                   whileHover={{ scale: canGenerateCTR && ctrProgress.status !== 'generating' ? 1.02 : 1 }}
                   whileTap={{ scale: canGenerateCTR && ctrProgress.status !== 'generating' ? 0.98 : 1 }}
-                  className={`relative w-full py-4 px-6 rounded-xl font-semibold text-white transition-all
-                             flex items-center justify-center gap-2 overflow-hidden
+                  className={`relative w-full py-4 sm:py-4 px-4 sm:px-6 rounded-xl font-semibold text-white transition-all
+                             flex items-center justify-center gap-2 overflow-hidden min-h-[52px] sm:min-h-[48px]
                              ${canGenerateCTR && ctrProgress.status !== 'generating'
                                ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 shadow-lg shadow-[#fa7517]/25 hover:shadow-[#fa7517]/40'
                                : 'bg-white/10 cursor-not-allowed text-gray-400'
@@ -740,11 +742,11 @@ const GeneratePage: React.FC = () => {
                 >
                   {ctrProgress.status === 'generating' ? (
                     <>
-                      <RefreshCw className="w-5 h-5 animate-spin" />
-                      <span>Generating...</span>
+                      <RefreshCw className="w-5 h-5 animate-spin flex-shrink-0" />
+                      <span className="text-sm sm:text-base">Generating...</span>
                     </>
                   ) : !ctrTitle.trim() ? (
-                    'Enter a title to generate'
+                    <span className="text-sm sm:text-base">Enter a title to generate</span>
                   ) : quota?.generate?.remaining === 0 ? (
                     'Generation quota exhausted'
                   ) : (

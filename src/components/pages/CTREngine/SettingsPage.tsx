@@ -111,9 +111,9 @@ const SettingsPage: React.FC = () => {
           )}
         </AnimatePresence>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 order-2 lg:order-1">
             <FaceReferenceUploader
               faceReference={faceReference}
               isLoading={isLoadingFaceReference}
@@ -124,7 +124,7 @@ const SettingsPage: React.FC = () => {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6 order-1 lg:order-2">
             {/* Quota Display */}
             {quota && (
               <motion.div

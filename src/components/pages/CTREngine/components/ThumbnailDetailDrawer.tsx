@@ -182,12 +182,12 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                 ease: "easeInOut"
               }
             }}
-            className="fixed right-0 top-0 h-full z-50 overflow-hidden"
+            className="fixed right-0 top-0 h-full z-50 overflow-hidden w-full sm:w-[600px]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Panel Container */}
             <motion.div
-              className="h-full w-[600px] bg-black/95 shadow-2xl"
+              className="h-full w-full sm:w-[600px] bg-black/95 shadow-2xl"
             >
               {/* Gradient Border */}
               <div className="absolute left-0 inset-y-0 w-[2px]">
@@ -217,17 +217,17 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                 className="h-full flex flex-col"
               >
                 {/* Header */}
-                <div className="p-4 border-b border-gray-800/30">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-xl flex items-center justify-center">
-                        <Sparkles className="w-5 h-5 text-white" />
+                <div className="p-3 sm:p-4 border-b border-gray-800/30">
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                       </div>
-                      <div>
-                        <h2 className="text-xl font-semibold tracking-tight text-white">Thumbnail Details</h2>
-                        <span className="text-sm text-gray-400 flex items-center gap-1 mt-0.5">
-                          <Calendar className="w-3 h-3" />
-                          {formatDate(thumbnail.createdAt)}
+                      <div className="min-w-0 flex-1">
+                        <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-white truncate">Thumbnail Details</h2>
+                        <span className="text-xs sm:text-sm text-gray-400 flex items-center gap-1 mt-0.5">
+                          <Calendar className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{formatDate(thumbnail.createdAt)}</span>
                         </span>
                       </div>
                     </div>
@@ -235,7 +235,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={onClose}
-                      className="p-2 hover:bg-gray-800/50 rounded-full transition-colors"
+                      className="p-2 hover:bg-gray-800/50 rounded-full transition-colors flex-shrink-0 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                     >
                       <X className="w-5 h-5 text-gray-400" />
                     </motion.button>
@@ -244,7 +244,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
 
                 {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto">
-                  <div className="p-4 space-y-4">
+                  <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
                     {/* Thumbnail Image */}
                     <div className="relative group">
                       <div className="absolute -inset-1 bg-gradient-to-r from-[#fa7517]/30 via-orange-400/30 to-[#fa7517]/30 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity" />
@@ -321,11 +321,11 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                 </div>
 
                 {/* Footer Actions */}
-                <div className="border-t border-gray-800/30 p-4 space-y-3">
+                <div className="border-t border-gray-800/30 p-3 sm:p-4 space-y-2 sm:space-y-3">
                   <Button
                     onClick={handleDownload}
                     disabled={downloadStatus === 'downloading'}
-                    className="w-full bg-gradient-to-r from-[#fa7517] to-orange-400 hover:from-[#fa7517]/90 hover:to-orange-400/90 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-[#fa7517]/50 transition-all duration-300 group"
+                    className="w-full bg-gradient-to-r from-[#fa7517] to-orange-400 hover:from-[#fa7517]/90 hover:to-orange-400/90 text-white py-3 sm:py-3 rounded-xl font-semibold shadow-lg hover:shadow-[#fa7517]/50 transition-all duration-300 group min-h-[52px] sm:min-h-[48px] text-sm sm:text-base"
                   >
                     {downloadStatus === 'downloading' ? (
                       <div className="flex items-center justify-center gap-2">
@@ -341,7 +341,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                       <div className="flex items-center justify-center gap-2">
                         <Download className="w-5 h-5" />
                         <span>Download HD</span>
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform hidden sm:block" />
                       </div>
                     )}
                   </Button>
@@ -350,7 +350,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                     onClick={handleShare}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 hover:shadow-purple-500/30 text-white"
+                    className="w-full py-3 sm:py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 hover:shadow-purple-500/30 text-white min-h-[52px] sm:min-h-[48px] text-sm sm:text-base"
                   >
                     <Share2 className="w-4 h-4" />
                     <span>Share</span>

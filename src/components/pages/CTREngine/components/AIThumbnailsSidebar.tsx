@@ -4,9 +4,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useUser } from '@clerk/clerk-react';
-import { useAuth } from '../../../../contexts/AuthContext';
-import { AuthMethod } from '../../../../types/auth';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { useAuth as useWeb3Auth } from '../../../../contexts/AuthContext';
 import { 
   BarChart2, 
   Lock, 
@@ -25,6 +24,7 @@ export interface AIThumbnailsSidebarProps {
   items?: AIThumbnailsNavItem[];
   isCollapsed?: boolean;
   onToggle?: () => void;
+  onLinkClick?: () => void; // Callback when a link is clicked (for mobile menu)
 }
 
 const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
@@ -34,18 +34,14 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
   items = AI_THUMBNAILS_NAV_ITEMS,
   isCollapsed = false,
   onToggle,
+  onLinkClick,
 }) => {
   const location = useLocation();
-  const { isSignedIn, isLoaded: isClerkLoaded } = useUser();
-  const { isAuthenticated: isWeb3Authenticated } = useAuth();
   
-  // Determine auth method and check both Clerk and Web3 auth
-  const authMethod = typeof window !== 'undefined' 
-    ? localStorage.getItem('auth_method') as AuthMethod 
-    : null;
-  const isSignedInAny = authMethod === AuthMethod.WEB3 
-    ? isWeb3Authenticated 
-    : (isClerkLoaded && isSignedIn);
+  // Unified auth check - same pattern as useRequireAuth and useTokenGate
+  const { isSignedIn } = useClerkAuth();
+  const { isAuthenticated: isWeb3Authenticated } = useWeb3Auth();
+  const isSignedInAny = isSignedIn || isWeb3Authenticated;
 
   // Quota calculations
   const auditProgress = quota?.audit ? (quota.audit.used / quota.audit.limit) * 100 : 0;
@@ -90,6 +86,9 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
                 onClick={(e) => {
                   if (isDisabled) {
                     e.preventDefault();
+                  } else if (onLinkClick) {
+                    // Close mobile menu when clicking a link
+                    onLinkClick();
                   }
                 }}
                 className={`
