@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useCryptoDirectBuy, useCryptoCheckout } from '../../hooks/useOnchainPass';
 import { onchainPassApi } from '../../api/onchainPass';
 import { Wallet } from 'lucide-react';
+import TestnetModeBadge from './TestnetModeBadge';
 
 interface PassActionButtonProps {
   pass: {
@@ -139,6 +140,10 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
             minted_count={pass.minted_count || 0} 
           />
         )}
+      </div>
+
+      <div className="flex justify-end">
+        <TestnetModeBadge />
       </div>
       
       <UnlockButton 

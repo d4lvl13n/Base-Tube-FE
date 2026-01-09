@@ -8,6 +8,7 @@ import { LockIcon, TrendingUp, Award, Clock, Star, Shield, PlayCircle, ShoppingB
 import PremiumHeader from '../components/pass/PremiumHeader';
 import StickyPassHeader from '../components/pass/StickyPassHeader';
 import PassActionButton from '../components/pass/PassActionButton';
+import TestnetModeBadge from '../components/pass/TestnetModeBadge';
 
 // Animation constants
 const ANIMATIONS = {
@@ -335,6 +336,10 @@ const PassDetailsPage: React.FC = () => {
                 
                 <div className="relative bg-black/60 backdrop-blur-md rounded-xl p-6 border border-white/10 space-y-4 shadow-xl z-10 overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-pink-500/5" />
+
+                  <div className="absolute top-4 right-4">
+                    <TestnetModeBadge />
+                  </div>
                   
                   <div className="flex items-center gap-2">
                     <Star className="w-5 h-5 text-orange-400" />

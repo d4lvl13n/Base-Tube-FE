@@ -21,6 +21,7 @@ import { useCreatePass } from '../../../../hooks/usePass';
 import * as S from './styles';
 import { FormData, transformFormToApiFormat } from './types';
 import { useYouTubeAuth } from '../../../../hooks/useYouTubeAuth';
+import TestnetModeBadge from '../../../pass/TestnetModeBadge';
 
 // Import step components
 import StepBasic from './steps/StepBasic';
@@ -419,6 +420,9 @@ const CreateContentPass: React.FC = () => {
               <S.SubTitle>
             Monetize your exclusive content by creating a premium pass
               </S.SubTitle>
+              <div className="mt-4 flex justify-center">
+                <TestnetModeBadge />
+              </div>
             </S.PageHeader>
             
         <div className="mb-12">
