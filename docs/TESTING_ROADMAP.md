@@ -8,12 +8,15 @@
 
 ### Testing Stack
 
-| Tool | Purpose |
-|------|---------|
-| **Vitest** | Unit & Integration tests (fast, ESM-native) |
-| **MSW** | API mocking (intercepts fetch/axios) |
-| **React Testing Library** | Component behavior testing |
-| **Playwright** | End-to-end browser tests |
+| Tool | Purpose | Status |
+|------|---------|--------|
+| **Jest** | Unit & Integration tests (CRA default) | ✅ Configured |
+| **MSW** | API mocking (handlers ready) | ⚠️ Node 18+ compatibility issues |
+| **React Testing Library** | Component behavior testing | ✅ Available |
+| **Playwright** | End-to-end browser tests | 📋 Planned |
+
+> **Note**: MSW v2 has compatibility issues with Jest in Node 18+ (TransformStream polyfill).
+> For now, unit tests use `jest.mock()`. MSW handlers are ready for browser/Playwright tests.
 
 ### Priority Levels
 

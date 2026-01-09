@@ -315,7 +315,8 @@ export const useCTREngine = (): UseCTREngineReturn => {
   
   const auditByYouTube = useCallback(async (
     youtubeUrl: string,
-    includePersonas: boolean = false
+    includePersonas: boolean = false,
+    context?: AuditContext
   ) => {
     clearError();
     setAuditProgress({ status: 'auditing', includesPersonas: includePersonas });
@@ -325,7 +326,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
     const startTime = Date.now();
     
     try {
-      const result = await ctrApi.auditYouTubeThumbnail(youtubeUrl, includePersonas);
+      const result = await ctrApi.auditYouTubeThumbnail(youtubeUrl, includePersonas, context);
       
       setAuditResult(result.audit);
       setAuditId(result.auditId);  // Store the persisted audit ID

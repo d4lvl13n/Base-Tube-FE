@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
+  X,
   Lightbulb,
   Target,
   CheckCircle2,
-  ChevronUp,
+  HelpCircle,
   Brain,
   ScanFace,
-  Layers
+  Layers,
+  Palette
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
@@ -20,6 +22,24 @@ interface HelpContent {
 }
 
 const HELP_CONTENT: Record<string, HelpContent> = {
+  '/ai-thumbnails/creative': {
+    title: 'Creative Studio',
+    icon: Palette,
+    description:
+      'Free-form thumbnail generation for exploration. Use this when you want to iterate visually without strict CTR constraints.',
+    features: [
+      'Prompt-based creative generation',
+      'Fast iteration for style discovery',
+      'Export-ready thumbnails',
+      'Pairs well with Audit → Optimize flow',
+    ],
+    tips: [
+      'Describe the emotion + focal subject first (e.g. “shocked face + huge red arrow”).',
+      'Keep on-image text under 5 words for mobile.',
+      'After you like a concept, run an Audit to identify quick CTR upgrades.',
+      'Save variants you like, then A/B test on your next uploads.',
+    ],
+  },
   '/ai-thumbnails/generate': {
     title: 'Generation Protocols',
     icon: Brain,
@@ -75,79 +95,127 @@ const HELP_CONTENT: Record<string, HelpContent> = {
 
 const HelpCard: React.FC = () => {
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  
-  let helpContent = HELP_CONTENT[location.pathname];
-  
-  if (!helpContent) {
-    const matchingKey = Object.keys(HELP_CONTENT).find(key => 
+  const [isOpen, setIsOpen] = useState(false);
+
+  const helpContent = useMemo(() => {
+    const direct = HELP_CONTENT[location.pathname];
+    if (direct) return direct;
+    const matchingKey = Object.keys(HELP_CONTENT).find((key) =>
       location.pathname.startsWith(key)
     );
-    if (matchingKey) {
-      helpContent = HELP_CONTENT[matchingKey];
-    }
-  }
+    return matchingKey ? HELP_CONTENT[matchingKey] : null;
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen]);
+
+  useEffect(() => {
+    // Close when navigating to a different screen
+    setIsOpen(false);
+  }, [location.pathname]);
 
   if (!helpContent) return null;
 
   const Icon = helpContent.icon;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ width: isCollapsed ? 'auto' : 340, opacity: 1, x: 0 }}
-      className="flex-shrink-0 h-fit hidden xl:block" // Hidden on smaller screens to save space
-    >
-      <div className={`sticky top-24 bg-[#0c0c0e]/80 border border-gray-800/50 rounded-2xl backdrop-blur-xl overflow-hidden transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-[340px]'}`}
-        style={{
-          boxShadow: `
-            0 0 0 1px rgba(255,255,255,0.05),
-            0 4px 20px rgba(0,0,0,0.5)
-          `
-        }}
-      >
-        {/* Header */}
-        <div 
-          className={`flex items-center ${isCollapsed ? 'justify-center p-3' : 'justify-between p-5'} border-b border-gray-800/50 bg-white/[0.02] cursor-pointer`}
-          onClick={() => setIsCollapsed(!isCollapsed)}
+    <>
+      {/* Floating button */}
+      <div className="fixed bottom-6 right-6 z-[70]">
+        <motion.button
+          type="button"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setIsOpen(true)}
+          aria-label="Open help"
+          className="relative w-14 h-14 rounded-2xl bg-black/80 border border-gray-800/60 backdrop-blur-xl flex items-center justify-center"
+          style={{
+            boxShadow: `
+              0 0 0 1px rgba(255,255,255,0.06),
+              0 12px 30px rgba(0,0,0,0.55),
+              0 0 28px rgba(250,117,23,0.18)
+            `,
+          }}
         >
-          {!isCollapsed && (
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#fa7517]/10 border border-[#fa7517]/20 flex items-center justify-center">
-                <Icon className="w-4 h-4 text-[#fa7517]" />
-              </div>
-              <h3 className="text-sm font-bold text-white tracking-wide uppercase">{helpContent.title}</h3>
-            </div>
-          )}
-          <button
-            className={`text-gray-500 hover:text-white transition-colors ${isCollapsed ? 'w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl' : ''}`}
-          >
-            {isCollapsed ? <Icon className="w-5 h-5 text-[#fa7517]" /> : <ChevronUp className="w-4 h-4" />}
-          </button>
-        </div>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517]/25 to-orange-400/10 rounded-2xl blur opacity-70" />
+          <div className="relative">
+            <Icon className="w-6 h-6 text-[#fa7517]" />
+          </div>
+        </motion.button>
+      </div>
 
-        {/* Content */}
-        <AnimatePresence initial={false}>
-          {!isCollapsed && (
+      {/* Overlay panel */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            className="fixed inset-0 z-[80]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* Click-away backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setIsOpen(false)}
+            />
+
+            {/* Panel */}
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-              className="overflow-hidden"
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="absolute bottom-6 right-6 w-[360px] max-w-[calc(100vw-3rem)] rounded-2xl overflow-hidden bg-[#0c0c0e]/90 border border-gray-800/60 backdrop-blur-2xl"
+              style={{
+                boxShadow: `
+                  0 0 0 1px rgba(255,255,255,0.06),
+                  0 18px 60px rgba(0,0,0,0.65),
+                  0 0 34px rgba(250,117,23,0.12)
+                `,
+              }}
             >
-              <div className="p-5 space-y-6">
-                
-                {/* Description */}
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800/60 bg-white/[0.02]">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#fa7517]/10 border border-[#fa7517]/20 flex items-center justify-center">
+                    <Icon className="w-4 h-4 text-[#fa7517]" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wider text-gray-500">Helper</p>
+                    <h3 className="text-sm font-bold text-white tracking-wide truncate">
+                      {helpContent.title}
+                    </h3>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  aria-label="Close help"
+                  className="w-9 h-9 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white transition-colors flex items-center justify-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 space-y-6 max-h-[70vh] overflow-auto">
                 <p className="text-sm text-gray-400 leading-relaxed font-medium">
                   {helpContent.description}
                 </p>
 
-                {/* System Capabilities (Features) */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <Target className="w-3.5 h-3.5 text-[#fa7517]" />
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">System Capabilities</h4>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      System Capabilities
+                    </h4>
                   </div>
                   <ul className="space-y-2.5">
                     {helpContent.features.map((feature, index) => (
@@ -159,11 +227,12 @@ const HelpCard: React.FC = () => {
                   </ul>
                 </div>
 
-                {/* Optimization Vector (Tips) */}
                 <div className="bg-[#fa7517]/5 rounded-xl p-4 border border-[#fa7517]/10">
                   <div className="flex items-center gap-2 mb-3">
                     <Lightbulb className="w-3.5 h-3.5 text-[#fa7517]" />
-                    <h4 className="text-xs font-bold text-[#fa7517] uppercase tracking-wider">Optimization Vector</h4>
+                    <h4 className="text-xs font-bold text-[#fa7517] uppercase tracking-wider">
+                      Optimization Vector
+                    </h4>
                   </div>
                   <ul className="space-y-3">
                     {helpContent.tips.map((tip, index) => (
@@ -175,12 +244,18 @@ const HelpCard: React.FC = () => {
                   </ul>
                 </div>
 
+                <div className="pt-2">
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>Tip: press Esc to close</span>
+                  </div>
+                </div>
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

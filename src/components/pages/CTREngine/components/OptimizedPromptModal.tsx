@@ -100,7 +100,7 @@ export const OptimizedPromptModal: React.FC<OptimizedPromptModalProps> = ({
       
       const result = await ctrApi.generateThumbnails({
         title: videoTitle || 'Optimized Thumbnail',
-        description: promptToUse,  // Use the optimized prompt as description
+        prompt: promptToUse,  // Use the optimized prompt
         niche: 'auto',  // Let AI detect the niche
         concepts: 2,  // Generate 2 concepts
         quality: 'high',

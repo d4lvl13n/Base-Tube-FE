@@ -107,12 +107,12 @@ export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
                 {children}
               </div>
             </main>
-
-            {/* Help Card - Right side (hidden on mobile, shown on xl+) */}
-            <HelpCard />
           </div>
         </div>
       </div>
+
+      {/* Floating helper (does not affect layout flow) */}
+      <HelpCard />
     </div>
   );
 };

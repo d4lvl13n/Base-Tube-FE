@@ -2,7 +2,7 @@
 // Unified Thumbnail Generation Page - Combines Free-form and CTR-Optimized modes
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, 
@@ -37,6 +37,7 @@ type GenerationMode = 'creative' | 'ctr';
 
 const GeneratePage: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   
   // Get both CTR engine and public generator hooks
   const {
@@ -45,9 +46,9 @@ const GeneratePage: React.FC = () => {
     error: ctrError, 
     clearError: clearCtrError,
     generateThumbnails: generateCTR,
-    generatedConcepts,
-    detectedNiche,
-    generationTime: ctrGenerationTime,
+    generatedConcepts: hookGeneratedConcepts,
+    detectedNiche: hookDetectedNiche,
+    generationTime: hookGenerationTime,
     generationProgress: ctrProgress,
     clearGeneratedConcepts,
     niches,
@@ -55,6 +56,18 @@ const GeneratePage: React.FC = () => {
     faceReference,
     isAuthenticated,
   } = useCTREngine();
+
+  // Use concepts from navigation state if available (from "Generate Better Thumbnail" flow)
+  const navigationState = location.state as {
+    generatedConcepts?: any[];
+    detectedNiche?: string;
+    generationTime?: number;
+    optimizedPrompt?: any;
+  } | null;
+  
+  const generatedConcepts = navigationState?.generatedConcepts || hookGeneratedConcepts;
+  const detectedNiche = navigationState?.detectedNiche || hookDetectedNiche;
+  const ctrGenerationTime = navigationState?.generationTime || hookGenerationTime;
 
   const {
     generateThumbnail,

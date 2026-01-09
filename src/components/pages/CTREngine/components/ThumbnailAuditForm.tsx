@@ -9,10 +9,38 @@ import { AuditContext, AuditProgress } from '../../../../types/ctr';
 
 type InputMode = 'url' | 'upload' | 'youtube';
 
+const COMMON_NICHES: string[] = [
+  'Gaming',
+  'Tech',
+  'AI',
+  'Finance',
+  'Crypto',
+  'Business',
+  'Entrepreneurship',
+  'Education',
+  'Science',
+  'Productivity',
+  'Fitness',
+  'Health',
+  'Cooking',
+  'Travel',
+  'Beauty',
+  'Fashion',
+  'Music',
+  'Sports',
+  'Comedy',
+  'Vlogs',
+  'Podcast',
+  'Cars',
+  'Real Estate',
+  'News',
+  'Politics',
+];
+
 interface ThumbnailAuditFormProps {
   onAuditByUrl: (url: string, includePersonas: boolean, context?: AuditContext) => Promise<void>;
   onAuditByFile: (file: File, includePersonas: boolean, context?: AuditContext) => Promise<void>;
-  onAuditByYouTube: (url: string, includePersonas: boolean) => Promise<void>;
+  onAuditByYouTube: (url: string, includePersonas: boolean, context?: AuditContext) => Promise<void>;
   auditProgress: AuditProgress;
   quotaRemaining?: number;
   isAnonymous?: boolean;
@@ -34,12 +62,19 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
   const [includePersonas, setIncludePersonas] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [context, setContext] = useState<AuditContext>({});
+  const [nicheMode, setNicheMode] = useState<'preset' | 'custom'>(() => {
+    const initial = (context.niche || '').trim();
+    if (!initial) return 'preset';
+    return COMMON_NICHES.includes(initial) ? 'preset' : 'custom';
+  });
+  const [customNiche, setCustomNiche] = useState<string>(() => (context.niche || '').trim());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLoading = auditProgress.status === 'auditing';
   const canSubmit = quotaRemaining === undefined || quotaRemaining > 0;
+  const hasRequiredContext =
+    Boolean(context.title?.trim()) && Boolean(context.niche?.trim());
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -63,16 +98,17 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || isLoading) return;
+    if (!hasRequiredContext) return;
 
     if (inputMode === 'url' && imageUrl) {
-      await onAuditByUrl(imageUrl, includePersonas, showAdvanced ? context : undefined);
+      await onAuditByUrl(imageUrl, includePersonas, context);
     } else if (inputMode === 'upload' && selectedFile) {
-      await onAuditByFile(selectedFile, includePersonas, showAdvanced ? context : undefined);
+      await onAuditByFile(selectedFile, includePersonas, context);
     } else if (inputMode === 'youtube' && youtubeUrl) {
       if (!isValidYouTubeUrl(youtubeUrl)) {
         return;
       }
-      await onAuditByYouTube(youtubeUrl, includePersonas);
+      await onAuditByYouTube(youtubeUrl, includePersonas, context);
     }
   };
 
@@ -241,6 +277,122 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
         )}
       </AnimatePresence>
 
+      {/* Required Context (always-on) */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="mt-6 p-4 bg-black/40 border border-gray-800/50 rounded-xl backdrop-blur-sm"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-sm font-semibold text-white">Video context</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Required for accurate CTR analysis (title + niche).
+            </p>
+          </div>
+          <div className={`text-xs font-semibold px-3 py-1 rounded-lg border ${
+            hasRequiredContext
+              ? 'bg-[#fa7517]/10 text-[#fa7517] border-[#fa7517]/20'
+              : 'bg-white/5 text-gray-400 border-white/10'
+          }`}>
+            {hasRequiredContext ? 'Ready' : 'Missing fields'}
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className="relative">
+            <input
+              type="text"
+              value={context.title || ''}
+              onChange={(e) => setContext({ ...context, title: e.target.value })}
+              placeholder="Video title *"
+              className="w-full px-4 py-2.5 pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
+                        text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50"
+              disabled={isLoading}
+              required
+            />
+            <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          </div>
+
+          <div className="relative">
+            {nicheMode === 'preset' ? (
+              <select
+                value={COMMON_NICHES.includes((context.niche || '').trim()) ? (context.niche || '') : ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '__custom__') {
+                    setNicheMode('custom');
+                    const current = (context.niche || '').trim();
+                    setCustomNiche(current && !COMMON_NICHES.includes(current) ? current : '');
+                    setContext({ ...context, niche: '' });
+                  } else {
+                    setContext({ ...context, niche: value });
+                  }
+                }}
+                className="w-full px-4 py-2.5 pl-10 pr-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
+                          text-sm focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 appearance-none"
+                disabled={isLoading}
+                required
+              >
+                <option value="" disabled>
+                  Select niche *
+                </option>
+                {COMMON_NICHES.map((niche) => (
+                  <option key={niche} value={niche}>
+                    {niche}
+                  </option>
+                ))}
+                <option value="__custom__">Custom…</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customNiche}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCustomNiche(value);
+                    setContext({ ...context, niche: value });
+                  }}
+                  placeholder="Custom niche * (e.g., Thumbnail Design)"
+                  className="flex-1 px-4 py-2.5 pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
+                            text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50"
+                  disabled={isLoading}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNicheMode('preset');
+                    setCustomNiche('');
+                    setContext({ ...context, niche: '' });
+                  }}
+                  className="px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-sm"
+                  disabled={isLoading}
+                  aria-label="Back to niche list"
+                >
+                  List
+                </button>
+              </div>
+            )}
+            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            {nicheMode === 'preset' && (
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
+                <ChevronRight className="w-4 h-4 rotate-90" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {!hasRequiredContext && (
+          <p className="mt-3 text-xs text-[#fa7517] flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5" />
+            Please provide a video title and niche to run the audit.
+          </p>
+        )}
+      </motion.div>
+
       {/* Persona Toggle - Dark Card */}
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
@@ -289,73 +441,21 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
         )}
       </motion.div>
 
-      {/* Advanced Context (collapsible) */}
-      {inputMode !== 'youtube' && (
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group"
-          >
-            <ChevronRight className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
-            <span>Add context for better analysis</span>
-          </button>
-          
-          <AnimatePresence>
-            {showAdvanced && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="pt-4 space-y-3">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={context.title || ''}
-                      onChange={(e) => setContext({ ...context, title: e.target.value })}
-                      placeholder="Video title (optional)"
-                      className="w-full px-4 py-2.5 pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
-                                text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50"
-                      disabled={isLoading}
-                    />
-                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={context.niche || ''}
-                      onChange={(e) => setContext({ ...context, niche: e.target.value })}
-                      placeholder="Niche (e.g., Gaming, Tech, Finance)"
-                      className="w-full px-4 py-2.5 pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
-                                text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50"
-                      disabled={isLoading}
-                    />
-                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
       {/* Submit Button - Premium Gradient */}
       <motion.button
         type="submit"
-        disabled={isLoading || !canSubmit}
-        whileHover={{ scale: canSubmit && !isLoading ? 1.02 : 1 }}
-        whileTap={{ scale: canSubmit && !isLoading ? 0.98 : 1 }}
+        disabled={isLoading || !canSubmit || !hasRequiredContext}
+        whileHover={{ scale: canSubmit && hasRequiredContext && !isLoading ? 1.02 : 1 }}
+        whileTap={{ scale: canSubmit && hasRequiredContext && !isLoading ? 0.98 : 1 }}
         className={`relative w-full mt-6 py-4 px-6 rounded-xl font-semibold text-white transition-all
                    flex items-center justify-center gap-2 overflow-hidden
-                   ${canSubmit && !isLoading
+                   ${canSubmit && hasRequiredContext && !isLoading
                      ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 shadow-lg shadow-[#fa7517]/25 hover:shadow-[#fa7517]/40'
                      : 'bg-white/10 cursor-not-allowed text-gray-400'
                    }`}
       >
         {/* Shimmer effect */}
-        {canSubmit && !isLoading && (
+        {canSubmit && hasRequiredContext && !isLoading && (
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-shimmer" />
         )}
         
@@ -369,6 +469,8 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
           </>
         ) : !canSubmit ? (
           'Quota exhausted'
+        ) : !hasRequiredContext ? (
+          'Add title + niche to continue'
         ) : (
           <>
             <Sparkles className="w-5 h-5" />

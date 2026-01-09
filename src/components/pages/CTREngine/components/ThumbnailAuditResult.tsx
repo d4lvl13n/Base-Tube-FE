@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Check, AlertTriangle, Lightbulb, Clock, Wand2, BarChart3, ZoomIn, ExternalLink, TrendingUp, Eye } from 'lucide-react';
 import { ThumbnailAudit, YouTubeVideoMetadata, OptimizedPrompt } from '../../../../types/ctr';
 import { ScoreGauge } from './ScoreGauge';
@@ -35,15 +36,19 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const navigate = useNavigate();
 
   const handleGenerateBetter = async () => {
     setIsOptimizeModalOpen(true);
     setIsOptimizing(true);
+    setIsGenerating(false);
     setOptimizeError(null);
     setOptimizedPrompt(null);
 
     try {
-      const result = await ctrApi.optimizePrompt({
+      // Step 1: Get optimized prompt
+      const optimizeResult = await ctrApi.optimizePrompt({
         audit: {
           overallScore: audit.overallScore,
           heuristics: audit.heuristics,
@@ -56,11 +61,37 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
           description: youtubeMetadata?.description,
         },
       });
-      setOptimizedPrompt(result);
-    } catch (error: any) {
-      setOptimizeError(error.message || 'Failed to generate optimized prompt');
-    } finally {
+      
+      setOptimizedPrompt(optimizeResult);
       setIsOptimizing(false);
+      
+      // Step 2: Generate thumbnails with optimized prompt
+      setIsGenerating(true);
+      
+      const generateResult = await ctrApi.generateThumbnails({
+        title: youtubeMetadata?.title || 'Untitled Video',
+        description: youtubeMetadata?.description,
+        prompt: optimizeResult.prompt, // Pass the optimized prompt
+        niche: audit.detectedNiche || 'auto',
+        concepts: 3,
+        quality: 'high',
+        size: '1536x1024',
+      });
+      
+      // Navigate to generate page with generated concepts in state
+      navigate('/ai-thumbnails/generate', {
+        state: {
+          generatedConcepts: generateResult.concepts,
+          detectedNiche: generateResult.detectedNiche,
+          generationTime: generateResult.generationTime,
+          optimizedPrompt: optimizeResult,
+        },
+      });
+      
+    } catch (error: any) {
+      setOptimizeError(error.message || 'Failed to generate optimized thumbnail');
+      setIsOptimizing(false);
+      setIsGenerating(false);
     }
   };
 
@@ -360,15 +391,26 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleGenerateBetter}
+            disabled={isOptimizing || isGenerating}
             className="w-full py-5 px-6 bg-gradient-to-r from-[#fa7517] to-orange-500 
                       hover:from-[#fa7517]/90 hover:to-orange-500/90 text-black rounded-xl font-bold text-lg
-                      transition-all shadow-lg shadow-[#fa7517]/25 flex items-center justify-center gap-3"
+                      transition-all shadow-lg shadow-[#fa7517]/25 flex items-center justify-center gap-3
+                      disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Wand2 className="w-6 h-6" />
-            Generate Better Thumbnail
-            <span className="px-3 py-1 bg-black/20 rounded-full text-sm font-semibold">
-              +{Math.min(audit.weaknesses.length * 0.8, 3).toFixed(1)} potential score
-            </span>
+            {isOptimizing || isGenerating ? (
+              <>
+                <div className="w-6 h-6 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                {isOptimizing ? 'Optimizing prompt...' : 'Generating thumbnails...'}
+              </>
+            ) : (
+              <>
+                <Wand2 className="w-6 h-6" />
+                Generate Better Thumbnail
+                <span className="px-3 py-1 bg-black/20 rounded-full text-sm font-semibold">
+                  +{Math.min(audit.weaknesses.length * 0.8, 3).toFixed(1)} potential score
+                </span>
+              </>
+            )}
           </motion.button>
         </motion.div>
       )}

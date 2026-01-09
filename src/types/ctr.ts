@@ -87,6 +87,7 @@ export interface AuditRequest {
 export interface YouTubeAuditRequest {
   youtubeUrl: string;
   includePersonas?: boolean;
+  context?: AuditContext;
 }
 
 export interface YouTubeVideoMetadata {
@@ -185,6 +186,7 @@ export interface GeneratedConcept {
 export interface GenerateRequest {
   title: string;
   description?: string;
+  prompt?: string;          // Optimized prompt from audit
   niche?: string;           // 'auto' or specific niche
   textOverlay?: string;
   includeFace?: boolean;

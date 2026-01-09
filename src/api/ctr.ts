@@ -91,11 +91,12 @@ export const ctrApi = {
    */
   auditYouTubeThumbnail: async (
     youtubeUrl: string,
-    includePersonas: boolean = false
+    includePersonas: boolean = false,
+    context?: AuditContext
   ): Promise<YouTubeAuditResponse['data']> => {
     const response = await api.post<YouTubeAuditResponse | CTRErrorResponse>(
       `${CTR_BASE_PATH}/audit/youtube`,
-      { youtubeUrl, includePersonas } as YouTubeAuditRequest
+      { youtubeUrl, includePersonas, context } as YouTubeAuditRequest
     );
     
     if (!response.data.success) {
