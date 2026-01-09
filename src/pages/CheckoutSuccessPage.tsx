@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useCheckoutStatus, usePassDetails } from '../hooks/usePass';
 import { useAccess, usePurchaseStatus } from '../hooks/useOnchainPass';
+import { useAccount } from 'wagmi';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { motion } from 'framer-motion';
-import { CheckCircle, AlertTriangle, ArrowLeft, RefreshCw, Sparkles, Crown } from 'lucide-react';
+import { CheckCircle, AlertTriangle, ArrowLeft, RefreshCw, Sparkles, Crown, Wallet, Gift } from 'lucide-react';
 
 const CheckoutSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -11,6 +13,10 @@ const CheckoutSuccessPage: React.FC = () => {
   const sessionId = searchParams.get('session_id');
   const [passId, setPassId] = useState<string | null>(null);
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
+
+  // Wallet connection state
+  const { isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
 
   // Poll for checkout status
   const { 
@@ -433,6 +439,55 @@ const CheckoutSuccessPage: React.FC = () => {
                         </a>
                       )}
                     </div>
+                  )}
+
+                  {/* Wallet claim prompt - show when not connected or pass not yet claimed */}
+                  {!isConnected && !purchaseStatusResp?.data?.claimTxUrl && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 1.8 }}
+                      className="mt-6 p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <Gift className="w-5 h-5 text-purple-400" />
+                        <span className="font-medium text-white">Claim Your NFT</span>
+                      </div>
+                      <p className="text-sm text-gray-400 mb-3">
+                        Connect your wallet to mint this pass as an NFT. You'll be able to trade or transfer it anytime.
+                      </p>
+                      <button
+                        onClick={openConnectModal}
+                        className="w-full py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+                      >
+                        <Wallet className="w-4 h-4" />
+                        Connect Wallet
+                      </button>
+                    </motion.div>
+                  )}
+
+                  {isConnected && !purchaseStatusResp?.data?.claimTxUrl && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 1.8 }}
+                      className="mt-6 p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <CheckCircle className="w-5 h-5 text-green-400" />
+                        <span className="font-medium text-white">Wallet Connected</span>
+                      </div>
+                      <p className="text-sm text-gray-400 mb-3">
+                        Go to your profile to claim this pass as an NFT in your wallet.
+                      </p>
+                      <Link
+                        to="/profile"
+                        className="w-full py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 rounded-lg flex items-center justify-center gap-2 text-sm font-medium text-green-400 transition-colors"
+                      >
+                        <Gift className="w-4 h-4" />
+                        Claim in Profile
+                      </Link>
+                    </motion.div>
                   )}
                 </motion.div>
 

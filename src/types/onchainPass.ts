@@ -107,3 +107,51 @@ export interface CryptoQuote {
   digest: string; // 0x…32
 }
 
+// ---- Pending Purchases (Stripe purchases awaiting wallet mint) ----
+
+export interface PendingPurchase {
+  id: string;
+  passId: string;
+  status: 'pending' | 'minting';
+  priceCents: number;
+  currency: string;
+  createdAt: string;
+  pass: {
+    id: string;
+    title: string;
+    description?: string | null;
+    tier: string;
+    slug?: string;
+  };
+}
+
+export interface PendingPurchasesData {
+  purchases: PendingPurchase[];
+}
+
+export type PendingPurchasesResponse = StandardApiResponse<PendingPurchasesData>;
+
+export interface MintPendingRequest {
+  walletAddress: string;
+}
+
+export interface MintResult {
+  purchaseId: string;
+  passId: string;
+  status: 'success' | 'failed' | 'already_minted';
+  txHash?: string;
+  error?: string;
+}
+
+export interface MintPendingData {
+  minted: MintResult[];
+  summary: {
+    total: number;
+    successful: number;
+    failed: number;
+    alreadyMinted: number;
+  };
+}
+
+export type MintPendingResponse = StandardApiResponse<MintPendingData>
+

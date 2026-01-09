@@ -7,7 +7,10 @@ import type {
   OnchainClaimRequest,
   OnchainClaimResponse,
   CryptoPurchaseRequest,
-  CryptoPurchaseResponse
+  CryptoPurchaseResponse,
+  PendingPurchasesResponse,
+  MintPendingRequest,
+  MintPendingResponse,
 } from '../types/onchainPass';
 import type { CryptoQuote } from '../types/onchainPass';
 
@@ -92,6 +95,42 @@ export const onchainPassApi = {
       return await retryWithBackoff(exec, 0, 0);
     } catch (error) {
       throw handleApiError(error, { action: 'Buy with crypto', component: 'onchainPassApi', additionalData: { passId, address: payload.address } });
+    }
+  },
+
+  /**
+   * Get pending purchases awaiting wallet connection for minting
+   * These are Stripe purchases that haven't been minted to a wallet yet
+   */
+  async getPendingPurchases(): Promise<PendingPurchasesResponse> {
+    const exec = async () => {
+      const res = await api.get<PendingPurchasesResponse>('/api/v1/purchases/pending');
+      return res.data;
+    };
+    try {
+      return await retryWithBackoff(exec, 2, 800);
+    } catch (error) {
+      throw handleApiError(error, { action: 'Get pending purchases', component: 'onchainPassApi' });
+    }
+  },
+
+  /**
+   * Mint all pending purchases to the connected wallet
+   * @param walletAddress - The wallet address to mint passes to
+   */
+  async mintPendingPurchases(payload: MintPendingRequest): Promise<MintPendingResponse> {
+    const exec = async () => {
+      const idempotencyKey = `mint-pending-${payload.walletAddress}-${Date.now()}`;
+      const res = await api.post<MintPendingResponse>('/api/v1/purchases/mint-pending', payload, {
+        headers: { 'Idempotency-Key': idempotencyKey }
+      });
+      return res.data;
+    };
+    try {
+      // No retries for minting to avoid duplicate transactions
+      return await retryWithBackoff(exec, 0, 0);
+    } catch (error) {
+      throw handleApiError(error, { action: 'Mint pending purchases', component: 'onchainPassApi', additionalData: { walletAddress: payload.walletAddress } });
     }
   },
 };

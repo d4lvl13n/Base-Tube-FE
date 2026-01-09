@@ -10,6 +10,9 @@ import type {
   OnchainPurchaseStatus,
   CryptoPurchaseResponse,
   CryptoPurchaseRequest,
+  PendingPurchasesResponse,
+  MintPendingResponse,
+  MintPendingRequest,
 } from '../types/onchainPass';
 import type { CryptoQuote } from '../types/onchainPass';
 import { trackOnchainEvent } from '../utils/metrics';
@@ -270,5 +273,65 @@ function getExplorerTxUrl(chainId: number | string, hash: string): string | unde
 const CHAIN_BY_ID: Record<number, Chain> = {
   [base.id]: base,
   [baseSepolia.id]: baseSepolia,
+};
+
+// ============================================================================
+// PENDING PURCHASES HOOKS
+// ============================================================================
+
+/**
+ * Fetch pending purchases awaiting wallet connection for minting
+ * These are Stripe purchases that have been paid but not yet minted to a wallet
+ */
+export const usePendingPurchases = (options: { enabled?: boolean } = {}) => {
+  const { enabled = true } = options;
+
+  return useQuery<PendingPurchasesResponse>({
+    queryKey: queryKeys.onchainPass.pendingPurchases(),
+    queryFn: () => {
+      trackOnchainEvent('onchain.pending.fetch');
+      return onchainPassApi.getPendingPurchases();
+    },
+    enabled,
+    staleTime: 30_000, // 30 seconds
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
+  });
+};
+
+/**
+ * Mint all pending purchases to the connected wallet
+ * Invalidates related queries on success
+ */
+export const useMintPending = () => {
+  const queryClient = useQueryClient();
+  const { address } = useAccount();
+
+  return useMutation<MintPendingResponse, Error, MintPendingRequest | void>({
+    mutationFn: (payload) => {
+      const walletAddress = (payload as MintPendingRequest)?.walletAddress || address;
+      if (!walletAddress) throw new Error('Wallet not connected');
+
+      trackOnchainEvent('onchain.mint.pending.start', { walletAddress });
+      return onchainPassApi.mintPendingPurchases({ walletAddress });
+    },
+    onSuccess: (data) => {
+      const summary = data?.data?.summary;
+      trackOnchainEvent('onchain.mint.pending.complete', {
+        total: summary?.total,
+        successful: summary?.successful,
+        failed: summary?.failed
+      });
+
+      // Invalidate pending purchases query
+      queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.pendingPurchases() });
+      // Invalidate access list as user now has new passes
+      queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.accessList() });
+      // Invalidate purchased passes
+      queryClient.invalidateQueries({ queryKey: ['purchased-passes'] });
+    },
+    onError: (error) => {
+      trackOnchainEvent('onchain.mint.pending.error', { error: error.message });
+    }
+  });
 };
 

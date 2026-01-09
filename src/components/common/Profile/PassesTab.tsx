@@ -6,6 +6,7 @@ import { useAccessList } from '../../../hooks/useOnchainPass';
 import { Film, Play, Calendar, ExternalLink, Lock, Shield } from 'lucide-react';
 import { Pass } from '../../../types/pass';
 import type { OnchainAccessData } from '../../../types/onchainPass';
+import PendingPassesClaim from './PendingPassesClaim';
 
 interface PassCardProps {
   pass: Pass;
@@ -160,6 +161,9 @@ const PassesTab = () => {
   if (!passes?.length) {
     return (
       <div className="space-y-6">
+        {/* Show pending passes even when no completed passes exist */}
+        <PendingPassesClaim />
+
         <h2 className="text-2xl font-bold">My Content Passes</h2>
         <div className="p-8 border border-gray-800/30 rounded-xl bg-black/30 flex flex-col items-center justify-center text-center">
           <Lock className="w-12 h-12 text-gray-500 mb-4" />
@@ -183,6 +187,9 @@ const PassesTab = () => {
   
   return (
     <div className="space-y-6">
+      {/* Pending Passes Claim Banner */}
+      <PendingPassesClaim />
+
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <h2 className="text-2xl font-bold">My Content Passes</h2>
         <div className="relative">
@@ -195,7 +202,7 @@ const PassesTab = () => {
           />
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredPasses?.map((pass) => (
           <PassCard key={pass.id} pass={pass} access={accessByPassId.get(pass.id)} />

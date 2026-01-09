@@ -112,6 +112,7 @@ export const queryKeys = {
     accessList: () => [...queryKeys.onchainPass.all, 'accessList'] as const,
     purchaseStatus: (purchaseId: string) => [...queryKeys.onchainPass.all, 'purchaseStatus', purchaseId] as const,
     cryptoQuote: (passId: string) => [...queryKeys.onchainPass.all, 'cryptoQuote', passId] as const,
+    pendingPurchases: () => [...queryKeys.onchainPass.all, 'pendingPurchases'] as const,
   },
 
   // Comments
