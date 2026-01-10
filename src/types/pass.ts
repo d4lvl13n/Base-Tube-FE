@@ -1,10 +1,13 @@
 export interface PassVideo {
   id: string;
   thumbnail_url: string;
-  platform: string;
-  title?: string;     // Added title field
-  duration?: number;  // Explicitly document duration field
-  platform_video_id?: string; // Optional platform-specific ID
+  platform: 'youtube' | 'twitch' | 'instagram' | 'tiktok' | 'other' | string;
+  title?: string;
+  duration?: number;
+  storage_tier?: 'external' | 'cdn' | 'decentralised';
+  has_access: boolean;  // Whether user can play this video
+  // NOTE: src_url and platform_video_id are no longer returned by the API
+  // Use getPlayToken() to get playback URLs when user initiates playback
 }
 
 export interface PassChannel {
@@ -64,17 +67,14 @@ export interface Pass {
   supply_cap?: number;  // Optional number for max supply, null/undefined means unlimited
   minted_count?: number; // Number of passes minted on-chain
   reserved_count?: number; // Number of passes reserved (Stripe purchases pending mint)
+  has_access?: boolean;  // Whether user has access to this pass (purchaser or creator)
   channel: {
     name: string;
     user: {
       username: string;
     }
   };
-  videos: {
-    id: string;
-    thumbnail_url: string;
-    platform: string;
-  }[];
+  videos: PassVideo[];
 }
 
 // API response for fetching pass details
@@ -128,5 +128,51 @@ export interface DiscoverPassesResponse {
     total: number;
     limit: number;
     offset: number;
+  };
+}
+
+// ============================================
+// Play Token Types (Secure Video URL System)
+// ============================================
+
+/**
+ * Play token data returned when user initiates video playback
+ */
+export interface PlayTokenData {
+  video_id: string;
+  playback_url: string;
+  embed_url: string | null;
+  platform: string;
+  token: string;
+  expires_at: string;
+  expires_in_seconds: number;
+}
+
+/**
+ * Successful play token API response
+ */
+export interface PlayTokenResponse {
+  success: true;
+  data: PlayTokenData;
+}
+
+/**
+ * Play token error codes
+ */
+export type PlayTokenErrorCode =
+  | 'UNAUTHORIZED'
+  | 'NO_ACCESS'
+  | 'NOT_FOUND'
+  | 'PLAY_TOKEN_RATE_LIMIT_EXCEEDED'
+  | 'SERVER_ERROR';
+
+/**
+ * Play token error response
+ */
+export interface PlayTokenErrorResponse {
+  success: false;
+  error: {
+    code: PlayTokenErrorCode;
+    message: string;
   };
 } 
