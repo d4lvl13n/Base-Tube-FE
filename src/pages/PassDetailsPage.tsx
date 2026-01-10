@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePassDetails, usePurchasedPasses } from '../hooks/usePass';
-import { useTokenGate } from '../hooks/useTokenGate';
 import { useAccess } from '../hooks/useOnchainPass';
 import { motion, useReducedMotion } from 'framer-motion';
 import { LockIcon, TrendingUp, Award, Clock, Star, Shield, PlayCircle, ShoppingBag, CreditCard, Unlock, Crown } from 'lucide-react';
@@ -51,23 +50,23 @@ const PassDetailsPage: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
 
   // Fetch passes user owns (if authenticated)
-  const { data: purchasedPasses } = usePurchasedPasses();
+  const { data: purchasedPasses, isLoading: isPurchasedLoading } = usePurchasedPasses();
 
   // Determine if user owns via list query (fast-authenticated check)
   const ownsViaList = purchasedPasses?.some(p => p.id === pass?.id);
 
-  // Fallback secure check: verify signed URL using token gate
-  const firstVideoId = pass?.videos?.[0]?.id;
-  const { hasAccess: hasSignedAccess, isLoading: isAccessLoading } = useTokenGate(firstVideoId, {
-    autoAuth: false,
-    maxRetries: 0,
-    passId: pass?.id
-  });
+  // Use has_access from API response (set by backend based on auth)
+  // This is the most reliable source as the backend determines access
+  const hasAccessFromApi = pass?.has_access === true;
 
   // Lightweight access assertion from onchain access endpoint (caches list)
-  const { data: accessData } = useAccess(pass?.id, { enabled: Boolean(pass?.id) });
+  const { data: accessData, isLoading: isOnchainLoading } = useAccess(pass?.id, { enabled: Boolean(pass?.id) });
 
-  const alreadyOwns = ownsViaList || hasSignedAccess || Boolean(accessData?.data?.hasAccess);
+  // Combined access check: API response || purchased list || onchain check
+  const alreadyOwns = hasAccessFromApi || ownsViaList || Boolean(accessData?.data?.hasAccess);
+
+  // Loading state for access checks
+  const isAccessLoading = isPurchasedLoading || isOnchainLoading;
 
   // Scroll position tracking for sticky header
   useEffect(() => {

@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, Link, Navigate } from 'react-router-dom';
+import { useParams, Link, Navigate, useNavigate } from 'react-router-dom';
 import { usePassDetails, usePurchasedPasses } from '../hooks/usePass';
-import { useTokenGate } from '../hooks/useTokenGate';
+import { usePlayToken, getPlaybackErrorMessage, PlaybackError } from '../hooks/usePlayToken';
 import PassVideoPlayer from '../components/pass/PassVideoPlayer';
 import { motion } from 'framer-motion';
-import { AlertTriangle, ArrowLeft, Play, Info } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Play, Info, Lock, Loader2 } from 'lucide-react';
 import PremiumHeader from '../components/pass/PremiumHeader';
 import VideoDescriptionPanel from '../components/pass/VideoDescriptionPanel';
-import { PassVideo } from '../types/pass';
+import { PassVideo, PlayTokenData } from '../types/pass';
+import { toast } from 'react-toastify';
 
 const WatchPassPage: React.FC = () => {
   const { passId } = useParams<{ passId: string }>();
+  const navigate = useNavigate();
 
   // Fetch pass details
   const {
@@ -25,10 +27,17 @@ const WatchPassPage: React.FC = () => {
 
   // Current video selection state
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
-  
+
+  // Play token state
+  const [currentPlayToken, setCurrentPlayToken] = useState<PlayTokenData | null>(null);
+  const [playbackError, setPlaybackError] = useState<PlaybackError | null>(null);
+
   // Description panel state
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [selectedVideoForPanel, setSelectedVideoForPanel] = useState<any>(null);
+
+  // Play token hook for fetching video playback URLs
+  const { getToken, isLoading: isTokenLoading, clearCache } = usePlayToken();
 
   // Default to first video when pass data loads
   useEffect(() => {
@@ -37,20 +46,37 @@ const WatchPassPage: React.FC = () => {
     }
   }, [pass?.videos, selectedVideoId]);
 
-  // Token gating hook - must be called unconditionally
-  const {
-    signedUrl,
-    isLoading: isGateLoading,
-    is403,
-    promptAuth,
-  } = useTokenGate(selectedVideoId, { autoAuth: false, passId: passId });
-
-  // Prompt auth if needed
+  // Fetch play token when video is selected
   useEffect(() => {
-    if (ownsPass && selectedVideoId && !signedUrl && !isGateLoading) {
-      promptAuth();
+    if (!selectedVideoId) {
+      setCurrentPlayToken(null);
+      return;
     }
-  }, [ownsPass, selectedVideoId, signedUrl, isGateLoading, promptAuth]);
+
+    // Reset state for new video
+    setCurrentPlayToken(null);
+    setPlaybackError(null);
+
+    // Fetch the play token
+    const fetchPlayToken = async () => {
+      try {
+        const token = await getToken(selectedVideoId);
+        setCurrentPlayToken(token);
+      } catch (error) {
+        if (error instanceof PlaybackError) {
+          setPlaybackError(error);
+          const { message, action } = getPlaybackErrorMessage(error);
+
+          // Show toast for certain error types
+          if (action === 'wait' || action === 'retry') {
+            toast.error(message);
+          }
+        }
+      }
+    };
+
+    fetchPlayToken();
+  }, [selectedVideoId, getToken]);
 
   // Function to handle playing the next video
   const handleNextVideo = useCallback(() => {
@@ -89,12 +115,24 @@ const WatchPassPage: React.FC = () => {
     }
   };
 
-  // --- Early returns --- 
+  // Get the playback URL from the token (prefer embed_url for YouTube)
+  const playbackUrl = useMemo(() => {
+    if (!currentPlayToken) return null;
+    // Use embed_url for YouTube (better embedding), fallback to playback_url
+    return currentPlayToken.embed_url || currentPlayToken.playback_url;
+  }, [currentPlayToken]);
+
+  // --- Early returns ---
   if (!passId) return <Navigate to="/" replace />;
 
   if (isPassLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">Loading Pass Details…</div>
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+          <span>Loading Pass Details…</span>
+        </div>
+      </div>
     );
   }
 
@@ -104,23 +142,30 @@ const WatchPassPage: React.FC = () => {
     );
   }
 
-  // If still loading access (and a video is selected)
-  if (selectedVideoId && isGateLoading && !signedUrl) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">Verifying access…</div>
-    );
-  }
-
-  // If user has no access
-  if (!ownsPass && selectedVideoId && (is403 || !signedUrl)) {
+  // If user doesn't have access (based on playback error)
+  if (playbackError && (playbackError.code === 'NO_ACCESS' || playbackError.code === 'UNAUTHORIZED')) {
+    const { message, action } = getPlaybackErrorMessage(playbackError);
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-white p-8 text-center">
         <div>
-          <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <p className="mb-6">You don't own this pass yet.</p>
-          <Link to={`/p/${passId ?? ''}`} className="px-6 py-3 bg-orange-500 rounded-lg inline-flex items-center gap-2">
-            <ArrowLeft className="w-4 h-4" />Back to Pass Page
-          </Link>
+          {playbackError.code === 'UNAUTHORIZED' ? (
+            <Lock className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+          ) : (
+            <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          )}
+          <p className="mb-6">{message}</p>
+          {action === 'login' ? (
+            <button
+              onClick={() => navigate('/sign-in')}
+              className="px-6 py-3 bg-orange-500 rounded-lg inline-flex items-center gap-2"
+            >
+              Sign In
+            </button>
+          ) : (
+            <Link to={`/p/${passId ?? ''}`} className="px-6 py-3 bg-orange-500 rounded-lg inline-flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />Back to Pass Page
+            </Link>
+          )}
         </div>
       </div>
     );
@@ -134,17 +179,52 @@ const WatchPassPage: React.FC = () => {
         {/* Video player */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           {/* Render only if a video is selected and we have access */}
-          {selectedVideoId && signedUrl ? (
-            <PassVideoPlayer 
-              key={selectedVideoId} 
-              signedUrl={signedUrl} 
-              autoPlay 
-              title={(pass.videos.find(v => v.id === selectedVideoId) as PassVideo)?.title || pass.title} 
-              onNextVideo={hasNextVideo ? handleNextVideo : undefined} 
+          {selectedVideoId && playbackUrl ? (
+            <PassVideoPlayer
+              key={selectedVideoId}
+              signedUrl={playbackUrl}
+              autoPlay
+              title={(pass.videos.find(v => v.id === selectedVideoId) as PassVideo)?.title || pass.title}
+              onNextVideo={hasNextVideo ? handleNextVideo : undefined}
             />
           ) : (
             <div className="aspect-video w-full bg-gray-800 flex items-center justify-center text-gray-400">
-              {selectedVideoId ? 'Loading video access...' : 'Select a video to play'}
+              {isTokenLoading ? (
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                  <span>Loading video...</span>
+                </div>
+              ) : selectedVideoId ? (
+                playbackError ? (
+                  <div className="flex flex-col items-center gap-3 text-center px-4">
+                    <AlertTriangle className="w-8 h-8 text-yellow-500" />
+                    <span>{getPlaybackErrorMessage(playbackError).message}</span>
+                    <button
+                      onClick={() => {
+                        clearCache(selectedVideoId);
+                        setPlaybackError(null);
+                        // Re-trigger fetch
+                        const refetch = async () => {
+                          try {
+                            const token = await getToken(selectedVideoId);
+                            setCurrentPlayToken(token);
+                          } catch (e) {
+                            if (e instanceof PlaybackError) setPlaybackError(e);
+                          }
+                        };
+                        refetch();
+                      }}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-white text-sm"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  'Loading video access...'
+                )
+              ) : (
+                'Select a video to play'
+              )}
             </div>
           )}
         </motion.div>
@@ -152,39 +232,67 @@ const WatchPassPage: React.FC = () => {
         {/* Videos grid */}
         {Array.isArray(pass.videos) && pass.videos.length > 1 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {pass.videos.map((video, index) => (
-              <button
-                key={video.id}
-                onClick={() => handleThumbnailClick(video.id)}
-                className={`relative group border border-white/10 rounded-lg overflow-hidden transition-all duration-200 ${selectedVideoId === video.id ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-black' : 'hover:border-white/30'}`}
-              >
-                {/* Thumbnail */}
-                {video.thumbnail_url ? (
-                  <img src={video.thumbnail_url} alt={(video as PassVideo).title || pass.title} className="w-full h-full object-cover aspect-video" />
-                ) : (
-                  <div className="w-full aspect-video bg-gray-700 flex items-center justify-center text-gray-400 text-sm">No thumbnail</div>
-                )}
+            {pass.videos.map((video, index) => {
+              const videoData = video as PassVideo;
+              const hasAccess = videoData.has_access !== false; // Default to true for backward compatibility
 
-                {/* Info badge */}
-                <div className="absolute top-2 right-2">
-                  <div className="bg-black/70 backdrop-blur-sm p-1 rounded-full">
-                    <Info className="w-4 h-4 text-white/70" />
-                  </div>
-                </div>
+              return (
+                <button
+                  key={video.id}
+                  onClick={() => hasAccess ? handleThumbnailClick(video.id) : undefined}
+                  disabled={!hasAccess}
+                  className={`relative group border border-white/10 rounded-lg overflow-hidden transition-all duration-200 ${
+                    selectedVideoId === video.id
+                      ? 'ring-2 ring-orange-500 ring-offset-2 ring-offset-black'
+                      : hasAccess
+                        ? 'hover:border-white/30'
+                        : 'opacity-60 cursor-not-allowed'
+                  }`}
+                >
+                  {/* Thumbnail */}
+                  {video.thumbnail_url ? (
+                    <img src={video.thumbnail_url} alt={videoData.title || pass.title} className="w-full h-full object-cover aspect-video" />
+                  ) : (
+                    <div className="w-full aspect-video bg-gray-700 flex items-center justify-center text-gray-400 text-sm">No thumbnail</div>
+                  )}
 
-                {/* Play overlay */}
-                <div className={`absolute inset-0 bg-black/40 transition-opacity flex items-center justify-center ${selectedVideoId === video.id ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
-                  <div className="w-12 h-12 rounded-full bg-orange-500/80 flex items-center justify-center backdrop-blur-sm">
-                    <Play className="w-6 h-6 text-white" fill="white" />
+                  {/* Info/Lock badge */}
+                  <div className="absolute top-2 right-2">
+                    <div className="bg-black/70 backdrop-blur-sm p-1 rounded-full">
+                      {hasAccess ? (
+                        <Info className="w-4 h-4 text-white/70" />
+                      ) : (
+                        <Lock className="w-4 h-4 text-orange-500" />
+                      )}
+                    </div>
                   </div>
-                </div>
-                
-                {/* Video number */}
-                <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/70 backdrop-blur-sm rounded text-xs">
-                  Video {index + 1}
-                </div>
-              </button>
-            ))}
+
+                  {/* Play/Lock overlay */}
+                  <div className={`absolute inset-0 bg-black/40 transition-opacity flex items-center justify-center ${
+                    !hasAccess
+                      ? 'opacity-100'
+                      : selectedVideoId === video.id
+                        ? 'opacity-0'
+                        : 'opacity-0 group-hover:opacity-100'
+                  }`}>
+                    {hasAccess ? (
+                      <div className="w-12 h-12 rounded-full bg-orange-500/80 flex items-center justify-center backdrop-blur-sm">
+                        <Play className="w-6 h-6 text-white" fill="white" />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gray-800/80 flex items-center justify-center backdrop-blur-sm">
+                        <Lock className="w-6 h-6 text-orange-500" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Video number */}
+                  <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/70 backdrop-blur-sm rounded text-xs">
+                    Video {index + 1}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

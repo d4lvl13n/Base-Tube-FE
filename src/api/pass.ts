@@ -8,10 +8,29 @@ import {
   AddVideoRequest,
   CheckoutSessionResponse,
   SignedUrlResponse,
-  PurchaseStatus
+  PurchaseStatus,
+  PlayTokenData,
+  PlayTokenErrorCode
 } from '../types/pass';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
+
+/**
+ * Custom error class for video playback errors
+ * Provides structured error information for handling different failure cases
+ */
+export class PlaybackError extends Error {
+  constructor(
+    public code: PlayTokenErrorCode,
+    message: string,
+    public statusCode: number
+  ) {
+    super(message);
+    this.name = 'PlaybackError';
+    // Maintains proper prototype chain for instanceof checks
+    Object.setPrototypeOf(this, PlaybackError.prototype);
+  }
+}
 
 /**
  * API helpers for Pass-as-a-Link feature
@@ -43,12 +62,55 @@ export const passApi = {
   /**
    * Retrieve a signed video URL for authorized users
    * @param videoId Video uuid
+   * @deprecated Use getPlayToken instead for secure video playback
    */
   getSignedVideoUrl: async (videoId: string): Promise<string> => {
     const response = await api.get<SignedUrlResponse>(
       `/api/v1/passes/videos/${videoId}/signed-url`
     );
     return response.data.signed_url;
+  },
+
+  /**
+   * Get a play token for video playback
+   * Call this when user initiates playback to get the actual video URL
+   *
+   * @param videoId Video UUID
+   * @returns Play token data with playback URLs
+   * @throws PlaybackError on failure (UNAUTHORIZED, NO_ACCESS, NOT_FOUND, RATE_LIMIT)
+   *
+   * Rate limits:
+   * - 30 requests per user per hour (100 in development)
+   * - 5 requests per video per user per hour
+   */
+  getPlayToken: async (videoId: string): Promise<PlayTokenData> => {
+    try {
+      const response = await api.post<{ success: true; data: PlayTokenData }>(
+        `/api/v1/passes/videos/${videoId}/play-token`
+      );
+
+      if (!response.data.success) {
+        throw new PlaybackError('SERVER_ERROR', 'Failed to get playback URL', 500);
+      }
+
+      return response.data.data;
+    } catch (error: any) {
+      // Handle axios error responses
+      if (error.response) {
+        const { status, data } = error.response;
+        const errorCode: PlayTokenErrorCode = data?.error?.code || 'SERVER_ERROR';
+        const errorMessage = data?.error?.message || 'Failed to get playback URL';
+        throw new PlaybackError(errorCode, errorMessage, status);
+      }
+
+      // Re-throw PlaybackError as-is
+      if (error instanceof PlaybackError) {
+        throw error;
+      }
+
+      // Wrap other errors
+      throw new PlaybackError('SERVER_ERROR', 'Failed to get playback URL', 500);
+    }
   },
   
   /**
