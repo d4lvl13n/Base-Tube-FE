@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, Navigate, useNavigate } from 'react-router-dom';
 import { usePassDetails, usePurchasedPasses } from '../hooks/usePass';
-import { usePlayToken, getPlaybackErrorMessage, PlaybackError } from '../hooks/usePlayToken';
+import { usePlayToken, getPlaybackErrorMessage, PlaybackError, StorageTier } from '../hooks/usePlayToken';
 import PassVideoPlayer from '../components/pass/PassVideoPlayer';
 import { motion } from 'framer-motion';
 import { AlertTriangle, ArrowLeft, Play, Info, Lock, Loader2 } from 'lucide-react';
@@ -46,6 +46,14 @@ const WatchPassPage: React.FC = () => {
     }
   }, [pass?.videos, selectedVideoId]);
 
+  // Get selected video's storage tier
+  const selectedVideoStorageTier = useMemo((): StorageTier => {
+    if (!selectedVideoId || !pass?.videos) return 'external';
+    const video = pass.videos.find(v => v.id === selectedVideoId);
+    // Default to 'external' for safety (will use play-token endpoint)
+    return (video?.storage_tier as StorageTier) || 'external';
+  }, [selectedVideoId, pass?.videos]);
+
   // Fetch play token when video is selected
   useEffect(() => {
     if (!selectedVideoId) {
@@ -57,10 +65,10 @@ const WatchPassPage: React.FC = () => {
     setCurrentPlayToken(null);
     setPlaybackError(null);
 
-    // Fetch the play token
+    // Fetch the play token using the appropriate endpoint based on storage tier
     const fetchPlayToken = async () => {
       try {
-        const token = await getToken(selectedVideoId);
+        const token = await getToken(selectedVideoId, selectedVideoStorageTier);
         setCurrentPlayToken(token);
       } catch (error) {
         if (error instanceof PlaybackError) {
@@ -76,7 +84,7 @@ const WatchPassPage: React.FC = () => {
     };
 
     fetchPlayToken();
-  }, [selectedVideoId, getToken]);
+  }, [selectedVideoId, selectedVideoStorageTier, getToken]);
 
   // Function to handle playing the next video
   const handleNextVideo = useCallback(() => {
@@ -203,10 +211,10 @@ const WatchPassPage: React.FC = () => {
                       onClick={() => {
                         clearCache(selectedVideoId);
                         setPlaybackError(null);
-                        // Re-trigger fetch
+                        // Re-trigger fetch with storage tier
                         const refetch = async () => {
                           try {
-                            const token = await getToken(selectedVideoId);
+                            const token = await getToken(selectedVideoId, selectedVideoStorageTier);
                             setCurrentPlayToken(token);
                           } catch (e) {
                             if (e instanceof PlaybackError) setPlaybackError(e);

@@ -2,6 +2,13 @@ import { useState, useCallback, useRef } from 'react';
 import { passApi, PlaybackError } from '../api/pass';
 import { PlayTokenData, PlayTokenErrorCode } from '../types/pass';
 
+/**
+ * Storage tier type for video playback routing
+ * - 'external': YouTube, Twitch, etc. - uses play-token endpoint
+ * - 'standard', 'premium', 'cdn', 'decentralised': S3/CDN hosted - uses signed-url endpoint
+ */
+export type StorageTier = 'external' | 'standard' | 'premium' | 'cdn' | 'decentralised';
+
 interface CachedToken {
   data: PlayTokenData;
   fetchedAt: number;
@@ -13,6 +20,10 @@ const TOKEN_CACHE_BUFFER = 5 * 60 * 1000;
 /**
  * Hook for fetching and caching video play tokens
  *
+ * Routes to the correct endpoint based on storage tier:
+ * - external (YouTube, Twitch, etc.) → play-token endpoint
+ * - S3/CDN hosted → signed-url endpoint
+ *
  * Provides token caching to avoid unnecessary API calls when replaying videos.
  * Tokens are automatically refreshed when they're close to expiring.
  *
@@ -20,9 +31,9 @@ const TOKEN_CACHE_BUFFER = 5 * 60 * 1000;
  * ```tsx
  * const { getToken, isLoading, error, clearCache } = usePlayToken();
  *
- * const handlePlay = async (videoId: string) => {
+ * const handlePlay = async (videoId: string, storageTier: StorageTier) => {
  *   try {
- *     const token = await getToken(videoId);
+ *     const token = await getToken(videoId, storageTier);
  *     openVideoPlayer(token);
  *   } catch (err) {
  *     if (err instanceof PlaybackError) {
@@ -39,11 +50,17 @@ export function usePlayToken() {
 
   /**
    * Get a play token for a video, using cache when available
+   * Routes to the correct endpoint based on storage tier.
+   *
    * @param videoId The video UUID to get a token for
+   * @param storageTier The video's storage tier (default: 'external' for safety)
    * @returns The play token data with playback URLs
    * @throws PlaybackError on failure
    */
-  const getToken = useCallback(async (videoId: string): Promise<PlayTokenData> => {
+  const getToken = useCallback(async (
+    videoId: string,
+    storageTier: StorageTier = 'external'
+  ): Promise<PlayTokenData> => {
     setError(null);
 
     // Check cache
@@ -58,10 +75,10 @@ export function usePlayToken() {
       }
     }
 
-    // Fetch new token
+    // Fetch new token using the appropriate endpoint based on storage tier
     setIsLoading(true);
     try {
-      const data = await passApi.getPlayToken(videoId);
+      const data = await passApi.getVideoPlaybackUrl(videoId, storageTier);
 
       // Cache the token
       cache.current.set(videoId, {
