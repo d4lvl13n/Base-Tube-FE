@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCheckoutStatus, usePassDetails } from '../hooks/usePass';
 import { useAccess, usePurchaseStatus } from '../hooks/useOnchainPass';
 import { useAccount } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { motion } from 'framer-motion';
-import { CheckCircle, AlertTriangle, ArrowLeft, RefreshCw, Sparkles, Crown, Wallet, Gift } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
+import { useLinkWallet } from '../hooks/useLinkWallet';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle, AlertTriangle, ArrowLeft, RefreshCw, Sparkles, Crown, Wallet, Gift, Loader2, X } from 'lucide-react';
 
 const CheckoutSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -18,8 +20,13 @@ const CheckoutSuccessPage: React.FC = () => {
   const [hasInvalidatedCache, setHasInvalidatedCache] = useState(false);
 
   // Wallet connection state
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const { openConnectModal } = useConnectModal();
+  const { isSignedIn } = useUser();
+  const { linkWallet, isLinking, modalState: linkModalState, clearModal: clearLinkModal } = useLinkWallet();
+
+  // Track if we've attempted to link the wallet for this connection
+  const hasAttemptedLinkRef = useRef(false);
 
   // Poll for checkout status
   const { 
@@ -104,6 +111,42 @@ const CheckoutSuccessPage: React.FC = () => {
       setHasInvalidatedCache(true);
     }
   }, [purchaseStatusResp, hasInvalidatedCache, queryClient]);
+
+  // Handle wallet linking for Clerk users
+  // When a Clerk-authenticated user connects a wallet, we link it to their account
+  // instead of creating a new Web3 account
+  useEffect(() => {
+    const authMethod = localStorage.getItem('auth_method');
+    const isClerkUser = authMethod === 'clerk' || isSignedIn;
+
+    // Only attempt link if:
+    // 1. Wallet is connected with an address
+    // 2. User is authenticated via Clerk
+    // 3. We haven't already attempted to link this session
+    if (isConnected && address && isClerkUser && !hasAttemptedLinkRef.current) {
+      hasAttemptedLinkRef.current = true;
+      console.log('[CheckoutSuccess] Clerk user connected wallet, initiating link flow');
+
+      linkWallet().then((result) => {
+        if (result) {
+          console.log('[CheckoutSuccess] Wallet linked successfully');
+          // Invalidate queries to reflect the linked wallet
+          queryClient.invalidateQueries({ queryKey: ['pending-purchases'] });
+        }
+      }).catch((err) => {
+        console.error('[CheckoutSuccess] Failed to link wallet:', err);
+        // Reset the ref to allow retry
+        hasAttemptedLinkRef.current = false;
+      });
+    }
+  }, [isConnected, address, isSignedIn, linkWallet, queryClient]);
+
+  // Reset link attempt ref when wallet disconnects
+  useEffect(() => {
+    if (!isConnected) {
+      hasAttemptedLinkRef.current = false;
+    }
+  }, [isConnected]);
 
   if (!sessionId) return null;
 
@@ -520,7 +563,8 @@ const CheckoutSuccessPage: React.FC = () => {
                       </p>
                       <button
                         onClick={openConnectModal}
-                        className="w-full py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+                        disabled={isLinking}
+                        className="w-full py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
                       >
                         <Wallet className="w-4 h-4" />
                         Connect Wallet
@@ -528,7 +572,25 @@ const CheckoutSuccessPage: React.FC = () => {
                     </motion.div>
                   )}
 
-                  {isConnected && !purchaseStatusResp?.data?.claimTxUrl && (
+                  {/* Show linking state when wallet is connected but linking is in progress */}
+                  {isConnected && isLinking && !purchaseStatusResp?.data?.claimTxUrl && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 1.8 }}
+                      className="mt-6 p-4 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="w-5 h-5 text-orange-400 animate-spin" />
+                        <span className="font-medium text-white">Linking Wallet to Account...</span>
+                      </div>
+                      <p className="text-sm text-gray-400 mt-2">
+                        Please wait while we link your wallet to your account.
+                      </p>
+                    </motion.div>
+                  )}
+
+                  {isConnected && !isLinking && !purchaseStatusResp?.data?.claimTxUrl && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -584,6 +646,68 @@ const CheckoutSuccessPage: React.FC = () => {
           </motion.div>
         </div>
       </div>
+
+      {/* Wallet link result modal */}
+      <AnimatePresence>
+        {linkModalState.type && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={clearLinkModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">Wallet Link</h3>
+                <button
+                  onClick={clearLinkModal}
+                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              <div className={`p-4 rounded-xl ${
+                linkModalState.type === 'success'
+                  ? 'bg-green-500/10 border border-green-500/30'
+                  : 'bg-red-500/10 border border-red-500/30'
+              }`}>
+                <div className={`flex items-center gap-2 mb-2 ${
+                  linkModalState.type === 'success' ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {linkModalState.type === 'success' ? (
+                    <CheckCircle className="w-5 h-5" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5" />
+                  )}
+                  <span className="font-medium">{linkModalState.message}</span>
+                </div>
+                {linkModalState.details && (
+                  <p className={`text-sm ${
+                    linkModalState.type === 'success' ? 'text-green-300/80' : 'text-red-300/80'
+                  }`}>
+                    {linkModalState.details}
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={clearLinkModal}
+                className="w-full mt-6 py-3 bg-[#fa7517] hover:bg-[#fa8527] text-black font-bold rounded-xl transition-colors"
+              >
+                {linkModalState.type === 'success' ? 'Continue' : 'Close'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

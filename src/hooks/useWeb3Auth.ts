@@ -178,6 +178,16 @@ export function useWeb3Auth() {
   })();
 
   useEffect(() => {
+    // Skip auto-connect if user is already authenticated via Clerk
+    // This prevents creating duplicate accounts when Clerk users connect a wallet
+    const authMethod = localStorage.getItem('auth_method');
+    const isClerkUser = authMethod === 'clerk';
+
+    if (isClerkUser) {
+      console.log('[useWeb3Auth] Skipping auto-connect: Clerk user detected. Use linkWallet instead.');
+      return;
+    }
+
     if (isConnected && address && !state.isAuthenticated && !attemptedOnceRef.current) {
       attemptedOnceRef.current = true;
       // fire and forget; connect() handles redirects
