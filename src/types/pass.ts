@@ -62,7 +62,8 @@ export interface Pass {
   formatted_price: string;
   tier: string;
   supply_cap?: number;  // Optional number for max supply, null/undefined means unlimited
-  minted_count?: number; // Number of passes sold/minted
+  minted_count?: number; // Number of passes minted on-chain
+  reserved_count?: number; // Number of passes reserved (Stripe purchases pending mint)
   channel: {
     name: string;
     user: {

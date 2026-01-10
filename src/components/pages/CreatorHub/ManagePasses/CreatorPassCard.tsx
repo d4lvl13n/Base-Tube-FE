@@ -15,17 +15,20 @@ const CreatorPassCard: React.FC<CreatorPassCardProps> = ({ pass }) => {
   // Get the first video's thumbnail or use fallback
   const thumbnail = pass.videos?.[0]?.thumbnail_url || '/assets/Content-pass.webp';
   
+  // Calculate total sold (minted + reserved for pending Stripe purchases)
+  const totalSold = (pass.minted_count || 0) + (pass.reserved_count || 0);
+
   // Calculate remaining supply
-  const remainingSupply = pass.supply_cap ? 
-    Math.max(0, pass.supply_cap - (pass.minted_count || 0)) : 
+  const remainingSupply = pass.supply_cap ?
+    Math.max(0, pass.supply_cap - totalSold) :
     '∞'; // Infinity symbol for unlimited supply
 
   // Format sales information
   const formatSales = () => {
     if (!pass.supply_cap) {
-      return `${pass.minted_count || 0} sold (unlimited)`;
+      return `${totalSold} sold (unlimited)`;
     }
-    return `${pass.minted_count || 0} / ${pass.supply_cap} sold`;
+    return `${totalSold} / ${pass.supply_cap} sold`;
   };
 
   // Handle copy URL to clipboard
@@ -108,22 +111,22 @@ const CreatorPassCard: React.FC<CreatorPassCardProps> = ({ pass }) => {
             <div className="mt-3">
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-gray-400">{formatSales()}</span>
-                <span className="text-gray-400">{Math.round((pass.minted_count || 0) / pass.supply_cap * 100)}%</span>
+                <span className="text-gray-400">{Math.round(totalSold / pass.supply_cap * 100)}%</span>
               </div>
               <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full"
-                  style={{ width: `${Math.min(100, Math.round((pass.minted_count || 0) / pass.supply_cap * 100))}%` }}
+                  style={{ width: `${Math.min(100, Math.round(totalSold / pass.supply_cap * 100))}%` }}
                 />
               </div>
             </div>
           )}
-          
+
           {/* Unlimited supply indicator */}
           {!pass.supply_cap && (
             <div className="mt-3 flex justify-between items-center">
               <span className="text-sm text-gray-400">
-                {pass.minted_count || 0} sold
+                {totalSold} sold
               </span>
               <span className="text-xs bg-gray-800 px-2 py-1 rounded-full">
                 Unlimited supply

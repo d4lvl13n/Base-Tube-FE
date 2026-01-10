@@ -83,9 +83,12 @@ const PassDetailView: React.FC = () => {
     );
   }
   
+  // Calculate total sold (minted + reserved for pending Stripe purchases)
+  const totalSold = (pass.minted_count || 0) + (pass.reserved_count || 0);
+
   // Calculate remaining supply
-  const remainingSupply = pass.supply_cap ? 
-    Math.max(0, pass.supply_cap - (pass.minted_count || 0)) : 
+  const remainingSupply = pass.supply_cap ?
+    Math.max(0, pass.supply_cap - totalSold) :
     '∞'; // Infinity symbol for unlimited supply
   
   return (
@@ -180,14 +183,14 @@ const PassDetailView: React.FC = () => {
             <div className="bg-black/50 border border-gray-800 rounded-lg p-4">
               <Users className="w-5 h-5 text-orange-500 mb-2" />
               <p className="text-sm text-gray-400">Purchases</p>
-              <p className="text-xl font-bold">{pass.minted_count || 0}</p>
+              <p className="text-xl font-bold">{totalSold}</p>
             </div>
-            
+
             <div className="bg-black/50 border border-gray-800 rounded-lg p-4">
               <DollarSign className="w-5 h-5 text-orange-500 mb-2" />
               <p className="text-sm text-gray-400">Revenue</p>
               <p className="text-xl font-bold">
-                {((pass.minted_count || 0) * pass.price_cents / 100).toFixed(2)}
+                {(totalSold * pass.price_cents / 100).toFixed(2)}
               </p>
             </div>
           </div>
@@ -198,13 +201,13 @@ const PassDetailView: React.FC = () => {
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-400">Supply</span>
                 <span className="text-gray-400">
-                  {pass.minted_count || 0} / {pass.supply_cap} sold
+                  {totalSold} / {pass.supply_cap} sold
                 </span>
               </div>
               <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden mb-2">
-                <div 
+                <div
                   className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full"
-                  style={{ width: `${Math.min(100, Math.round((pass.minted_count || 0) / pass.supply_cap * 100))}%` }}
+                  style={{ width: `${Math.min(100, Math.round(totalSold / pass.supply_cap * 100))}%` }}
                 />
               </div>
               <p className="text-sm text-gray-400">
@@ -212,7 +215,7 @@ const PassDetailView: React.FC = () => {
               </p>
             </div>
           )}
-          
+
           {/* Unlimited supply indicator */}
           {!pass.supply_cap && (
             <div className="mb-6">
@@ -221,7 +224,7 @@ const PassDetailView: React.FC = () => {
                 <span className="text-gray-400">Unlimited</span>
               </div>
               <p className="text-sm text-gray-400">
-                {pass.minted_count || 0} passes sold so far
+                {totalSold} passes sold so far
               </p>
             </div>
           )}

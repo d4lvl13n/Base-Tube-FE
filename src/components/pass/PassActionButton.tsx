@@ -9,7 +9,6 @@ import { useState } from 'react';
 import { useCryptoDirectBuy, useCryptoCheckout } from '../../hooks/useOnchainPass';
 import { onchainPassApi } from '../../api/onchainPass';
 import { Wallet } from 'lucide-react';
-import TestnetModeBadge from './TestnetModeBadge';
 
 interface PassActionButtonProps {
   pass: {
@@ -18,6 +17,7 @@ interface PassActionButtonProps {
     formatted_price: string;
     supply_cap?: number;
     minted_count?: number;
+    reserved_count?: number;
   };
   alreadyOwns: boolean;
   isAccessLoading: boolean;
@@ -44,19 +44,25 @@ const TierBadge: React.FC<{ tier: string }> = ({ tier }) => {
   );
 };
 
-const SupplyCap: React.FC<{ minted_count?: number, total?: number }> = ({ minted_count = 0, total }) => {
+const SupplyCap: React.FC<{ minted_count?: number, reserved_count?: number, total?: number }> = ({
+  minted_count = 0,
+  reserved_count = 0,
+  total
+}) => {
   if (!total) return null;
-  
-  const remaining = Math.max(0, total - minted_count);
+
+  // Include both minted and reserved (pending Stripe purchases) in sold count
+  const sold = minted_count + reserved_count;
+  const remaining = Math.max(0, total - sold);
   const percentLeft = (remaining / total) * 100;
-  
+
   // Different color based on scarcity
   const getColor = () => {
     if (percentLeft < 10) return 'text-red-400 border-red-400/30';
     if (percentLeft < 30) return 'text-amber-400 border-amber-400/30';
     return 'text-green-400 border-green-400/30';
   };
-  
+
   return (
     <span className={`text-xs px-3 py-1 rounded-full border ${getColor()} bg-black/40 backdrop-blur-sm ml-2`}>
       {remaining} / {total} left
@@ -135,17 +141,14 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
         </div>
         
         {pass.supply_cap && (
-          <SupplyCap 
-            total={pass.supply_cap} 
-            minted_count={pass.minted_count || 0} 
+          <SupplyCap
+            total={pass.supply_cap}
+            minted_count={pass.minted_count || 0}
+            reserved_count={pass.reserved_count || 0}
           />
         )}
       </div>
 
-      <div className="flex justify-end">
-        <TestnetModeBadge />
-      </div>
-      
       <UnlockButton 
         passId={pass.id} 
         className="relative group overflow-hidden bg-gradient-to-r from-orange-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-orange-500/20 transition-all duration-300 w-full flex items-center justify-center gap-2" 

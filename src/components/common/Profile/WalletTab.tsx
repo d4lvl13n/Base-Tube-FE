@@ -228,7 +228,7 @@ const ClaimItem: React.FC<{ access: OnchainAccessData }> = ({ access }) => {
   const { data: statusResponse } = usePurchaseStatus(purchaseId || undefined, { enabled: Boolean(purchaseId), intervalMs: 5000 });
   const claim = useClaim();
 
-  const isMinted = statusResponse?.data?.status === 'minted' || statusResponse?.data?.status === 'claimed' || statusResponse?.data?.status === 'completed';
+  const isMinted = ['pending', 'minting', 'minted', 'claiming', 'claimed', 'completed'].includes(statusResponse?.data?.status || '');
   const canClaim = isMinted && !!purchaseId && !claim.isPending;
 
   const vaultDisplay = formatAmount(access.vaultBalance || '0', { decimals: 0, minFraction: 0, maxFraction: 0 });

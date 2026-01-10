@@ -132,6 +132,7 @@ const PassDetailsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-[#0a0a0f] to-[#09090B] text-white">
       <PremiumHeader passTitle={pass.title} creatorName={pass.channel?.name} />
+      <TestnetModeBadge topOffsetPx={isScrolled ? 112 : 64} />
       <StickyPassHeader 
         isVisible={isScrolled}
         pass={pass}
@@ -336,10 +337,6 @@ const PassDetailsPage: React.FC = () => {
                 
                 <div className="relative bg-black/60 backdrop-blur-md rounded-xl p-6 border border-white/10 space-y-4 shadow-xl z-10 overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-pink-500/5" />
-
-                  <div className="absolute top-4 right-4">
-                    <TestnetModeBadge />
-                  </div>
                   
                   <div className="flex items-center gap-2">
                     <Star className="w-5 h-5 text-orange-400" />
@@ -354,13 +351,14 @@ const PassDetailsPage: React.FC = () => {
                       : 'Own this NFT pass and stream every video instantly. Yours forever—even if you sell it later.'}
                   </p>
                 
-                <PassActionButton 
+                <PassActionButton
                   pass={{
                     id: pass.id,
                     tier: pass.tier,
                     formatted_price: pass.formatted_price,
                     supply_cap: pass.supply_cap,
-                    minted_count: pass.minted_count
+                    minted_count: pass.minted_count,
+                    reserved_count: pass.reserved_count
                   }}
                   alreadyOwns={alreadyOwns}
                   isAccessLoading={isAccessLoading}

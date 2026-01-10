@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCheckoutStatus, usePassDetails } from '../hooks/usePass';
 import { useAccess, usePurchaseStatus } from '../hooks/useOnchainPass';
 import { useAccount } from 'wagmi';
@@ -10,9 +11,11 @@ import { CheckCircle, AlertTriangle, ArrowLeft, RefreshCw, Sparkles, Crown, Wall
 const CheckoutSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const sessionId = searchParams.get('session_id');
   const [passId, setPassId] = useState<string | null>(null);
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
+  const [hasInvalidatedCache, setHasInvalidatedCache] = useState(false);
 
   // Wallet connection state
   const { isConnected } = useAccount();
@@ -45,35 +48,106 @@ const CheckoutSuccessPage: React.FC = () => {
   }, [sessionId, navigate]);
 
   // When checkout resolver exposes purchase_id, store it locally and begin purchase polling
+  // Handle both flat response (legacy) and wrapped response { success, data: { ... } }
   useEffect(() => {
-    if (checkoutStatus?.purchase_id && !purchaseId) {
-      setPurchaseId(checkoutStatus.purchase_id);
-      try { localStorage.setItem('last_purchase_id', checkoutStatus.purchase_id); } catch {}
+    const resolvedPurchaseId = checkoutStatus?.purchase_id || (checkoutStatus as any)?.data?.purchaseId || (checkoutStatus as any)?.data?.purchase_id;
+    if (resolvedPurchaseId && !purchaseId) {
+      setPurchaseId(resolvedPurchaseId);
+      try { localStorage.setItem('last_purchase_id', resolvedPurchaseId); } catch {}
     }
-  }, [checkoutStatus?.purchase_id, purchaseId]);
+  }, [checkoutStatus, purchaseId]);
 
-  // When onchain purchase status reaches terminal state, set passId for details/access
+  // When purchase status API returns data, extract passId
+  // Backend returns FLAT response: { status, purchase_id, pass_id, ... }
   useEffect(() => {
-    const onchainStatus = purchaseStatusResp?.data?.status;
-    if (onchainStatus && ['minted', 'claimed', 'completed'].includes(onchainStatus)) {
-      const resolvedPassId = purchaseStatusResp?.data?.passId || (purchaseStatusResp?.data as any)?.pass_id;
-      if (resolvedPassId) setPassId(resolvedPassId);
+    const data = purchaseStatusResp as any;
+    if (!data) return;
+
+    // Backend uses snake_case: pass_id, purchase_id
+    const resolvedPassId = data?.pass_id || data?.passId || data?.data?.pass_id || data?.data?.passId;
+    const status = data?.status || data?.data?.status;
+
+    // All these statuses mean the purchase exists and user has access
+    const accessGrantingStatuses = ['pending', 'processing', 'completed', 'minting', 'minted', 'claiming', 'claimed'];
+
+    if (status && accessGrantingStatuses.includes(status) && resolvedPassId && !passId) {
+      console.log('[CheckoutSuccess] Setting passId from purchase status:', resolvedPassId);
+      setPassId(resolvedPassId);
     }
-  }, [purchaseStatusResp]);
+  }, [purchaseStatusResp, passId]);
 
   // Fallback when checkout status already includes pass_id (completed)
+  // Handle both flat response (legacy) and wrapped response { success, data: { ... } }
   useEffect(() => {
-    if (checkoutStatus?.status === 'completed' && checkoutStatus.pass_id) {
-      setPassId(checkoutStatus.pass_id);
+    const status = checkoutStatus?.status || (checkoutStatus as any)?.data?.status;
+    const passIdFromCheckout = checkoutStatus?.pass_id || (checkoutStatus as any)?.data?.passId || (checkoutStatus as any)?.data?.pass_id;
+    if (status === 'completed' && passIdFromCheckout) {
+      setPassId(passIdFromCheckout);
     }
   }, [checkoutStatus]);
+
+  // Invalidate pass caches when we detect a successful purchase
+  // This ensures minted_count is updated when user visits the pass page again
+  useEffect(() => {
+    const data = purchaseStatusResp as any;
+    const status = data?.status || data?.data?.status;
+    const resolvedPassId = data?.pass_id || data?.passId || data?.data?.pass_id || data?.data?.passId;
+
+    // If we have a valid purchase status and haven't invalidated yet
+    if (status && resolvedPassId && !hasInvalidatedCache) {
+      console.log('[CheckoutSuccess] Invalidating pass cache for:', resolvedPassId);
+      // Invalidate all pass-related queries so fresh data is fetched
+      queryClient.invalidateQueries({ queryKey: ['pass'] });
+      queryClient.invalidateQueries({ queryKey: ['pass', resolvedPassId] });
+      queryClient.invalidateQueries({ queryKey: ['purchased-passes'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-purchases'] });
+      setHasInvalidatedCache(true);
+    }
+  }, [purchaseStatusResp, hasInvalidatedCache, queryClient]);
 
   if (!sessionId) return null;
 
   // Loading state - waiting for checkout confirmation / mint completion
-  const isProcessing = !isStatusError && (checkoutStatus?.status === 'processing' || checkoutStatus?.status === 'open');
-  const isMintPolling = Boolean(sessionId) && !(purchaseStatusResp?.data?.status && ['minted','claimed','completed'].includes(purchaseStatusResp.data.status)) && !passId;
-  if (isStatusLoading || isAccessLoading || (isProcessing && isMintPolling) || isMintPolling) {
+  // Handle both flat response (legacy) and wrapped response { success, data: { ... } }
+  const checkoutStatusValue = checkoutStatus?.status || (checkoutStatus as any)?.data?.status;
+
+  // Backend returns FLAT response: { status, purchase_id, pass_id, ... }
+  // NOT wrapped like { success: true, data: { ... } }
+  // So we access properties directly on purchaseStatusResp
+  const purchaseStatusData = purchaseStatusResp as any;
+  const purchaseStatus = purchaseStatusData?.status || purchaseStatusResp?.data?.status;
+  const purchasePassId = purchaseStatusData?.pass_id || purchaseStatusData?.passId || purchaseStatusResp?.data?.pass_id || purchaseStatusResp?.data?.passId;
+  const purchasePurchaseId = purchaseStatusData?.purchase_id || purchaseStatusData?.purchaseId;
+
+  const isProcessing = !isStatusError && (checkoutStatusValue === 'processing' || checkoutStatusValue === 'open');
+
+  // Debug logging
+  console.log('[CheckoutSuccess] Raw purchaseStatusResp:', purchaseStatusResp);
+  console.log('[CheckoutSuccess] Extracted - status:', purchaseStatus, 'pass_id:', purchasePassId, 'purchase_id:', purchasePurchaseId);
+
+  // Backend status mapping:
+  // - 'pending' = payment confirmed, awaiting wallet
+  // - 'processing' = minting/claiming in progress (mapped from minting/claiming)
+  // - 'completed' = done (mapped from minted/claimed)
+  // All of these mean the user has access!
+  const accessGrantingStatuses = ['pending', 'processing', 'completed', 'minting', 'minted', 'claiming', 'claimed'];
+  const hasValidPurchaseStatus = purchaseStatus && accessGrantingStatuses.includes(purchaseStatus);
+
+  // If we have ANY response with a status or pass_id, the purchase exists
+  const hasAnyPurchaseResponse = Boolean(purchaseStatusResp) && (
+    Boolean(purchaseStatus) ||
+    Boolean(purchasePassId) ||
+    Boolean(purchasePurchaseId)
+  );
+
+  // CRITICAL: If we have ANY response from purchase status API, skip the loading state entirely
+  const shouldShowLoading = !hasAnyPurchaseResponse && (
+    isStatusLoading ||
+    isAccessLoading ||
+    (isProcessing && !passId)
+  );
+
+  if (shouldShowLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-white">
         <div className="space-y-6 text-center max-w-lg p-8">
@@ -84,37 +158,25 @@ const CheckoutSuccessPage: React.FC = () => {
           >
             <RefreshCw className="w-12 h-12" />
           </motion.div>
-          <h1 className="text-3xl font-bold">Minting content pass…</h1>
+          <h1 className="text-3xl font-bold">Processing your purchase…</h1>
           <p className="text-gray-300">
-            Your payment was successful! We're now minting your content pass on-chain.
+            Confirming your payment. This will only take a moment.
           </p>
-          {purchaseStatusResp?.data?.mintTxUrl && (
-            <p>
-              <a
-                href={purchaseStatusResp.data.mintTxUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-orange-400 hover:text-orange-300 underline"
-              >
-                View mint transaction on explorer
-              </a>
-            </p>
-          )}
         </div>
       </div>
     );
   }
 
   // Error with checkout status
-  if (isStatusError || ['expired', 'open'].includes(checkoutStatus?.status || '')) {
+  if (isStatusError || ['expired', 'open'].includes(checkoutStatusValue || '')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-white">
         <div className="space-y-6 text-center max-w-lg p-8 bg-red-900/20 rounded-xl border border-red-500/20">
           <AlertTriangle className="w-16 h-16 text-red-500 mx-auto" />
           <h1 className="text-3xl font-bold">Payment issue</h1>
           <p className="text-gray-300">
-            {statusError?.message || 
-             `There was a problem with your purchase (Status: ${checkoutStatus?.status || 'unknown'}).`}
+            {statusError?.message ||
+             `There was a problem with your purchase (Status: ${checkoutStatusValue || 'unknown'}).`}
           </p>
           <div className="pt-4">
             <Link 

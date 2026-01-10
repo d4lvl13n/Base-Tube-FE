@@ -411,6 +411,7 @@ const CreateContentPass: React.FC = () => {
   
   return (
     <main className="flex-1 pt-4 md:pt-8 px-4 md:px-6">
+          <TestnetModeBadge topOffsetPx={64} />
           <S.Container 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }}
@@ -420,9 +421,6 @@ const CreateContentPass: React.FC = () => {
               <S.SubTitle>
             Monetize your exclusive content by creating a premium pass
               </S.SubTitle>
-              <div className="mt-4 flex justify-center">
-                <TestnetModeBadge />
-              </div>
             </S.PageHeader>
             
         <div className="mb-12">

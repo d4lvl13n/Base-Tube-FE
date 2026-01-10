@@ -2,18 +2,19 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { usePurchasedPasses } from '../../../hooks/usePass';
-import { useAccessList } from '../../../hooks/useOnchainPass';
-import { Film, Play, Calendar, ExternalLink, Lock, Shield } from 'lucide-react';
+import { useAccessList, usePendingPurchases } from '../../../hooks/useOnchainPass';
+import { Film, Play, Calendar, ExternalLink, Lock, Shield, Clock } from 'lucide-react';
 import { Pass } from '../../../types/pass';
-import type { OnchainAccessData } from '../../../types/onchainPass';
+import type { OnchainAccessData, PendingPurchase } from '../../../types/onchainPass';
 import PendingPassesClaim from './PendingPassesClaim';
 
 interface PassCardProps {
   pass: Pass;
   access?: OnchainAccessData;
+  isPending?: boolean;
 }
 
-const PassCard: React.FC<PassCardProps> = ({ pass, access }) => {
+const PassCard: React.FC<PassCardProps> = ({ pass, access, isPending }) => {
   // Get the first video's thumbnail or use fallback
   const thumbnail = pass.videos?.[0]?.thumbnail_url || '/assets/Content-pass.webp';
   
@@ -61,13 +62,20 @@ const PassCard: React.FC<PassCardProps> = ({ pass, access }) => {
           </span>
         </div>
         
-        {/* Owned badge */}
+        {/* Owned/Pending badge */}
         <div className="absolute top-2 left-2">
           <div className="flex items-center gap-2">
-            <div className="bg-green-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-              <Shield className="w-3 h-3" />
-              <span>Owned</span>
-            </div>
+            {isPending ? (
+              <div className="bg-amber-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>Access Granted</span>
+              </div>
+            ) : (
+              <div className="bg-green-600 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                <Shield className="w-3 h-3" />
+                <span>Owned</span>
+              </div>
+            )}
             {process.env.REACT_APP_FEATURE_ONCHAIN_PASSES !== 'false' && access?.hasAccess ? (
               <div className="bg-emerald-700 text-white text-xs px-2 py-1 rounded-full" title={`source: ${access.source}\nupdated: ${new Date(access.timestamp).toLocaleString()}`}>
                 On-chain
@@ -109,12 +117,42 @@ const PassCard: React.FC<PassCardProps> = ({ pass, access }) => {
   );
 };
 
+// Convert a pending purchase to a Pass-like object for display
+const pendingPurchaseToPass = (purchase: PendingPurchase): Pass => ({
+  id: purchase.pass.id,
+  title: purchase.pass.title,
+  description: purchase.pass.description || '',
+  tier: purchase.pass.tier,
+  slug: purchase.pass.slug || '',
+  price: purchase.priceCents / 100,
+  formatted_price: `$${(purchase.priceCents / 100).toFixed(2)}`,
+  videos: [],
+  supply_cap: null,
+  minted_count: 0,
+  creator_id: '',
+  status: 'active',
+  created_at: purchase.createdAt,
+  updated_at: purchase.createdAt,
+});
+
 const PassesTab = () => {
   const { data: passes, isLoading, error } = usePurchasedPasses();
+  const { data: pendingPurchasesResp, isLoading: isPendingLoading } = usePendingPurchases();
   const isOnchainEnabled = process.env.REACT_APP_FEATURE_ONCHAIN_PASSES !== 'false';
   const { data: accessList } = useAccessList({ enabled: isOnchainEnabled });
   const [searchQuery, setSearchQuery] = useState('');
-  
+
+  // Extract pending purchases from response (handle both flat and wrapped)
+  const pendingPurchases = useMemo(() => {
+    const data = pendingPurchasesResp as any;
+    return data?.data?.purchases || data?.purchases || [];
+  }, [pendingPurchasesResp]);
+
+  // Get set of pending pass IDs for quick lookup
+  const pendingPassIds = useMemo(() => {
+    return new Set(pendingPurchases.map((p: PendingPurchase) => p.pass.id));
+  }, [pendingPurchases]);
+
   const accessByPassId = useMemo(() => {
     const map = new Map<string, OnchainAccessData>();
     const items = accessList?.data || [];
@@ -123,15 +161,34 @@ const PassesTab = () => {
     }
     return map;
   }, [accessList]);
-  
+
+  // Merge purchased passes with pending purchases (dedupe by ID)
+  const allPasses = useMemo(() => {
+    const passMap = new Map<string, Pass>();
+
+    // Add completed purchases first
+    for (const pass of (passes || [])) {
+      passMap.set(pass.id, pass);
+    }
+
+    // Add pending purchases (only if not already in completed list)
+    for (const purchase of pendingPurchases) {
+      if (!passMap.has(purchase.pass.id)) {
+        passMap.set(purchase.pass.id, pendingPurchaseToPass(purchase));
+      }
+    }
+
+    return Array.from(passMap.values());
+  }, [passes, pendingPurchases]);
+
   // Filter passes based on search query
-  const filteredPasses = passes?.filter(pass => 
+  const filteredPasses = allPasses.filter(pass =>
     pass.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     pass.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     pass.tier.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  );
   
-  if (isLoading) {
+  if (isLoading || isPendingLoading) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between">
@@ -158,10 +215,10 @@ const PassesTab = () => {
     );
   }
   
-  if (!passes?.length) {
+  if (!allPasses.length) {
     return (
       <div className="space-y-6">
-        {/* Show pending passes even when no completed passes exist */}
+        {/* Show pending passes claim banner */}
         <PendingPassesClaim />
 
         <h2 className="text-2xl font-bold">My Content Passes</h2>
@@ -204,8 +261,13 @@ const PassesTab = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredPasses?.map((pass) => (
-          <PassCard key={pass.id} pass={pass} access={accessByPassId.get(pass.id)} />
+        {filteredPasses.map((pass) => (
+          <PassCard
+            key={pass.id}
+            pass={pass}
+            access={accessByPassId.get(pass.id)}
+            isPending={pendingPassIds.has(pass.id)}
+          />
         ))}
       </div>
     </div>
