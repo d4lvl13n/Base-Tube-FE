@@ -59,16 +59,33 @@ export function useLinkWallet() {
       return response;
     } catch (err) {
       console.error('Link wallet error:', err);
-      
+
       if (err instanceof Error) {
+        const errMsg = err.message.toLowerCase();
         console.log('Error message:', err.message);
-        if (err.message.toLowerCase().includes('already linked')) {
+
+        // Check if wallet is already linked to THIS account (success case)
+        // Backend may return "already linked to your account" or similar
+        if (errMsg.includes('already linked') && errMsg.includes('your account')) {
+          // Wallet is already linked to the current user - treat as success
+          setModalState({
+            type: 'success',
+            message: 'Wallet Already Connected',
+            details: 'This wallet is already linked to your account. You can proceed.'
+          });
+          // Invalidate queries to ensure UI is up to date
+          await queryClient.invalidateQueries({ queryKey: ['wallet'] });
+          await queryClient.invalidateQueries({ queryKey: ['profile'] });
+          return { alreadyLinked: true };
+        } else if (errMsg.includes('already linked')) {
+          // Wallet is linked to a DIFFERENT account - this is an actual error
           setModalState({
             type: 'error',
-            message: 'Wallet Already Linked',
-            details: 'This wallet is already linked to another account. Please disconnect and try a different wallet.'
+            message: 'Wallet Already In Use',
+            details: 'This wallet is linked to another account. Please disconnect and try a different wallet.'
           });
-          await disconnect();
+          // Don't auto-disconnect - let user decide what to do
+          // await disconnect();
         } else {
           setModalState({
             type: 'error',
@@ -87,7 +104,7 @@ export function useLinkWallet() {
     } finally {
       setIsLinking(false);
     }
-  }, [address, setUser, disconnect, queryClient]);
+  }, [address, setUser, queryClient]);
 
   const handleLinkWallet = useCallback(async () => {
     try {

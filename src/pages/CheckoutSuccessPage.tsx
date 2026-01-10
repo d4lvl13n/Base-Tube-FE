@@ -562,7 +562,12 @@ const CheckoutSuccessPage: React.FC = () => {
                         Connect your wallet to mint this pass as an NFT. You'll be able to trade or transfer it anytime.
                       </p>
                       <button
-                        onClick={openConnectModal}
+                        onClick={() => {
+                          // Set intent before opening modal to prevent auto-connect from triggering Web3 signup
+                          // The intent tells useWeb3Auth to skip auto-connect so useLinkWallet can handle it
+                          sessionStorage.setItem('wallet_connect_intent', 'link');
+                          openConnectModal?.();
+                        }}
                         disabled={isLinking}
                         className="w-full py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
                       >

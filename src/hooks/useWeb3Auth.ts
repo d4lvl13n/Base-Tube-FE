@@ -183,8 +183,31 @@ export function useWeb3Auth() {
     const authMethod = localStorage.getItem('auth_method');
     const isClerkUser = authMethod === 'clerk';
 
-    if (isClerkUser) {
-      console.log('[useWeb3Auth] Skipping auto-connect: Clerk user detected. Use linkWallet instead.');
+    // Also check for Clerk session token as a fallback
+    // Clerk stores session data in localStorage with keys starting with '__clerk'
+    const hasClerkSession = Object.keys(localStorage).some(key =>
+      key.startsWith('__clerk') && key.includes('session')
+    );
+
+    // Check wallet connection intent from session storage
+    // Intent is set before opening wallet modal to indicate purpose
+    const walletIntent = sessionStorage.getItem('wallet_connect_intent');
+    const isLinkingIntent = walletIntent === 'link' || walletIntent === 'transaction';
+
+    // Skip auto-connect if:
+    // 1. User is Clerk-authenticated (auth_method or session token)
+    // 2. Intent is to link wallet (not sign in)
+    if (isClerkUser || hasClerkSession || isLinkingIntent) {
+      console.log('[useWeb3Auth] Skipping auto-connect:', {
+        isClerkUser,
+        hasClerkSession,
+        walletIntent,
+        reason: 'User should use linkWallet instead'
+      });
+      // Clear the intent after checking (single use)
+      if (walletIntent) {
+        sessionStorage.removeItem('wallet_connect_intent');
+      }
       return;
     }
 
