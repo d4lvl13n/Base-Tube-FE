@@ -79,7 +79,7 @@ base-tube-mockup/
 │   │   ├── useCurrentUser.ts  # Current user data
 │   │   ├── usePass.ts         # Pass details, checkout, purchase
 │   │   ├── useOnchainPass.ts  # On-chain access, claiming
-│   │   ├── useTokenGate.ts    # Token-gated content access
+│   │   ├── usePlayToken.ts    # Secure video playback URLs with storage tier routing
 │   │   ├── useCTREngine.ts    # CTR thumbnail audit/generation
 │   │   ├── usePublicThumbnailGenerator.ts  # Public thumbnail tool
 │   │   ├── useAnalyticsData.ts # Creator analytics
@@ -126,7 +126,7 @@ base-tube-mockup/
 │   │   ├── video.ts           # Video, VideoStatus, pagination
 │   │   ├── channel.ts         # Channel types
 │   │   ├── auth.ts            # User, AuthenticationStep, LoginResponse
-│   │   ├── pass.ts            # Pass, CreatePassRequest, PurchaseStatus
+│   │   ├── pass.ts            # Pass, PlayTokenData, PlayTokenErrorCode, storage_tier types
 │   │   ├── onchainPass.ts     # OnchainAccess, ClaimRequest/Response
 │   │   ├── ctr.ts             # CTR audit, generation, quota types
 │   │   ├── thumbnail.ts       # Thumbnail generation types
@@ -351,6 +351,41 @@ base-tube-mockup/
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Secure Video Playback System
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 SECURE VIDEO URL SYSTEM                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Video URLs are NOT exposed in API responses.                    │
+│  Instead, playback URLs are fetched on-demand based on           │
+│  storage_tier:                                                   │
+│                                                                  │
+│  ┌────────────────────┐    ┌────────────────────┐                │
+│  │  storage_tier:     │    │  storage_tier:     │                │
+│  │  'external'        │    │  'standard' |      │                │
+│  │  (YouTube, etc.)   │    │  'premium' | 'cdn' │                │
+│  └─────────┬──────────┘    └─────────┬──────────┘                │
+│            │                         │                           │
+│            ▼                         ▼                           │
+│  POST /videos/:id/play-token   GET /videos/:id/signed-url        │
+│            │                         │                           │
+│            ▼                         ▼                           │
+│  Returns: embed_url,           Returns: signed S3/CDN URL        │
+│           playback_url                                           │
+│                                                                  │
+│  Error Handling:                                                 │
+│  - USE_PLAY_TOKEN: signed-url called for external → fallback     │
+│  - NO_ACCESS: User doesn't own pass → show purchase prompt       │
+│  - RATE_LIMIT: Too many requests → show wait message             │
+│                                                                  │
+│  Hook: src/hooks/usePlayToken.ts                                 │
+│  API: src/api/pass.ts (getVideoPlaybackUrl, getPlayToken)        │
+│  Types: PlayTokenData, PlayTokenErrorCode, StorageTier           │
+│  Page: src/pages/WatchPassPage.tsx                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ### Pending Purchases Claim Flow
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -375,6 +410,42 @@ base-tube-mockup/
 │  7. Backend mints NFT(s) to wallet                               │
 │  8. Success modal shows results                                  │
 │                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Wallet Linking for Clerk Users
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  WALLET LINKING FLOW                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Problem: When a Clerk user connects a wallet, we want to LINK   │
+│  it to their account, not create a new Web3 account.             │
+│                                                                  │
+│  Solution: Intent-based wallet connection                        │
+│                                                                  │
+│  1. Before opening wallet modal, set intent:                     │
+│     sessionStorage.setItem('wallet_connect_intent', 'link')      │
+│                                                                  │
+│  2. useWeb3Auth auto-connect checks for:                         │
+│     - auth_method === 'clerk'                                    │
+│     - Clerk session tokens in localStorage                       │
+│     - wallet_connect_intent === 'link' or 'transaction'          │
+│     → If any, skip auto-connect to prevent Web3 signup           │
+│                                                                  │
+│  3. useLinkWallet handles the actual linking:                    │
+│     - POST /auth/web3/link-wallet                                │
+│     - "Already linked to your account" → treat as success        │
+│     - "Already linked" (different account) → show error          │
+│                                                                  │
+│  Entry Points:                                                   │
+│  - CheckoutSuccessPage.tsx (claim NFT prompt)                    │
+│  - PendingPassesClaim.tsx (profile passes tab)                   │
+│                                                                  │
+│  Files:                                                          │
+│  - src/hooks/useWeb3Auth.ts (auto-connect guard)                 │
+│  - src/hooks/useLinkWallet.ts (linking API + modal state)        │
+│  - src/api/web3authapi.ts (linkWallet endpoint)                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

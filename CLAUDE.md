@@ -35,9 +35,15 @@ The app supports two authentication methods that can work independently:
 
 Auth method is stored in `localStorage.getItem('auth_method')` as `'clerk'` or `'web3'`.
 
+**Wallet Linking for Clerk Users:** When a Clerk-authenticated user connects a wallet, the app links it to their existing account instead of creating a new Web3 account. This is controlled by:
+- `sessionStorage.getItem('wallet_connect_intent')` - Set to `'link'` before opening wallet modal
+- `useWeb3Auth.ts` auto-connect guard checks for Clerk session and intent
+- `useLinkWallet.ts` handles the actual linking API call
+
 Key files:
 - `src/contexts/AuthContext.tsx` - Web3 auth context (wraps useWeb3Auth hook)
-- `src/hooks/useWeb3Auth.ts` - Web3 wallet connection, signature verification
+- `src/hooks/useWeb3Auth.ts` - Web3 wallet connection, signature verification, auto-connect guard
+- `src/hooks/useLinkWallet.ts` - Wallet linking for Clerk users
 - `src/hooks/useRequireAuth.ts` - Auth gating for protected routes
 - `src/api/index.ts` - Axios interceptor that injects Clerk token or uses Web3 cookies
 
@@ -70,10 +76,13 @@ QueryClientProvider
 - Video upload, channel management, analytics
 - Uses `ChannelSelectionProvider` for multi-channel creators
 
-**Content Pass/NFT System** (`/content-passes`, `/p/:slug`)
-- Token-gated content access
+**Content Pass/NFT System** (`/content-passes`, `/p/:slug`, `/watch/:passId`)
+- Token-gated content access with secure video URL system
 - On-chain pass verification
-- Hooks: `usePass.ts`, `useOnchainPass.ts`, `useTokenGate.ts`
+- Hooks: `usePass.ts`, `useOnchainPass.ts`, `usePlayToken.ts`
+- Video playback routes based on `storage_tier`:
+  - `external` (YouTube, etc.) → play-token endpoint
+  - `standard`/`premium`/`cdn`/`decentralised` → signed-url endpoint
 
 ### Routing Structure
 - Public routes: Home, Discover, Video player, Search
