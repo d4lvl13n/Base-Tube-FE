@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAccount } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
+import { useUser } from '@clerk/clerk-react';
 import { usePendingPurchases, useMintPending } from '../../../hooks/useOnchainPass';
+import { useLinkWallet } from '../../../hooks/useLinkWallet';
 import {
   Gift,
   Wallet,
@@ -11,7 +13,8 @@ import {
   Loader2,
   Sparkles,
   ArrowRight,
-  X
+  X,
+  Link as LinkIcon
 } from 'lucide-react';
 import type { PendingPurchase, MintResult } from '../../../types/onchainPass';
 
@@ -132,14 +135,55 @@ const PendingPassCard: React.FC<{ purchase: PendingPurchase }> = ({ purchase }) 
 const PendingPassesClaim: React.FC = () => {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
+  const { isSignedIn } = useUser();
   const { data: pendingData, isLoading: isPendingLoading, refetch } = usePendingPurchases();
   const { mutate: mintPending, isPending: isMinting } = useMintPending();
+  const { linkWallet, isLinking, modalState: linkModalState, clearModal: clearLinkModal } = useLinkWallet();
 
   const [mintResults, setMintResults] = useState<MintResult[] | null>(null);
   const [showResults, setShowResults] = useState(false);
 
+  // Track if we've attempted to link the wallet for this connection
+  const hasAttemptedLinkRef = useRef(false);
+
   const pendingPurchases = pendingData?.data?.purchases || [];
   const hasPending = pendingPurchases.length > 0;
+
+  // Handle wallet linking for Clerk users
+  // When a Clerk-authenticated user connects a wallet, we link it to their account
+  // instead of creating a new Web3 account
+  useEffect(() => {
+    const authMethod = localStorage.getItem('auth_method');
+    const isClerkUser = authMethod === 'clerk' || isSignedIn;
+
+    // Only attempt link if:
+    // 1. Wallet is connected with an address
+    // 2. User is authenticated via Clerk
+    // 3. We haven't already attempted to link this session
+    if (isConnected && address && isClerkUser && !hasAttemptedLinkRef.current) {
+      hasAttemptedLinkRef.current = true;
+      console.log('[PendingPassesClaim] Clerk user connected wallet, initiating link flow');
+
+      linkWallet().then((result) => {
+        if (result) {
+          console.log('[PendingPassesClaim] Wallet linked successfully');
+          // Refetch pending purchases after linking
+          refetch();
+        }
+      }).catch((err) => {
+        console.error('[PendingPassesClaim] Failed to link wallet:', err);
+        // Reset the ref to allow retry
+        hasAttemptedLinkRef.current = false;
+      });
+    }
+  }, [isConnected, address, isSignedIn, linkWallet, refetch]);
+
+  // Reset link attempt ref when wallet disconnects
+  useEffect(() => {
+    if (!isConnected) {
+      hasAttemptedLinkRef.current = false;
+    }
+  }, [isConnected]);
 
   // Refetch pending purchases when wallet connects
   useEffect(() => {
@@ -224,10 +268,15 @@ const PendingPassesClaim: React.FC = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleMint}
-              disabled={isMinting}
+              disabled={isMinting || isLinking}
               className="w-full py-3 bg-gradient-to-r from-[#fa7517] to-orange-600 hover:from-[#fa8527] hover:to-orange-500 text-black font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              {isMinting ? (
+              {isLinking ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Linking Wallet...
+                </>
+              ) : isMinting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
                   Minting to Wallet...
@@ -269,6 +318,68 @@ const PendingPassesClaim: React.FC = () => {
               setMintResults(null);
             }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Wallet link result modal */}
+      <AnimatePresence>
+        {linkModalState.type && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={clearLinkModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">Wallet Link</h3>
+                <button
+                  onClick={clearLinkModal}
+                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              <div className={`p-4 rounded-xl ${
+                linkModalState.type === 'success'
+                  ? 'bg-green-500/10 border border-green-500/30'
+                  : 'bg-red-500/10 border border-red-500/30'
+              }`}>
+                <div className={`flex items-center gap-2 mb-2 ${
+                  linkModalState.type === 'success' ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {linkModalState.type === 'success' ? (
+                    <CheckCircle className="w-5 h-5" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5" />
+                  )}
+                  <span className="font-medium">{linkModalState.message}</span>
+                </div>
+                {linkModalState.details && (
+                  <p className={`text-sm ${
+                    linkModalState.type === 'success' ? 'text-green-300/80' : 'text-red-300/80'
+                  }`}>
+                    {linkModalState.details}
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={clearLinkModal}
+                className="w-full mt-6 py-3 bg-[#fa7517] hover:bg-[#fa8527] text-black font-bold rounded-xl transition-colors"
+              >
+                {linkModalState.type === 'success' ? 'Continue to Claim' : 'Close'}
+              </button>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </>
