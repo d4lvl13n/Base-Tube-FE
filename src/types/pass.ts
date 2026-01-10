@@ -1,13 +1,14 @@
 export interface PassVideo {
   id: string;
   thumbnail_url: string;
-  platform: 'youtube' | 'twitch' | 'instagram' | 'tiktok' | 'other' | string;
+  platform: 'youtube' | 'twitch' | 'instagram' | 'tiktok' | 'vimeo' | 'other' | string;
   title?: string;
   duration?: number;
-  storage_tier?: 'external' | 'cdn' | 'decentralised';
+  storage_tier?: 'external' | 'standard' | 'premium' | 'cdn' | 'decentralised';
   has_access: boolean;  // Whether user can play this video
   // NOTE: src_url and platform_video_id are no longer returned by the API
-  // Use getPlayToken() to get playback URLs when user initiates playback
+  // Use getPlayToken() for external videos (YouTube, etc.)
+  // Use getSignedVideoUrl() for S3/CDN hosted videos
 }
 
 export interface PassChannel {
@@ -164,6 +165,7 @@ export type PlayTokenErrorCode =
   | 'NO_ACCESS'
   | 'NOT_FOUND'
   | 'PLAY_TOKEN_RATE_LIMIT_EXCEEDED'
+  | 'USE_PLAY_TOKEN'  // Returned when signed-url endpoint is called for external videos
   | 'SERVER_ERROR';
 
 /**

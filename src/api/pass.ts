@@ -60,15 +60,71 @@ export const passApi = {
   },
 
   /**
-   * Retrieve a signed video URL for authorized users
+   * Retrieve a signed video URL for S3/CDN hosted content
    * @param videoId Video uuid
-   * @deprecated Use getPlayToken instead for secure video playback
+   * @note Only works for non-external storage tiers (standard, premium, cdn, decentralised)
+   * @note For external videos (YouTube, etc.), use getPlayToken instead
+   * @throws PlaybackError with code 'USE_PLAY_TOKEN' if video is external
    */
   getSignedVideoUrl: async (videoId: string): Promise<string> => {
-    const response = await api.get<SignedUrlResponse>(
-      `/api/v1/passes/videos/${videoId}/signed-url`
-    );
-    return response.data.signed_url;
+    try {
+      const response = await api.get<SignedUrlResponse>(
+        `/api/v1/passes/videos/${videoId}/signed-url`
+      );
+      return response.data.signed_url;
+    } catch (error: any) {
+      // Handle USE_PLAY_TOKEN error - video is external, need play-token endpoint
+      if (error.response?.data?.error?.code === 'USE_PLAY_TOKEN') {
+        throw new PlaybackError(
+          'USE_PLAY_TOKEN' as PlayTokenErrorCode,
+          'External videos require play-token endpoint',
+          400
+        );
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Get playback URL for a video based on its storage tier
+   * Routes to the correct endpoint automatically:
+   * - external (YouTube, Twitch, etc.) → play-token endpoint
+   * - S3/CDN hosted → signed-url endpoint
+   *
+   * @param videoId Video UUID
+   * @param storageTier The video's storage tier (default: 'external' for safety)
+   * @returns PlayTokenData with playback URLs
+   */
+  getVideoPlaybackUrl: async (
+    videoId: string,
+    storageTier: 'external' | 'standard' | 'premium' | 'cdn' | 'decentralised' = 'external'
+  ): Promise<PlayTokenData> => {
+    // External videos must use play-token endpoint
+    if (storageTier === 'external') {
+      return passApi.getPlayToken(videoId);
+    }
+
+    // S3/CDN videos use signed-url endpoint
+    try {
+      const signedUrl = await passApi.getSignedVideoUrl(videoId);
+      // Convert signed URL to PlayTokenData format for consistency
+      return {
+        video_id: videoId,
+        playback_url: signedUrl,
+        embed_url: null,
+        platform: 'hosted',
+        token: '',
+        expires_at: new Date(Date.now() + 3600000).toISOString(), // 1 hour
+        expires_in_seconds: 3600,
+      };
+    } catch (error: any) {
+      // Fallback to play-token if signed-url returns USE_PLAY_TOKEN error
+      if (error instanceof PlaybackError && error.code === 'USE_PLAY_TOKEN') {
+        console.log('[passApi] Falling back to play-token for video:', videoId);
+        return passApi.getPlayToken(videoId);
+      }
+      throw error;
+    }
   },
 
   /**
