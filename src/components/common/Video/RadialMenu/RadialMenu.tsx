@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Share2, Coins, Rocket, Compass } from 'lucide-react';
+import { Heart, MessageCircle, Info, Share2, Coins, Rocket } from 'lucide-react';
 import { useVideoContext } from '../../../../contexts/VideoContext';
 import RadialMenuItem from './RadialMenuItem';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
@@ -27,7 +27,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   isTogglingLike,
   onSharePopupOpen
 }) => {
-  const { setIsCommentsPanelOpen, setIsDiscoveryPanelOpen } = useVideoContext();
+  const { setIsCommentsPanelOpen, setIsInfoPanelOpen } = useVideoContext();
   const { width } = useWindowSize();
   const isMobile = width <= 768;  // Adjust the breakpoint as needed
   const [isSharePopupOpen, setIsSharePopupOpen] = useState(false);
@@ -120,14 +120,14 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
       count: commentCount
     },
     {
+      Icon: Info,
+      label: 'Info',
+      onClick: () => setIsInfoPanelOpen(true)
+    },
+    {
       Icon: Share2,
       label: 'Share',
       onClick: handleShare
-    },
-    {
-      Icon: Compass,
-      label: 'Discover',
-      onClick: () => setIsDiscoveryPanelOpen(true)
     },
     {
       Icon: Coins,

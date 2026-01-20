@@ -15,9 +15,6 @@ import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
-import { VideoInfoOverlay } from '../common/Video/VideoInfoOverlay';
-import { CreatorBox } from '../common/Video/CreatorBox';
-import { ViewCount } from '../common/Video/ViewCount';
 import CommentPanel from '../common/Video/Comments/CommentPanel';
 import { useVideoContext } from '../../contexts/VideoContext';
 import { RadialMenu } from '../common/Video/RadialMenu/RadialMenu';
@@ -27,6 +24,7 @@ import { useWindowSize } from '../../hooks/useWindowSize';
 import { SharePopup } from '../common/SharePopup/SharePopup';
 import { PersistentCreatorBar } from '../common/Video/PersistentCreatorBar';
 import { DiscoveryPanel } from '../common/Video/DiscoveryPanel';
+import { InfoPanel } from '../common/Video/InfoPanel';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
@@ -40,7 +38,7 @@ const SingleVideo: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<VideoPlayerRef | null>(null) as MutableRefObject<VideoPlayerRef | null>;
-  const { isCommentsPanelOpen, setIsCommentsPanelOpen, isDiscoveryPanelOpen, setIsDiscoveryPanelOpen } = useVideoContext();
+  const { isCommentsPanelOpen, setIsCommentsPanelOpen, isInfoPanelOpen, setIsInfoPanelOpen } = useVideoContext();
   const playback = usePlayback();
   const commentsData = useComments({
     videoId: video?.id.toString() || '',
@@ -52,7 +50,6 @@ const SingleVideo: React.FC = () => {
 
   const [likesCount, setLikesCount] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Constants for header height and desired bottom space
   const HEADER_HEIGHT = 64; // Adjust this value to match the header's actual height
@@ -243,32 +240,6 @@ const SingleVideo: React.FC = () => {
     setIsSharePopupOpen(true);
   };
 
-  // Hover zone handlers for discovery panel
-  const handleHoverZoneEnter = useCallback(() => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-    hoverTimeoutRef.current = setTimeout(() => {
-      setIsDiscoveryPanelOpen(true);
-    }, 500);
-  }, [setIsDiscoveryPanelOpen]);
-
-  const handleHoverZoneLeave = useCallback(() => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-  }, []);
-
-  // Cleanup hover timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-    };
-  }, []);
-
   if (error) {
     return (
       <div className="flex flex-col bg-black text-white min-h-screen">
@@ -312,7 +283,7 @@ const SingleVideo: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-black text-white">
+    <div className="flex flex-col bg-black text-white min-h-[150vh]">
       {/* Header */}
       <Header />
 
@@ -358,37 +329,9 @@ const SingleVideo: React.FC = () => {
               />
             </div>
 
-            {/* Desktop Overlays - float on top of video */}
-            <AnimatePresence>
-              {!isMobile && (shouldShowOverlay || !isPlaying) && (
-                <>
-                  <VideoInfoOverlay video={video} />
-                  {channel && <CreatorBox channel={channel} />}
-                  <ViewCount video={video} />
-                </>
-              )}
-            </AnimatePresence>
-          </div>
+            </div>
 
-          {/* Mobile Overlays - stacked below the video container */}
-          {isMobile && (shouldShowOverlay || !isPlaying) && (
-            <AnimatePresence>
-              <div className="mobile-info-container w-full max-w-[1280px] px-4 mt-4 space-y-3">
-                <VideoInfoOverlay video={video} />
-                {channel && <CreatorBox channel={channel} />}
-                <ViewCount video={video} />
-              </div>
-            </AnimatePresence>
-          )}
-
-          {/* Reserved bottom space */}
-          <div
-            className="w-full max-w-[1280px] px-4 mt-6"
-            style={{ height: `${BOTTOM_SPACE}px` }}
-          >
-            {/* Additional content or empty space */}
-          </div>
-        </main>
+          </main>
       </div>
 
       {/* Radial Menu */}
@@ -428,6 +371,18 @@ const SingleVideo: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* Info Panel */}
+      <AnimatePresence>
+        {video && (
+          <InfoPanel
+            isOpen={isInfoPanelOpen}
+            onClose={() => setIsInfoPanelOpen(false)}
+            video={video}
+            channel={channel}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Share Popup - moved to root level */}
       <SharePopup
         isOpen={isSharePopupOpen}
@@ -443,19 +398,8 @@ const SingleVideo: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Hover Zone for Discovery Panel (desktop only) */}
-      {!isMobile && !isDiscoveryPanelOpen && (
-        <div
-          className="fixed bottom-0 left-0 right-0 h-[60px] z-[30]"
-          onMouseEnter={handleHoverZoneEnter}
-          onMouseLeave={handleHoverZoneLeave}
-        />
-      )}
-
-      {/* Discovery Panel */}
+      {/* Discovery Panel - scroll-based morphing overlay (always active) */}
       <DiscoveryPanel
-        isOpen={isDiscoveryPanelOpen}
-        onClose={() => setIsDiscoveryPanelOpen(false)}
         currentVideoId={video.id.toString()}
       />
     </div>

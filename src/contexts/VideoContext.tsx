@@ -3,27 +3,27 @@ import React, { createContext, useState, useContext } from 'react';
 interface VideoContextType {
   isCommentsPanelOpen: boolean;
   setIsCommentsPanelOpen: (open: boolean) => void;
-  isDiscoveryPanelOpen: boolean;
-  setIsDiscoveryPanelOpen: (open: boolean) => void;
+  isInfoPanelOpen: boolean;
+  setIsInfoPanelOpen: (open: boolean) => void;
 }
 
 export const VideoContext = createContext<VideoContextType>({
   isCommentsPanelOpen: false,
   setIsCommentsPanelOpen: () => {},
-  isDiscoveryPanelOpen: false,
-  setIsDiscoveryPanelOpen: () => {},
+  isInfoPanelOpen: false,
+  setIsInfoPanelOpen: () => {},
 });
 
 export const VideoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isCommentsPanelOpen, setIsCommentsPanelOpen] = useState(false);
-  const [isDiscoveryPanelOpen, setIsDiscoveryPanelOpen] = useState(false);
+  const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
 
   return (
     <VideoContext.Provider value={{
       isCommentsPanelOpen,
       setIsCommentsPanelOpen,
-      isDiscoveryPanelOpen,
-      setIsDiscoveryPanelOpen
+      isInfoPanelOpen,
+      setIsInfoPanelOpen
     }}>
       {children}
     </VideoContext.Provider>
