@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Share2, Coins, Rocket } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Coins, Rocket, Compass } from 'lucide-react';
 import { useVideoContext } from '../../../../contexts/VideoContext';
 import RadialMenuItem from './RadialMenuItem';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
@@ -27,7 +27,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   isTogglingLike,
   onSharePopupOpen
 }) => {
-  const { setIsCommentsPanelOpen } = useVideoContext();
+  const { setIsCommentsPanelOpen, setIsDiscoveryPanelOpen } = useVideoContext();
   const { width } = useWindowSize();
   const isMobile = width <= 768;  // Adjust the breakpoint as needed
   const [isSharePopupOpen, setIsSharePopupOpen] = useState(false);
@@ -105,33 +105,38 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   };
 
   const items = [
-    { 
-      Icon: Heart, 
-      label: 'Like', 
+    {
+      Icon: Heart,
+      label: 'Like',
       onClick: handleLike,
       count: likeCount,
       isActive: isLiked,
       isLoading: isTogglingLike
     },
-    { 
-      Icon: MessageCircle, 
-      label: 'Comment', 
+    {
+      Icon: MessageCircle,
+      label: 'Comment',
       onClick: () => setIsCommentsPanelOpen(true),
       count: commentCount
     },
-    { 
-      Icon: Share2, 
-      label: 'Share', 
-      onClick: handleShare 
+    {
+      Icon: Share2,
+      label: 'Share',
+      onClick: handleShare
     },
-    { 
-      Icon: Coins, 
-      label: 'Tip $TUBE', 
-      onClick: handleTipClick 
+    {
+      Icon: Compass,
+      label: 'Discover',
+      onClick: () => setIsDiscoveryPanelOpen(true)
     },
-    { 
+    {
+      Icon: Coins,
+      label: 'Tip $TUBE',
+      onClick: handleTipClick
+    },
+    {
       Icon: Rocket,
-      label: 'Boost Video', 
+      label: 'Boost Video',
       onClick: handleBoostClick
     },
   ];

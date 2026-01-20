@@ -22,7 +22,8 @@ import { contractsApi } from '../api/contracts';
 import type { ContractAbiResponse } from '../types/contracts';
 import type { Chain } from 'wagmi/chains';
 import { base, baseSepolia } from 'wagmi/chains';
-import { getWalletClient } from 'wagmi/actions';
+import { getPublicClient, getWalletClient } from 'wagmi/actions';
+import web3AuthApi from '../api/web3authapi';
 
 export const usePurchaseStatus = (
   sessionId?: string | null,
@@ -182,9 +183,15 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
   return useMutation<
     { hash: `0x${string}`; explorerUrl?: string },
     Error,
-    { quantity: number; validSeconds?: number }
+    { quantity: number; validSeconds?: number; confirmations?: number; accessPollTimeoutMs?: number; accessPollIntervalMs?: number }
   >({
-    mutationFn: async ({ quantity, validSeconds }) => {
+    mutationFn: async ({
+      quantity,
+      validSeconds,
+      confirmations = 1,
+      accessPollTimeoutMs = 60_000,
+      accessPollIntervalMs = 2500,
+    }) => {
       if (!passId) throw new Error('passId is required');
       if (!address) throw new Error('Wallet not connected');
       const abiResp = abiQuery.data || (await contractsApi.getContentLedgerAbi());
@@ -204,6 +211,10 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
       // Request signed quote from backend
       try { console.log('[CryptoPay] requesting quote (direct)', { passId, buyer: address, quantity }); } catch {}
       const quote = await onchainPassApi.getCryptoQuote(passId, { buyer: address, quantity, validSeconds });
+      // Sender wallet must equal buyer in the quote
+      if ((quote?.buyer || '').toLowerCase() !== address.toLowerCase()) {
+        throw new Error('Quote buyer does not match connected wallet');
+      }
       const refreshedWalletClient = await getWalletClient(wagmiConfig, { chainId: desiredChainId }).catch(() => undefined);
       const activeWalletClient = refreshedWalletClient ?? walletClient;
       if (!activeWalletClient) throw new Error('Wallet client unavailable');
@@ -211,6 +222,24 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
         throw new Error(`Wallet client on unexpected chain ${(activeWalletClient as any)?.chain?.id}; expected ${desiredChainId}`);
       }
       try { console.log('[CryptoPay] quote ok (direct)', { minPriceWei: quote.minPriceWei, passId: quote.passId, validUntil: quote.validUntil }); } catch {}
+
+      // If user isn't using web3 auth, they must link the wallet for access checks to work.
+      // Try opportunistically; non-blocking (user can still buy, but access polling may fail until linked).
+      try {
+        const authMethod = (() => {
+          try { return localStorage.getItem('auth_method'); } catch { return null; }
+        })();
+        const hasClerkSession = (() => {
+          try { return Object.keys(localStorage).some((k) => k.startsWith('__clerk')); } catch { return false; }
+        })();
+        const isClerkUser = authMethod === 'clerk' || hasClerkSession;
+        if (isClerkUser) {
+          await web3AuthApi.linkWallet(address);
+          try { console.log('[CryptoPay] wallet linked to account'); } catch {}
+        }
+      } catch (e) {
+        try { console.warn('[CryptoPay] wallet link attempt failed (non-blocking)', e); } catch {}
+      }
       // Validate and normalize args
       const isHex = (v: string) => /^0x[0-9a-fA-F]*$/.test(v);
       const normalizeBytes32 = (v: string): `0x${string}` => {
@@ -236,7 +265,6 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
         abi: abiResp.abi as any,
         functionName: 'buyPassWithQuote',
         args: [
-          quote.buyer as `0x${string}`,
           passIdBN,
           quantityBN,
           minPriceBN,
@@ -255,10 +283,39 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
       });
       try { console.log('[CryptoPay] tx submitted', { hash }); } catch {}
       const explorerUrl = getExplorerTxUrl(desiredChainId, hash as string);
+
+      // UX: wait for confirmations, then poll access endpoint (auth required)
+      try {
+        const publicClient = getPublicClient(wagmiConfig, { chainId: desiredChainId });
+        await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}`, confirmations });
+        try { console.log('[CryptoPay] tx confirmed', { hash, confirmations }); } catch {}
+      } catch (e) {
+        try { console.warn('[CryptoPay] waitForTransactionReceipt failed (continuing to access poll)', e); } catch {}
+      }
+
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < accessPollTimeoutMs) {
+        try {
+          const accessResp = await onchainPassApi.getAccess(passId);
+          const hasAccess = Boolean((accessResp as any)?.data?.hasAccess);
+          if (hasAccess) {
+            try { console.log('[CryptoPay] access granted via /access', { passId }); } catch {}
+            break;
+          }
+        } catch (e) {
+          try { console.warn('[CryptoPay] access poll error (will retry)', e); } catch {}
+        }
+        await new Promise((r) => setTimeout(r, accessPollIntervalMs));
+      }
+
       return { hash: hash as `0x${string}`, explorerUrl };
     },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: queryKeys.onchainPass.accessList() });
+      if (passId) {
+        client.invalidateQueries({ queryKey: queryKeys.onchainPass.access(passId) });
+        client.invalidateQueries({ queryKey: ['pass', passId] });
+      }
     },
   });
 };

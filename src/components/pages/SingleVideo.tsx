@@ -25,6 +25,8 @@ import { useComments } from '../../hooks/useComments';
 import { useLikes } from '../../hooks/useLikes';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import { SharePopup } from '../common/SharePopup/SharePopup';
+import { PersistentCreatorBar } from '../common/Video/PersistentCreatorBar';
+import { DiscoveryPanel } from '../common/Video/DiscoveryPanel';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
@@ -38,7 +40,7 @@ const SingleVideo: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<VideoPlayerRef | null>(null) as MutableRefObject<VideoPlayerRef | null>;
-  const { isCommentsPanelOpen, setIsCommentsPanelOpen } = useVideoContext();
+  const { isCommentsPanelOpen, setIsCommentsPanelOpen, isDiscoveryPanelOpen, setIsDiscoveryPanelOpen } = useVideoContext();
   const playback = usePlayback();
   const commentsData = useComments({
     videoId: video?.id.toString() || '',
@@ -50,6 +52,7 @@ const SingleVideo: React.FC = () => {
 
   const [likesCount, setLikesCount] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Constants for header height and desired bottom space
   const HEADER_HEIGHT = 64; // Adjust this value to match the header's actual height
@@ -240,6 +243,32 @@ const SingleVideo: React.FC = () => {
     setIsSharePopupOpen(true);
   };
 
+  // Hover zone handlers for discovery panel
+  const handleHoverZoneEnter = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsDiscoveryPanelOpen(true);
+    }, 500);
+  }, [setIsDiscoveryPanelOpen]);
+
+  const handleHoverZoneLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Cleanup hover timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
   if (error) {
     return (
       <div className="flex flex-col bg-black text-white min-h-screen">
@@ -405,6 +434,29 @@ const SingleVideo: React.FC = () => {
         onClose={() => setIsSharePopupOpen(false)}
         videoUrl={shareUrl}
         title={shareTitle}
+      />
+
+      {/* Persistent Creator Bar - shows when interface is hidden during playback (desktop only) */}
+      <AnimatePresence>
+        {!isMobile && channel && isPlaying && !showInterface && (
+          <PersistentCreatorBar channel={channel} />
+        )}
+      </AnimatePresence>
+
+      {/* Hover Zone for Discovery Panel (desktop only) */}
+      {!isMobile && !isDiscoveryPanelOpen && (
+        <div
+          className="fixed bottom-0 left-0 right-0 h-[60px] z-[30]"
+          onMouseEnter={handleHoverZoneEnter}
+          onMouseLeave={handleHoverZoneLeave}
+        />
+      )}
+
+      {/* Discovery Panel */}
+      <DiscoveryPanel
+        isOpen={isDiscoveryPanelOpen}
+        onClose={() => setIsDiscoveryPanelOpen(false)}
+        currentVideoId={video.id.toString()}
       />
     </div>
   );

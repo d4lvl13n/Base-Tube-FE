@@ -183,11 +183,10 @@ export function useWeb3Auth() {
     const authMethod = localStorage.getItem('auth_method');
     const isClerkUser = authMethod === 'clerk';
 
-    // Also check for Clerk session token as a fallback
-    // Clerk stores session data in localStorage with keys starting with '__clerk'
-    const hasClerkSession = Object.keys(localStorage).some(key =>
-      key.startsWith('__clerk') && key.includes('session')
-    );
+    // Also check for Clerk session token as a fallback.
+    // Clerk stores multiple auth/session keys in localStorage under the '__clerk' prefix
+    // (key names vary by Clerk version; don't rely on a specific substring like 'session').
+    const hasClerkSession = Object.keys(localStorage).some((key) => key.startsWith('__clerk'));
 
     // Check wallet connection intent from session storage
     // Intent is set before opening wallet modal to indicate purpose

@@ -6,9 +6,9 @@ import UnlockButton from './UnlockButton';
 import { useAccount } from 'wagmi';
 // Pricing is computed by backend via quote; no client-side ETH parsing needed
 import { useState } from 'react';
-import { useCryptoDirectBuy, useCryptoCheckout } from '../../hooks/useOnchainPass';
-import { onchainPassApi } from '../../api/onchainPass';
+import { useCryptoDirectBuy } from '../../hooks/useOnchainPass';
 import { Wallet } from 'lucide-react';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
 
 interface PassActionButtonProps {
   pass: {
@@ -80,8 +80,8 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
   const { isConnected } = useAccount();
   // const chainId = useChainId();
   // const { switchChain } = useSwitchChain();
+  const requireAuth = useRequireAuth();
   const cryptoDirect = useCryptoDirectBuy(pass.id);
-  const cryptoCheckout = useCryptoCheckout(pass.id);
   const [requestingQuote, setRequestingQuote] = useState(false);
   const [quantity] = useState(1);
   // const [, setMinPriceWei] = useState<string | undefined>(undefined); // kept for potential UI display/debug
@@ -156,31 +156,24 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
       
       {/* Crypto checkout button */}
       <button
-        disabled={cryptoCheckout.isPending}
+        disabled={cryptoDirect.isPending}
         onClick={async () => {
           try { console.log('[CryptoPay] click', { passId: pass.id, isConnected, address, quantity, useRelayer: process.env.REACT_APP_CRYPTO_USE_RELAYER }); } catch {}
           if (!isConnected) {
+            try { sessionStorage.setItem('wallet_connect_intent', 'transaction'); } catch {}
             try { (window as any).dispatchEvent?.(new CustomEvent('wallet:connect:open')); } catch {}
             return;
           }
           try {
-            const useRelayer = process.env.REACT_APP_CRYPTO_USE_RELAYER === 'true';
+            const ok = await requireAuth();
+            if (!ok) return;
             setRequestingQuote(true);
-            if (useRelayer) {
-              try { console.log('[CryptoPay] requesting quote (relayer)', { passId: pass.id, buyer: address, quantity }); } catch {}
-              const quote = await onchainPassApi.getCryptoQuote(pass.id, { buyer: address as string, quantity });
-              try { console.log('[CryptoPay] quote ok (relayer)', { minPriceWei: (quote as any)?.minPriceWei, passId: (quote as any)?.passId, validUntil: (quote as any)?.validUntil }); } catch {}
-              setRequestingQuote(false);
-              try { console.log('[CryptoPay] invoking relayer purchase mutate'); } catch {}
-              await cryptoCheckout.mutateAsync({});
-            } else {
-              // Direct on-chain path: request quote, then wallet sends tx with value = minPriceWei
-              try { console.log('[CryptoPay] invoking direct buy mutate', { passId: pass.id, quantity }); } catch {}
-              const { hash, explorerUrl } = await cryptoDirect.mutateAsync({ quantity });
-              setRequestingQuote(false);
-              if (explorerUrl) {
-                try { (window as any).dispatchEvent?.(new CustomEvent('tx:submitted', { detail: { hash, explorerUrl } })); } catch {}
-              }
+            // Direct on-chain path: request quote, then wallet sends tx with value = minPriceWei
+            try { console.log('[CryptoPay] invoking direct buy mutate', { passId: pass.id, quantity }); } catch {}
+            const { hash, explorerUrl } = await cryptoDirect.mutateAsync({ quantity, confirmations: 1 });
+            setRequestingQuote(false);
+            if (explorerUrl) {
+              try { (window as any).dispatchEvent?.(new CustomEvent('tx:submitted', { detail: { hash, explorerUrl } })); } catch {}
             }
           } catch (err) {
             try { console.error('[CryptoPay] error', err); } catch {}
@@ -192,8 +185,8 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
         <Wallet className="w-5 h-5" />
         {requestingQuote
           ? 'Requesting quote…'
-          : cryptoDirect.isPending || cryptoCheckout.isPending
-          ? 'Confirm in wallet…'
+          : cryptoDirect.isPending
+          ? 'Buying on-chain…'
           : isConnected
           ? 'Buy with Crypto'
           : 'Connect wallet to buy with crypto'}
