@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Bot, Wand2, Copy, Check } from 'lucide-react';
 
@@ -34,6 +35,12 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   mode
 }) => {
   const [copied, setCopied] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   const handleCopyDescription = async () => {
     if (generatedDescription) {
@@ -70,7 +77,7 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
 
   const contextText = getContextualText();
 
-  return (
+  const panel = (
     <AnimatePresence mode="wait">
       {isOpen && (
         <>
@@ -90,7 +97,7 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: "spring", damping: 20, stiffness: 100 }}
-            className="fixed right-0 top-0 bottom-0 h-screen w-[500px] bg-black/95 z-50 shadow-2xl"
+            className="fixed right-0 top-0 bottom-0 h-screen w-full max-w-[560px] bg-black/95 z-50 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Gradient Border */}
@@ -242,6 +249,12 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
       )}
     </AnimatePresence>
   );
+
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(panel, document.body);
 };
 
 export default AIAssistantPanel; 

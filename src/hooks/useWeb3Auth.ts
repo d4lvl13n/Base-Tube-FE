@@ -138,7 +138,10 @@ export function useWeb3Auth() {
         const isOnSuccessPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/pay/success');
         const { walletAddress, signature } = await createWalletAuthPayload(
           address,
-          (message) => signMessageAsync({ message })
+          (message) => signMessageAsync({
+            account: address as `0x${string}`,
+            message,
+          })
         );
         const auth = await web3AuthApi.login(walletAddress, signature);
         handleAuthSuccess(auth);
@@ -160,7 +163,10 @@ export function useWeb3Auth() {
 
           const { walletAddress, signature } = await createWalletAuthPayload(
             address,
-            (message) => signMessageAsync({ message })
+            (message) => signMessageAsync({
+              account: address as `0x${string}`,
+              message,
+            })
           );
           const authData = await web3AuthApi.signup(walletAddress, signature);
           handleAuthSuccess(authData);

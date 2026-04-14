@@ -24,7 +24,11 @@ import type { Chain } from 'wagmi/chains';
 import { base, baseSepolia } from 'wagmi/chains';
 import { getPublicClient, getWalletClient } from 'wagmi/actions';
 import web3AuthApi from '../api/web3authapi';
-import { createWalletAuthPayload } from '../utils/walletAuth';
+import {
+  createWalletAuthPayload,
+  isWalletAlreadyLinked,
+  setLinkedWalletHint,
+} from '../utils/walletAuth';
 import {
   getExplorerTxUrl,
   hasPurchaseEntitlement,
@@ -252,7 +256,7 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
           try { return Object.keys(localStorage).some((k) => k.startsWith('__clerk')); } catch { return false; }
         })();
         const isClerkUser = authMethod === 'clerk' || hasClerkSession;
-        if (isClerkUser && address) {
+        if (isClerkUser && address && !isWalletAlreadyLinked(address)) {
           const { walletAddress, signature } = await createWalletAuthPayload(
             address,
             (message) => activeWalletClient.signMessage({
@@ -261,6 +265,7 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
             })
           );
           await web3AuthApi.linkWallet(walletAddress, signature);
+          setLinkedWalletHint(walletAddress);
           try { console.log('[CryptoPay] wallet linked to account'); } catch {}
         }
       } catch (e) {

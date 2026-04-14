@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion, MotionValue, useTransform } from 'framer-motion';
 import { Trophy, Star, Shield } from 'lucide-react';
-import { UserPointsData } from '../../types/userPoints';
 
 export const Container = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
   ({ children }, ref) => (
@@ -159,12 +158,12 @@ export const TimelineNode: React.FC<{
   );
 };
 
-export const StatsPanel: React.FC<{ pointsData: UserPointsData }> = ({ pointsData }) => (
+export const StatsPanel: React.FC<{ xp: number }> = ({ xp }) => (
   <div className="grid grid-cols-2 gap-4">
     {[
-      { label: "Total Points", value: pointsData.totalPoints, icon: Star },
-      { label: "Video Points", value: pointsData.videoUploadPoints, icon: Trophy },
-      { label: "Engagement", value: pointsData.commentPoints + pointsData.likePoints, icon: Shield }
+      { label: "Total XP", value: xp, icon: Star },
+      { label: "Growth Layer", value: 'XP', icon: Trophy },
+      { label: "Phase", value: 'Visible', icon: Shield }
     ].map((stat, index) => (
       <motion.div
         key={stat.label}
@@ -176,7 +175,7 @@ export const StatsPanel: React.FC<{ pointsData: UserPointsData }> = ({ pointsDat
         <stat.icon className="w-5 h-5 text-[#fa7517] mb-2" />
         <p className="text-sm text-gray-400">{stat.label}</p>
         <p className="text-lg font-semibold text-white">
-          {stat.value.toLocaleString()}
+          {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
         </p>
       </motion.div>
     ))}

@@ -1,3 +1,8 @@
+import type {
+  CompatibilityGrowthHistoryPoint,
+  CompatibilityGrowthUserPoints,
+} from './growth';
+
 export interface UserRank {
   rank: string;
   minPoints: number;
@@ -9,28 +14,20 @@ export interface UserRank {
 
 export interface UserPointsData {
   userId: string;
-  videoUploadPoints: number;
-  commentPoints: number;
-  videoViewPoints: number;
-  likePoints: number;
-  watchTimePoints: number;
-  uploaderBonusPoints: number;
   totalPoints: number;
   createdAt?: string;
   updatedAt?: string;
-  rank: UserRank;
-  progressToNextRank?: number;      
+  rank?: UserRank;
+  progressToNextRank?: number;
+  growth?: CompatibilityGrowthUserPoints['growth'];
 }
 
 export interface UserPointsHistoryData {
-  id: number;
-  userId: string;
-  videoUploadPoints: number;
-  commentPoints: number;
-  videoViewPoints: number;
-  likePoints: number;
-  watchTimePoints: number;
-  uploaderBonusPoints: number;
+  id: number | string;
   totalPoints: number;
   calculatedAt: string;
+  layer?: CompatibilityGrowthHistoryPoint['layer'];
+  amount?: number;
+  direction?: CompatibilityGrowthHistoryPoint['direction'];
+  scoreCode?: string | null;
 }

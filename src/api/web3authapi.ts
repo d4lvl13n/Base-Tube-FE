@@ -1,6 +1,6 @@
 import api from './index';
 import { LoginResponse, SignupResponse, LinkWalletResponse, NonceResponse } from '../types/auth';
-import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
+import { handleApiError } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
 
 interface UsernameOptions {
@@ -14,7 +14,7 @@ interface UpdateUsernameResponse {
 
 class Web3AuthApi {
   async requestNonce(walletAddress: string): Promise<NonceResponse> {
-    const executeNonceRequest = async () => {
+    try {
       const normalizedAddress = walletAddress.toLowerCase();
       const response = await api.post('/api/v1/web3auth/nonce', {
         walletAddress: normalizedAddress
@@ -23,10 +23,6 @@ class Web3AuthApi {
       });
 
       return response.data;
-    };
-
-    try {
-      return await retryWithBackoff(executeNonceRequest, 2, 1000);
     } catch (error) {
       throw handleApiError(error, {
         action: 'request wallet auth nonce',
@@ -40,7 +36,7 @@ class Web3AuthApi {
    * Logs in with a connected wallet.
    */
   async login(walletAddress: string, signature: string): Promise<LoginResponse> {
-    const executeLogin = async () => {
+    try {
       const normalizedAddress = walletAddress.toLowerCase();
 
       const response = await api.post('/api/v1/web3auth/login', {
@@ -51,10 +47,6 @@ class Web3AuthApi {
       });
 
       return response.data;
-    };
-
-    try {
-      return await retryWithBackoff(executeLogin, 2, 1000);
     } catch (error) {
       const userError = handleApiError(error, {
         action: 'Web3 login',
@@ -77,7 +69,7 @@ class Web3AuthApi {
    * Signs up a new user with connected wallet.
    */
   async signup(walletAddress: string, signature: string): Promise<SignupResponse> {
-    const executeSignup = async () => {
+    try {
       const normalizedAddress = walletAddress.toLowerCase();
       
       const response = await api.post('/api/v1/web3auth/signup', {
@@ -88,10 +80,6 @@ class Web3AuthApi {
       });
 
       return response.data;
-    };
-
-    try {
-      return await retryWithBackoff(executeSignup, 2, 1000);
     } catch (error) {
       const userError = handleApiError(error, {
         action: 'Web3 signup',
@@ -113,7 +101,7 @@ class Web3AuthApi {
    * Links a wallet to an existing user account.
    */
   async linkWallet(walletAddress: string, signature: string): Promise<LinkWalletResponse> {
-    const executeLinkWallet = async () => {
+    try {
       const response = await api.post('/api/v1/web3auth/link', {
         walletAddress: walletAddress.toLowerCase(),
         signature
@@ -121,10 +109,6 @@ class Web3AuthApi {
         withCredentials: true
       });
       return response.data;
-    };
-
-    try {
-      return await retryWithBackoff(executeLinkWallet, 2, 1000);
     } catch (error) {
       const userError = handleApiError(error, {
         action: 'link wallet',

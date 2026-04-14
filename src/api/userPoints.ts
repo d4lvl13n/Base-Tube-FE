@@ -1,5 +1,6 @@
 import api from './index';
 import { UserPointsData, UserPointsHistoryData } from '../types/userPoints';
+import { normalizeCompatibilityPointsHistory, normalizeCompatibilityUserPoints } from '../utils/growth';
 
 /**
  * Fetches the current persistent points for the given user.
@@ -18,7 +19,14 @@ export const fetchUserPoints = async (
       message?: string;
     }>(`/api/v1/user/${userId}/points`);
     if (response.data.success) {
-      return response.data.data!;
+      const normalized = normalizeCompatibilityUserPoints(response.data);
+      return {
+        userId: normalized.userId,
+        totalPoints: normalized.totalPoints,
+        updatedAt: normalized.updatedAt,
+        rank: normalized.rank,
+        growth: normalized.growth,
+      };
     }
     // Handle new error format
     const errorMessage = response.data.error?.message || response.data.message || 'Failed to fetch user points';
@@ -51,7 +59,15 @@ export const fetchUserPointsHistory = async (
       params: { period }
     });
     if (response.data.success) {
-      return response.data.data!;
+      return normalizeCompatibilityPointsHistory(response.data).map((entry) => ({
+        id: entry.id,
+        totalPoints: entry.totalPoints,
+        calculatedAt: entry.calculatedAt,
+        layer: entry.layer,
+        amount: entry.amount,
+        direction: entry.direction,
+        scoreCode: entry.scoreCode,
+      }));
     }
     // Handle new error format
     const errorMessage = response.data.error?.message || response.data.message || 'Failed to fetch user points history';

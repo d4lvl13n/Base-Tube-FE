@@ -1,40 +1,20 @@
 import api from './index';
+import type { GrowthLeaderboardData, GrowthLeaderboardEntry, GrowthLeaderboardMode } from '../types/growth';
+import { normalizeGrowthLeaderboard } from '../utils/growth';
 
-export interface LeaderboardEntry {
-  username: string;
-  profile_image_url?: string | null;
-  videoCount: number;
-  commentCount: number;
-  viewCount: number;
-  likeCount: number;
-  totalWatchTime: number;
-  activityScore: number;
-}
+export type LeaderboardEntry = GrowthLeaderboardEntry;
 
-export interface LeaderboardResponse {
-  success: boolean;
-  data?: LeaderboardEntry[];
-  error?: { code: string; message: string };
-  message?: string;
-}
+export type LeaderboardResponse = GrowthLeaderboardData;
 
 /**
- * Fetches the user leaderboard from the public API endpoint.
- * Returns an array of leaderboard entries on success.
+ * Fetches the growth-backed leaderboard.
  */
-export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
+export const getLeaderboard = async (
+  params?: { mode?: GrowthLeaderboardMode; limit?: number }
+): Promise<GrowthLeaderboardData> => {
   try {
-    const response = await api.get<LeaderboardResponse>('/api/v1/leaderboard');
-    
-    if (response.data.success) {
-      return response.data.data!;
-    } else {
-      // Handle new error format
-      const errorMessage = response.data.error?.message || 
-                          response.data.message || 
-                          'Failed to fetch leaderboard: API returned unsuccessful response';
-      throw new Error(errorMessage);
-    }
+    const response = await api.get('/api/v1/growth/leaderboard', { params });
+    return normalizeGrowthLeaderboard(response.data);
   } catch (error: any) {
     console.error('Error fetching leaderboard:', error);
     throw error;

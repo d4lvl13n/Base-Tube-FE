@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { AnimatePresence, motion, useScroll, useSpring } from 'framer-motion';
 import Header from '../../components/common/Header';
 import Sidebar from '../../components/common/Sidebar';
-import { useUserPoints } from '../../hooks/useUserPoints';
+import { useGrowthMe } from '../../hooks/useGrowth';
 import {
   TimelineNode,
   MintButton,
@@ -15,38 +15,38 @@ import RankAchievementAnimation from './RankAchievementAnimation';
 const RANKS = [
   {
     title: "Rising Voyager",
-    minPoints: 0,
-    maxPoints: 49,
+    minXp: 0,
+    maxXp: 49,
     description: "Every journey begins with a single step. Thanks for being a part of the Base.Tube community!"
   },
   {
     title: "Engaged Contributor",
-    minPoints: 50,
-    maxPoints: 249,
+    minXp: 50,
+    maxXp: 249,
     description: "Your active participation is noticed. Keep engaging, and you'll soon climb the ranks!"
   },
   {
     title: "Community Builder",
-    minPoints: 250,
-    maxPoints: 499,
+    minXp: 250,
+    maxXp: 499,
     description: "You're forging connections and making an impact in our community."
   },
   {
     title: "Platform Pioneer",
-    minPoints: 500,
-    maxPoints: 1249,
+    minXp: 500,
+    maxXp: 1249,
     description: "You're pushing boundaries and setting trends on Base.Tube."
   },
   {
     title: "Innovative Icon",
-    minPoints: 1250,
-    maxPoints: 2499,
+    minXp: 1250,
+    maxXp: 2499,
     description: "Your contributions are truly exceptional, inspiring others across the platform."
   },
   {
     title: "Base.Tube Legend",
-    minPoints: 2500,
-    maxPoints: null,
+    minXp: 2500,
+    maxXp: null,
     description: "The pinnacle of achievement—a status reserved for those whose impact transforms the ecosystem."
   }
 ];
@@ -71,16 +71,16 @@ const MomentNFTMintPage: React.FC = () => {
     restDelta: 0.001
   });
 
-  // Get actual user points data
-  const { data: pointsData, isLoading, error: pointsError } = useUserPoints();
+  const { data: growthData, isLoading, error: growthError } = useGrowthMe();
+  const xpBalance = growthData?.balances.xp ?? 0;
 
   if (isLoading) return <Loader />;
-  if (pointsError || !pointsData) return <Error message="Failed to load achievement data" />;
+  if (growthError || !growthData) return <Error message="Failed to load achievement data" />;
 
   // Find current rank index
   const currentRankIndex = RANKS.findIndex(rank => 
-    pointsData.totalPoints >= rank.minPoints && 
-    (rank.maxPoints === null || pointsData.totalPoints <= rank.maxPoints)
+    xpBalance >= rank.minXp && 
+    (rank.maxXp === null || xpBalance <= rank.maxXp)
   );
 
   const handleMint = async () => {
@@ -117,7 +117,7 @@ const MomentNFTMintPage: React.FC = () => {
           <div className="min-h-screen flex items-center justify-center relative">
             <RankAchievementAnimation 
               rank={RANKS[currentRankIndex].title}
-              points={pointsData.totalPoints}
+              points={xpBalance}
               isFirstRank={currentRankIndex === 0}
               onAnimationComplete={() => setShowTimeline(true)}
             />
@@ -137,7 +137,7 @@ const MomentNFTMintPage: React.FC = () => {
                     key={rank.title}
                     title={rank.title}
                     description={rank.description}
-                    points={`${rank.minPoints.toLocaleString()}${rank.maxPoints ? ` - ${rank.maxPoints.toLocaleString()}` : '+'} points`}
+                    points={`${rank.minXp.toLocaleString()}${rank.maxXp ? ` - ${rank.maxXp.toLocaleString()}` : '+'} XP`}
                     achieved={index <= currentRankIndex}
                     current={index === currentRankIndex}
                     scrollProgress={smoothProgress}

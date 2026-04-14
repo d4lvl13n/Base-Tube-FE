@@ -3,7 +3,12 @@ import { useAccount, useConnect, useSignMessage } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
 import web3AuthApi from '../api/web3authapi';
 import { useAuth } from '../contexts/AuthContext';
-import { createWalletAuthPayload } from '../utils/walletAuth';
+import {
+  createWalletAuthPayload,
+  isWalletAlreadyLinked,
+  setLinkedWalletHint,
+  normalizeWalletAddress,
+} from '../utils/walletAuth';
 
 type ModalState = {
   type: 'success' | 'error' | null;
@@ -29,8 +34,10 @@ export function useLinkWallet() {
     setModalState({ type: null, message: null });
   }, []);
 
-  const linkWallet = useCallback(async () => {
-    if (!address) {
+  const performLink = useCallback(async (targetAddress?: string | null) => {
+    const connectedAddress = normalizeWalletAddress(targetAddress || address);
+
+    if (!connectedAddress) {
       setModalState({
         type: 'error',
         message: 'No wallet connected',
@@ -39,13 +46,25 @@ export function useLinkWallet() {
       return;
     }
 
+    if (isWalletAlreadyLinked(connectedAddress)) {
+      setModalState({
+        type: 'success',
+        message: 'Wallet Already Connected',
+        details: 'This wallet is already linked to your account. You can proceed.'
+      });
+      return { alreadyLinked: true };
+    }
+
     setIsLinking(true);
     setModalState({ type: null, message: null });
 
     try {
       const { walletAddress, signature } = await createWalletAuthPayload(
-        address,
-        (message) => signMessageAsync({ message })
+        connectedAddress,
+        (message) => signMessageAsync({
+          account: connectedAddress as `0x${string}`,
+          message,
+        })
       );
       const response = await web3AuthApi.linkWallet(walletAddress, signature);
       
@@ -55,6 +74,7 @@ export function useLinkWallet() {
 
       await queryClient.invalidateQueries({ queryKey: ['wallet'] });
       await queryClient.invalidateQueries({ queryKey: ['profile'] });
+      setLinkedWalletHint(walletAddress);
 
       setModalState({
         type: 'success',
@@ -74,6 +94,7 @@ export function useLinkWallet() {
         // Backend may return "already linked to your account" or similar
         if (errMsg.includes('already linked') && errMsg.includes('your account')) {
           // Wallet is already linked to the current user - treat as success
+          setLinkedWalletHint(connectedAddress);
           setModalState({
             type: 'success',
             message: 'Wallet Already Connected',
@@ -114,10 +135,28 @@ export function useLinkWallet() {
 
   const handleLinkWallet = useCallback(async () => {
     try {
-      if (!address) {
-        await connect({ connector: connectors[0] });
+      if (address) {
+        return await performLink(address);
       }
-      return await linkWallet();
+
+      const primaryConnector = connectors[0];
+      if (!primaryConnector) {
+        throw new Error('No wallet connector available');
+      }
+
+      const connectResult = await connect({ connector: primaryConnector });
+      const nextAddress = normalizeWalletAddress(connectResult.accounts?.[0] || null);
+
+      if (!nextAddress) {
+        setModalState({
+          type: 'error',
+          message: 'Connection Pending',
+          details: 'Your wallet is connecting. Please click link again once the wallet address is ready.'
+        });
+        return null;
+      }
+
+      return await performLink(nextAddress);
     } catch (err) {
       console.error('Handle link wallet error:', err);
       setModalState({
@@ -127,7 +166,7 @@ export function useLinkWallet() {
       });
       return null;
     }
-  }, [address, connect, connectors, linkWallet]);
+  }, [address, connect, connectors, performLink]);
 
   return {
     isLinking,

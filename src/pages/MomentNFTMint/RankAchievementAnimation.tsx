@@ -108,7 +108,7 @@ const RankAchievementAnimation: React.FC<RankAchievementAnimationProps> = ({
                 >
                   <motion.span>{rounded}</motion.span>
                   <div className="text-2xl text-white mt-2">
-                    Total Points
+                    Total XP
                   </div>
                 </motion.div>
                 <motion.div

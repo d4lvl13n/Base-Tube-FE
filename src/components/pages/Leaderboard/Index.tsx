@@ -1,298 +1,142 @@
-import React, { useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Video, Heart, Clock, Crown, Medal, Star, Sparkles, TrendingUp, Flame, MessageCircle } from 'lucide-react';
-import { useLeaderboard } from '../../../hooks/useLeaderboard';
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Crown, Medal, Sparkles, Trophy } from 'lucide-react';
 import LeaderboardHeader from './LeaderboardHeader';
-import {
-  LeaderboardContainer,
-  HeroSection,
-  GlowingBackground,
-  HeroTitle,
-  HeroSubtitle,
-  PodiumSection,
-  PodiumStep,
-  CreatorSpotlight,
-  LeaderboardGrid,
-  CreatorCard,
-  StatBox,
-  LoadingContainer,
-  ErrorContainer,
-  Username,
-  ScoreHighlight,
-  StatsContainer,
-  RankBadgeContainer,
-  RankBadge,
-  CategoryTabs,
-  TabButton,
-  SpotlightStats,
-  LeaderLine,
-  RankProgress,
-  GlowingOrb,
-} from './styles';
-import { formatNumber, formatDuration } from '../../../utils/format';
 import PointsExplainer from './PointsExplainer';
-
-type Category = 'overall' | 'videos' | 'engagement' | 'watch-time';
+import { useLeaderboard } from '../../../hooks/useLeaderboard';
+import { getGrowthModeLabel } from '../../../utils/growth';
 
 const Leaderboard: React.FC = () => {
-  const { data: leaderboard, isLoading, error } = useLeaderboard();
-  const [selectedCategory, setSelectedCategory] = useState<Category>('overall');
-  const [spotlightUser, setSpotlightUser] = useState<number | null>(null);
-
-  const sortedUsers = useMemo(() => {
-    if (!leaderboard) return [];
-    return [...leaderboard].sort((a, b) => {
-      switch (selectedCategory) {
-        case 'videos':
-          return b.videoCount - a.videoCount;
-        case 'engagement':
-          return (b.commentCount + b.likeCount) - (a.commentCount + a.likeCount);
-        case 'watch-time':
-          return b.totalWatchTime - a.totalWatchTime;
-        default:
-          return Number(b.activityScore) - Number(a.activityScore);
-      }
-    });
-  }, [leaderboard, selectedCategory]);
-
-  const topThree = useMemo(() => sortedUsers.slice(0, 3), [sortedUsers]);
-  const remainingUsers = useMemo(() => sortedUsers.slice(3), [sortedUsers]);
+  const { data, isLoading, error } = useLeaderboard({ limit: 50 });
 
   if (isLoading) {
     return (
       <>
         <LeaderboardHeader />
-        <LoadingContainer>
-          <GlowingOrb />
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            Discovering Champions...
-          </motion.p>
-        </LoadingContainer>
+        <div className="min-h-[70vh] flex items-center justify-center text-white">
+          Loading leaderboard…
+        </div>
       </>
     );
   }
 
-  if (error) {
+  if (error || !data) {
     return (
       <>
         <LeaderboardHeader />
-        <ErrorContainer>
-          <Trophy size={48} />
-          <h3>Oops! Something went wrong</h3>
-          <p>We couldn't load the leaderboard. Please try again later.</p>
-        </ErrorContainer>
+        <div className="min-h-[70vh] flex items-center justify-center px-4">
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-8 text-center text-white max-w-lg">
+            <Trophy className="w-10 h-10 text-red-300 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Leaderboard unavailable</h2>
+            <p className="text-white/70">We couldn’t load the latest growth standings right now.</p>
+          </div>
+        </div>
       </>
     );
   }
 
-  const getCategoryIcon = (category: Category) => {
-    switch (category) {
-      case 'videos':
-        return <Video size={20} />;
-      case 'engagement':
-        return <Heart size={20} />;
-      case 'watch-time':
-        return <Clock size={20} />;
-      default:
-        return <Star size={20} />;
-    }
-  };
-
-  const ProfileImage: React.FC<{ url?: string | null; size: 'small' | 'medium' | 'large' }> = ({ url, size }) => {
-    const [imgUrl, setImgUrl] = React.useState(url || '/images/default-avatar.png');
-    
-    const handleError = () => {
-      setImgUrl('/images/default-avatar.png');
-    };
-
-    const dimensions =
-      size === 'large'
-        ? { width: '80px', height: '80px' }
-        : size === 'medium'
-        ? { width: '50px', height: '50px' }
-        : { width: '40px', height: '40px' };
-
-    return (
-      <img
-        src={imgUrl}
-        onError={handleError}
-        alt="User Avatar"
-        style={{
-          ...dimensions,
-          borderRadius: '50%',
-          objectFit: 'cover',
-          border: '2px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 0 20px rgba(0, 0, 0, 0.2)',
-        }}
-      />
-    );
-  };
+  const topThree = data.entries.slice(0, 3);
+  const remainingEntries = data.entries.slice(3);
+  const modeLabel = getGrowthModeLabel(data.mode);
 
   return (
     <>
       <LeaderboardHeader />
-      <LeaderboardContainer>
-        <HeroSection>
-          <GlowingBackground />
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="relative z-10 text-center"
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              transition={{ 
-                duration: 1.2,
-                ease: [0.19, 1, 0.22, 1]
-              }}
-              className="flex items-center justify-center gap-4 mb-6"
-            >
-              <Flame className="w-12 h-12 text-[#fa7517]" />
-              <Crown className="w-16 h-16 text-[#fa7517]" />
-              <Flame className="w-12 h-12 text-[#fa7517]" />
-            </motion.div>
+      <div className="min-h-screen bg-[#050505] text-white">
+        <section className="px-4 sm:px-8 pt-16 pb-10 text-center">
+          <div className="max-w-5xl mx-auto">
+            <div className="flex items-center justify-center gap-3 mb-6 text-[#fa7517]">
+              <Sparkles className="w-6 h-6" />
+              <span className="uppercase tracking-[0.25em] text-sm">Growth Leaderboard</span>
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <h1 className="text-4xl sm:text-6xl font-black mb-4">Top creators and supporters</h1>
+            <p className="text-white/65 max-w-2xl mx-auto text-lg">
+              Ranked by visible {modeLabel}. The active growth phase controls what is shown publicly.
+            </p>
+          </div>
+        </section>
 
-            <HeroTitle>
-              <motion.span
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="block"
-              >
-                Base.Tube Champions
-              </motion.span>
-            </HeroTitle>
+        {!data.visible && (
+          <div className="max-w-5xl mx-auto px-4 sm:px-8 pb-6">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
+              The leaderboard is currently hidden for this growth phase.
+            </div>
+          </div>
+        )}
 
-            <HeroSubtitle>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="flex items-center justify-center gap-3"
-              >
-                <Sparkles className="w-5 h-5 text-[#fa7517]" />
-                <span>Where Legends Rise and History is Made</span>
-                <Sparkles className="w-5 h-5 text-[#fa7517]" />
-              </motion.div>
-            </HeroSubtitle>
+        {data.visible && (
+          <>
+            <section className="max-w-6xl mx-auto px-4 sm:px-8 pb-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {topThree.map((entry, index) => (
+                <motion.div
+                  key={entry.userId || entry.username}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`rounded-3xl border p-6 text-center ${
+                    index === 0
+                      ? 'bg-gradient-to-b from-[#fa7517]/20 to-black border-[#fa7517]/40'
+                      : 'bg-white/[0.03] border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-center mb-4 text-[#fa7517]">
+                    {index === 0 ? <Crown className="w-8 h-8" /> : <Medal className="w-7 h-7" />}
+                  </div>
+                  <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-4 border border-white/10 bg-white/5">
+                    <img
+                      src={entry.profileImageUrl || '/images/default-avatar.png'}
+                      alt={entry.displayName || entry.username}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="text-sm uppercase tracking-[0.2em] text-white/45 mb-2">Rank #{entry.rank}</div>
+                  <div className="text-2xl font-bold">{entry.displayName || entry.username}</div>
+                  <div className="text-white/50 mt-1">@{entry.username}</div>
+                  <div className="mt-5 text-4xl font-black text-[#fa7517]">{entry.score.toLocaleString()}</div>
+                  <div className="text-white/55 mt-2">{modeLabel}</div>
+                </motion.div>
+              ))}
+            </section>
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
-              className="mt-4 text-white/60 max-w-2xl mx-auto text-sm"
-            >
-              Celebrating the pioneers and visionaries who shape the future of content creation
-            </motion.p>
-          </motion.div>
-        </HeroSection>
-
-        <CategoryTabs>
-          {(['overall', 'videos', 'engagement', 'watch-time'] as Category[]).map((category) => (
-            <TabButton
-              key={category}
-              active={selectedCategory === category}
-              onClick={() => setSelectedCategory(category)}
-            >
-              {getCategoryIcon(category)}
-              <span>{category.replace('-', ' ').toUpperCase()}</span>
-            </TabButton>
-          ))}
-        </CategoryTabs>
-
-        <PodiumSection>
-          {topThree.map((user, index) => (
-            <PodiumStep
-              key={user.username}
-              position={index + 1}
-              onClick={() => setSpotlightUser(index)}
-            >
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: index * 0.2 }}
-              >
-                <RankBadgeContainer isTopThree>
-                  <RankBadge rank={index + 1}>
-                    {index === 0 ? <Crown /> : <Medal />}
-                  </RankBadge>
-                </RankBadgeContainer>
-                <ProfileImage url={user.profile_image_url} size="large" />
-                <Username>{user.username}</Username>
-                <ScoreHighlight>
-                  <TrendingUp size={16} />
-                  {Number(user.activityScore).toFixed(1)}
-                </ScoreHighlight>
-              </motion.div>
-            </PodiumStep>
-          ))}
-        </PodiumSection>
-
-        <AnimatePresence>
-          {spotlightUser !== null && (
-            <CreatorSpotlight
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-            >
-              <SpotlightStats user={topThree[spotlightUser]} />
-              <button onClick={() => setSpotlightUser(null)}>Close</button>
-            </CreatorSpotlight>
-          )}
-        </AnimatePresence>
-
-        <LeaderboardGrid>
-          {remainingUsers.map((user, index) => (
-            <motion.div
-              key={user.username}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <CreatorCard>
-                <LeaderLine />
-                <RankBadgeContainer>
-                  <RankBadge rank={index + 4}>
-                    {index + 4}
-                  </RankBadge>
-                </RankBadgeContainer>
-                <ProfileImage url={user.profile_image_url} size="medium" />
-                <div className="info">
-                  <Username>{user.username}</Username>
-                  <StatsContainer>
-                    <StatBox>
-                      <Video size={14} />
-                      <span>{formatNumber(user.videoCount)}</span>
-                    </StatBox>
-                    <StatBox>
-                      <Heart size={14} />
-                      <span>{formatNumber(user.likeCount)}</span>
-                    </StatBox>
-                    <StatBox>
-                      <MessageCircle size={14} />
-                      <span>{formatNumber(user.commentCount)}</span>
-                    </StatBox>
-                    <StatBox>
-                      <Clock size={14} />
-                      <span>{formatDuration(user.totalWatchTime)}</span>
-                    </StatBox>
-                  </StatsContainer>
+            <section className="max-w-6xl mx-auto px-4 sm:px-8 pb-20">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] overflow-hidden">
+                <div className="grid grid-cols-[80px,1fr,140px] px-6 py-4 text-xs uppercase tracking-[0.18em] text-white/40 border-b border-white/10">
+                  <div>Rank</div>
+                  <div>User</div>
+                  <div className="text-right">{modeLabel}</div>
                 </div>
-                <RankProgress score={Number(user.activityScore)} />
-              </CreatorCard>
-            </motion.div>
-          ))}
-        </LeaderboardGrid>
+                {remainingEntries.map((entry) => (
+                  <div
+                    key={entry.userId || entry.username}
+                    className="grid grid-cols-[80px,1fr,140px] items-center gap-4 px-6 py-4 border-b border-white/5 last:border-b-0"
+                  >
+                    <div className="text-white/55 font-semibold">#{entry.rank}</div>
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="w-12 h-12 rounded-full overflow-hidden border border-white/10 bg-white/5 flex-shrink-0">
+                        <img
+                          src={entry.profileImageUrl || '/images/default-avatar.png'}
+                          alt={entry.displayName || entry.username}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate">{entry.displayName || entry.username}</div>
+                        <div className="text-sm text-white/45 truncate">@{entry.username}</div>
+                      </div>
+                    </div>
+                    <div className="text-right font-bold text-[#fa7517]">{entry.score.toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+
         <PointsExplainer />
-      </LeaderboardContainer>
+      </div>
     </>
   );
 };
 
-export default Leaderboard; 
+export default Leaderboard;

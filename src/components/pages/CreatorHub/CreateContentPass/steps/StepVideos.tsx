@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UseFormRegister, FieldErrors, Control, useFieldArray, UseFormWatch, useWatch } from 'react-hook-form';
-import { Plus, Trash, Lock, Loader, Tag, Clock, RefreshCw } from 'lucide-react';
+import { Plus, Trash, Lock, Loader, Tag, Clock, RefreshCw, ExternalLink } from 'lucide-react';
 import * as S from '../styles';
 import { FormData } from '../types';
 import { youtubeApi, getYouTubeID } from '../../../../../api/youtube';
@@ -39,6 +39,21 @@ const formatDuration = (seconds?: number): string => {
   }
   
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
+const getPreviewThumbnail = (url?: string, thumbnailUrl?: string): string => {
+  if (thumbnailUrl) return thumbnailUrl;
+  const videoId = getYouTubeID(url || '');
+  return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : '';
+};
+
+const getSourceLabel = (url?: string): string => {
+  if (!url) return 'youtube.com';
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'youtube.com';
+  }
 };
 
 const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watch, youtubeAuth }) => {
@@ -302,19 +317,50 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
          urlObj?.value && /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/.test(urlObj.value) ? (
           <S.PreviewContainer key={`preview-${idx}`}>
             <S.CardTitle>
-              {urlObj.title ? urlObj.title : `Video Preview ${idx + 1}`}
+              {urlObj.title ? urlObj.title : `Video ${idx + 1}`}
             </S.CardTitle>
             <S.VideoPreview>
-              <iframe 
-                src={`https://www.youtube.com/embed/${getYouTubeID(urlObj.value) || ''}`}
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                title={urlObj.title || `Video Preview ${idx + 1}`}
-              ></iframe>
+              {getPreviewThumbnail(urlObj.value, urlObj.thumbnail_url) ? (
+                <img
+                  src={getPreviewThumbnail(urlObj.value, urlObj.thumbnail_url)}
+                  alt={urlObj.title || `Video ${idx + 1}`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center bg-black/30 px-6 text-center text-sm text-gray-300">
+                  We couldn&apos;t load a preview just yet, but your video link is still there and you can keep going.
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">
+                    {urlObj.title || `Video ${idx + 1}`}
+                  </p>
+                  <div className="mt-1 flex items-center gap-3 text-xs text-gray-300">
+                    <span>{getSourceLabel(urlObj.value)}</span>
+                    {urlObj.duration ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5 text-[#fa7517]" />
+                        {formatDuration(urlObj.duration)}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <a
+                  href={urlObj.value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:border-white/20 hover:bg-black/55"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-[#fa7517]" />
+                  Source
+                </a>
+              </div>
             </S.VideoPreview>
+            <S.InfoText className="mt-3">
+              Quick preview only. We&apos;ll do the final YouTube checks when you create the pass.
+            </S.InfoText>
           </S.PreviewContainer>
         ) : null
       )}

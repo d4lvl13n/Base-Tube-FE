@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchUserPoints, fetchUserPointsHistory } from '../api/userPoints';
 import { UserPointsData, UserPointsHistoryData } from '../types/userPoints';
 import { useAuth } from '../contexts/AuthContext';
 import { useUser } from '@clerk/clerk-react';
+import { useGrowthMe } from './useGrowth';
 
 /**
  * Custom hook to fetch and reuse user points.
@@ -11,10 +13,11 @@ import { useUser } from '@clerk/clerk-react';
 export const useUserPoints = () => {
   const { isAuthenticated, user: web3User } = useAuth();
   const { user: clerkUser } = useUser();
+  const growthMe = useGrowthMe();
   
   const userId = isAuthenticated ? web3User?.id : clerkUser?.id;
 
-  return useQuery<UserPointsData>({
+  const compatibilityQuery = useQuery<UserPointsData>({
     queryKey: ['userPoints', userId],
     queryFn: () => fetchUserPoints(userId!),
     enabled: !!userId,
@@ -31,6 +34,25 @@ export const useUserPoints = () => {
         : 100, // If no next rank, show as complete
     }),
   });
+
+  const data = useMemo(() => {
+    if (growthMe.data) {
+      return {
+        userId: userId || compatibilityQuery.data?.userId || '',
+        totalPoints: growthMe.data.balances.xp ?? 0,
+        updatedAt: compatibilityQuery.data?.updatedAt,
+        rank: compatibilityQuery.data?.rank,
+        growth: growthMe.data,
+        progressToNextRank: compatibilityQuery.data?.progressToNextRank,
+      } satisfies UserPointsData;
+    }
+    return compatibilityQuery.data;
+  }, [compatibilityQuery.data, growthMe.data, userId]);
+
+  return {
+    ...compatibilityQuery,
+    data,
+  };
 };
 
 /**
