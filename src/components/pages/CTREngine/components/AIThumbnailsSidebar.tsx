@@ -11,14 +11,16 @@ import {
   Lock, 
   Zap,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Coins
 } from 'lucide-react';
-import { CTRQuotaStatus } from '../../../../types/ctr';
+import { CTRUsageAccess } from '../../../../types/ctr';
 import { formatQuotaLimit } from '../../../../api/ctr';
+import { formatCreditCost } from '../../../../utils/usageAccess';
 import { AI_THUMBNAILS_NAV_ITEMS, type AIThumbnailsNavItem } from './aiThumbnailsNav';
 
 export interface AIThumbnailsSidebarProps {
-  quota?: CTRQuotaStatus | null;
+  usageAccess?: CTRUsageAccess | null;
   isLoadingQuota?: boolean;
   className?: string;
   items?: AIThumbnailsNavItem[];
@@ -28,7 +30,7 @@ export interface AIThumbnailsSidebarProps {
 }
 
 const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
-  quota,
+  usageAccess,
   isLoadingQuota,
   className = '',
   items = AI_THUMBNAILS_NAV_ITEMS,
@@ -44,8 +46,12 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
   const isSignedInAny = isSignedIn || isWeb3Authenticated;
 
   // Quota calculations
-  const auditProgress = quota?.audit ? (quota.audit.used / quota.audit.limit) * 100 : 0;
-  const genProgress = quota?.generate ? (quota.generate.used / quota.generate.limit) * 100 : 0;
+  const auditProgress = usageAccess?.mode === 'quota' && usageAccess.quota.audit.limit > 0
+    ? (usageAccess.quota.audit.used / usageAccess.quota.audit.limit) * 100
+    : 0;
+  const genProgress = usageAccess?.mode === 'quota' && usageAccess.quota.generate.limit > 0
+    ? (usageAccess.quota.generate.used / usageAccess.quota.generate.limit) * 100
+    : 0;
 
   return (
     <motion.aside
@@ -136,9 +142,38 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
       </nav>
 
       {/* Quota Section */}
-      {!isLoadingQuota && quota && (
+      {!isLoadingQuota && usageAccess && (
         <div className={`px-4 pb-4 border-t border-gray-800/30 ${isCollapsed ? 'px-2' : ''}`}>
-          {isCollapsed ? (
+          {usageAccess.mode === 'credits' ? (
+            isCollapsed ? (
+              <div className="flex flex-col gap-2 items-center">
+                <div className="relative w-10 h-10 rounded-full bg-black/60 border border-gray-800/50 flex items-center justify-center group">
+                  <Coins className="w-4 h-4 text-[#fa7517]" />
+                  <div className="absolute left-full ml-2 px-3 py-2 bg-black/90 border border-gray-800 rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 whitespace-nowrap">
+                    <p className="text-xs text-gray-300">Available: {usageAccess.creditInfo.available}</p>
+                    <p className="text-xs text-gray-400">CTR generate: {formatCreditCost(usageAccess.pricing?.ctr.generatePerConcept ?? 0)}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Available Credits</span>
+                  <span className="text-[#fa7517] font-semibold">{usageAccess.creditInfo.available}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-xl border border-gray-800/50 bg-black/40 p-3">
+                    <p className="text-gray-500">Generate</p>
+                    <p className="mt-1 text-white">{formatCreditCost(usageAccess.pricing?.ctr.generatePerConcept ?? 0)}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-800/50 bg-black/40 p-3">
+                    <p className="text-gray-500">Audit</p>
+                    <p className="mt-1 text-white">{formatCreditCost(usageAccess.pricing?.ctr.audit ?? 0)}</p>
+                  </div>
+                </div>
+              </div>
+            )
+          ) : isCollapsed ? (
             // Collapsed: Mini quota indicators
             <div className="flex flex-col gap-2 items-center">
               <div className="relative w-10 h-10 rounded-full bg-black/60 border border-gray-800/50 flex items-center justify-center group">
@@ -156,8 +191,8 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
                 </div>
                 {/* Tooltip */}
                 <div className="absolute left-full ml-2 px-3 py-2 bg-black/90 border border-gray-800 rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 whitespace-nowrap">
-                  <p className="text-xs text-gray-400">Creates: {quota.generate.used}/{formatQuotaLimit(quota.generate.limit)}</p>
-                  <p className="text-xs text-gray-400">Audits: {quota.audit.used}/{formatQuotaLimit(quota.audit.limit)}</p>
+                  <p className="text-xs text-gray-400">Creates: {usageAccess.quota.generate.used}/{formatQuotaLimit(usageAccess.quota.generate.limit)}</p>
+                  <p className="text-xs text-gray-400">Audits: {usageAccess.quota.audit.used}/{formatQuotaLimit(usageAccess.quota.audit.limit)}</p>
                 </div>
               </div>
             </div>
@@ -175,7 +210,7 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
                     <Zap className="w-3 h-3 text-[#fa7517]" />
                     Creates
                   </span>
-                  <span className="text-gray-500">{quota.generate.used}/{formatQuotaLimit(quota.generate.limit)}</span>
+                  <span className="text-gray-500">{usageAccess.quota.generate.used}/{formatQuotaLimit(usageAccess.quota.generate.limit)}</span>
                 </div>
                 <div className="h-1.5 bg-black/60 rounded-full overflow-hidden">
                   <motion.div 
@@ -193,7 +228,7 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
                     <BarChart2 className="w-3 h-3 text-blue-400" />
                     Audits
                   </span>
-                  <span className="text-gray-500">{quota.audit.used}/{formatQuotaLimit(quota.audit.limit)}</span>
+                  <span className="text-gray-500">{usageAccess.quota.audit.used}/{formatQuotaLimit(usageAccess.quota.audit.limit)}</span>
                 </div>
                 <div className="h-1.5 bg-black/60 rounded-full overflow-hidden">
                   <motion.div 

@@ -40,6 +40,7 @@ const SingleVideo: React.FC = () => {
   const playerRef = useRef<VideoPlayerRef | null>(null) as MutableRefObject<VideoPlayerRef | null>;
   const { isCommentsPanelOpen, setIsCommentsPanelOpen, isInfoPanelOpen, setIsInfoPanelOpen } = useVideoContext();
   const playback = usePlayback();
+  const { setSource } = playback;
   const commentsData = useComments({
     videoId: video?.id.toString() || '',
     initialLimit: 30,
@@ -132,7 +133,7 @@ const SingleVideo: React.FC = () => {
         setVideo(videoData);
         // Update global playback source so mini player has context
         try {
-          playback.setSource({
+          setSource({
             videoId: videoData.id.toString(),
             title: videoData.title,
             src: videoData.video_url || `${API_BASE_URL}/${videoData.video_path}`,
@@ -153,7 +154,29 @@ const SingleVideo: React.FC = () => {
     };
 
     fetchVideoAndChannel();
-  }, [id, navigate, playback]);
+  }, [id, navigate, setSource]);
+
+  // Smoothly return to the top (video player) when navigating to another video
+  useEffect(() => {
+    if (!id) return;
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }, [id]);
+
+  // When the info panel opens, switch to mini player (PiP-like) and resume at current time
+  useEffect(() => {
+    if (!video) return;
+    if (isInfoPanelOpen) {
+      const currentTime = playback.getPrimaryTime();
+      playback.setMiniStartAt(Number.isFinite(currentTime) ? currentTime : 0);
+      playback.minimize();
+    } else {
+      playback.restore();
+    }
+  }, [isInfoPanelOpen, playback, video]);
 
   // Handle mouse and touch events for UI visibility
   useEffect(() => {
@@ -317,6 +340,7 @@ const SingleVideo: React.FC = () => {
             {/* Video Player */}
             <div className="relative w-full h-0" style={{ paddingBottom: '56.25%' /* 16:9 Aspect Ratio */ }}>
               <VideoPlayer
+                key={video.id}
                 src={`${API_BASE_URL}/${video.video_path}`}
                 video_url={video.video_url}
                 video_urls={video.video_urls}

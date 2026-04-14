@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { PlayCircle, Shield, ShoppingBag, Gift } from 'lucide-react';
+import { PlayCircle, Shield, ShoppingBag, Gift, Clock3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import UnlockButton from './UnlockButton';
 import { useAccount } from 'wagmi';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 // Pricing is computed by backend via quote; no client-side ETH parsing needed
 import { useState } from 'react';
 import { useCryptoDirectBuy } from '../../hooks/useOnchainPass';
@@ -78,11 +79,13 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
   const { isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
   // const chainId = useChainId();
   // const { switchChain } = useSwitchChain();
   const requireAuth = useRequireAuth();
   const cryptoDirect = useCryptoDirectBuy(pass.id);
   const [requestingQuote, setRequestingQuote] = useState(false);
+  const [cryptoReservationExpiresAt, setCryptoReservationExpiresAt] = useState<string | null>(null);
   const [quantity] = useState(1);
   // const [, setMinPriceWei] = useState<string | undefined>(undefined); // kept for potential UI display/debug
   const { address } = useAccount();
@@ -153,6 +156,9 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
         passId={pass.id} 
         className="relative group overflow-hidden bg-gradient-to-r from-orange-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-orange-500/20 transition-all duration-300 w-full flex items-center justify-center gap-2" 
       />
+      <p className="text-xs text-center text-white/55">
+        Card checkout unlocks access after payment. Claim the NFT to your wallet later.
+      </p>
       
       {/* Crypto checkout button */}
       <button
@@ -161,7 +167,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
           try { console.log('[CryptoPay] click', { passId: pass.id, isConnected, address, quantity, useRelayer: process.env.REACT_APP_CRYPTO_USE_RELAYER }); } catch {}
           if (!isConnected) {
             try { sessionStorage.setItem('wallet_connect_intent', 'transaction'); } catch {}
-            try { (window as any).dispatchEvent?.(new CustomEvent('wallet:connect:open')); } catch {}
+            openConnectModal?.();
             return;
           }
           try {
@@ -170,7 +176,8 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
             setRequestingQuote(true);
             // Direct on-chain path: request quote, then wallet sends tx with value = minPriceWei
             try { console.log('[CryptoPay] invoking direct buy mutate', { passId: pass.id, quantity }); } catch {}
-            const { hash, explorerUrl } = await cryptoDirect.mutateAsync({ quantity, confirmations: 1 });
+            const { hash, explorerUrl, expiresAt } = await cryptoDirect.mutateAsync({ quantity, confirmations: 1 });
+            setCryptoReservationExpiresAt(expiresAt || null);
             setRequestingQuote(false);
             if (explorerUrl) {
               try { (window as any).dispatchEvent?.(new CustomEvent('tx:submitted', { detail: { hash, explorerUrl } })); } catch {}
@@ -184,13 +191,20 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
       >
         <Wallet className="w-5 h-5" />
         {requestingQuote
-          ? 'Requesting quote…'
+          ? 'Reserving & quoting…'
           : cryptoDirect.isPending
           ? 'Buying on-chain…'
           : isConnected
           ? 'Buy with Crypto'
           : 'Connect wallet to buy with crypto'}
       </button>
+      <div className="flex items-center justify-center gap-2 text-xs text-white/55">
+        <Clock3 className="w-3 h-3 text-orange-300" />
+        <span>
+          Crypto quotes reserve inventory for about 5 minutes.
+          {cryptoReservationExpiresAt ? ` Current hold ends ${new Date(cryptoReservationExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.` : ''}
+        </span>
+      </div>
       
       <div className="flex items-center justify-center gap-6 py-3">
         <div className="flex items-center gap-1 text-xs text-white/60">
@@ -203,7 +217,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
         </div>
         <div className="flex items-center gap-1 text-xs text-white/60">
           <ShoppingBag className="w-3 h-3 text-orange-400" />
-          <span>NFT ownership</span>
+          <span>Claimable NFT ownership</span>
         </div>
       </div>
     </div>

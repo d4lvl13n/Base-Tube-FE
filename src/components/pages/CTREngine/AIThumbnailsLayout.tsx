@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CTRQuotaStatus } from '../../../types/ctr';
+import { CTRUsageAccess } from '../../../types/ctr';
 import AIThumbnailsSidebar from './components/AIThumbnailsSidebar';
 import AIThumbnailsHeader from './components/AIThumbnailsHeader';
 import HelpCard from './components/HelpCard';
@@ -25,13 +25,13 @@ const useIsDesktop = () => {
 
 interface AIThumbnailsLayoutProps {
   children: React.ReactNode;
-  quota?: CTRQuotaStatus | null;
+  usageAccess?: CTRUsageAccess | null;
   isLoadingQuota?: boolean;
 }
 
 export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
   children,
-  quota,
+  usageAccess,
   isLoadingQuota,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -59,7 +59,7 @@ export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
         {/* Sidebar - visible on desktop only */}
         {isDesktop && (
           <AIThumbnailsSidebar 
-            quota={quota} 
+            usageAccess={usageAccess} 
             isLoadingQuota={isLoadingQuota}
             isCollapsed={!isNavOpen}
             onToggle={() => setIsNavOpen((prev) => !prev)}
@@ -88,7 +88,7 @@ export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
                 style={{ boxShadow: '0 0 20px 5px rgba(250, 117, 23, 0.08)' }}
               >
                 <AIThumbnailsSidebar 
-                  quota={quota} 
+                  usageAccess={usageAccess} 
                   isLoadingQuota={isLoadingQuota}
                   isCollapsed={false}
                   className="h-full"

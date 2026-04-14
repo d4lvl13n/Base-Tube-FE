@@ -28,7 +28,7 @@ const VideosManagement: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
   const [deletingVideo, setDeletingVideo] = useState<Video | null>(null);
-  const { selectedChannelId } = useChannelSelection();
+  const { selectedChannelId, channels, selectedChannel, isLoading: isChannelsLoading } = useChannelSelection();
 
   // Add sort state
   const [sort, setSort] = useState<SortState>({
@@ -36,9 +36,11 @@ const VideosManagement: React.FC = () => {
     direction: 'desc'
   });
 
-  const processingVideoIds = videos
-    .filter(v => v.status === 'pending' || v.status === 'processing')
-    .map(v => v.id);
+  const processingVideoIds = useMemo(() => {
+    return videos
+      .filter(v => v.status === 'pending' || v.status === 'processing')
+      .map(v => v.id);
+  }, [videos]);
   
   const { processingVideos } = useVideoProcessing(processingVideoIds);
 
@@ -51,7 +53,7 @@ const VideosManagement: React.FC = () => {
   } = useQuery<PaginatedResponse>({
     queryKey: ['channelVideos', selectedChannelId, page, filters],
     queryFn: () => getChannelVideos(selectedChannelId, page),
-    enabled: !!selectedChannelId,
+    enabled: !!selectedChannelId && !!selectedChannel && channels.length > 0 && !isChannelsLoading,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 

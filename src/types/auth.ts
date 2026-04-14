@@ -42,11 +42,17 @@ export interface AuthState {
 export interface LoginResponse {
   user: User;  // This should only include basic user info, no suggestions
   token?: string;
+  created?: boolean;
 }
 
 export interface SignupResponse {
   user: User;
   token?: string;
+}
+
+export interface NonceResponse {
+  nonce: string;
+  message: string;
 }
 
 export interface OnboardingResponse {
@@ -56,7 +62,7 @@ export interface OnboardingResponse {
 
 export interface LinkWalletResponse {
   web3auth: Web3Auth;
-  user: User;  // Add this to match the API response
+  user?: User;
   message?: string;
 }
 
@@ -83,14 +89,17 @@ export enum AuthErrorCode {
 // Request Payloads
 export interface LoginPayload {
   walletAddress: string;
+  signature: string;
 }
 
 export interface SignupPayload {
   walletAddress: string;
+  signature: string;
 }
 
 export interface LinkWalletPayload {
   walletAddress: string;
+  signature: string;
 }
 
 // Context Types
@@ -126,6 +135,7 @@ export enum AuthenticationStep {
   IDLE = 'IDLE',
   CONNECTING_WALLET = 'CONNECTING_WALLET',
   CHECKING_NETWORK = 'CHECKING_NETWORK',
+  REQUESTING_SIGNATURE = 'REQUESTING_SIGNATURE',
   COMPLETED = 'COMPLETED',
   ERROR = 'ERROR',
   CREATING_ACCOUNT = 'CREATING_ACCOUNT'

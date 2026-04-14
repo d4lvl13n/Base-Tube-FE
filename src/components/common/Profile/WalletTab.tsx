@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
+import {
   Wallet as WalletIcon,
   TrendingUp,
   CreditCard,
@@ -18,6 +18,7 @@ import Loader from '../Loader';
 import { useAccessList, useClaim, usePurchaseStatus } from '../../../hooks/useOnchainPass';
 import type { OnchainAccessData } from '../../../types/onchainPass';
 import { formatAmount } from '../../../lib/utils';
+import { hasPurchaseEntitlement } from '../../../utils/purchaseStatus';
 
 const WalletTab: React.FC = () => {
   const { data: wallet, isLoading, error } = useWallet();
@@ -216,20 +217,20 @@ const ClaimableBalances: React.FC<{ accessItems: OnchainAccessData[]; loading?: 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {claimable.map((a) => (
-          <ClaimItem key={a.passId} access={a} />
+          <ClaimItem key={a.passId} access={a} walletAddress={wallet?.walletAddress} />
         ))}
       </div>
     </div>
   );
 };
 
-const ClaimItem: React.FC<{ access: OnchainAccessData }> = ({ access }) => {
+const ClaimItem: React.FC<{ access: OnchainAccessData; walletAddress?: string | null }> = ({ access, walletAddress }) => {
   const [purchaseId, setPurchaseId] = useState('');
   const { data: statusResponse } = usePurchaseStatus(purchaseId || undefined, { enabled: Boolean(purchaseId), intervalMs: 5000 });
   const claim = useClaim();
 
-  const isMinted = ['pending', 'minting', 'minted', 'claiming', 'claimed', 'completed'].includes(statusResponse?.data?.status || '');
-  const canClaim = isMinted && !!purchaseId && !claim.isPending;
+  const hasEntitlement = hasPurchaseEntitlement(statusResponse?.data?.status);
+  const canClaim = Boolean(walletAddress && purchaseId && !claim.isPending && statusResponse?.data?.status === 'pending');
 
   const vaultDisplay = formatAmount(access.vaultBalance || '0', { decimals: 0, minFraction: 0, maxFraction: 0 });
 
@@ -240,10 +241,10 @@ const ClaimItem: React.FC<{ access: OnchainAccessData }> = ({ access }) => {
           <div className="font-semibold">Pass ID</div>
           <div className="text-gray-400 font-mono text-xs truncate" title={access.passId}>{access.passId}</div>
         </div>
-        {isMinted ? (
+        {hasEntitlement ? (
           <div className="flex items-center gap-1 text-emerald-400 text-xs">
             <CheckCircle className="w-4 h-4" />
-            Minted
+            Unlocked
           </div>
         ) : (
           <div className="text-xs text-gray-400">Status: {statusResponse?.data?.status || 'unknown'}</div>
@@ -265,10 +266,10 @@ const ClaimItem: React.FC<{ access: OnchainAccessData }> = ({ access }) => {
         />
         <button
           disabled={!canClaim}
-          onClick={() => claim.mutate({ purchaseId })}
+          onClick={() => walletAddress && claim.mutate({ purchaseId, walletAddress })}
           className={`px-3 py-2 rounded-lg text-xs font-semibold ${canClaim ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white' : 'bg-gray-800 text-gray-400 cursor-not-allowed'}`}
         >
-          {claim.isPending ? 'Claiming…' : 'Claim'}
+          {claim.isPending ? 'Claiming…' : 'Claim NFT'}
         </button>
       </div>
 

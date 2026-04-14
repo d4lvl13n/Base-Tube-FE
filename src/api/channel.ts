@@ -31,7 +31,8 @@ export const getMyChannels = async (
   const fetchChannels = async () => {
     const response = await api.get<ChannelsResponse>(
       `/api/v1/channels/my`, {
-        params: { page, limit, sort, include: 'owner' }
+        // Add a cache-buster param to avoid 304/empty body without custom headers
+        params: { page, limit, sort, include: 'owner', _ts: Date.now() }
       }
     );
     return response.data.data;

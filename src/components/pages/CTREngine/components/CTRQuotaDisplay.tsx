@@ -1,14 +1,15 @@
 // src/components/pages/CTREngine/components/CTRQuotaDisplay.tsx
-// Premium quota status display component
+// Access status display component
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Zap, BarChart2, TrendingUp, Clock, Crown } from 'lucide-react';
-import { CTRQuotaStatus, QuotaInfo } from '../../../../types/ctr';
+import { Coins, Zap, BarChart2, TrendingUp, Clock, Crown } from 'lucide-react';
+import { CTRUsageAccess, QuotaInfo } from '../../../../types/ctr';
 import { formatQuotaLimit } from '../../../../api/ctr';
+import { formatCreditCost } from '../../../../utils/usageAccess';
 
 interface CTRQuotaDisplayProps {
-  quota: CTRQuotaStatus;
+  usageAccess: CTRUsageAccess;
   variant?: 'compact' | 'full';
   className?: string;
 }
@@ -21,11 +22,10 @@ const QuotaBar: React.FC<{
 }> = ({ label, info, icon, delay = 0 }) => {
   const isUnlimited = info.limit === -1;
   const percentage = isUnlimited ? 0 : (info.used / info.limit) * 100;
-  const isLow = !isUnlimited && percentage >= 80;
   const isExhausted = !isUnlimited && info.remaining === 0;
-  
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay }}
@@ -36,15 +36,13 @@ const QuotaBar: React.FC<{
           {icon}
           {label}
         </span>
-        {/* Reframed as progress/achievement */}
         <span className={`font-semibold flex items-center gap-1.5 ${isExhausted ? 'text-gray-500' : 'text-white'}`}>
           <span className="text-[#fa7517]">{info.used}</span>
           <span className="text-gray-500">of {formatQuotaLimit(info.limit)}</span>
           {!isExhausted && <span className="text-emerald-400 text-xs">✓</span>}
         </span>
       </div>
-      
-      {/* Progress bar - always positive feeling */}
+
       <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-gray-800/50">
         <motion.div
           className={`h-full rounded-full ${
@@ -62,35 +60,121 @@ const QuotaBar: React.FC<{
 };
 
 export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
-  quota,
+  usageAccess,
   variant = 'compact',
   className = '',
 }) => {
+  if (usageAccess.mode === 'credits') {
+    if (variant === 'compact') {
+      return (
+        <div className={`flex items-center gap-4 px-4 py-2.5 bg-black/50 rounded-xl border border-gray-800/50 backdrop-blur-sm ${className}`}>
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border text-[#fa7517] bg-[#fa7517]/20 border-[#fa7517]/30">
+            <Coins className="w-3 h-3" />
+            Credits
+          </span>
+          <div className="w-px h-6 bg-gray-800" />
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <Coins className="w-4 h-4 text-[#fa7517]" />
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-500">Available</span>
+                <span className="text-xs text-white">{usageAccess.creditInfo.available}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#fa7517]" />
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-500">Generate</span>
+                <span className="text-xs text-gray-400">{formatCreditCost(usageAccess.pricing?.ctr.generatePerConcept ?? 0)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`bg-black/50 border border-gray-800/30 rounded-2xl p-5 backdrop-blur-sm ${className}`}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <Coins className="w-4 h-4 text-[#fa7517]" />
+            Credit Wallet
+          </h3>
+          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border text-[#fa7517] bg-[#fa7517]/20 border-[#fa7517]/30">
+            Live pricing
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="rounded-xl border border-gray-800/50 bg-black/40 p-3">
+            <p className="text-xs text-gray-500">Available</p>
+            <p className="mt-1 text-lg font-semibold text-white">{usageAccess.creditInfo.available}</p>
+          </div>
+          <div className="rounded-xl border border-gray-800/50 bg-black/40 p-3">
+            <p className="text-xs text-gray-500">Reserved</p>
+            <p className="mt-1 text-lg font-semibold text-white">{usageAccess.creditInfo.reserved}</p>
+          </div>
+          <div className="rounded-xl border border-gray-800/50 bg-black/40 p-3">
+            <p className="text-xs text-gray-500">Balance</p>
+            <p className="mt-1 text-lg font-semibold text-white">{usageAccess.creditInfo.balance}</p>
+          </div>
+        </div>
+
+        <div className="space-y-3 text-sm">
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="flex items-center gap-2"><BarChart2 className="w-4 h-4" /> CTR audit</span>
+            <span className="text-white">{formatCreditCost(usageAccess.pricing?.ctr.audit ?? 0)}</span>
+          </div>
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Audit with personas</span>
+            <span className="text-white">{formatCreditCost(usageAccess.pricing?.ctr.auditWithPersonas ?? 0)}</span>
+          </div>
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="flex items-center gap-2"><Zap className="w-4 h-4" /> CTR concept generation</span>
+            <span className="text-white">{formatCreditCost(usageAccess.pricing?.ctr.generatePerConcept ?? 0)}</span>
+          </div>
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
+          <span className="text-xs text-gray-500">Signed-in work now uses credits instead of daily quota.</span>
+          <a href="/pricing" className="text-xs font-medium text-[#fa7517] hover:text-orange-400 transition-colors">
+            Buy credits soon
+          </a>
+        </div>
+      </motion.div>
+    );
+  }
+
+  const quota = usageAccess.quota;
   const resetTime = new Date(quota.audit.resetsAt).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });
-  
+
   const tierConfig = {
-    anonymous: { 
-      label: 'Guest', 
+    anonymous: {
+      label: 'Guest',
       color: 'text-gray-400 bg-white/10 border-white/20',
-      icon: null
+      icon: null,
     },
-    free: { 
-      label: 'Free', 
+    free: {
+      label: 'Free',
       color: 'text-blue-400 bg-blue-500/20 border-blue-500/30',
-      icon: null
+      icon: null,
     },
-    pro: { 
-      label: 'Pro', 
+    pro: {
+      label: 'Pro',
       color: 'text-[#fa7517] bg-[#fa7517]/20 border-[#fa7517]/30',
-      icon: <Crown className="w-3 h-3" />
+      icon: <Crown className="w-3 h-3" />,
     },
-    enterprise: { 
-      label: 'Enterprise', 
+    enterprise: {
+      label: 'Enterprise',
       color: 'text-amber-400 bg-amber-500/20 border-amber-500/30',
-      icon: <Zap className="w-3 h-3" />
+      icon: <Zap className="w-3 h-3" />,
     },
   };
 
@@ -99,7 +183,7 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
   if (variant === 'compact') {
     const auditProgress = quota.audit.limit === -1 ? 0 : (quota.audit.used / quota.audit.limit) * 100;
     const genProgress = quota.generate.limit === -1 ? 0 : (quota.generate.used / quota.generate.limit) * 100;
-    
+
     return (
       <div className={`flex items-center gap-4 px-4 py-2.5 bg-black/50 rounded-xl border border-gray-800/50 backdrop-blur-sm ${className}`}>
         <div className="flex items-center gap-2">
@@ -110,33 +194,25 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
         </div>
         <div className="w-px h-6 bg-gray-800" />
         <div className="flex items-center gap-4 text-sm">
-          {/* Audits - progress style */}
           <div className="flex items-center gap-2">
             <BarChart2 className="w-4 h-4 text-gray-500" />
             <div className="flex flex-col">
               <span className="text-xs text-gray-500">Audits</span>
               <div className="flex items-center gap-1.5">
                 <div className="w-12 h-1.5 bg-black/60 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-full transition-all"
-                    style={{ width: `${Math.min(auditProgress, 100)}%` }}
-                  />
+                  <div className="h-full bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-full transition-all" style={{ width: `${Math.min(auditProgress, 100)}%` }} />
                 </div>
                 <span className="text-xs text-gray-400">{quota.audit.used}/{formatQuotaLimit(quota.audit.limit)}</span>
               </div>
             </div>
           </div>
-          {/* Generations - progress style */}
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-[#fa7517]" />
             <div className="flex flex-col">
               <span className="text-xs text-gray-500">Creates</span>
               <div className="flex items-center gap-1.5">
                 <div className="w-12 h-1.5 bg-black/60 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-full transition-all"
-                    style={{ width: `${Math.min(genProgress, 100)}%` }}
-                  />
+                  <div className="h-full bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-full transition-all" style={{ width: `${Math.min(genProgress, 100)}%` }} />
                 </div>
                 <span className="text-xs text-gray-400">{quota.generate.used}/{formatQuotaLimit(quota.generate.limit)}</span>
               </div>
@@ -148,7 +224,7 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={`bg-black/50 border border-gray-800/30 rounded-2xl p-5 backdrop-blur-sm ${className}`}
@@ -163,40 +239,26 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
           {tier.label}
         </span>
       </div>
-      
+
       <div className="space-y-4">
-        <QuotaBar
-          label="Audits completed"
-          info={quota.audit}
-          delay={0.1}
-          icon={<BarChart2 className="w-4 h-4" />}
-        />
-        
-        <QuotaBar
-          label="Thumbnails created"
-          info={quota.generate}
-          delay={0.2}
-          icon={<Zap className="w-4 h-4" />}
-        />
+        <QuotaBar label="Audits completed" info={quota.audit} delay={0.1} icon={<BarChart2 className="w-4 h-4" />} />
+        <QuotaBar label="Thumbnails created" info={quota.generate} delay={0.2} icon={<Zap className="w-4 h-4" />} />
       </div>
-      
+
       <div className="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-xs text-gray-500">
           <Clock className="w-3.5 h-3.5" />
           Fresh start at {resetTime}
         </span>
         {quota.tier === 'free' && (
-          <a 
-            href="/pricing" 
-            className="text-xs font-medium text-[#fa7517] hover:text-orange-400 transition-colors flex items-center gap-1"
-          >
+          <a href="/pricing" className="text-xs font-medium text-[#fa7517] hover:text-orange-400 transition-colors flex items-center gap-1">
             Get more
             <TrendingUp className="w-3 h-3" />
           </a>
         )}
         {quota.tier === 'anonymous' && (
           <span className="text-xs font-medium text-blue-400">
-            Sign in for 10x more
+            Sign in for credits
           </span>
         )}
       </div>
@@ -204,7 +266,6 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
   );
 };
 
-// Inline quota indicator for buttons - reframed as progress
 export const QuotaIndicator: React.FC<{
   used: number;
   limit: number;
@@ -214,7 +275,7 @@ export const QuotaIndicator: React.FC<{
   const remaining = isUnlimited ? -1 : limit - used;
   const isExhausted = !isUnlimited && remaining <= 0;
   const typeLabel = type === 'audit' ? 'audit' : 'creation';
-  
+
   return (
     <span className={`text-xs flex items-center gap-1 ${isExhausted ? 'text-gray-500' : 'text-gray-400'}`}>
       {isUnlimited ? (

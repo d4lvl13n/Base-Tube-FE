@@ -35,6 +35,7 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ step, isCorrectNetw
         >
           {step === AuthenticationStep.CONNECTING_WALLET && '🔄 Connecting Wallet...'}
           {step === AuthenticationStep.CHECKING_NETWORK && '🌐 Checking Network...'}
+          {step === AuthenticationStep.REQUESTING_SIGNATURE && '✍️ Confirm the wallet signature...'}
           {step === AuthenticationStep.CREATING_ACCOUNT && '✨ Creating Account...'}
           {step === AuthenticationStep.COMPLETED && '✓ Connected'}
           {step === AuthenticationStep.ERROR && '❌ Connection Failed'}

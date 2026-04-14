@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useAccount, useConnect, useSignMessage } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
 import web3AuthApi from '../api/web3authapi';
 import { useAuth } from '../contexts/AuthContext';
+import { createWalletAuthPayload } from '../utils/walletAuth';
 
 type ModalState = {
   type: 'success' | 'error' | null;
@@ -21,7 +22,7 @@ export function useLinkWallet() {
   const queryClient = useQueryClient();
   const { address } = useAccount();
   const { connect, connectors } = useConnect();
-  const { disconnect } = useDisconnect();
+  const { signMessageAsync } = useSignMessage();
   const { setUser } = useAuth();
 
   const clearModal = useCallback(() => {
@@ -42,19 +43,24 @@ export function useLinkWallet() {
     setModalState({ type: null, message: null });
 
     try {
-      const response = await web3AuthApi.linkWallet(address);
+      const { walletAddress, signature } = await createWalletAuthPayload(
+        address,
+        (message) => signMessageAsync({ message })
+      );
+      const response = await web3AuthApi.linkWallet(walletAddress, signature);
       
       if (response.user) {
         setUser(response.user);
-        await queryClient.invalidateQueries({ queryKey: ['wallet'] });
-        await queryClient.invalidateQueries({ queryKey: ['profile'] });
-        
-        setModalState({
-          type: 'success',
-          message: 'Wallet linked successfully!',
-          details: 'Your wallet has been connected to your account.'
-        });
       }
+
+      await queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      await queryClient.invalidateQueries({ queryKey: ['profile'] });
+
+      setModalState({
+        type: 'success',
+        message: 'Wallet linked successfully!',
+        details: 'Your wallet has been connected to your account.'
+      });
 
       return response;
     } catch (err) {
@@ -104,7 +110,7 @@ export function useLinkWallet() {
     } finally {
       setIsLinking(false);
     }
-  }, [address, setUser, queryClient]);
+  }, [address, signMessageAsync, setUser, queryClient]);
 
   const handleLinkWallet = useCallback(async () => {
     try {

@@ -44,16 +44,16 @@ export const mockTokens = {
 // ============================================================
 
 export const web3AuthHandlers = [
-  // POST /api/v1/web3/nonce - Request nonce for wallet signature
-  http.post(`${API_BASE}/api/v1/web3/nonce`, async ({ request }) => {
+  // POST /api/v1/web3auth/nonce - Request nonce for wallet signature
+  http.post(`${API_BASE}/api/v1/web3auth/nonce`, async ({ request }) => {
     await delay(100);
     
-    const body = await request.json() as { wallet_address?: string };
-    const walletAddress = body?.wallet_address;
+    const body = await request.json() as { walletAddress?: string };
+    const walletAddress = body?.walletAddress;
     
     if (!walletAddress) {
       return HttpResponse.json(
-        { success: false, message: 'Wallet address is required' },
+        { error: 'Wallet address is required' },
         { status: 400 }
       );
     }
@@ -61,33 +61,31 @@ export const web3AuthHandlers = [
     // Validate address format
     if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
       return HttpResponse.json(
-        { success: false, message: 'Invalid wallet address format' },
+        { error: 'Invalid wallet address format' },
         { status: 400 }
       );
     }
     
+    const nonce = `mock-nonce-${Date.now()}`;
+
     return HttpResponse.json({
-      success: true,
-      data: {
-        nonce: `Sign this message to authenticate with Base.Tube: ${Date.now()}`,
-        expiresAt: new Date(Date.now() + 300000).toISOString(), // 5 minutes
-      },
+      nonce,
+      message: `BaseTube wallet verification\n\nSign this message to prove you control this wallet.\nWallet: ${walletAddress.toLowerCase()}\nNonce: ${nonce}`
     });
   }),
 
-  // POST /api/v1/web3/verify - Verify signature and authenticate
-  http.post(`${API_BASE}/api/v1/web3/verify`, async ({ request }) => {
+  // POST /api/v1/web3auth/login - Verify signature and authenticate
+  http.post(`${API_BASE}/api/v1/web3auth/login`, async ({ request }) => {
     await delay(150);
     
     const body = await request.json() as { 
-      wallet_address?: string;
+      walletAddress?: string;
       signature?: string;
-      nonce?: string;
     };
     
-    if (!body?.wallet_address || !body?.signature || !body?.nonce) {
+    if (!body?.walletAddress || !body?.signature) {
       return HttpResponse.json(
-        { success: false, message: 'Missing required fields' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
@@ -95,63 +93,88 @@ export const web3AuthHandlers = [
     // Simulate invalid signature
     if (body.signature === 'invalid-signature') {
       return HttpResponse.json(
-        { success: false, message: 'Invalid signature' },
+        { error: 'Invalid signature' },
         { status: 401 }
       );
     }
     
     return HttpResponse.json({
-      success: true,
-      data: {
-        user: {
-          ...mockUsers.web3User,
-          web3auth: {
-            ...mockUsers.web3User.web3auth,
-            wallet_address: body.wallet_address,
-          },
+      user: {
+        ...mockUsers.web3User,
+        web3auth: {
+          ...mockUsers.web3User.web3auth,
+          wallet_address: body.walletAddress.toLowerCase(),
         },
-        token: mockTokens.validToken,
       },
+      created: false,
     });
   }),
 
-  // POST /api/v1/web3/link - Link wallet to existing account
-  http.post(`${API_BASE}/api/v1/web3/link`, async ({ request }) => {
+  // POST /api/v1/web3auth/signup - Verify signature and create account
+  http.post(`${API_BASE}/api/v1/web3auth/signup`, async ({ request }) => {
+    await delay(150);
+
+    const body = await request.json() as {
+      walletAddress?: string;
+      signature?: string;
+    };
+
+    if (!body?.walletAddress || !body?.signature) {
+      return HttpResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    if (body.signature === 'invalid-signature') {
+      return HttpResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+
+    return HttpResponse.json({
+      user: {
+        ...mockUsers.web3User,
+        web3auth: {
+          ...mockUsers.web3User.web3auth,
+          wallet_address: body.walletAddress.toLowerCase(),
+        },
+      },
+    }, { status: 201 });
+  }),
+
+  // POST /api/v1/web3auth/link - Link wallet to existing account
+  http.post(`${API_BASE}/api/v1/web3auth/link`, async ({ request }) => {
     await delay(100);
     
     const authHeader = request.headers.get('Authorization');
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return HttpResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
     
     const body = await request.json() as { 
-      wallet_address?: string;
+      walletAddress?: string;
       signature?: string;
     };
     
-    if (!body?.wallet_address || !body?.signature) {
+    if (!body?.walletAddress || !body?.signature) {
       return HttpResponse.json(
-        { success: false, message: 'Missing required fields' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
     
     return HttpResponse.json({
-      success: true,
-      data: {
-        user: {
-          ...mockUsers.clerkUser,
-          web3auth: {
-            wallet_address: body.wallet_address,
-            chain_id: 8453,
-          },
-        },
-        message: 'Wallet linked successfully',
+      web3auth: {
+        wallet_address: body.walletAddress.toLowerCase(),
+        chain_id: 8453,
       },
+      message: 'Wallet linked successfully',
     });
   }),
 ];
@@ -282,4 +305,3 @@ export const authHandlers = [
   ...sessionHandlers,
   ...tokenHandlers,
 ];
-

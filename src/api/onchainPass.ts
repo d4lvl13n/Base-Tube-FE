@@ -13,17 +13,30 @@ import type {
   MintPendingResponse,
 } from '../types/onchainPass';
 import type { CryptoQuote } from '../types/onchainPass';
+import { normalizePendingPurchase, normalizePurchaseStatusResponse } from '../utils/purchaseStatus';
 
 export const onchainPassApi = {
-  async getPurchaseStatusBySession(sessionId: string): Promise<OnchainPurchaseStatusResponse> {
+  async resolvePurchaseStatusBySession(sessionId: string): Promise<any> {
     const exec = async () => {
-      const res = await api.get<OnchainPurchaseStatusResponse>(`/api/v1/passes/purchase/status/${sessionId}`);
+      const res = await api.get(`/api/v1/passes/purchase/status/${sessionId}`);
       return res.data;
     };
     try {
       return await retryWithBackoff(exec, 2, 1000);
     } catch (error) {
       throw handleApiError(error, { action: 'Get purchase status by session', component: 'onchainPassApi', additionalData: { sessionId } });
+    }
+  },
+
+  async getPurchaseStatus(purchaseId: string): Promise<OnchainPurchaseStatusResponse> {
+    const exec = async () => {
+      const res = await api.get(`/api/v1/purchases/${purchaseId}/status`);
+      return normalizePurchaseStatusResponse(res.data);
+    };
+    try {
+      return await retryWithBackoff(exec, 2, 1000);
+    } catch (error) {
+      throw handleApiError(error, { action: 'Get purchase status', component: 'onchainPassApi', additionalData: { purchaseId } });
     }
   },
 
@@ -54,7 +67,9 @@ export const onchainPassApi = {
   async claim(request: OnchainClaimRequest): Promise<OnchainClaimResponse> {
     const exec = async () => {
       const idempotencyKey = `${request.purchaseId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const res = await api.post<OnchainClaimResponse>(`/api/v1/claim`, request, {
+      const res = await api.post<OnchainClaimResponse>(`/api/v1/purchases/${request.purchaseId}/claim`, {
+        walletAddress: request.walletAddress,
+      }, {
         headers: {
           'Idempotency-Key': idempotencyKey
         }
@@ -104,8 +119,14 @@ export const onchainPassApi = {
    */
   async getPendingPurchases(): Promise<PendingPurchasesResponse> {
     const exec = async () => {
-      const res = await api.get<PendingPurchasesResponse>('/api/v1/purchases/pending');
-      return res.data;
+      const res = await api.get('/api/v1/purchases/pending');
+      const payload = res.data?.data?.purchases ? res.data.data.purchases : res.data?.purchases ?? [];
+      return {
+        success: true,
+        data: {
+          purchases: payload.map(normalizePendingPurchase),
+        },
+      } as PendingPurchasesResponse;
     };
     try {
       return await retryWithBackoff(exec, 2, 800);
@@ -136,5 +157,4 @@ export const onchainPassApi = {
 };
 
 export default onchainPassApi;
-
 

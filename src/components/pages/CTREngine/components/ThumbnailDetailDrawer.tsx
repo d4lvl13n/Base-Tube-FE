@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, Check, Copy, Calendar, Zap, Mail, Eye, Sparkles, ExternalLink, ArrowRight, Share2 } from 'lucide-react';
+import { X, Download, Check, Copy, Calendar, Mail, Sparkles, ArrowRight, Share2, Link2, ShieldCheck, FileImage } from 'lucide-react';
 import { usePublicThumbnailGenerator } from '../../../../hooks/usePublicThumbnailGenerator';
 import Button from '../../../common/Button';
 import { ViralSharePopup } from './ViralSharePopup';
@@ -65,12 +65,13 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
   // Handle download
   const handleDownload = async () => {
     if (!thumbnail) return;
+    const sourceUrl = thumbnail.imageUrl || thumbnail.thumbnailUrl;
     
     setDownloadStatus('downloading');
     clearError();
     
     try {
-      await downloadThumbnail(thumbnail.id.toString());
+      await downloadThumbnail(thumbnail.id.toString(), sourceUrl);
       
       // If email capture is not needed, mark as downloaded
       if (!needsEmailCapture) {
@@ -100,10 +101,11 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
       
       // After successful email submission, force download the thumbnail
       if (thumbnail) {
+        const sourceUrl = thumbnail.imageUrl || thumbnail.thumbnailUrl;
         console.log('📧 Email submitted successfully, scheduling download for:', thumbnail.id);
         setTimeout(async () => {
           console.log('⏰ Timeout reached, calling forceDownload...');
-          await forceDownload(thumbnail.id.toString());
+          await forceDownload(thumbnail.id.toString(), sourceUrl);
           setDownloadStatus('downloaded');
           setTimeout(() => setDownloadStatus('idle'), 2000);
         }, 1000);
@@ -146,24 +148,31 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
     return false;
   };
 
+  const imageSrc = thumbnail?.imageUrl || thumbnail?.thumbnailUrl || '';
+  const isPersistedThumbnail = /^\d+$/.test(String(thumbnail?.id ?? ''));
+  const sourceLabel = isPersistedThumbnail ? 'Saved asset' : 'Fresh generation';
+  const details = [
+    { label: 'Source', value: sourceLabel, icon: Sparkles },
+    { label: 'Export', value: 'PNG image', icon: FileImage },
+    { label: 'Usage', value: 'Commercial use', icon: ShieldCheck },
+  ];
+
   return (
     <AnimatePresence mode="wait">
       {isOpen && thumbnail && (
         <>
-          {/* Backdrop without blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="fixed inset-0 bg-black/50 z-40"
+            className="fixed inset-0 bg-black/65 backdrop-blur-[2px] z-40"
             onClick={onClose}
           />
 
-          {/* Panel */}
-          <motion.div
+          <motion.aside
             initial={{ x: '100%' }}
-            animate={{ 
+            animate={{
               x: 0,
               transition: {
                 type: "spring",
@@ -172,7 +181,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                 duration: 0.8
               }
             }}
-            exit={{ 
+            exit={{
               x: '100%',
               transition: {
                 type: "spring",
@@ -182,183 +191,237 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                 ease: "easeInOut"
               }
             }}
-            className="fixed right-0 top-0 h-full z-50 overflow-hidden w-full sm:w-[600px]"
+            className="fixed right-0 top-0 z-50 h-full w-full overflow-hidden sm:w-[640px] xl:w-[680px]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Panel Container */}
-            <motion.div
-              className="h-full w-full sm:w-[600px] bg-black/95 shadow-2xl"
-            >
-              {/* Gradient Border */}
-              <div className="absolute left-0 inset-y-0 w-[2px]">
-                <div className="absolute inset-0 bg-gradient-to-b from-[#fa7517]/30 via-[#fa7517]/10 to-[#fa7517]/30" />
-              </div>
+            <div className="relative flex h-full flex-col bg-[#080809]/96 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
+              <div className="absolute left-0 inset-y-0 w-px bg-gradient-to-b from-transparent via-[#fa7517]/35 to-transparent" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(250,117,23,0.10),transparent_30%)] pointer-events-none" />
+              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
 
-              {/* Content Container */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ 
-                  opacity: 1, 
-                  x: 0,
-                  transition: {
-                    delay: 0.2,
-                    duration: 0.4,
-                    ease: "easeOut"
-                  }
-                }}
-                exit={{ 
-                  opacity: 0, 
-                  x: 20,
-                  transition: {
-                    duration: 0.3,
-                    ease: "easeIn"
-                  }
-                }}
-                className="h-full flex flex-col"
-              >
-                {/* Header */}
-                <div className="p-3 sm:p-4 border-b border-gray-800/30">
-                  <div className="flex items-center justify-between mb-3 sm:mb-4">
-                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              <div className="relative border-b border-white/6 px-4 py-5 sm:px-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#fa7517]/20 bg-[#fa7517]/12">
+                        <Sparkles className="h-5 w-5 text-white" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-white truncate">Thumbnail Details</h2>
-                        <span className="text-xs sm:text-sm text-gray-400 flex items-center gap-1 mt-0.5">
-                          <Calendar className="w-3 h-3 flex-shrink-0" />
-                          <span className="truncate">{formatDate(thumbnail.createdAt)}</span>
-                        </span>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#fa7517]">
+                          Thumbnail Details
+                        </p>
+                        <h2 className="truncate text-xl font-semibold text-white sm:text-2xl">
+                          Review And Export
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-400">
+                          Preview the final image, copy the prompt, or export a clean PNG.
+                        </p>
                       </div>
                     </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-2.5 text-xs text-gray-400">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/8 bg-white/[0.03] px-3 py-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-[#fa7517]" />
+                        {formatDate(thumbnail.createdAt)}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/8 bg-white/[0.03] px-3 py-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-[#fa7517]" />
+                        {sourceLabel}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-emerald-300">
+                        <Check className="h-3.5 w-3.5" />
+                        Ready to export
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="hidden rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-gray-500 sm:inline-flex">
+                      Esc
+                    </span>
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
                       onClick={onClose}
-                      className="p-2 hover:bg-gray-800/50 rounded-full transition-colors flex-shrink-0 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/8 bg-white/[0.04] text-gray-400 transition-colors hover:border-white/15 hover:bg-white/[0.08] hover:text-white"
+                      aria-label="Close drawer"
                     >
-                      <X className="w-5 h-5 text-gray-400" />
+                      <X className="h-5 w-5" />
                     </motion.button>
                   </div>
                 </div>
+              </div>
 
-                {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto">
-                  <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-                    {/* Thumbnail Image */}
-                    <div className="relative group">
-                      <div className="absolute -inset-1 bg-gradient-to-r from-[#fa7517]/30 via-orange-400/30 to-[#fa7517]/30 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity" />
-                      <div className="relative bg-black/60 rounded-xl overflow-hidden border border-white/20">
+              <div className="relative flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+                <div className="space-y-5">
+                  <section className="space-y-4">
+                    <div className="rounded-[26px] border border-white/8 bg-white/[0.03] p-3 shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+                      <div className="relative overflow-hidden rounded-[20px] border border-white/10 bg-black">
+                        <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 border-b border-white/8 bg-gradient-to-b from-black/68 to-black/10 px-4 py-3 backdrop-blur-md">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#fa7517]">
+                              Preview
+                            </p>
+                            <p className="truncate text-sm text-gray-300">
+                              {isPersistedThumbnail ? 'Saved in your gallery and ready to download.' : 'Freshly generated result ready for export.'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleShare}
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-black/30 bg-black/55 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-200 backdrop-blur-md transition-colors hover:bg-black/70"
+                          >
+                            <Share2 className="h-3.5 w-3.5 text-[#fa7517]" />
+                            Share link
+                          </button>
+                        </div>
                         <img
-                          src={thumbnail.imageUrl || thumbnail.thumbnailUrl || ''}
-                          alt="AI Generated Thumbnail"
-                          className="w-full h-full object-contain"
+                          src={imageSrc}
+                          alt="AI generated thumbnail"
+                          className="aspect-video w-full object-cover"
                           onContextMenu={handleContextMenu}
                           draggable="false"
                           onError={(e) => {
-                            console.error('Failed to load thumbnail image:', thumbnail.imageUrl || thumbnail.thumbnailUrl);
+                            console.error('Failed to load thumbnail image:', imageSrc);
                             e.currentTarget.style.display = 'none';
                           }}
                         />
                       </div>
                     </div>
 
-                    {/* Prompt Section */}
-                    <div className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl p-4 border border-white/10">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-white font-semibold flex items-center gap-2 text-sm">
-                          <Zap className="w-4 h-4 text-[#fa7517]" />
-                          Prompt
-                        </h3>
-                        <motion.button
-                          onClick={copyPrompt}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          className={`px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 text-xs ${
-                            copiedPrompt 
-                              ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                              : 'bg-white/5 text-gray-300 hover:text-white border border-white/10 hover:border-white/20'
-                          }`}
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                      {details.map((detail) => (
+                        <div
+                          key={detail.label}
+                          className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3.5"
                         >
-                          {copiedPrompt ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                          <span className="font-medium">
-                            {copiedPrompt ? 'Copied!' : 'Copy'}
-                          </span>
-                        </motion.button>
+                          <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">
+                            <detail.icon className="h-3.5 w-3.5 text-[#fa7517]" />
+                            {detail.label}
+                          </p>
+                          <p className="mt-2 text-sm font-medium text-white">{detail.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="rounded-[24px] border border-white/8 bg-gradient-to-br from-white/[0.04] to-white/[0.02] p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#fa7517]">
+                          Generation Prompt
+                        </p>
+                        <h3 className="mt-1 text-base font-semibold text-white">Creative Direction</h3>
+                        <p className="mt-1 text-sm text-gray-400">
+                          Keep this handy if you want to regenerate, iterate, or brief a designer.
+                        </p>
                       </div>
-                      <div className="text-gray-300 leading-relaxed text-sm bg-black/40 rounded-lg p-3 border border-white/5">
-                        {thumbnail.prompt}
+                      <motion.button
+                        onClick={copyPrompt}
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                          copiedPrompt
+                            ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
+                            : 'border-white/10 bg-white/[0.04] text-gray-300 hover:border-white/20 hover:text-white'
+                        }`}
+                      >
+                        {copiedPrompt ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                        {copiedPrompt ? 'Copied' : 'Copy prompt'}
+                      </motion.button>
+                    </div>
+                    <div className="mt-4 rounded-2xl border border-white/8 bg-black/30 p-4">
+                      <p className="max-h-48 overflow-y-auto pr-1 text-sm leading-7 text-gray-200">{thumbnail.prompt}</p>
+                    </div>
+                  </section>
+
+                  <section className="grid grid-cols-1 gap-3 sm:grid-cols-[1.15fr_0.85fr]">
+                    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#fa7517]">
+                        Export Notes
+                      </p>
+                      <div className="mt-3 space-y-3 text-sm leading-6 text-gray-300">
+                        <p>
+                          Use <span className="font-medium text-white">Download HD</span> for the actual image file.
+                        </p>
+                        <p>
+                          Use <span className="font-medium text-white">Share</span> when you want a clean public link instead of a raw asset URL.
+                        </p>
+                        <p>
+                          The preview disables right-click to reduce accidental misuse, but the proper file stays available through the export action.
+                        </p>
                       </div>
                     </div>
 
-                    {/* Specs Section */}
-                    <div className="bg-gradient-to-br from-[#fa7517]/10 to-orange-400/5 rounded-xl p-4 border border-[#fa7517]/20">
-                      <h4 className="text-white font-semibold mb-3 flex items-center gap-2 text-sm">
-                        <ExternalLink className="w-4 h-4 text-[#fa7517]" />
-                        Specs
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { label: 'Resolution', value: '1536×1024', icon: '🎯' },
-                          { label: 'Format', value: 'PNG', icon: '📸' },
-                          { label: 'License', value: 'Commercial', icon: '✅' },
-                          { label: 'Quality', value: 'Ultra HD', icon: '⭐' }
-                        ].map((spec) => (
-                          <div 
-                            key={spec.label}
-                            className="flex items-center justify-between bg-white/5 rounded-lg p-2"
-                          >
-                            <span className="text-gray-400 text-xs flex items-center gap-1">
-                              <span>{spec.icon}</span>
-                              {spec.label}
-                            </span>
-                            <span className="text-white text-xs font-medium">{spec.value}</span>
-                          </div>
-                        ))}
+                    <div className="rounded-[24px] border border-[#fa7517]/18 bg-gradient-to-br from-[#fa7517]/10 to-transparent p-5">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#fa7517]/16">
+                          <Link2 className="h-4.5 w-4.5 text-[#fa7517]" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#fa7517]">
+                            Recommended
+                          </p>
+                          <h3 className="mt-1 text-sm font-semibold text-white">Export first, share second</h3>
+                          <p className="mt-1 text-sm leading-6 text-gray-300">
+                            Save the image locally before sharing so you keep the final asset even if you revisit the session later.
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </section>
                 </div>
+              </div>
 
-                {/* Footer Actions */}
-                <div className="border-t border-gray-800/30 p-3 sm:p-4 space-y-2 sm:space-y-3">
+              <div className="relative border-t border-white/6 bg-black/60 px-4 py-4 backdrop-blur-xl sm:px-6">
+                <div className="mb-3 flex items-center justify-between gap-4 text-xs text-gray-500">
+                  <span>{needsEmailCapture ? 'One quick step before export' : 'High-resolution export ready'}</span>
+                  <span>{needsEmailCapture ? 'Email unlock' : 'PNG download'}</span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.3fr_0.9fr]">
                   <Button
                     onClick={handleDownload}
                     disabled={downloadStatus === 'downloading'}
-                    className="w-full bg-gradient-to-r from-[#fa7517] to-orange-400 hover:from-[#fa7517]/90 hover:to-orange-400/90 text-white py-3 sm:py-3 rounded-xl font-semibold shadow-lg hover:shadow-[#fa7517]/50 transition-all duration-300 group min-h-[52px] sm:min-h-[48px] text-sm sm:text-base"
+                    className="w-full rounded-2xl bg-gradient-to-r from-[#fa7517] to-orange-400 py-3.5 font-semibold text-white shadow-[0_16px_40px_rgba(250,117,23,0.25)] transition-all duration-300 hover:from-[#fa7517]/92 hover:to-orange-400/92 hover:shadow-[0_20px_45px_rgba(250,117,23,0.35)] min-h-[54px]"
                   >
                     {downloadStatus === 'downloading' ? (
                       <div className="flex items-center justify-center gap-2">
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>Processing...</span>
+                        <div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        <span>Preparing export…</span>
                       </div>
                     ) : downloadStatus === 'downloaded' ? (
                       <div className="flex items-center justify-center gap-2">
-                        <Check className="w-5 h-5" />
-                        <span>Downloaded!</span>
+                        <Check className="h-5 w-5" />
+                        <span>Downloaded</span>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center gap-2">
-                        <Download className="w-5 h-5" />
+                        <Download className="h-5 w-5" />
                         <span>Download HD</span>
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform hidden sm:block" />
+                        <ArrowRight className="hidden h-4 w-4 sm:block" />
                       </div>
                     )}
                   </Button>
-                  
+
                   <motion.button
                     onClick={handleShare}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full py-3 sm:py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 hover:shadow-purple-500/30 text-white min-h-[52px] sm:min-h-[48px] text-sm sm:text-base"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    className="flex min-h-[54px] w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 font-semibold text-white transition-all duration-300 hover:border-white/20 hover:bg-white/[0.08]"
                   >
-                    <Share2 className="w-4 h-4" />
+                    <Share2 className="h-4.5 w-4.5 text-[#fa7517]" />
                     <span>Share</span>
                   </motion.button>
                 </div>
-              </motion.div>
-            </motion.div>
-          </motion.div>
+                {error && !needsEmailCapture && (
+                  <p className="mt-3 text-sm text-red-300">{error}</p>
+                )}
+                {!error && (
+                  <p className="mt-3 text-sm text-gray-500">
+                    Download gives you the file. Share opens a clean public link flow.
+                  </p>
+                )}
+              </div>
+            </div>
+          </motion.aside>
           
           {/* Enhanced Email Capture Modal */}
           <AnimatePresence>

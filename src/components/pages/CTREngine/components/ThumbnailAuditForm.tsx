@@ -3,9 +3,9 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link2, Upload, PlayCircle, Users, ChevronRight, Sparkles, AlertCircle, FileText, Tag } from 'lucide-react';
+import { Link2, Upload, PlayCircle, Users, ChevronRight, Sparkles, AlertCircle, FileText, Tag, Coins } from 'lucide-react';
 import { isValidYouTubeUrl } from '../../../../api/ctr';
-import { AuditContext, AuditProgress } from '../../../../types/ctr';
+import { AuditContext, AuditProgress, CreditPricingCatalog, UsageMode } from '../../../../types/ctr';
 
 type InputMode = 'url' | 'upload' | 'youtube';
 
@@ -42,7 +42,11 @@ interface ThumbnailAuditFormProps {
   onAuditByFile: (file: File, includePersonas: boolean, context?: AuditContext) => Promise<void>;
   onAuditByYouTube: (url: string, includePersonas: boolean, context?: AuditContext) => Promise<void>;
   auditProgress: AuditProgress;
+  usageMode?: UsageMode;
   quotaRemaining?: number;
+  availableCredits?: number;
+  pricing?: CreditPricingCatalog | null;
+  hasInsufficientCredits?: boolean;
   isAnonymous?: boolean;
   className?: string;
 }
@@ -52,7 +56,11 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
   onAuditByFile,
   onAuditByYouTube,
   auditProgress,
+  usageMode = 'quota',
   quotaRemaining,
+  availableCredits,
+  pricing,
+  hasInsufficientCredits = false,
   isAnonymous = false,
   className = '',
 }) => {
@@ -72,7 +80,12 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLoading = auditProgress.status === 'auditing';
-  const canSubmit = quotaRemaining === undefined || quotaRemaining > 0;
+  const auditCreditCost = includePersonas
+    ? pricing?.ctr.auditWithPersonas ?? 0
+    : pricing?.ctr.audit ?? 0;
+  const canSubmit = usageMode === 'credits'
+    ? (availableCredits ?? 0) >= auditCreditCost
+    : quotaRemaining === undefined || quotaRemaining > 0;
   const hasRequiredContext =
     Boolean(context.title?.trim()) && Boolean(context.niche?.trim());
 
@@ -468,7 +481,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
             <span>Analyzing{includePersonas ? ' with personas' : ''}...</span>
           </>
         ) : !canSubmit ? (
-          'Quota exhausted'
+          usageMode === 'credits' ? 'Not enough credits' : 'Quota exhausted'
         ) : !hasRequiredContext ? (
           'Add title + niche to continue'
         ) : (
@@ -479,8 +492,29 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
         )}
       </motion.button>
 
-      {/* Quota Warning */}
-      {quotaRemaining !== undefined && quotaRemaining <= 2 && quotaRemaining > 0 && (
+      {/* Usage Warning */}
+      {usageMode === 'credits' ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className={`mt-3 rounded-xl border px-4 py-3 text-xs flex items-center justify-between gap-3 ${
+            hasInsufficientCredits
+              ? 'border-red-500/20 bg-red-500/10 text-red-300'
+              : 'border-gray-800/50 bg-black/40 text-gray-300'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Coins className="w-4 h-4 text-[#fa7517]" />
+            <span>
+              {availableCredits ?? 0} available credits
+              {auditCreditCost > 0 ? ` • ${auditCreditCost} for this audit` : ''}
+            </span>
+          </div>
+          <a href="/pricing" className="text-[#fa7517] hover:text-orange-400 transition-colors whitespace-nowrap">
+            Buy credits soon
+          </a>
+        </motion.div>
+      ) : quotaRemaining !== undefined && quotaRemaining <= 2 && quotaRemaining > 0 && (
         <motion.p 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -491,7 +525,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
           {isAnonymous && ' • Sign in for more'}
         </motion.p>
       )}
-      {quotaRemaining === 0 && (
+      {usageMode === 'quota' && quotaRemaining === 0 && (
         <motion.p 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

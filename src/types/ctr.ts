@@ -2,8 +2,11 @@
 // CTR Thumbnail Engine Types
 
 // ============================================================================
-// QUOTA TYPES
+// ACCESS TYPES
 // ============================================================================
+
+export type UsageMode = 'quota' | 'credits';
+export type UsageTier = 'anonymous' | 'free' | 'pro' | 'enterprise';
 
 export interface QuotaInfo {
   used: number;
@@ -12,16 +15,95 @@ export interface QuotaInfo {
   resetsAt: string;
 }
 
+export interface GeneratorQuotaInfo extends QuotaInfo {
+  isAnonymous: boolean;
+  tier: UsageTier;
+  upgradeUrl?: string;
+  message?: string;
+}
+
 export interface CTRQuotaStatus {
   audit: QuotaInfo;
   generate: QuotaInfo;
-  tier: 'anonymous' | 'free' | 'pro' | 'enterprise';
+  tier: UsageTier;
   isAnonymous: boolean;
   limits: {
     audit: { anonymous: number; free: number; pro: number; enterprise: number };
     generate: { anonymous: number; free: number; pro: number; enterprise: number };
   };
 }
+
+export interface CreditInfo {
+  balance: number;
+  reserved: number;
+  available: number;
+}
+
+export interface CreditPricingCatalog {
+  thumbnail: {
+    generatePerImage: number;
+    editPerImage: number;
+    variationPerImage: number;
+  };
+  ctr: {
+    audit: number;
+    auditWithPersonas: number;
+    generatePerConcept: number;
+  };
+}
+
+export interface CreditBalanceResponse {
+  success: boolean;
+  data: {
+    creditInfo: CreditInfo;
+    pricing?: CreditPricingCatalog;
+  };
+}
+
+export interface CreditLedgerEntry {
+  id?: string;
+  type?: string;
+  amount: number;
+  balanceAfter?: number;
+  description?: string;
+  createdAt: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreditLedgerResponse {
+  success: boolean;
+  data: {
+    ledger: CreditLedgerEntry[];
+  };
+}
+
+export type CTRUsageAccess =
+  | {
+      mode: 'quota';
+      quota: CTRQuotaStatus;
+      creditInfo?: undefined;
+      pricing?: undefined;
+    }
+  | {
+      mode: 'credits';
+      quota?: undefined;
+      creditInfo: CreditInfo;
+      pricing: CreditPricingCatalog | null;
+    };
+
+export type GeneratorUsageAccess =
+  | {
+      mode: 'quota';
+      quotaInfo: GeneratorQuotaInfo;
+      creditInfo?: undefined;
+      pricing?: undefined;
+    }
+  | {
+      mode: 'credits';
+      quotaInfo?: undefined;
+      creditInfo: CreditInfo;
+      pricing: CreditPricingCatalog | null;
+    };
 
 // ============================================================================
 // AUDIT TYPES
@@ -106,6 +188,8 @@ export interface AuditResponse {
     audit: ThumbnailAudit;
     auditId: number;           // NEW - Persisted audit ID
     quotaInfo?: QuotaInfo;
+    creditInfo?: CreditInfo;
+    pricing?: CreditPricingCatalog;
   };
 }
 
@@ -117,6 +201,8 @@ export interface YouTubeAuditResponse {
     videoMetadata: YouTubeVideoMetadata;
     thumbnailUrl: string;
     quotaInfo?: QuotaInfo;
+    creditInfo?: CreditInfo;
+    pricing?: CreditPricingCatalog;
   };
 }
 
@@ -202,6 +288,8 @@ export interface CTRGenerationResponse {
     detectedNiche: string;
     generationTime: number;
     quotaInfo?: QuotaInfo;
+    creditInfo?: CreditInfo;
+    pricing?: CreditPricingCatalog;
   };
 }
 
@@ -288,6 +376,7 @@ export type CTRErrorCode =
   | 'ANONYMOUS_AUDIT_QUOTA_EXCEEDED'
   | 'AUDIT_QUOTA_EXCEEDED'
   | 'GENERATE_QUOTA_EXCEEDED'
+  | 'INSUFFICIENT_CREDITS'
   | 'AUTHENTICATION_REQUIRED'
   | 'MISSING_IMAGE'
   | 'MISSING_TITLE'
@@ -342,4 +431,3 @@ export type ScoreLabel =
   | 'Poor';
 
 export type ConsensusIcon = '🎯' | '👍' | '🤔' | '⚖️' | '❓';
-

@@ -3,7 +3,6 @@
 
 import api from './index';
 import {
-  CTRQuotaStatus,
   AuditRequest,
   AuditResponse,
   YouTubeAuditRequest,
@@ -23,7 +22,10 @@ import {
   AuditStatsResponse,
   AuditDetailResponse,
   ThumbnailAudit,
+  AuditContext,
+  CTRUsageAccess,
 } from '../types/ctr';
+import { normalizeUsageAccessResponse } from '../utils/usageAccess';
 
 const CTR_BASE_PATH = '/api/v1/ctr';
 
@@ -45,16 +47,21 @@ export const ctrApi = {
    * Fetch current quota status for CTR operations
    * Works for both anonymous and authenticated users
    */
-  getQuota: async (): Promise<CTRQuotaStatus> => {
-    const response = await api.get<{ success: boolean; data: CTRQuotaStatus }>(
+  getQuota: async (): Promise<CTRUsageAccess> => {
+    const response = await api.get(
       `${CTR_BASE_PATH}/quota`
     );
     
     if (!response.data.success) {
       throw new Error((response.data as unknown as CTRErrorResponse).error.message);
     }
-    
-    return response.data.data;
+
+    const normalized = normalizeUsageAccessResponse(response.data) as CTRUsageAccess | null;
+    if (!normalized) {
+      throw new Error('Failed to normalize CTR access response');
+    }
+
+    return normalized;
   },
 
   // ============================================================================
@@ -386,4 +393,3 @@ export const formatQuotaLimit = (limit: number): string => {
 };
 
 export default ctrApi;
-

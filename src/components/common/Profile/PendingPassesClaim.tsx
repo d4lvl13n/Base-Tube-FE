@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAccount } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useUser } from '@clerk/clerk-react';
-import { usePendingPurchases, useMintPending } from '../../../hooks/useOnchainPass';
+import { useClaimPendingPurchases, usePendingPurchases } from '../../../hooks/useOnchainPass';
 import { useLinkWallet } from '../../../hooks/useLinkWallet';
 import {
   Gift,
@@ -14,7 +14,6 @@ import {
   Sparkles,
   ArrowRight,
   X,
-  Link as LinkIcon
 } from 'lucide-react';
 import type { PendingPurchase, MintResult } from '../../../types/onchainPass';
 
@@ -44,7 +43,7 @@ const MintResultsModal: React.FC<MintResultsModalProps> = ({ results, onClose })
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-white">Mint Results</h3>
+          <h3 className="text-xl font-bold text-white">Claim Results</h3>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
@@ -58,10 +57,10 @@ const MintResultsModal: React.FC<MintResultsModalProps> = ({ results, onClose })
             <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
               <div className="flex items-center gap-2 text-green-400 mb-2">
                 <CheckCircle className="w-5 h-5" />
-                <span className="font-medium">{successful.length} Successfully Minted</span>
+                <span className="font-medium">{successful.length} Successfully Claimed</span>
               </div>
               <p className="text-sm text-green-300/80">
-                Your passes are now NFTs in your wallet!
+                Your passes are now NFTs in your wallet.
               </p>
             </div>
           )}
@@ -70,10 +69,10 @@ const MintResultsModal: React.FC<MintResultsModalProps> = ({ results, onClose })
             <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
               <div className="flex items-center gap-2 text-blue-400 mb-2">
                 <CheckCircle className="w-5 h-5" />
-                <span className="font-medium">{alreadyMinted.length} Already Minted</span>
+                <span className="font-medium">{alreadyMinted.length} Already in Wallet</span>
               </div>
               <p className="text-sm text-blue-300/80">
-                These passes were already in your wallet.
+                These NFTs were already claimed to your wallet.
               </p>
             </div>
           )}
@@ -85,7 +84,7 @@ const MintResultsModal: React.FC<MintResultsModalProps> = ({ results, onClose })
                 <span className="font-medium">{failed.length} Failed</span>
               </div>
               <p className="text-sm text-red-300/80">
-                Some passes failed to mint. Please try again later.
+                Some passes failed to claim. Please try again later.
               </p>
             </div>
           )}
@@ -126,6 +125,11 @@ const PendingPassCard: React.FC<{ purchase: PendingPurchase }> = ({ purchase }) 
           <span className="text-xs text-gray-500">
             Purchased {new Date(purchase.createdAt).toLocaleDateString()}
           </span>
+          {purchase.reservationExpiresAt && (
+            <span className="text-xs text-orange-300">
+              Reserved until {new Date(purchase.reservationExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -137,7 +141,7 @@ const PendingPassesClaim: React.FC = () => {
   const { openConnectModal } = useConnectModal();
   const { isSignedIn } = useUser();
   const { data: pendingData, isLoading: isPendingLoading, refetch } = usePendingPurchases();
-  const { mutate: mintPending, isPending: isMinting } = useMintPending();
+  const { mutate: claimPending, isPending: isClaiming } = useClaimPendingPurchases();
   const { linkWallet, isLinking, modalState: linkModalState, clearModal: clearLinkModal } = useLinkWallet();
 
   const [mintResults, setMintResults] = useState<MintResult[] | null>(null);
@@ -192,17 +196,17 @@ const PendingPassesClaim: React.FC = () => {
     }
   }, [isConnected, address, refetch]);
 
-  const handleMint = () => {
+  const handleClaim = () => {
     if (!address) return;
 
-    mintPending({ walletAddress: address }, {
+    claimPending({ walletAddress: address, purchaseIds: pendingPurchases.map((purchase) => purchase.id) }, {
       onSuccess: (data) => {
         const results = data?.data?.minted || [];
         setMintResults(results);
         setShowResults(true);
       },
       onError: (error) => {
-        console.error('Mint failed:', error);
+        console.error('Claim failed:', error);
         // Show error toast or handle error
       }
     });
@@ -250,7 +254,7 @@ const PendingPassesClaim: React.FC = () => {
                 {pendingPurchases.length} Pass{pendingPurchases.length !== 1 ? 'es' : ''} Ready to Claim
               </h3>
               <p className="text-sm text-gray-400">
-                Mint your purchases to your wallet as NFTs
+                Paid, access unlocked. Claim the NFT to your wallet when you are ready.
               </p>
             </div>
           </div>
@@ -267,8 +271,8 @@ const PendingPassesClaim: React.FC = () => {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={handleMint}
-              disabled={isMinting || isLinking}
+              onClick={handleClaim}
+              disabled={isClaiming || isLinking}
               className="w-full py-3 bg-gradient-to-r from-[#fa7517] to-orange-600 hover:from-[#fa8527] hover:to-orange-500 text-black font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {isLinking ? (
@@ -276,15 +280,15 @@ const PendingPassesClaim: React.FC = () => {
                   <Loader2 className="w-5 h-5 animate-spin" />
                   Linking Wallet...
                 </>
-              ) : isMinting ? (
+              ) : isClaiming ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Minting to Wallet...
+                  Claiming NFT...
                 </>
               ) : (
                 <>
                   <Gift className="w-5 h-5" />
-                  Claim All to Wallet
+                  Claim NFT{pendingPurchases.length > 1 ? 's' : ''}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -302,13 +306,13 @@ const PendingPassesClaim: React.FC = () => {
               className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all"
             >
               <Wallet className="w-5 h-5" />
-              Connect Wallet to Claim
+              Connect Wallet to Claim NFT
             </motion.button>
           )}
 
           {/* Info text */}
           <p className="text-xs text-gray-500 text-center mt-3">
-            Your passes will be minted as NFTs on Base. You can trade or transfer them anytime.
+            Claiming mints the NFT to your wallet on Base. It is not a withdrawal from a vault.
           </p>
         </div>
       </motion.div>

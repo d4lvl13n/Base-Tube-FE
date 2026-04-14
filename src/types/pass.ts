@@ -89,6 +89,9 @@ export interface PassDetailsResponse {
 export interface CheckoutSessionResponse {
   url: string;
   session_id: string;
+  reservation_id?: string;
+  expires_at?: string;
+  purchase_id?: string;
 }
 
 // API response for fetching a signed video URL
@@ -100,9 +103,11 @@ export interface SignedUrlResponse {
  * Purchase status response from the /passes/purchase/status/:sessionId endpoint
  */
 export interface PurchaseStatus {
-  status: 'completed' | 'processing' | 'open' | 'expired';
+  status: 'reserved' | 'pending' | 'processing' | 'minting' | 'claimed' | 'completed' | 'open' | 'expired' | 'failed';
   purchase_id?: string;
   pass_id?: string;
+  reservation_id?: string;
+  expires_at?: string;
 }
 
 /**

@@ -2,12 +2,14 @@
 // CTR Thumbnail Engine Hook
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import axios from 'axios';
 import { useUser } from '@clerk/clerk-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthMethod } from '../types/auth';
 import { ctrApi, fileToBase64 } from '../api/ctr';
+import { updateCTRUsageFromOperation } from '../utils/usageAccess';
 import {
-  CTRQuotaStatus,
+  CTRUsageAccess,
   ThumbnailAudit,
   YouTubeVideoMetadata,
   GeneratedConcept,
@@ -27,8 +29,8 @@ import {
 // ============================================================================
 
 interface UseCTREngineReturn {
-  // Quota
-  quota: CTRQuotaStatus | null;
+  // Access
+  usageAccess: CTRUsageAccess | null;
   isLoadingQuota: boolean;
   refreshQuota: () => Promise<void>;
   
@@ -99,7 +101,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
   const isAuthLoaded = authMethod === AuthMethod.WEB3 ? true : isClerkLoaded;
   
   // Quota state
-  const [quota, setQuota] = useState<CTRQuotaStatus | null>(null);
+  const [usageAccess, setUsageAccess] = useState<CTRUsageAccess | null>(null);
   const [isLoadingQuota, setIsLoadingQuota] = useState(false);
   
   // Audit state
@@ -161,11 +163,18 @@ export const useCTREngine = (): UseCTREngineReturn => {
   // ============================================================================
   
   const handleError = useCallback((err: unknown) => {
-    const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+    const axiosError = axios.isAxiosError(err) ? err : null;
+    const responseCode = axiosError?.response?.data?.error?.code;
+    const responseMessage =
+      axiosError?.response?.data?.error?.message ||
+      axiosError?.response?.data?.message;
+    const message = responseMessage || (err instanceof Error ? err.message : 'An unexpected error occurred');
     setError(message);
     
     // Extract error code if present
-    if (message.includes('QUOTA_EXCEEDED')) {
+    if (axiosError?.response?.status === 402 || responseCode === 'INSUFFICIENT_CREDITS') {
+      setErrorCode('INSUFFICIENT_CREDITS');
+    } else if (message.includes('QUOTA_EXCEEDED')) {
       if (message.includes('ANONYMOUS')) {
         setErrorCode('ANONYMOUS_AUDIT_QUOTA_EXCEEDED');
       } else if (message.includes('AUDIT')) {
@@ -197,7 +206,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
     setIsLoadingQuota(true);
     try {
       const quotaData = await ctrApi.getQuota();
-      setQuota(quotaData);
+      setUsageAccess(quotaData);
     } catch (err) {
       console.error('Failed to fetch CTR quota:', err);
       handleError(err);
@@ -253,9 +262,9 @@ export const useCTREngine = (): UseCTREngineReturn => {
         elapsedTime: Date.now() - startTime,
       });
       
-      // Update quota if returned
-      if (result.quotaInfo) {
-        setQuota((prev) => prev ? { ...prev, audit: result.quotaInfo! } : null);
+      const nextAccess = updateCTRUsageFromOperation(usageAccess, result, 'audit');
+      if (nextAccess) {
+        setUsageAccess(nextAccess);
       } else {
         await refreshQuota();
       }
@@ -267,7 +276,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
         elapsedTime: Date.now() - startTime,
       });
     }
-  }, [clearError, handleError, refreshQuota]);
+  }, [clearError, handleError, refreshQuota, usageAccess]);
   
   const auditByFile = useCallback(async (
     file: File,
@@ -298,8 +307,9 @@ export const useCTREngine = (): UseCTREngineReturn => {
         elapsedTime: Date.now() - startTime,
       });
       
-      if (result.quotaInfo) {
-        setQuota((prev) => prev ? { ...prev, audit: result.quotaInfo! } : null);
+      const nextAccess = updateCTRUsageFromOperation(usageAccess, result, 'audit');
+      if (nextAccess) {
+        setUsageAccess(nextAccess);
       } else {
         await refreshQuota();
       }
@@ -311,7 +321,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
         elapsedTime: Date.now() - startTime,
       });
     }
-  }, [clearError, handleError, refreshQuota]);
+  }, [clearError, handleError, refreshQuota, usageAccess]);
   
   const auditByYouTube = useCallback(async (
     youtubeUrl: string,
@@ -338,8 +348,9 @@ export const useCTREngine = (): UseCTREngineReturn => {
         elapsedTime: Date.now() - startTime,
       });
       
-      if (result.quotaInfo) {
-        setQuota((prev) => prev ? { ...prev, audit: result.quotaInfo! } : null);
+      const nextAccess = updateCTRUsageFromOperation(usageAccess, result, 'audit');
+      if (nextAccess) {
+        setUsageAccess(nextAccess);
       } else {
         await refreshQuota();
       }
@@ -351,7 +362,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
         elapsedTime: Date.now() - startTime,
       });
     }
-  }, [clearError, handleError, refreshQuota]);
+  }, [clearError, handleError, refreshQuota, usageAccess]);
   
   const clearAuditResult = useCallback(() => {
     setAuditResult(null);
@@ -480,8 +491,9 @@ export const useCTREngine = (): UseCTREngineReturn => {
         elapsedTime: Date.now() - startTime,
       });
       
-      if (result.quotaInfo) {
-        setQuota((prev) => prev ? { ...prev, generate: result.quotaInfo! } : null);
+      const nextAccess = updateCTRUsageFromOperation(usageAccess, result, 'generate');
+      if (nextAccess) {
+        setUsageAccess(nextAccess);
       } else {
         await refreshQuota();
       }
@@ -493,7 +505,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
         elapsedTime: Date.now() - startTime,
       });
     }
-  }, [isAuthenticated, clearError, handleError, refreshQuota]);
+  }, [isAuthenticated, clearError, handleError, refreshQuota, usageAccess]);
   
   const clearGeneratedConcepts = useCallback(() => {
     setGeneratedConcepts([]);
@@ -598,8 +610,8 @@ export const useCTREngine = (): UseCTREngineReturn => {
   // ============================================================================
   
   return {
-    // Quota
-    quota,
+    // Access
+    usageAccess,
     isLoadingQuota,
     refreshQuota,
     
@@ -657,4 +669,3 @@ export const useCTREngine = (): UseCTREngineReturn => {
 };
 
 export default useCTREngine;
-

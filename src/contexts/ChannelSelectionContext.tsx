@@ -43,6 +43,12 @@ export const ChannelSelectionProvider: React.FC<{ children: React.ReactNode }> =
       if (!selectedChannelId || !isValidSelection) {
         setSelectedChannelId(channels[0].id.toString());
       }
+      return;
+    }
+
+    // No channels available: clear any stale selection
+    if (selectedChannelId) {
+      setSelectedChannelId('');
     }
   }, [channels, selectedChannelId, setSelectedChannelId]);
 

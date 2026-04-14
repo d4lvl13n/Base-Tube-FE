@@ -24,31 +24,33 @@ import type { Chain } from 'wagmi/chains';
 import { base, baseSepolia } from 'wagmi/chains';
 import { getPublicClient, getWalletClient } from 'wagmi/actions';
 import web3AuthApi from '../api/web3authapi';
+import { createWalletAuthPayload } from '../utils/walletAuth';
+import {
+  getExplorerTxUrl,
+  hasPurchaseEntitlement,
+  isPurchaseTerminal,
+} from '../utils/purchaseStatus';
 
 export const usePurchaseStatus = (
-  sessionId?: string | null,
+  purchaseId?: string | null,
   options: { enabled?: boolean; intervalMs?: number } = {}
 ) => {
   const { enabled = true, intervalMs = 5000 } = options;
 
   return useQuery<OnchainPurchaseStatusResponse>({
-    queryKey: queryKeys.onchainPass.purchaseStatus(sessionId || ''),
+    queryKey: queryKeys.onchainPass.purchaseStatus(purchaseId || ''),
     queryFn: () => {
-      if (!sessionId) throw new Error('sessionId is required');
-      trackOnchainEvent('onchain.purchase.poll.start', { sessionId });
-      return onchainPassApi.getPurchaseStatusBySession(sessionId);
+      if (!purchaseId) throw new Error('purchaseId is required');
+      trackOnchainEvent('onchain.purchase.poll.start', { purchaseId });
+      return onchainPassApi.getPurchaseStatus(purchaseId);
     },
-    enabled: enabled && Boolean(sessionId),
+    enabled: enabled && Boolean(purchaseId),
     refetchInterval: (query) => {
       const data = query.state.data?.data as any;
       const current = data?.status as OnchainPurchaseStatus | undefined;
       if (!current) return intervalMs;
-      // Stop polling on terminal states or when pass id is resolved
-      if (
-        ['minted', 'claimed', 'completed', 'failed', 'refunded', 'disputed'].includes(current) ||
-        Boolean(data?.passId || data?.pass_id)
-      ) {
-        trackOnchainEvent('onchain.purchase.poll.stop', { sessionId, status: current, passId: data?.passId || data?.pass_id });
+      if (isPurchaseTerminal(current)) {
+        trackOnchainEvent('onchain.purchase.poll.stop', { purchaseId, status: current, passId: data?.passId || data?.pass_id });
         return false;
       }
       return intervalMs;
@@ -95,15 +97,25 @@ export const useClaim = () => {
 
   return useMutation<OnchainClaimResponse, Error, OnchainClaimRequest>({
     mutationFn: (payload) => {
-      trackOnchainEvent('onchain.claim.submit', { purchaseId: payload.purchaseId });
+      trackOnchainEvent('onchain.claim.submit', { purchaseId: payload.purchaseId, walletAddress: payload.walletAddress });
       return onchainPassApi.claim(payload);
     },
-    onSuccess: (_data, variables) => {
-      trackOnchainEvent('onchain.claim.success', { purchaseId: variables.purchaseId });
+    onSuccess: (data, variables) => {
+      trackOnchainEvent('onchain.claim.success', {
+        purchaseId: variables.purchaseId,
+        status: data?.data?.status,
+        txHash: data?.data?.txHash,
+      });
       // Invalidate purchase status to reflect claiming
       queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.purchaseStatus(variables.purchaseId) });
       // Access list may change after claim
       queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.accessList() });
+      if (data?.data?.passId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.access(data.data.passId) });
+        queryClient.invalidateQueries({ queryKey: ['pass', data.data.passId] });
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.pendingPurchases() });
+      queryClient.invalidateQueries({ queryKey: ['purchased-passes'] });
     }
   });
 };
@@ -181,7 +193,14 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
   });
 
   return useMutation<
-    { hash: `0x${string}`; explorerUrl?: string },
+    {
+      hash: `0x${string}`;
+      explorerUrl?: string;
+      purchaseId?: string;
+      reservationId?: string;
+      expiresAt?: string;
+      status?: OnchainPurchaseStatus;
+    },
     Error,
     { quantity: number; validSeconds?: number; confirmations?: number; accessPollTimeoutMs?: number; accessPollIntervalMs?: number }
   >({
@@ -233,8 +252,15 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
           try { return Object.keys(localStorage).some((k) => k.startsWith('__clerk')); } catch { return false; }
         })();
         const isClerkUser = authMethod === 'clerk' || hasClerkSession;
-        if (isClerkUser) {
-          await web3AuthApi.linkWallet(address);
+        if (isClerkUser && address) {
+          const { walletAddress, signature } = await createWalletAuthPayload(
+            address,
+            (message) => activeWalletClient.signMessage({
+              account: address as `0x${string}`,
+              message,
+            })
+          );
+          await web3AuthApi.linkWallet(walletAddress, signature);
           try { console.log('[CryptoPay] wallet linked to account'); } catch {}
         }
       } catch (e) {
@@ -293,14 +319,22 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
         try { console.warn('[CryptoPay] waitForTransactionReceipt failed (continuing to access poll)', e); } catch {}
       }
 
+      let finalStatus: OnchainPurchaseStatus | undefined;
       const startedAt = Date.now();
       while (Date.now() - startedAt < accessPollTimeoutMs) {
         try {
-          const accessResp = await onchainPassApi.getAccess(passId);
-          const hasAccess = Boolean((accessResp as any)?.data?.hasAccess);
-          if (hasAccess) {
-            try { console.log('[CryptoPay] access granted via /access', { passId }); } catch {}
-            break;
+          if (quote.purchase_id) {
+            const statusResp = await onchainPassApi.getPurchaseStatus(quote.purchase_id);
+            finalStatus = statusResp?.data?.status;
+            if (isPurchaseTerminal(finalStatus) || hasPurchaseEntitlement(finalStatus)) {
+              break;
+            }
+          } else {
+            const accessResp = await onchainPassApi.getAccess(passId);
+            const hasAccess = Boolean((accessResp as any)?.data?.hasAccess);
+            if (hasAccess) {
+              break;
+            }
           }
         } catch (e) {
           try { console.warn('[CryptoPay] access poll error (will retry)', e); } catch {}
@@ -308,7 +342,14 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
         await new Promise((r) => setTimeout(r, accessPollIntervalMs));
       }
 
-      return { hash: hash as `0x${string}`, explorerUrl };
+      return {
+        hash: hash as `0x${string}`,
+        explorerUrl,
+        purchaseId: quote.purchase_id,
+        reservationId: quote.reservation_id,
+        expiresAt: quote.expires_at,
+        status: finalStatus,
+      };
     },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: queryKeys.onchainPass.accessList() });
@@ -319,13 +360,6 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
     },
   });
 };
-
-function getExplorerTxUrl(chainId: number | string, hash: string): string | undefined {
-  const id = Number(chainId);
-  if (id === 8453) return `https://basescan.org/tx/${hash}`;
-  if (id === 84532) return `https://sepolia.basescan.org/tx/${hash}`;
-  return undefined;
-}
 
 const CHAIN_BY_ID: Record<number, Chain> = {
   [base.id]: base,
@@ -392,3 +426,51 @@ export const useMintPending = () => {
   });
 };
 
+export const useClaimPendingPurchases = () => {
+  const queryClient = useQueryClient();
+  const { address } = useAccount();
+
+  return useMutation<
+    MintPendingResponse,
+    Error,
+    { purchaseIds: string[]; walletAddress?: string }
+  >({
+    mutationFn: async ({ purchaseIds, walletAddress }) => {
+      const resolvedWallet = walletAddress || address;
+      if (!resolvedWallet) throw new Error('Wallet not connected');
+
+      const minted = await Promise.all(
+        purchaseIds.map(async (purchaseId) => {
+          const response = await onchainPassApi.claim({ purchaseId, walletAddress: resolvedWallet });
+          return {
+            purchaseId,
+            passId: response?.data?.passId || '',
+            status: response?.data?.status || 'failed',
+            txHash: response?.data?.txHash || undefined,
+          };
+        })
+      );
+
+      return {
+        success: true,
+        data: {
+          minted,
+          summary: {
+            total: minted.length,
+            successful: minted.filter((item) => item.status === 'success').length,
+            failed: minted.filter((item) => item.status === 'failed').length,
+            alreadyMinted: minted.filter((item) => item.status === 'already_minted').length,
+          },
+        },
+      };
+    },
+    onSuccess: (_data, variables) => {
+      variables.purchaseIds.forEach((purchaseId) => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.purchaseStatus(purchaseId) });
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.pendingPurchases() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.accessList() });
+      queryClient.invalidateQueries({ queryKey: ['purchased-passes'] });
+    },
+  });
+};

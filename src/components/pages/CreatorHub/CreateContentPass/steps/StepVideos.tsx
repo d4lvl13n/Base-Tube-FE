@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { UseFormRegister, FieldErrors, Control, useFieldArray, UseFormWatch, useWatch } from 'react-hook-form';
-import { Plus, Trash, Lock, Loader, FileText, Tag, Clock } from 'lucide-react';
+import { Plus, Trash, Lock, Loader, Tag, Clock, RefreshCw } from 'lucide-react';
 import * as S from '../styles';
 import { FormData } from '../types';
 import { youtubeApi, getYouTubeID } from '../../../../../api/youtube';
@@ -17,6 +17,13 @@ interface StepVideosProps {
 // Track loading state for fetching video titles
 interface LoadingStates {
   [index: number]: boolean;
+}
+
+type MetadataState = 'idle' | 'loading' | 'resolved' | 'unresolved' | 'rate_limited';
+
+interface MetadataStatusEntry {
+  state: MetadataState;
+  message?: string;
 }
 
 // Format seconds to HH:MM:SS
@@ -41,67 +48,124 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
   });
 
   const [loadingStates, setLoadingStates] = useState<LoadingStates>({});
-  // Keep track of processed URLs to prevent infinite loops
-  const processedUrls = useRef<Set<string>>(new Set());
+  const [metadataStatuses, setMetadataStatuses] = useState<Record<number, MetadataStatusEntry>>({});
+  // Track the last URL attempt per row so we only auto-fetch once per distinct URL.
+  const attemptedUrlByIndex = useRef<Record<number, string>>({});
   
   // Use useWatch to react to URL changes and fetch titles
   const srcUrls = useWatch({
     control,
     name: 'src_urls'
   });
+
+  const getMetadataStatus = useCallback(async (url: string, index: number) => {
+    setLoadingStates(prev => ({ ...prev, [index]: true }));
+    setMetadataStatuses(prev => ({
+      ...prev,
+      [index]: { state: 'loading' }
+    }));
+
+    try {
+      const metadata = await youtubeApi.getVideoMetadata(url);
+
+      if (metadata.title?.trim()) {
+        update(index, {
+          ...srcUrls?.[index],
+          value: url,
+          title: metadata.title,
+          duration: metadata.duration,
+          thumbnail_url: metadata.thumbnail_url
+        });
+        setMetadataStatuses(prev => ({
+          ...prev,
+          [index]: { state: 'resolved' }
+        }));
+        return;
+      }
+
+      setMetadataStatuses(prev => ({
+        ...prev,
+        [index]: {
+          state: 'unresolved',
+          message: 'We could not enrich this video right now. You can still submit, or retry metadata lookup.'
+        }
+      }));
+    } catch (err: any) {
+      const isRateLimited = err?.response?.status === 429;
+      setMetadataStatuses(prev => ({
+        ...prev,
+        [index]: {
+          state: isRateLimited ? 'rate_limited' : 'unresolved',
+          message: isRateLimited
+            ? 'YouTube metadata is temporarily rate-limited. Please wait a moment before retrying.'
+            : 'Metadata lookup failed. Retry if this was a temporary issue.'
+        }
+      }));
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [index]: false }));
+    }
+  }, [srcUrls, update]);
+
+  const handleRetryMetadata = useCallback(async (index: number) => {
+    const url = srcUrls?.[index]?.value;
+    if (!url) return;
+
+    attemptedUrlByIndex.current[index] = '';
+    await getMetadataStatus(url, index);
+    attemptedUrlByIndex.current[index] = url;
+  }, [getMetadataStatus, srcUrls]);
   
   // Fetch video title when URL changes
   useEffect(() => {
     const fetchVideoTitles = async () => {
       if (!srcUrls) return;
-      
-      let hasUpdates = false;
-      
+
       for (let index = 0; index < srcUrls.length; index++) {
         const item = srcUrls[index];
-        const url = item.value;
-        
-        // Skip empty URLs or ones we've already processed
-        if (!url || item.title || loadingStates[index]) continue;
-        
-        // Check if we've already processed this URL to prevent infinite loops
-        if (processedUrls.current.has(url)) continue;
-        
-        // Check if it's a valid YouTube URL
+        const url = item?.value?.trim();
         const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/;
-        if (!youtubeRegex.test(url)) continue;
-        
-        // Mark this URL as being processed
-        processedUrls.current.add(url);
-        hasUpdates = true;
-        
-        // Set loading state for this index
-        setLoadingStates(prev => ({ ...prev, [index]: true }));
-        
-        try {
-          // Fetch metadata from our API
-          const metadata = await youtubeApi.getVideoMetadata(url);
-          
-          // Update the form with the title
-          update(index, { 
-            ...item, 
-            title: metadata.title,
-            duration: metadata.duration 
+
+        if (!url || !youtubeRegex.test(url)) {
+          attemptedUrlByIndex.current[index] = '';
+          setMetadataStatuses(prev => {
+            if (!prev[index]) return prev;
+            const next = { ...prev };
+            delete next[index];
+            return next;
           });
-        } catch (err) {
-          console.error('Error fetching video title', err);
-        } finally {
-          // Clear loading state
-          setLoadingStates(prev => ({ ...prev, [index]: false }));
+          continue;
         }
+
+        const previousAttemptUrl = attemptedUrlByIndex.current[index];
+        if (previousAttemptUrl && previousAttemptUrl !== url && (item.title || item.duration)) {
+          update(index, {
+            ...item,
+            value: url,
+            title: undefined,
+            duration: undefined,
+            thumbnail_url: undefined
+          });
+          attemptedUrlByIndex.current[index] = '';
+          setMetadataStatuses(prev => {
+            if (!prev[index]) return prev;
+            const next = { ...prev };
+            delete next[index];
+            return next;
+          });
+          continue;
+        }
+
+        if (previousAttemptUrl === url || item.title || loadingStates[index]) {
+          continue;
+        }
+
+        attemptedUrlByIndex.current[index] = url;
+        await getMetadataStatus(url, index);
       }
-      
-      // If no updates were needed, no need to trigger any state changes
-      return hasUpdates;
     };
     
     fetchVideoTitles();
-  }, [srcUrls, update]);
+  }, [getMetadataStatus, loadingStates, srcUrls]);
 
   return (
     <>
@@ -152,6 +216,38 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
                   </S.RemoveButton>
                 )}
               </S.VideoUrlRow>
+
+              {metadataStatuses[index]?.state === 'unresolved' && (
+                <div className="mt-2 flex flex-col gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-amber-300">
+                    {metadataStatuses[index]?.message}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleRetryMetadata(index)}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:border-white/20 hover:bg-white/5"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 text-[#fa7517]" />
+                    Retry metadata
+                  </button>
+                </div>
+              )}
+
+              {metadataStatuses[index]?.state === 'rate_limited' && (
+                <div className="mt-2 flex flex-col gap-2 rounded-lg border border-[#fa7517]/20 bg-[#fa7517]/8 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-orange-200">
+                    {metadataStatuses[index]?.message}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleRetryMetadata(index)}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#fa7517]/30 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#fa7517]/10"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 text-[#fa7517]" />
+                    Retry later
+                  </button>
+                </div>
+              )}
               
               {/* Title field - becomes visible once video URL is fetched */}
               {srcUrls?.[index]?.title && (

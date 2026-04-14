@@ -58,8 +58,17 @@ export const useVideoProcessing = (videoIds: number[]) => {
               ...response.data
             } satisfies ProcessingVideo;
           } catch (error) {
+            const status = (error as any)?.response?.status;
+            const message =
+              (error as any)?.response?.data?.message ||
+              (error as any)?.message ||
+              'Failed to fetch video progress';
             console.error(`Error fetching progress for video ${id}:`, error);
-            return null;
+            return {
+              videoId: id,
+              status: status === 404 ? 'completed' : 'failed',
+              error: { message }
+            } satisfies ProcessingVideo;
           }
         })
       );

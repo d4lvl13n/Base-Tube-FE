@@ -13,7 +13,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   // Only check relevant loading state based on auth method
   const isLoading = authMethod === AuthMethod.WEB3 
-    ? step === 'CONNECTING_WALLET' || step === 'CHECKING_NETWORK'
+    ? step === 'CONNECTING_WALLET' || step === 'CHECKING_NETWORK' || step === 'REQUESTING_SIGNATURE'
     : !isClerkLoaded;
 
   if (isLoading) {

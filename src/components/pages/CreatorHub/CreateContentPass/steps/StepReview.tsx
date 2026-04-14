@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UseFormWatch } from 'react-hook-form';
 import * as S from '../styles';
 import { FormData } from '../types'; // Assuming types are defined in a central place or ../index.tsx
-import { Check, DollarSign, Users, Play, Shield, AlertTriangle, X, ChevronRight, Sparkles, Crown, Lock } from 'lucide-react';
+import { DollarSign, Users, Play, Shield, X, ChevronRight, Sparkles, Lock, AlertTriangle, ExternalLink, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ContentPassSuccessAnimation from '../../../../animations/ContentPassSuccessAnimation';
 
@@ -12,6 +12,8 @@ interface StepReviewProps {
   isLoading?: boolean; // Add loading state prop
   isSuccess?: boolean; // Add success state prop
   onContinue?: () => void; // Callback for when the user clicks continue after success
+  submitError?: string | null;
+  onBackToVideos?: () => void;
 }
 
 // Helper to format currency (can be moved to utils)
@@ -39,12 +41,44 @@ function getYouTubeID(url: string | undefined): string {
   return '';
 }
 
+const formatDuration = (seconds?: number): string => {
+  if (!seconds) return 'Duration unavailable';
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
+const getThumbnailUrl = (url?: string, thumbnailUrl?: string) => {
+  if (thumbnailUrl) return thumbnailUrl;
+  const videoId = getYouTubeID(url);
+  return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : '';
+};
+
+const getSourceLabel = (url?: string) => {
+  if (!url) return 'Source unavailable';
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, '');
+  } catch {
+    return 'youtube.com';
+  }
+};
+
 const StepReview: React.FC<StepReviewProps> = ({ 
   watch, 
   onConfirm, 
   isLoading,
   isSuccess,
-  onContinue
+  onContinue,
+  submitError,
+  onBackToVideos
 }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
@@ -114,9 +148,6 @@ const StepReview: React.FC<StepReviewProps> = ({
               
               <S.PassInfo>
                 <S.PassTitle>{watchedFields.title || 'Untitled Pass'}</S.PassTitle>
-                <S.PassTierBadge tier={watchedFields.tier || 'bronze'}>
-                  {watchedFields.tier || 'bronze'} tier
-                </S.PassTierBadge>
               </S.PassInfo>
               
               <S.Divider />
@@ -140,7 +171,7 @@ const StepReview: React.FC<StepReviewProps> = ({
                 <S.ReviewDetailContent>
                   <S.ReviewDetailLabel>Supply Cap</S.ReviewDetailLabel>
                   <S.ReviewDetailValue>
-                    {watchedFields.supply_cap || 'Unlimited'} {parseInt(String(watchedFields.supply_cap)) === 1 ? 'pass' : 'passes'} available
+                    {watchedFields.supply_cap || 'Unlimited'} {Number(watchedFields.supply_cap) === 1 ? 'pass' : 'passes'} available
                   </S.ReviewDetailValue>
                 </S.ReviewDetailContent>
               </S.ReviewDetail>
@@ -181,6 +212,9 @@ const StepReview: React.FC<StepReviewProps> = ({
                 <Play size={24} className="text-[#fa7517]" />
                 <S.ReviewCardTitle>Premium Content</S.ReviewCardTitle>
               </S.ReviewCardHeader>
+              <p className="mb-4 text-sm text-gray-400">
+                Final review uses lightweight source cards. Ownership and unlisted checks still happen when you launch.
+              </p>
 
               <S.VideosGrid>
                 {validUrls.length > 0 ? (
@@ -194,17 +228,45 @@ const StepReview: React.FC<StepReviewProps> = ({
                       <S.VideoCard>
                         <S.VideoBadge>Video {idx + 1}</S.VideoBadge>
                         <S.PremiumVideoPreview>
-                          <iframe
-                            src={`https://www.youtube.com/embed/${getYouTubeID(urlObj.value) || ''}`}
-                            width="100%"
-                            height="100%"
-                            frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                            title={`Video Preview ${idx + 1}`}
-                          ></iframe>
+                          {getThumbnailUrl(urlObj.value, urlObj.thumbnail_url) ? (
+                            <img
+                              src={getThumbnailUrl(urlObj.value, urlObj.thumbnail_url)}
+                              alt={urlObj.title || `Video ${idx + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center bg-black/40 text-sm text-gray-400">
+                              Preview unavailable
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-white">
+                                {urlObj.title || `Video ${idx + 1}`}
+                              </p>
+                              <div className="mt-1 flex items-center gap-3 text-xs text-gray-300">
+                                <span>{getSourceLabel(urlObj.value)}</span>
+                                <span className="inline-flex items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5 text-[#fa7517]" />
+                                  {formatDuration(urlObj.duration)}
+                                </span>
+                              </div>
+                            </div>
+                            <a
+                              href={urlObj.value}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:border-white/20 hover:bg-black/55"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 text-[#fa7517]" />
+                              Open source
+                            </a>
+                          </div>
                         </S.PremiumVideoPreview>
-                        <S.VideoUrl>{urlObj.value}</S.VideoUrl>
+                        <S.VideoUrl>
+                          Launch will verify that this source belongs to your linked channel and is unlisted.
+                        </S.VideoUrl>
                       </S.VideoCard>
                     </motion.div>
                   ))
@@ -221,6 +283,29 @@ const StepReview: React.FC<StepReviewProps> = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
+          {submitError && (
+            <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-full bg-red-500/15 p-2 text-red-300">
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-red-200">Launch blocked by validation</p>
+                    <p className="mt-1 text-sm text-red-100/90">{submitError}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onBackToVideos}
+                  className="inline-flex items-center justify-center rounded-full border border-red-200/15 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/5"
+                >
+                  Back to videos
+                </button>
+              </div>
+            </div>
+          )}
+
           <S.SummaryCard>
             <S.SummaryStat>
               <S.SummaryStatNumber>{validUrls.length}</S.SummaryStatNumber>
@@ -250,6 +335,17 @@ const StepReview: React.FC<StepReviewProps> = ({
               {!isLoading && <ChevronRight size={18} />}
             </S.LaunchButton>
           </S.SummaryCard>
+
+          <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#fa7517]">
+              What Happens Next
+            </p>
+            <div className="mt-3 space-y-2 text-sm leading-6 text-gray-300">
+              <p>1. We create the pass and attach the videos you selected.</p>
+              <p>2. The backend verifies that every source belongs to your linked channel and is unlisted.</p>
+              <p>3. Buyers then get the pass page and protected access flow.</p>
+            </div>
+          </div>
         </motion.div>
       </S.ReviewContainer>
 
@@ -285,11 +381,6 @@ const StepReview: React.FC<StepReviewProps> = ({
                 </S.ConfirmText>
                 
                 <S.ConfirmFeatures>
-                  <S.ConfirmFeatureItem>
-                    <Crown size={18} />
-                    <span>Exclusive <strong>{watchedFields.tier}</strong> tier content</span>
-                  </S.ConfirmFeatureItem>
-                  
                   <S.ConfirmFeatureItem>
                     <Lock size={18} />
                     <span>Limited to <strong>{watchedFields.supply_cap || 'unlimited'}</strong> passes</span>

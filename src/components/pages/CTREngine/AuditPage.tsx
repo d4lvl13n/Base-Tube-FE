@@ -27,9 +27,10 @@ const AuditPage: React.FC = () => {
     youtubeMetadata,
     clearAuditResult,
     loadAuditById,
-    quota,
+    usageAccess,
     isLoadingQuota,
     error,
+    errorCode,
     clearError,
     isAnonymous,
   } = useCTREngine();
@@ -77,7 +78,7 @@ const AuditPage: React.FC = () => {
   const isViewingHistorical = !!historicalAudit;
 
   return (
-    <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+    <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
       {/* Error Display */}
       <AnimatePresence>
         {error && (
@@ -161,7 +162,11 @@ const AuditPage: React.FC = () => {
                 onAuditByFile={auditByFile}
                 onAuditByYouTube={auditByYouTube}
                 auditProgress={auditProgress}
-                quotaRemaining={quota?.audit?.remaining}
+                usageMode={usageAccess?.mode}
+                quotaRemaining={usageAccess?.mode === 'quota' ? usageAccess.quota.audit.remaining : undefined}
+                availableCredits={usageAccess?.mode === 'credits' ? usageAccess.creditInfo.available : undefined}
+                pricing={usageAccess?.mode === 'credits' ? usageAccess.pricing : null}
+                hasInsufficientCredits={errorCode === 'INSUFFICIENT_CREDITS'}
                 isAnonymous={isAnonymous}
               />
 

@@ -9,6 +9,7 @@ import type {
   CreatePassRequest,
   AddVideoRequest
 } from '../types/pass';
+import { persistCheckoutContext } from '../utils/checkoutStorage';
 
 /**
  * Fetch pass details based on slug or id
@@ -36,9 +37,10 @@ export const useCheckout = () => {
   const queryClient = useQueryClient();
   return useMutation<CheckoutSessionResponse, Error, string, unknown>({
     mutationFn: (passId: string) => passApi.createCheckoutSession(passId),
-    onSuccess: (data: CheckoutSessionResponse) => {
+    onSuccess: (data: CheckoutSessionResponse, passId: string) => {
       queryClient.invalidateQueries({ queryKey: ['pass'] });
       queryClient.invalidateQueries({ queryKey: ['purchased-passes'] });
+      persistCheckoutContext(passId, data);
       if (data.url) {
         window.location.href = data.url;
       }
@@ -96,9 +98,7 @@ export const useCheckoutStatus = (
     pollingInterval = 2000, // 2 seconds
     maxAttempts = 30        // 1 minute max polling time
   } = options;
-  
-  const queryClient = useQueryClient();
-  
+
   return useQuery<PurchaseStatus, Error>({
     queryKey: ['checkout-status', sessionId],
     queryFn: () => {

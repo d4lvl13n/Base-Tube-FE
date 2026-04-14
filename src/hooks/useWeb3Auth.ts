@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useReducer } from 'react';
-import { useAccount, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
+import { useAccount, useDisconnect, useChainId, useSwitchChain, useSignMessage } from 'wagmi';
 import web3AuthApi from '../api/web3authapi';
 import { AuthenticationStep, User, AuthMethod } from '../types/auth';
 import { useNavigate } from 'react-router-dom';
 import { baseSepolia } from 'wagmi/chains';
+import { createWalletAuthPayload } from '../utils/walletAuth';
 
 interface AuthState {
   step: AuthenticationStep;
@@ -55,6 +56,7 @@ export function useWeb3Auth() {
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { signMessageAsync } = useSignMessage();
   const navigate = useNavigate();
 
   /**
@@ -130,10 +132,15 @@ export function useWeb3Auth() {
         await switchChain({ chainId: baseSepolia.id });
       }
 
+      dispatch({ type: 'SET_STEP', payload: AuthenticationStep.REQUESTING_SIGNATURE });
+
       try {
         const isOnSuccessPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/pay/success');
-        // Attempt login
-        const auth = await web3AuthApi.login(address);
+        const { walletAddress, signature } = await createWalletAuthPayload(
+          address,
+          (message) => signMessageAsync({ message })
+        );
+        const auth = await web3AuthApi.login(walletAddress, signature);
         handleAuthSuccess(auth);
         
         if (!isOnSuccessPage) {
@@ -150,9 +157,12 @@ export function useWeb3Auth() {
         const msg = (error as any)?.message || '';
         if (status === 404 || code === 'NOT_FOUND' || msg.includes('User not found') || msg.includes('Wallet not found')) {
           dispatch({ type: 'SET_STEP', payload: AuthenticationStep.CREATING_ACCOUNT });
-          
-          await web3AuthApi.signup(address);
-          const authData = await web3AuthApi.login(address);
+
+          const { walletAddress, signature } = await createWalletAuthPayload(
+            address,
+            (message) => signMessageAsync({ message })
+          );
+          const authData = await web3AuthApi.signup(walletAddress, signature);
           handleAuthSuccess(authData);
           const isOnSuccessPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/pay/success');
           if (!isOnSuccessPage) {
@@ -168,7 +178,7 @@ export function useWeb3Auth() {
       dispatch({ type: 'SET_ERROR', payload: error as Error });
       throw error;
     }
-  }, [address, isConnected, chainId, switchChain, handleAuthSuccess, navigate]);
+  }, [address, isConnected, chainId, switchChain, signMessageAsync, handleAuthSuccess, navigate]);
 
   // Auto-attempt connect after wallet connects to OnchainKit/wagmi
   const attemptedOnceRef = ((): { current: boolean } => {

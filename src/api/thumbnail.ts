@@ -95,7 +95,10 @@ export const thumbnailApi = {
     const response = await api.post(
       `/api/v1/thumbnails/videos/${videoId}/thumbnail/generate`,
       options,
-      { headers: { 'Content-Type': 'application/json' } }
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 10 * 60 * 1000 // allow long-running generation (10 minutes)
+      }
     );
     return response.data;
   },
@@ -115,7 +118,10 @@ export const thumbnailApi = {
     const response = await api.post(
       '/api/v1/thumbnails/thumbnail/generate',
       options,
-      { headers: { 'Content-Type': 'application/json' } }
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 10 * 60 * 1000 // allow long-running generation (10 minutes)
+      }
     );
     return response.data;
   },
@@ -169,7 +175,10 @@ export const thumbnailApi = {
     const response = await api.post(
       '/api/v1/thumbnails/thumbnail/generate-with-reference',
       formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 10 * 60 * 1000 // allow long-running generation (10 minutes)
+      }
     );
     
     return response.data;

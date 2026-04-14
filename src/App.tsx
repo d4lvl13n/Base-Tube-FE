@@ -120,6 +120,8 @@ const MonitoringLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   </div>
 );
 
+const isInternalMonitoringEnabled = process.env.REACT_APP_ENABLE_INTERNAL_MONITORING === 'true';
+
 function App() {
   const queryClient = useMemo(() => new QueryClient({
     defaultOptions: {
@@ -167,26 +169,30 @@ function App() {
                   <Route path="/channel" element={<ChannelPage />} />
                   
                   {/* Move monitoring routes here, before creator hub routes */}
-                  <Route
-                    path="/monitoring"
-                    element={
-                      <ProtectedRoute>
-                        <MonitoringLayout>
-                          <SystemHealth />
-                        </MonitoringLayout>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/monitoring/queue"
-                    element={
-                      <ProtectedRoute>
-                        <MonitoringLayout>
-                          <SystemHealth refreshInterval={5000} />
-                        </MonitoringLayout>
-                      </ProtectedRoute>
-                    }
-                  />
+                  {isInternalMonitoringEnabled && (
+                    <>
+                      <Route
+                        path="/monitoring"
+                        element={
+                          <ProtectedRoute>
+                            <MonitoringLayout>
+                              <SystemHealth />
+                            </MonitoringLayout>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/monitoring/queue"
+                        element={
+                          <ProtectedRoute>
+                            <MonitoringLayout>
+                              <SystemHealth refreshInterval={5000} />
+                            </MonitoringLayout>
+                          </ProtectedRoute>
+                        }
+                      />
+                    </>
+                  )}
 
                   {/* Creator Hub routes with special layout */}
                   <Route

@@ -46,7 +46,7 @@ export const UnlockButton: React.FC<UnlockButtonProps> = ({ passId, className })
       disabled={isCheckoutPending || isPurchasedLoading}
       className={className || 'bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg px-6 py-3 font-semibold hover:opacity-90 disabled:opacity-50 transition'}
     >
-      {isCheckoutPending ? 'Redirecting…' : isPurchasedLoading ? 'Checking...' : 'Unlock'}
+      {isCheckoutPending ? 'Redirecting…' : isPurchasedLoading ? 'Checking...' : 'Buy with Card'}
     </button>
   );
 };

@@ -26,6 +26,9 @@ export const youtubeApi = {
       return response.data;
     } catch (error) {
       console.error('Error fetching YouTube metadata:', error);
+      if ((error as any)?.response?.status === 429) {
+        throw error;
+      }
       // Return a basic object with empty title if the API call fails
       return { title: '' };
     }

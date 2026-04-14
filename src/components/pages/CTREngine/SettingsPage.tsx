@@ -28,7 +28,7 @@ import { cardStyles } from './styles/cardTokens';
 const SettingsPage: React.FC = () => {
   // Auth is handled inside useCTREngine which checks both Clerk and Web3
   const {
-    quota,
+    usageAccess,
     isLoadingQuota,
     faceReference,
     isLoadingFaceReference,
@@ -43,7 +43,7 @@ const SettingsPage: React.FC = () => {
   // Auth gate for anonymous users (checks both Clerk and Web3)
   if (!isAuthenticated) {
     return (
-      <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+      <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
         <div className="max-w-xl mx-auto text-center py-16">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
@@ -88,7 +88,7 @@ const SettingsPage: React.FC = () => {
   }
 
   return (
-    <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+    <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
       <div className="max-w-5xl mx-auto">
         {/* Error Display */}
         <AnimatePresence>
@@ -126,13 +126,13 @@ const SettingsPage: React.FC = () => {
           {/* Sidebar */}
           <div className="space-y-4 sm:space-y-6 order-1 lg:order-2">
             {/* Quota Display */}
-            {quota && (
+            {usageAccess && (
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <CTRQuotaDisplay quota={quota} variant="full" />
+                <CTRQuotaDisplay usageAccess={usageAccess} variant="full" />
               </motion.div>
             )}
 

@@ -6,13 +6,13 @@ export interface FormData {
   description?: string;
   price_cents: number;
   currency?: string;
-  tier?: string;
   supply_cap?: number;
   // Updated to include title for each video URL
   src_urls: { 
     value: string;
     title?: string; 
     duration?: number;
+    thumbnail_url?: string;
   }[];
   // Add the raw price field used in the form input if needed for direct access,
   // although validation still happens on price_cents.
@@ -41,7 +41,6 @@ export function transformFormToApiFormat(formData: FormData): CreatePassRequest 
     description: formData.description,
     price_cents: formData.price_cents,
     currency: formData.currency,
-    tier: formData.tier,
     supply_cap: formData.supply_cap
   };
   

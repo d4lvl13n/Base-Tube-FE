@@ -57,6 +57,7 @@ const CreateContentPass: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdPassId, setCreatedPassId] = useState<string | null>(null);
   const [createdPassSlug, setCreatedPassSlug] = useState<string | null>(null);
   const createPass = useCreatePass();
@@ -71,7 +72,6 @@ const CreateContentPass: React.FC = () => {
       description: '',
       price_cents: undefined,
       currency: 'USD',
-      tier: 'bronze',
       supply_cap: 100,
       src_urls: [{ value: '' }]
     },
@@ -104,12 +104,14 @@ const CreateContentPass: React.FC = () => {
     if (hasSubmitted) return; // guard against double-submit
     setHasSubmitted(true);
     setIsLoading(true);
+    setSubmitError(null);
     
     const priceInCents = data.price_cents;
     
     if (priceInCents === undefined || priceInCents < 100) {
       toast.error('Invalid price entered. Minimum is $1.00');
       setIsLoading(false);
+      setHasSubmitted(false);
       return;
     }
 
@@ -121,13 +123,14 @@ const CreateContentPass: React.FC = () => {
       if (!payload.src_url && (!payload.videos || payload.videos.length === 0)) {
         toast.error('Please provide at least one valid YouTube URL.');
         setIsLoading(false);
+        setHasSubmitted(false);
         return;
       }
 
       const result = await createPass.mutateAsync(payload);
       
       setCreatedPassId(result.id);
-      setCreatedPassSlug(result.id);
+      setCreatedPassSlug(result.slug || result.id);
       
       // Set isSubmitSuccess to trigger animation in StepReview
       setIsSubmitSuccess(true);
@@ -148,6 +151,7 @@ const CreateContentPass: React.FC = () => {
       }
       
       toast.error(message);
+      setSubmitError(message);
       setIsLoading(false);
       setHasSubmitted(false);
     }
@@ -164,7 +168,7 @@ const CreateContentPass: React.FC = () => {
     let fieldsToValidate: (keyof FormData)[] = [];
     switch (step) {
       case 1:
-        fieldsToValidate = ['title', 'tier', 'price_cents', 'currency'];
+        fieldsToValidate = ['title', 'price_cents', 'currency', 'supply_cap'];
         break;
       case 2:
         fieldsToValidate = ['description'];
@@ -198,7 +202,13 @@ const CreateContentPass: React.FC = () => {
   };
   
   const handlePrevStep = () => {
+    setSubmitError(null);
     setStep(Math.max(1, step - 1));
+  };
+
+  const handleGoToVideosStep = () => {
+    setSubmitError(null);
+    setStep(3);
   };
   
   const stepsMeta = [
@@ -212,7 +222,7 @@ const CreateContentPass: React.FC = () => {
     const props = { register, control, errors, watch, setValue, getValues };
     switch (step) {
       case 1: return <StepBasic {...props} />;
-      case 2: return <StepDescription control={control} errors={errors} />;
+      case 2: return <StepDescription control={control} errors={errors} setValue={setValue} watch={watch} />;
       case 3: return (
         <StepVideos 
           register={register}
@@ -228,6 +238,8 @@ const CreateContentPass: React.FC = () => {
         isLoading={isLoading}
         isSuccess={isSubmitSuccess}
         onContinue={handleSuccessAnimationComplete}
+        submitError={submitError}
+        onBackToVideos={handleGoToVideosStep}
       />;
       default: return null;
     }
@@ -263,10 +275,6 @@ const CreateContentPass: React.FC = () => {
                   <S.SummaryRow>
                     <S.SummaryLabel>Pass Title</S.SummaryLabel>
                 <S.SummaryValue>{currentValues.title}</S.SummaryValue>
-                  </S.SummaryRow>
-                  <S.SummaryRow>
-                    <S.SummaryLabel>Tier</S.SummaryLabel>
-                <div><S.TierBadge tier={currentValues.tier || 'bronze'}>{currentValues.tier || 'bronze'}</S.TierBadge></div>
                   </S.SummaryRow>
                   <S.SummaryRow>
                     <S.SummaryLabel>Price</S.SummaryLabel>
@@ -334,6 +342,10 @@ const CreateContentPass: React.FC = () => {
                     onClick={() => {
                   formMethods.reset();
                       setSuccess(false);
+                      setIsLoading(false);
+                      setHasSubmitted(false);
+                      setIsSubmitSuccess(false);
+                      setSubmitError(null);
                       setStep(1);
                       setCreatedPassId(null);
                       setCreatedPassSlug(null);

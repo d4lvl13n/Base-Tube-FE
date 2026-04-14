@@ -166,7 +166,7 @@ const AuditHistoryPage: React.FC = () => {
   const navigate = useNavigate();
   const {
     isAuthenticated,
-    quota,
+    usageAccess,
     isLoadingQuota,
     auditHistory,
     auditHistoryPagination,
@@ -217,7 +217,7 @@ const AuditHistoryPage: React.FC = () => {
   // Auth gate
   if (!isAuthenticated) {
     return (
-      <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+      <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
         <div className="max-w-xl mx-auto text-center py-16">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
@@ -262,7 +262,7 @@ const AuditHistoryPage: React.FC = () => {
   }
 
   return (
-    <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+    <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
       {/* Page Header */}
       <div className="text-center mb-10">
         <motion.div 
@@ -467,4 +467,3 @@ const AuditHistoryPage: React.FC = () => {
 };
 
 export default AuditHistoryPage;
-

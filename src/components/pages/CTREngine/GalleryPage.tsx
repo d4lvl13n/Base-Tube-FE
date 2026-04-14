@@ -27,13 +27,15 @@ import { Link } from 'react-router-dom';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import { usePublicThumbnailGenerator } from '../../../hooks/usePublicThumbnailGenerator';
 import useCTREngine from '../../../hooks/useCTREngine';
+import { useAuth } from '../../../contexts/AuthContext';
 import { ThumbnailDetailDrawer } from './components/ThumbnailDetailDrawer';
 import { ViralSharePopup } from './components/ViralSharePopup';
 import { cardStyles } from './styles/cardTokens';
 
 const GalleryPage: React.FC = () => {
   const { isSignedIn, isLoaded } = useUser();
-  const { quota, isLoadingQuota } = useCTREngine();
+  const { isAuthenticated: isWeb3Authenticated } = useAuth();
+  const { usageAccess, isLoadingQuota } = useCTREngine();
   const {
     gallery,
     galleryLoading,
@@ -51,13 +53,14 @@ const GalleryPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
+  const hasGalleryAccess = isSignedIn || isWeb3Authenticated;
 
   // Load gallery on mount
   useEffect(() => {
-    if (isSignedIn) {
+    if (hasGalleryAccess) {
       loadGallery(0);
     }
-  }, [isSignedIn, loadGallery]);
+  }, [hasGalleryAccess, loadGallery]);
 
   // Filter and sort thumbnails
   const filteredThumbnails = gallery
@@ -102,9 +105,9 @@ const GalleryPage: React.FC = () => {
   };
 
   // Auth gate
-  if (isLoaded && !isSignedIn) {
+  if (isLoaded && !hasGalleryAccess) {
     return (
-      <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+      <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
         <div className="max-w-xl mx-auto text-center py-16">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
@@ -149,7 +152,7 @@ const GalleryPage: React.FC = () => {
   }
 
   return (
-    <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+    <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
       {/* Page Header */}
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -516,4 +519,3 @@ const GalleryPage: React.FC = () => {
 };
 
 export default GalleryPage;
-

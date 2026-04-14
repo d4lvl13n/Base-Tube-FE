@@ -1,6 +1,7 @@
 import { StandardApiResponse } from '../types/error';
 
 export type OnchainPurchaseStatus =
+  | 'reserved'
   | 'pending'
   | 'processing'
   | 'minting'
@@ -8,6 +9,7 @@ export type OnchainPurchaseStatus =
   | 'claiming'
   | 'claimed'
   | 'completed'
+  | 'expired'
   | 'failed'
   | 'refunded'
   | 'disputed';
@@ -18,6 +20,7 @@ export interface OnchainPurchasePassSummary {
   description?: string | null;
   supplyCap?: number | null;
   mintedCount: number;
+  reservedCount?: number;
 }
 
 export interface OnchainPurchaseStatusData {
@@ -34,6 +37,8 @@ export interface OnchainPurchaseStatusData {
   claimTxHash?: string | null;
   mintTxUrl?: string | null;
   claimTxUrl?: string | null;
+  ownerAddress?: string | null;
+  reservationExpiresAt?: string | null;
   lastStatusReason?: string | null;
   lastCheckedAt?: string | null;
   pass?: OnchainPurchasePassSummary | null;
@@ -55,9 +60,17 @@ export type OnchainAccessListResponse = StandardApiResponse<OnchainAccessData[]>
 
 export interface OnchainClaimRequest {
   purchaseId: string;
+  walletAddress: string;
 }
 
-export type OnchainClaimResponse = StandardApiResponse<null | { success?: boolean }>; 
+export interface OnchainClaimData {
+  purchaseId: string;
+  passId: string;
+  status: 'success' | 'already_minted' | 'failed';
+  txHash?: string | null;
+}
+
+export type OnchainClaimResponse = StandardApiResponse<OnchainClaimData>; 
 
 
 // ---- Crypto purchase (optional quote flow) ----
@@ -105,6 +118,9 @@ export interface CryptoQuote {
   nonce: string; // 0x…32
   signature: string; // 0x…65
   digest: string; // 0x…32
+  reservation_id?: string;
+  expires_at?: string;
+  purchase_id?: string;
 }
 
 // ---- Pending Purchases (Stripe purchases awaiting wallet mint) ----
@@ -112,10 +128,11 @@ export interface CryptoQuote {
 export interface PendingPurchase {
   id: string;
   passId: string;
-  status: 'pending' | 'minting';
+  status: 'pending' | 'minting' | 'claimed' | 'completed' | 'claiming';
   priceCents: number;
   currency: string;
   createdAt: string;
+  reservationExpiresAt?: string | null;
   pass: {
     id: string;
     title: string;
@@ -154,4 +171,3 @@ export interface MintPendingData {
 }
 
 export type MintPendingResponse = StandardApiResponse<MintPendingData>
-

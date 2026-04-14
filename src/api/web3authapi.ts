@@ -1,5 +1,5 @@
 import api from './index';
-import { LoginResponse, SignupResponse, LinkWalletResponse } from '../types/auth';
+import { LoginResponse, SignupResponse, LinkWalletResponse, NonceResponse } from '../types/auth';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
 
@@ -13,29 +13,43 @@ interface UpdateUsernameResponse {
 }
 
 class Web3AuthApi {
-  /**
-   * Logs in with a connected wallet.
-   */
-  async login(walletAddress: string): Promise<LoginResponse> {
-    const executeLogin = async () => {
+  async requestNonce(walletAddress: string): Promise<NonceResponse> {
+    const executeNonceRequest = async () => {
       const normalizedAddress = walletAddress.toLowerCase();
-      
-      console.log('Attempting login with address:', normalizedAddress);
-      
-      const response = await api.post('/api/v1/web3auth/login', {
+      const response = await api.post('/api/v1/web3auth/nonce', {
         walletAddress: normalizedAddress
       }, {
         withCredentials: true
       });
 
-      // Debug response
-      console.log('Login Response:', {
-        status: response.status,
-        headers: response.headers,
-        cookies: document.cookie,
-        data: response.data
+      return response.data;
+    };
+
+    try {
+      return await retryWithBackoff(executeNonceRequest, 2, 1000);
+    } catch (error) {
+      throw handleApiError(error, {
+        action: 'request wallet auth nonce',
+        component: 'web3authAPI',
+        additionalData: { walletAddress: walletAddress.slice(0, 6) + '...' }
       });
-      
+    }
+  }
+
+  /**
+   * Logs in with a connected wallet.
+   */
+  async login(walletAddress: string, signature: string): Promise<LoginResponse> {
+    const executeLogin = async () => {
+      const normalizedAddress = walletAddress.toLowerCase();
+
+      const response = await api.post('/api/v1/web3auth/login', {
+        walletAddress: normalizedAddress,
+        signature
+      }, {
+        withCredentials: true
+      });
+
       return response.data;
     };
 
@@ -62,12 +76,13 @@ class Web3AuthApi {
   /**
    * Signs up a new user with connected wallet.
    */
-  async signup(walletAddress: string): Promise<SignupResponse> {
+  async signup(walletAddress: string, signature: string): Promise<SignupResponse> {
     const executeSignup = async () => {
       const normalizedAddress = walletAddress.toLowerCase();
       
       const response = await api.post('/api/v1/web3auth/signup', {
-        walletAddress: normalizedAddress
+        walletAddress: normalizedAddress,
+        signature
       }, {
         withCredentials: true
       });
@@ -97,10 +112,11 @@ class Web3AuthApi {
   /**
    * Links a wallet to an existing user account.
    */
-  async linkWallet(walletAddress: string): Promise<LinkWalletResponse> {
+  async linkWallet(walletAddress: string, signature: string): Promise<LinkWalletResponse> {
     const executeLinkWallet = async () => {
       const response = await api.post('/api/v1/web3auth/link', {
-        walletAddress: walletAddress.toLowerCase()
+        walletAddress: walletAddress.toLowerCase(),
+        signature
       }, {
         withCredentials: true
       });
@@ -253,4 +269,6 @@ private getValidationError(username: string): string | null {
   }
 }
 
-export default new Web3AuthApi();
+const web3AuthApi = new Web3AuthApi();
+
+export default web3AuthApi;

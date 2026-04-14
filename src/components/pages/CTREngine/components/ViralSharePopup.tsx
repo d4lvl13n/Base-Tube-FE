@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
@@ -36,40 +36,57 @@ export const ViralSharePopup: React.FC<ViralSharePopupProps> = ({
 }) => {
   const [shareStatus, setShareStatus] = useState<'idle' | 'shared'>('idle');
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
+  const shareUrl = useMemo(() => {
+    if (!thumbnail) {
+      return `${window.location.origin}/ai-thumbnails/generate`;
+    }
+
+    const fallbackPath = /^\d+$/.test(String(thumbnail.id))
+      ? `/thumbnail-gallery?thumbnail=${thumbnail.id}`
+      : '/ai-thumbnails/generate';
+
+    const rawShareUrl = thumbnail.shareUrl?.trim();
+    if (!rawShareUrl) {
+      return `${window.location.origin}${fallbackPath}`;
+    }
+
+    try {
+      const parsed = new URL(rawShareUrl);
+      const isAssetUrl = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(parsed.pathname) || parsed.hostname.includes('storjshare.io');
+      if (isAssetUrl) {
+        return `${window.location.origin}${fallbackPath}`;
+      }
+
+      return `${window.location.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      if (rawShareUrl.startsWith('/')) {
+        return `${window.location.origin}${rawShareUrl}`;
+      }
+
+      if (/^[a-zA-Z0-9_-]+$/.test(rawShareUrl)) {
+        return `${window.location.origin}/t/${rawShareUrl}`;
+      }
+
+      return `${window.location.origin}${fallbackPath}`;
+    }
+  }, [thumbnail]);
+
+  const displayShareUrl = shareUrl.replace(window.location.origin, '') || shareUrl;
   if (!thumbnail) return null;
 
-  // Construct share URL properly
-  const getShareUrl = (): string => {
-    if (!thumbnail.shareUrl) {
-      // Fallback: Use thumbnail image URL directly or create gallery link with ID
-      if (thumbnail.thumbnailUrl || thumbnail.imageUrl) {
-        return thumbnail.thumbnailUrl || thumbnail.imageUrl || '';
-      }
-      // Last resort: gallery link with thumbnail ID
-      return `${window.location.origin}/ai-thumbnails/gallery?thumbnail=${thumbnail.id}`;
-    }
-
-    const shareUrlValue = thumbnail.shareUrl.trim();
-    
-    // Check if it's already a full URL
-    try {
-      const url = new URL(shareUrlValue);
-      // If it's a full URL, normalize it to use current origin but keep the path
-      // This handles cases where API returns https://base.tube/t/xxx but we're on localhost
-      const path = url.pathname + url.search + url.hash;
-      return `${window.location.origin}${path}`;
-    } catch {
-      // Not a valid URL, treat as path or ID
-      // If it starts with /, it's a relative path
-      if (shareUrlValue.startsWith('/')) {
-        return `${window.location.origin}${shareUrlValue}`;
-      }
-      // Otherwise, treat it as a short ID and construct share URL
-      return `${window.location.origin}/t/${shareUrlValue}`;
-    }
-  };
-
-  const shareUrl = getShareUrl();
   const shareText = `🔥 Just created this amazing thumbnail with AI!\n\n"${thumbnail.prompt}"\n\nCheck it out:`;
   const fullShareText = `${shareText} ${shareUrl}`;
 
@@ -80,7 +97,7 @@ export const ViralSharePopup: React.FC<ViralSharePopupProps> = ({
       color: '#fa7517',
       description: 'Copy link to clipboard',
       onClick: async () => {
-        await navigator.clipboard.writeText(fullShareText);
+        await navigator.clipboard.writeText(shareUrl);
         toast.success('🔗 Link copied! Ready to share your AI creation');
         setShareStatus('shared');
         setTimeout(() => {
@@ -205,11 +222,14 @@ export const ViralSharePopup: React.FC<ViralSharePopupProps> = ({
               duration: 0.6
             }}
             className="fixed inset-0 flex items-center justify-center z-[101] p-4"
-            onClick={(e) => e.stopPropagation()}
+            onClick={handleClose}
           >
-            <div className="relative w-[480px] max-w-full bg-gradient-to-br from-black/95 via-black/90 to-black/95 
+            <div
+              className="relative w-[480px] max-w-full bg-gradient-to-br from-black/95 via-black/90 to-black/95 
                      backdrop-blur-2xl rounded-3xl p-8 border border-white/10 shadow-2xl
-                     max-h-[90vh] overflow-y-auto">
+                     max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
             
               {/* Epic gradient borders */}
               <div className="absolute inset-0 bg-gradient-to-r from-[#fa7517]/20 via-transparent to-[#fa7517]/20 rounded-3xl" />
@@ -322,7 +342,7 @@ export const ViralSharePopup: React.FC<ViralSharePopupProps> = ({
                         {shareText}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        {shareUrl}
+                        {displayShareUrl}
                       </p>
                     </div>
                   </div>

@@ -19,7 +19,8 @@ import {
   ChevronUp,
   Target,
   Palette,
-  ArrowLeft
+  ArrowLeft,
+  Coins
 } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import { usePublicThumbnailGenerator, AspectRatio, Resolution } from '../../../hooks/usePublicThumbnailGenerator';
@@ -41,9 +42,10 @@ const GeneratePage: React.FC = () => {
   
   // Get both CTR engine and public generator hooks
   const {
-    quota, 
+    usageAccess, 
     isLoadingQuota, 
     error: ctrError, 
+    errorCode: ctrErrorCode,
     clearError: clearCtrError,
     generateThumbnails: generateCTR,
     generatedConcepts: hookGeneratedConcepts,
@@ -74,7 +76,11 @@ const GeneratePage: React.FC = () => {
     thumbnails,
     loading,
     error,
+    usageMode: creativeUsageMode,
     quotaInfo,
+    creditInfo,
+    pricing: creativePricing,
+    insufficientCredits,
     clearError,
   } = usePublicThumbnailGenerator();
 
@@ -195,13 +201,23 @@ const GeneratePage: React.FC = () => {
     setIsViralShareOpen(true);
   };
 
-  const canGenerateCreative = quotaInfo ? quotaInfo.remaining > 0 : true;
-  const canGenerateCTR = ctrTitle.trim().length > 0 && (quota?.generate?.remaining === undefined || quota.generate.remaining > 0);
+  const creativeCreditCost = (creativePricing?.thumbnail.generatePerImage ?? 0) * selectedVariations;
+  const ctrCreditCost = (usageAccess?.mode === 'credits' ? (usageAccess.pricing?.ctr.generatePerConcept ?? 0) : 0) * concepts;
+
+  const canGenerateCreative = creativeUsageMode === 'credits'
+    ? (creditInfo?.available ?? 0) >= creativeCreditCost
+    : (quotaInfo ? quotaInfo.remaining > 0 : true);
+
+  const canGenerateCTR = ctrTitle.trim().length > 0 && (
+    usageAccess?.mode === 'credits'
+      ? usageAccess.creditInfo.available >= ctrCreditCost
+      : usageAccess?.mode !== 'quota' || usageAccess.quota.generate.remaining > 0
+  );
 
   // Show CTR results if we have them
   if (generatedConcepts.length > 0) {
     return (
-      <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+      <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -231,7 +247,7 @@ const GeneratePage: React.FC = () => {
   }
 
   return (
-    <AIThumbnailsLayout quota={quota} isLoadingQuota={isLoadingQuota}>
+    <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
       {/* Error Display */}
       <AnimatePresence>
         {(error || ctrError) && (
@@ -242,7 +258,18 @@ const GeneratePage: React.FC = () => {
             className="max-w-4xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3 backdrop-blur-sm"
           >
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="flex-1 text-red-400">{error || ctrError}</p>
+            <div className="flex-1">
+              <p className="text-red-400">{error || ctrError}</p>
+              {(insufficientCredits || ctrErrorCode === 'INSUFFICIENT_CREDITS') && (
+                <a
+                  href="/pricing"
+                  className="mt-3 inline-flex items-center gap-2 text-sm text-[#fa7517] hover:text-orange-400 transition-colors"
+                >
+                  <Coins className="w-4 h-4" />
+                  Buy credits soon
+                </a>
+              )}
+            </div>
             <button
               onClick={() => { clearError(); clearCtrError(); }}
               className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
@@ -477,7 +504,9 @@ const GeneratePage: React.FC = () => {
                   ) : !canGenerateCreative ? (
                     <>
                       <Clock className="w-5 h-5 flex-shrink-0" />
-                      <span className="text-sm sm:text-base">Daily limit reached</span>
+                      <span className="text-sm sm:text-base">
+                        {creativeUsageMode === 'credits' ? 'Not enough credits' : 'Daily limit reached'}
+                      </span>
                     </>
                   ) : !prompt.trim() ? (
                     <span className="text-sm sm:text-base">Describe your thumbnail idea</span>
@@ -489,8 +518,19 @@ const GeneratePage: React.FC = () => {
                   )}
                 </motion.button>
 
-                {/* Quota Info */}
-                {quotaInfo && (
+                {/* Usage Info */}
+                {creativeUsageMode === 'credits' && creditInfo ? (
+                  <div className="mt-4 flex items-center justify-center gap-2 text-sm">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-gray-800/50 rounded-full">
+                      <Coins className="w-4 h-4 text-[#fa7517]" />
+                      <span className="text-[#fa7517] font-medium">{creditInfo.available}</span>
+                      <span className="text-gray-500">available credits</span>
+                      {creativeCreditCost > 0 && (
+                        <span className="text-gray-600">• {creativeCreditCost} per run</span>
+                      )}
+                    </div>
+                  </div>
+                ) : quotaInfo && (
                   <div className="mt-4 flex items-center justify-center gap-2 text-sm">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-gray-800/50 rounded-full">
                       <Zap className="w-4 h-4 text-[#fa7517]" />
@@ -760,7 +800,9 @@ const GeneratePage: React.FC = () => {
                     </>
                   ) : !ctrTitle.trim() ? (
                     <span className="text-sm sm:text-base">Enter a title to generate</span>
-                  ) : quota?.generate?.remaining === 0 ? (
+                  ) : usageAccess?.mode === 'credits' && !canGenerateCTR ? (
+                    'Not enough credits'
+                  ) : usageAccess?.mode === 'quota' && usageAccess.quota.generate.remaining === 0 ? (
                     'Generation quota exhausted'
                   ) : (
                     <>
@@ -770,13 +812,24 @@ const GeneratePage: React.FC = () => {
                   )}
                 </motion.button>
 
-                {/* Quota Info */}
-                {quota?.generate && (
+                {/* Usage Info */}
+                {usageAccess?.mode === 'credits' ? (
+                  <div className="mt-4 flex items-center justify-center gap-2 text-sm">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-gray-800/50 rounded-full">
+                      <Coins className="w-4 h-4 text-[#fa7517]" />
+                      <span className="text-[#fa7517] font-medium">{usageAccess.creditInfo.available}</span>
+                      <span className="text-gray-500">available credits</span>
+                      {ctrCreditCost > 0 && (
+                        <span className="text-gray-600">• {ctrCreditCost} for this run</span>
+                      )}
+                    </div>
+                  </div>
+                ) : usageAccess?.mode === 'quota' && (
                   <div className="mt-4 flex items-center justify-center gap-2 text-sm">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-gray-800/50 rounded-full">
                       <Zap className="w-4 h-4 text-[#fa7517]" />
-                      <span className="text-[#fa7517] font-medium">{quota.generate.used}</span>
-                      <span className="text-gray-500">of {quota.generate.limit === -1 ? '∞' : quota.generate.limit} generated today</span>
+                      <span className="text-[#fa7517] font-medium">{usageAccess.quota.generate.used}</span>
+                      <span className="text-gray-500">of {usageAccess.quota.generate.limit === -1 ? '∞' : usageAccess.quota.generate.limit} generated today</span>
                     </div>
                   </div>
                 )}
@@ -914,4 +967,3 @@ const GeneratePage: React.FC = () => {
 };
 
 export default GeneratePage;
-

@@ -15,7 +15,7 @@ interface AIAssistantPanelProps {
   generatedDescription?: string;
   suggestedTitle?: string;
   onAcceptTitle?: () => void;
-  mode: 'video' | 'channel';
+  mode: 'video' | 'channel' | 'pass';
 }
 
 const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
@@ -50,6 +50,14 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         subtitle: 'Let AI help you create engaging video descriptions',
         keywordsPlaceholder: 'Enter video keywords (comma separated)',
         contextPlaceholder: 'Provide more context about your video...',
+      };
+    }
+    if (mode === 'pass') {
+      return {
+        title: 'Pass Description Assistant',
+        subtitle: 'Let AI help you write a premium content-pass description',
+        keywordsPlaceholder: 'Enter pass keywords (comma separated)',
+        contextPlaceholder: 'Describe the videos, audience, and what makes this pass valuable...',
       };
     }
     return {

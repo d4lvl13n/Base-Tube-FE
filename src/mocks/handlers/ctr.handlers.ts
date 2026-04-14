@@ -12,53 +12,78 @@ const API_BASE = process.env.REACT_APP_API_URL || '';
 // ============================================================
 
 export const mockQuota = {
-  audit: { used: 3, limit: 10, resetAt: new Date(Date.now() + 86400000).toISOString() },
-  generate: { used: 5, limit: 20, resetAt: new Date(Date.now() + 86400000).toISOString() },
+  audit: { used: 3, limit: 10, remaining: 7, resetsAt: new Date(Date.now() + 86400000).toISOString() },
+  generate: { used: 5, limit: 20, remaining: 15, resetsAt: new Date(Date.now() + 86400000).toISOString() },
+  tier: 'free',
+  isAnonymous: false,
+  limits: {
+    audit: { anonymous: 3, free: 10, pro: 100, enterprise: -1 },
+    generate: { anonymous: 1, free: 20, pro: 100, enterprise: -1 },
+  },
 };
 
 export const mockAuditResult = {
-  id: 'audit-123',
-  score: 78,
-  metrics: {
-    faceProminence: { score: 85, label: 'Excellent' },
-    emotionalAppeal: { score: 72, label: 'Good' },
-    textClarity: { score: 80, label: 'Very Good' },
-    colorContrast: { score: 75, label: 'Good' },
+  overallScore: 7.8,
+  confidence: 'high',
+  heuristics: {
+    mobileReadability: 8.5,
+    colorContrast: 7.2,
+    facePresence: true,
+    faceEmotion: 'excited',
+    compositionScore: 7.6,
+    textOverlay: true,
+    brightness: 6.8,
+    colorfulness: 7.9,
   },
-  niche: 'Technology',
-  estimatedCTR: { min: 4.2, max: 6.8 },
+  detectedNiche: 'technology',
+  estimatedCTR: { low: 4.2, mid: 5.5, high: 6.8 },
+  strengths: [
+    'Readable on mobile',
+    'Strong emotional expression',
+  ],
+  weaknesses: [
+    'Text contrast could be stronger',
+  ],
   suggestions: [
     'Increase face prominence',
     'Add more vibrant colors',
   ],
-  analyzedAt: new Date().toISOString(),
 };
 
 export const mockGeneratedConcepts = [
   {
     id: 'concept-1',
     thumbnailUrl: 'https://example.com/thumbnail-1.jpg',
+    thumbnailPath: '/generated/thumbnail-1.jpg',
     prompt: 'Tech review thumbnail',
-    score: 82,
+    conceptName: 'High-energy reaction',
+    conceptDescription: 'Creator reaction with bold product framing',
+    estimatedCTRScore: 8.2,
   },
   {
     id: 'concept-2',
     thumbnailUrl: 'https://example.com/thumbnail-2.jpg',
+    thumbnailPath: '/generated/thumbnail-2.jpg',
     prompt: 'Tech review thumbnail',
-    score: 79,
+    conceptName: 'Comparison layout',
+    conceptDescription: 'Side-by-side reveal with strong focal point',
+    estimatedCTRScore: 7.9,
   },
   {
     id: 'concept-3',
     thumbnailUrl: 'https://example.com/thumbnail-3.jpg',
+    thumbnailPath: '/generated/thumbnail-3.jpg',
     prompt: 'Tech review thumbnail',
-    score: 75,
+    conceptName: 'Minimal contrast',
+    conceptDescription: 'Simplified composition with strong typography',
+    estimatedCTRScore: 7.5,
   },
 ];
 
 export const mockFaceReference = {
-  id: 'face-ref-123',
-  imageUrl: 'https://example.com/face-reference.jpg',
-  uploadedAt: '2024-01-01T00:00:00Z',
+  hasFaceReference: true,
+  thumbnailUrl: 'https://example.com/face-reference.jpg',
+  faceReferenceKey: 'face-ref-123',
 };
 
 // ============================================================
@@ -103,7 +128,7 @@ export const auditHandlers = [
     // Check quota for authenticated users
     if (isAuthenticated && mockQuota.audit.used >= mockQuota.audit.limit) {
       return HttpResponse.json(
-        { success: false, message: 'Daily audit quota exceeded' },
+        { success: false, error: { code: 'AUDIT_QUOTA_EXCEEDED', message: 'Daily audit quota exceeded' } },
         { status: 429 }
       );
     }
@@ -124,10 +149,15 @@ export const auditHandlers = [
     
     // Increment quota (in real tests, this would be tracked differently)
     mockQuota.audit.used++;
+    mockQuota.audit.remaining = Math.max(mockQuota.audit.limit - mockQuota.audit.used, 0);
     
     return HttpResponse.json({
       success: true,
-      data: mockAuditResult,
+      data: {
+        audit: mockAuditResult,
+        auditId: 123,
+        quotaInfo: mockQuota.audit,
+      },
     });
   }),
 ];
@@ -145,7 +175,7 @@ export const generateHandlers = [
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return HttpResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { success: false, error: { code: 'AUTHENTICATION_REQUIRED', message: 'Unauthorized' } },
         { status: 401 }
       );
     }
@@ -153,7 +183,7 @@ export const generateHandlers = [
     // Check quota
     if (mockQuota.generate.used >= mockQuota.generate.limit) {
       return HttpResponse.json(
-        { success: false, message: 'Daily generation quota exceeded' },
+        { success: false, error: { code: 'GENERATE_QUOTA_EXCEEDED', message: 'Daily generation quota exceeded' } },
         { status: 429 }
       );
     }
@@ -166,18 +196,21 @@ export const generateHandlers = [
     
     if (!body?.prompt && !body?.title) {
       return HttpResponse.json(
-        { success: false, message: 'Prompt or title is required' },
+        { success: false, error: { code: 'MISSING_TITLE', message: 'Prompt or title is required' } },
         { status: 400 }
       );
     }
     
     mockQuota.generate.used++;
+    mockQuota.generate.remaining = Math.max(mockQuota.generate.limit - mockQuota.generate.used, 0);
     
     return HttpResponse.json({
       success: true,
       data: {
         concepts: mockGeneratedConcepts,
-        jobId: `job-${Date.now()}`,
+        detectedNiche: 'technology',
+        generationTime: 2000,
+        quotaInfo: mockQuota.generate,
       },
     });
   }),
@@ -233,9 +266,8 @@ export const faceReferenceHandlers = [
     return HttpResponse.json({
       success: true,
       data: {
-        ...mockFaceReference,
-        id: `face-ref-${Date.now()}`,
-        uploadedAt: new Date().toISOString(),
+        faceReferenceKey: `face-ref-${Date.now()}`,
+        thumbnailUrl: mockFaceReference.thumbnailUrl,
       },
     });
   }),
@@ -332,4 +364,3 @@ export const ctrHandlers = [
   ...faceReferenceHandlers,
   ...galleryHandlers,
 ];
-

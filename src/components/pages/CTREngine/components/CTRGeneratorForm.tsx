@@ -3,8 +3,8 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ChevronRight, User, AlertCircle, Zap, Settings2, FileText, Type } from 'lucide-react';
-import { GenerateRequest, NicheOption, FaceReference, GenerationProgress } from '../../../../types/ctr';
+import { Sparkles, ChevronRight, User, AlertCircle, Zap, Settings2, FileText, Type, Coins } from 'lucide-react';
+import { GenerateRequest, NicheOption, FaceReference, GenerationProgress, CreditPricingCatalog, UsageMode } from '../../../../types/ctr';
 import { NicheSelector } from './NicheSelector';
 
 interface CTRGeneratorFormProps {
@@ -12,7 +12,10 @@ interface CTRGeneratorFormProps {
   isLoadingNiches: boolean;
   faceReference: FaceReference | null;
   generationProgress: GenerationProgress;
+  usageMode?: UsageMode;
   quotaRemaining?: number;
+  availableCredits?: number;
+  pricing?: CreditPricingCatalog | null;
   onGenerate: (request: GenerateRequest) => Promise<void>;
   className?: string;
 }
@@ -22,7 +25,10 @@ export const CTRGeneratorForm: React.FC<CTRGeneratorFormProps> = ({
   isLoadingNiches,
   faceReference,
   generationProgress,
+  usageMode = 'quota',
   quotaRemaining,
+  availableCredits,
+  pricing,
   onGenerate,
   className = '',
 }) => {
@@ -36,7 +42,12 @@ export const CTRGeneratorForm: React.FC<CTRGeneratorFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const isLoading = generationProgress.status === 'generating';
-  const canSubmit = title.trim().length > 0 && (quotaRemaining === undefined || quotaRemaining > 0);
+  const generationCreditCost = (pricing?.ctr.generatePerConcept ?? 0) * concepts;
+  const canSubmit = title.trim().length > 0 && (
+    usageMode === 'credits'
+      ? (availableCredits ?? 0) >= generationCreditCost
+      : quotaRemaining === undefined || quotaRemaining > 0
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -329,6 +340,8 @@ export const CTRGeneratorForm: React.FC<CTRGeneratorFormProps> = ({
           </>
         ) : !title.trim() ? (
           'Enter a title to generate'
+        ) : !canSubmit && usageMode === 'credits' ? (
+          'Not enough credits'
         ) : quotaRemaining === 0 ? (
           'Generation quota exhausted'
         ) : (
@@ -340,7 +353,21 @@ export const CTRGeneratorForm: React.FC<CTRGeneratorFormProps> = ({
       </motion.button>
 
       {/* Quota Warning */}
-      {quotaRemaining !== undefined && quotaRemaining <= 2 && quotaRemaining > 0 && (
+      {usageMode === 'credits' ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-3 rounded-xl border border-gray-800/50 bg-black/40 px-4 py-3 text-xs flex items-center justify-between gap-3 text-gray-300"
+        >
+          <div className="flex items-center gap-2">
+            <Coins className="w-4 h-4 text-[#fa7517]" />
+            <span>{availableCredits ?? 0} available credits • {generationCreditCost} for this run</span>
+          </div>
+          <a href="/pricing" className="text-[#fa7517] hover:text-orange-400 transition-colors whitespace-nowrap">
+            Buy credits soon
+          </a>
+        </motion.div>
+      ) : quotaRemaining !== undefined && quotaRemaining <= 2 && quotaRemaining > 0 && (
         <motion.p 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

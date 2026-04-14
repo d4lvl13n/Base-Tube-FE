@@ -1,6 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import api from '../api/index';
+import creditsApi from '../api/credits';
+import { useAuth } from '../contexts/AuthContext';
+import { AuthMethod } from '../types/auth';
+import {
+  CreditInfo,
+  CreditPricingCatalog,
+  GeneratorQuotaInfo,
+  UsageMode,
+} from '../types/ctr';
+import {
+  getOperationAccessUpdate,
+  normalizeUsageAccessResponse,
+} from '../utils/usageAccess';
 
 // Extend Window interface for Clerk
 declare global {
@@ -16,17 +29,6 @@ declare global {
 // =============================================================================
 // Types
 // =============================================================================
-
-interface QuotaInfo {
-  used: number;
-  limit: number;
-  remaining: number;
-  isAnonymous: boolean;
-  tier: 'anonymous' | 'free' | 'pro' | 'enterprise';
-  resetsAt: string;
-  upgradeUrl?: string;
-  message?: string;
-}
 
 interface GeneratedThumbnail {
   id: string;
@@ -88,17 +90,6 @@ interface GalleryThumbnail {
   shareUrl: string;
 }
 
-interface GalleryResponse {
-  thumbnails: GalleryThumbnail[];
-  pagination: {
-    total: number;
-    limit: number;
-    offset: number;
-    hasMore: boolean;
-  };
-  quotaInfo: QuotaInfo;
-}
-
 interface UsePublicThumbnailGeneratorReturn {
   // Generation
   generateThumbnail: (prompt: string, options?: ThumbnailGenerationOptions) => Promise<void>;
@@ -107,8 +98,12 @@ interface UsePublicThumbnailGeneratorReturn {
   error: string | null;
   clearError: () => void;
   
-  // Quota (server-side)
-  quotaInfo: QuotaInfo | null;
+  // Usage access
+  usageMode: UsageMode;
+  quotaInfo: GeneratorQuotaInfo | null;
+  creditInfo: CreditInfo | null;
+  pricing: CreditPricingCatalog | null;
+  insufficientCredits: boolean;
   quotaUsed: number;
   maxQuota: number;
   canGenerate: boolean;
@@ -119,8 +114,8 @@ interface UsePublicThumbnailGeneratorReturn {
   submitEmailForDownload: (email: string, thumbnailId?: string) => Promise<void>;
   
   // Downloads
-  downloadThumbnail: (thumbnailId: string) => Promise<void>;
-  forceDownload: (thumbnailId: string) => Promise<void>;
+  downloadThumbnail: (thumbnailId: string, sourceUrl?: string) => Promise<void>;
+  forceDownload: (thumbnailId: string, sourceUrl?: string) => Promise<void>;
   
   // Gallery (authenticated users)
   gallery: GalleryThumbnail[];
@@ -259,22 +254,33 @@ const buildTitleInstructions = (
   return instructions;
 };
 
+const isPersistentThumbnailId = (thumbnailId: string): boolean => /^\d+$/.test(thumbnailId);
+
 // =============================================================================
 // Hook Implementation
 // =============================================================================
 
 export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn => {
   const { isSignedIn } = useUser();
+  const { isAuthenticated: isWeb3Authenticated } = useAuth();
+  const authMethod = localStorage.getItem('auth_method') as AuthMethod | null;
+  const isAuthenticated = authMethod === AuthMethod.WEB3
+    ? isWeb3Authenticated
+    : isSignedIn === true;
+  const mountedRef = useRef(true);
+  const pollTimeoutsRef = useRef<Set<number>>(new Set());
   
   // Generation state
   const [thumbnails, setThumbnails] = useState<GeneratedThumbnail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pollingJobs, setPollingJobs] = useState<Set<string>>(new Set());
 
-  // Quota state (server-side)
-  const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
-  const [quotaLoading, setQuotaLoading] = useState(true);
+  // Usage state (server-side)
+  const [usageMode, setUsageMode] = useState<UsageMode>('quota');
+  const [quotaInfo, setQuotaInfo] = useState<GeneratorQuotaInfo | null>(null);
+  const [creditInfo, setCreditInfo] = useState<CreditInfo | null>(null);
+  const [pricing, setPricing] = useState<CreditPricingCatalog | null>(null);
+  const [insufficientCredits, setInsufficientCredits] = useState(false);
   
   // Email capture state
   const [needsEmailCapture, setNeedsEmailCapture] = useState(false);
@@ -284,11 +290,54 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
   const [gallery, setGallery] = useState<GalleryThumbnail[]>([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
 
+  useEffect(() => {
+    mountedRef.current = true;
+    const pollTimeouts = pollTimeoutsRef.current;
+
+    return () => {
+      mountedRef.current = false;
+      pollTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      pollTimeouts.clear();
+    };
+  }, []);
+
+  const applyUsageAccess = useCallback((raw: unknown): void => {
+    const normalized = normalizeUsageAccessResponse(raw);
+    if (!normalized) {
+      return;
+    }
+
+    if (normalized.mode === 'credits') {
+      setUsageMode('credits');
+      setQuotaInfo(null);
+      setCreditInfo(normalized.creditInfo);
+      setPricing(normalized.pricing ?? null);
+      return;
+    }
+
+    setUsageMode('quota');
+    setQuotaInfo(normalized.quotaInfo);
+    setCreditInfo(null);
+    setPricing(null);
+  }, []);
+
+  const refreshCreditBalance = useCallback(async (): Promise<void> => {
+    try {
+      const balance = await creditsApi.getCreditBalance();
+      setUsageMode('credits');
+      setQuotaInfo(null);
+      setCreditInfo(balance.creditInfo);
+      setPricing(balance.pricing);
+    } catch (err) {
+      console.error('Error fetching credit balance:', err);
+    }
+  }, []);
+
   // ---------------------------------------------------------------------------
-  // Quota Management (Server-Side)
+  // Usage Management (Server-Side)
   // ---------------------------------------------------------------------------
 
-  const fetchQuota = useCallback(async (): Promise<QuotaInfo | null> => {
+  const fetchUsageAccess = useCallback(async (): Promise<GeneratorQuotaInfo | CreditInfo | null> => {
     try {
       const headers = await getAuthHeaders();
       const response = await fetch(`${API_URL}/v1/images/quota`, {
@@ -305,7 +354,13 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       const result = await response.json();
       
       if (result.success && result.data) {
-        return result.data as QuotaInfo;
+        applyUsageAccess(result);
+
+        const normalized = normalizeUsageAccessResponse(result);
+        if (normalized?.mode === 'credits') {
+          return normalized.creditInfo;
+        }
+        return normalized?.quotaInfo ?? null;
       }
       
       return null;
@@ -313,11 +368,11 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       console.error('Error fetching quota:', err);
       return null;
     }
-  }, []);
+  }, [applyUsageAccess]);
 
-  const incrementQuota = useCallback(async (): Promise<QuotaInfo | null> => {
+  const incrementQuota = useCallback(async (): Promise<GeneratorQuotaInfo | null> => {
     try {
-      const headers = await getAuthHeaders();
+      const headers = getPublicApiHeaders();
       const response = await fetch(`${API_URL}/v1/images/quota/increment`, {
         method: 'POST',
         credentials: 'include',
@@ -332,8 +387,9 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       const result = await response.json();
       
       if (result.success && result.data) {
-        setQuotaInfo(result.data);
-        return result.data as QuotaInfo;
+        applyUsageAccess(result);
+        const normalized = normalizeUsageAccessResponse(result);
+        return normalized?.mode === 'quota' ? normalized.quotaInfo : null;
       }
       
       return null;
@@ -341,26 +397,16 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       console.error('Error incrementing quota:', err);
       return null;
     }
-  }, []);
+  }, [applyUsageAccess]);
 
   const refreshQuota = useCallback(async (): Promise<void> => {
-    setQuotaLoading(true);
-    const quota = await fetchQuota();
-    if (quota) {
-      setQuotaInfo(quota);
-    }
-    setQuotaLoading(false);
-  }, [fetchQuota]);
+    await fetchUsageAccess();
+  }, [fetchUsageAccess]);
 
   // Initialize quota on mount and when auth state changes
   useEffect(() => {
     const initializeQuota = async () => {
-      setQuotaLoading(true);
-      const quota = await fetchQuota();
-      if (quota) {
-        setQuotaInfo(quota);
-      }
-      setQuotaLoading(false);
+      await fetchUsageAccess();
     };
     
     initializeQuota();
@@ -370,12 +416,27 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     if (storedEmail) {
       setUserEmail(storedEmail);
     }
-  }, [isSignedIn]); // Only re-run when sign-in state changes
+  }, [fetchUsageAccess, isAuthenticated]); // Re-run when the effective auth state changes
 
   // Computed quota values
   const quotaUsed = quotaInfo?.used ?? 0;
   const maxQuota = quotaInfo?.limit ?? 1;
-  const canGenerate = quotaInfo ? quotaInfo.remaining > 0 : false;
+  const canGenerate = usageMode === 'credits'
+    ? (creditInfo?.available ?? 0) > 0
+    : (quotaInfo ? quotaInfo.remaining > 0 : false);
+
+  const getGenerationCreditCost = useCallback((options?: ThumbnailGenerationOptions): number => {
+    if (!pricing) {
+      return 0;
+    }
+
+    const imageCount = Math.min(options?.n || 2, 4);
+    const perImageCost = options?.referenceImage
+      ? pricing.thumbnail.editPerImage
+      : pricing.thumbnail.generatePerImage;
+
+    return perImageCost * imageCount;
+  }, [pricing]);
 
   // ---------------------------------------------------------------------------
   // Job Polling
@@ -401,15 +462,12 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       }
 
       const jobData = result.data;
+      if (!mountedRef.current) {
+        return;
+      }
       
       if (jobData.status === 'completed' && jobData.result) {
         // Job completed successfully
-        setPollingJobs(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(jobId);
-          return newSet;
-        });
-
         // Handle response
         let generatedThumbnails: GeneratedThumbnail[] = [];
         
@@ -435,32 +493,34 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
           setThumbnails(prev => [...generatedThumbnails, ...prev]);
         }
 
-        // Increment quota after successful generation
-        await incrementQuota();
+        if (isAuthenticated) {
+          await refreshCreditBalance();
+        } else {
+          await incrementQuota();
+        }
 
         setLoading(false);
       } else if (jobData.status === 'failed') {
-        setPollingJobs(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(jobId);
-          return newSet;
-        });
         setError(jobData.error || 'Thumbnail generation failed');
         setLoading(false);
       } else {
         // Still processing, continue polling
-        setTimeout(() => pollJobStatus(jobId, originalPrompt), 2000);
+        const timeoutId = window.setTimeout(() => {
+          pollTimeoutsRef.current.delete(timeoutId);
+          if (mountedRef.current) {
+            void pollJobStatus(jobId, originalPrompt);
+          }
+        }, 2000);
+        pollTimeoutsRef.current.add(timeoutId);
       }
     } catch (err) {
-      setPollingJobs(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(jobId);
-        return newSet;
-      });
+      if (!mountedRef.current) {
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Failed to check job status');
       setLoading(false);
     }
-  }, [incrementQuota]);
+  }, [incrementQuota, isAuthenticated, refreshCreditBalance]);
 
   // ---------------------------------------------------------------------------
   // Thumbnail Generation
@@ -470,16 +530,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     prompt: string, 
     options?: ThumbnailGenerationOptions
   ): Promise<void> => {
-    // Step 1: Check quota first
-    const currentQuota = await fetchQuota();
-    
-    if (!currentQuota || currentQuota.remaining <= 0) {
-      setError(currentQuota?.message || 'Daily quota exceeded. Please try again tomorrow or upgrade your account.');
-      if (currentQuota) {
-        setQuotaInfo(currentQuota);
-      }
-      return;
-    }
+    let shouldClearLoading = true;
 
     if (!prompt.trim()) {
       setError('Please enter a prompt for your thumbnail.');
@@ -488,8 +539,39 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
 
     setLoading(true);
     setError(null);
+    setInsufficientCredits(false);
 
     try {
+      const currentAccess = await fetchUsageAccess();
+      const effectiveUsageMode =
+        currentAccess && 'available' in currentAccess ? 'credits' : usageMode;
+
+      if (effectiveUsageMode === 'quota') {
+        const currentQuota =
+          currentAccess && 'remaining' in currentAccess
+            ? currentAccess
+            : quotaInfo;
+
+        if (!currentQuota || currentQuota.remaining <= 0) {
+          setError(currentQuota?.message || 'Daily quota exceeded. Please try again tomorrow or upgrade your account.');
+          if (currentQuota) {
+            setQuotaInfo(currentQuota);
+          }
+          return;
+        }
+      }
+
+      const generationCost = getGenerationCreditCost(options);
+      const availableCredits =
+        currentAccess && 'available' in currentAccess
+          ? currentAccess.available
+          : (creditInfo?.available ?? 0);
+      if (effectiveUsageMode === 'credits' && generationCost > 0 && availableCredits < generationCost) {
+        setInsufficientCredits(true);
+        setError(`Insufficient credits. This action costs ${generationCost} credits and you have ${availableCredits} available.`);
+        return;
+      }
+
       // Build enhanced prompt with title instructions
       let enhancedPrompt = prompt.trim();
       
@@ -504,8 +586,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       }
 
       // Step 2: Call the generation API
-      // Use isSignedIn from useUser() hook for consistent auth detection
-      console.log('[generateThumbnail] isSignedIn:', isSignedIn);
+      console.log('[generateThumbnail] isAuthenticated:', isAuthenticated);
       console.log('[generateThumbnail] Auth method:', localStorage.getItem('auth_method'));
       
       if (options?.referenceImage) {
@@ -541,14 +622,18 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         if (response.status === 202) {
           const result = await response.json();
           if (result.success && result.jobId) {
-            setPollingJobs(prev => new Set(prev).add(result.jobId));
-            pollJobStatus(result.jobId, prompt.trim());
+            void pollJobStatus(result.jobId, prompt.trim());
+            shouldClearLoading = false;
             return; // Don't increment quota yet - will do after job completes
           }
         }
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
+          if (response.status === 402 || errorData.error?.code === 'INSUFFICIENT_CREDITS') {
+            setInsufficientCredits(true);
+            throw new Error(errorData.error?.message || 'Insufficient credits for this edit.');
+          }
           throw new Error(errorData.error?.message || 'Failed to generate thumbnail. Please try again.');
         }
 
@@ -580,7 +665,26 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         }
 
         setThumbnails(prev => [...generatedThumbnails, ...prev]);
-        await incrementQuota();
+        const accessUpdate = getOperationAccessUpdate(result);
+        if (accessUpdate?.mode === 'credits') {
+          setUsageMode('credits');
+          setCreditInfo(accessUpdate.creditInfo);
+          setPricing(accessUpdate.pricing ?? pricing);
+          setQuotaInfo(null);
+        } else if (accessUpdate?.mode === 'quota' && accessUpdate.quotaInfo) {
+          setUsageMode('quota');
+          setCreditInfo(null);
+          setPricing(null);
+          setQuotaInfo({
+            ...accessUpdate.quotaInfo,
+            isAnonymous: quotaInfo?.isAnonymous ?? !isAuthenticated,
+            tier: quotaInfo?.tier ?? (isAuthenticated ? 'free' : 'anonymous'),
+          });
+        } else if (isAuthenticated) {
+          await refreshCreditBalance();
+        } else {
+          await incrementQuota();
+        }
         setLoading(false);
         return;
       }
@@ -610,8 +714,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         requestBody.config.style = options.style;
       }
 
-      // Use isSignedIn for consistent auth detection
-      if (isSignedIn) {
+      if (isAuthenticated) {
         // Authenticated user - use axios with /api/v1/ctr/generate
         console.log('[generateThumbnail] Using authenticated endpoint: /api/v1/ctr/generate');
         
@@ -640,7 +743,15 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
             console.log('[generateThumbnail] Transformed thumbnails:', newThumbnails);
             
             setThumbnails(prev => [...newThumbnails, ...prev]);
-            await incrementQuota();
+            const accessUpdate = getOperationAccessUpdate(result);
+            if (accessUpdate?.mode === 'credits') {
+              setUsageMode('credits');
+              setCreditInfo(accessUpdate.creditInfo);
+              setPricing(accessUpdate.pricing ?? pricing);
+              setQuotaInfo(null);
+            } else {
+              await refreshCreditBalance();
+            }
             setLoading(false);
             return;
           }
@@ -656,7 +767,15 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
             }));
             
             setThumbnails(prev => [...newThumbnails, ...prev]);
-            await incrementQuota();
+            const accessUpdate = getOperationAccessUpdate(result);
+            if (accessUpdate?.mode === 'credits') {
+              setUsageMode('credits');
+              setCreditInfo(accessUpdate.creditInfo);
+              setPricing(accessUpdate.pricing ?? pricing);
+              setQuotaInfo(null);
+            } else {
+              await refreshCreditBalance();
+            }
             setLoading(false);
             return;
           }
@@ -670,6 +789,9 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
             status: axiosError.response?.status,
             url: axiosError.config?.url,
           });
+          if (axiosError.response?.status === 402 || axiosError.response?.data?.error?.code === 'INSUFFICIENT_CREDITS') {
+            setInsufficientCredits(true);
+          }
           const errorMessage = axiosError.response?.data?.error?.message 
             || axiosError.response?.data?.message 
             || axiosError.message 
@@ -697,8 +819,8 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         if (response.status === 202) {
           const result = await response.json();
           if (result.success && result.jobId) {
-            setPollingJobs(prev => new Set(prev).add(result.jobId));
-            pollJobStatus(result.jobId, prompt.trim());
+            void pollJobStatus(result.jobId, prompt.trim());
+            shouldClearLoading = false;
             return; // Don't increment quota yet - will do after job completes
           }
         }
@@ -709,6 +831,9 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
           // Handle quota exceeded from API
           if (response.status === 429) {
             if (errorData.error) {
+              setUsageMode('quota');
+              setCreditInfo(null);
+              setPricing(null);
               setQuotaInfo({
                 used: errorData.error.used || 0,
                 limit: errorData.error.limit || 1,
@@ -757,6 +882,17 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
 
         setThumbnails(prev => [...generatedThumbnails, ...prev]);
         await incrementQuota();
+        const accessUpdate = getOperationAccessUpdate(result);
+        if (accessUpdate?.mode === 'quota' && accessUpdate.quotaInfo) {
+          setUsageMode('quota');
+          setCreditInfo(null);
+          setPricing(null);
+          setQuotaInfo({
+            ...accessUpdate.quotaInfo,
+            isAnonymous: true,
+            tier: 'anonymous',
+          });
+        }
         setLoading(false);
         return;
       }
@@ -766,14 +902,52 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         error: err,
         message: err instanceof Error ? err.message : 'Unknown error',
         stack: err instanceof Error ? err.stack : undefined,
-        isSignedIn,
+        isAuthenticated,
         authMethod: localStorage.getItem('auth_method'),
       });
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
-      setLoading(false);
+      if (mountedRef.current && shouldClearLoading) {
+        setLoading(false);
+      }
     }
-  }, [isSignedIn, fetchQuota, incrementQuota, pollJobStatus]);
+  }, [
+    creditInfo,
+    fetchUsageAccess,
+    getGenerationCreditCost,
+    incrementQuota,
+    isAuthenticated,
+    pollJobStatus,
+    pricing,
+    quotaInfo,
+    refreshCreditBalance,
+    usageMode,
+  ]);
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  const getCurrentThumbnailContext = useCallback((thumbnailId?: string) => {
+    if (thumbnailId) {
+      const thumbnail = thumbnails.find(t => t.id === thumbnailId);
+      return thumbnail ? {
+        prompt: thumbnail.prompt,
+        thumbnailId: thumbnail.id,
+        createdAt: thumbnail.createdAt
+      } : null;
+    }
+    return thumbnails.length > 0 ? {
+      prompt: thumbnails[0].prompt,
+      thumbnailId: thumbnails[0].id,
+      createdAt: thumbnails[0].createdAt
+    } : null;
+  }, [thumbnails]);
+
+  const clearError = useCallback((): void => {
+    setError(null);
+    setInsufficientCredits(false);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Email Capture (for anonymous downloads)
@@ -825,15 +999,46 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       console.error('Email submission error:', err);
       setError('Failed to save email. Please check your connection and try again.');
     }
-  }, [quotaUsed, quotaInfo, maxQuota, thumbnails]);
+  }, [getCurrentThumbnailContext, maxQuota, quotaInfo, quotaUsed, thumbnails]);
 
   // ---------------------------------------------------------------------------
   // Download Functions
   // ---------------------------------------------------------------------------
+
+  const downloadFromSourceUrl = useCallback(async (
+    sourceUrl: string,
+    filenameBase: string
+  ): Promise<void> => {
+    const response = await fetch(sourceUrl);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get('Content-Type') || '';
+    let extension = 'png';
+    if (contentType.includes('webp')) extension = 'webp';
+    else if (contentType.includes('jpeg')) extension = 'jpg';
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filenameBase}.${extension}`;
+    link.style.display = 'none';
+
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+  }, []);
     
-  const downloadThumbnail = useCallback(async (thumbnailId: string): Promise<void> => {
+  const downloadThumbnail = useCallback(async (thumbnailId: string, sourceUrl?: string): Promise<void> => {
     // Check if user has provided email (for anonymous users)
-    if (!isSignedIn && !userEmail) {
+    if (!isAuthenticated && !userEmail) {
       setNeedsEmailCapture(true);
       return;
     }
@@ -841,6 +1046,11 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     const thumbnail = thumbnails.find(t => t.id === thumbnailId);
 
     try {
+      if (!isPersistentThumbnailId(thumbnailId) && sourceUrl) {
+        await downloadFromSourceUrl(sourceUrl, `ai-thumbnail-${thumbnail?.id || 'generated'}`);
+        return;
+      }
+
       const downloadUrl = `${API_URL}/api/v1/thumbnails/${thumbnailId}/download`;
       
       // Get auth headers for Clerk token
@@ -880,12 +1090,17 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       console.error('[downloadThumbnail] Error:', error);
       setError('Failed to download thumbnail. Please try right-clicking the image and saving it manually.');
     }
-  }, [isSignedIn, userEmail, thumbnails]);
+  }, [downloadFromSourceUrl, isAuthenticated, userEmail, thumbnails]);
 
-  const forceDownload = useCallback(async (thumbnailId: string): Promise<void> => {
+  const forceDownload = useCallback(async (thumbnailId: string, sourceUrl?: string): Promise<void> => {
     const thumbnail = thumbnails.find(t => t.id === thumbnailId);
 
     try {
+      if (!isPersistentThumbnailId(thumbnailId) && sourceUrl) {
+        await downloadFromSourceUrl(sourceUrl, `ai-thumbnail-${thumbnail?.id || 'generated'}`);
+        return;
+      }
+
       const downloadUrl = `${API_URL}/api/v1/thumbnails/${thumbnailId}/download`;
       
       // Get auth headers for Clerk token
@@ -925,14 +1140,14 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       console.error('[forceDownload] Error:', error);
       setError('Failed to download thumbnail. Please try right-clicking the image and saving it manually.');
     }
-  }, [thumbnails]);
+  }, [downloadFromSourceUrl, thumbnails]);
 
   // ---------------------------------------------------------------------------
   // Gallery Management (Authenticated Users)
   // ---------------------------------------------------------------------------
 
   const loadGallery = useCallback(async (page = 0): Promise<void> => {
-    if (!isSignedIn) {
+    if (!isAuthenticated) {
       return;
     }
 
@@ -959,9 +1174,9 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
           setGallery(prev => [...prev, ...thumbnails]);
         }
         
-        // Update quota from gallery response
-        if (result.data.quotaInfo) {
-          setQuotaInfo(result.data.quotaInfo);
+        // Update access state from gallery response when available
+        if (result.data.quotaInfo || result.data.creditInfo) {
+          applyUsageAccess({ success: true, data: result.data });
         }
       } else {
         console.warn('[loadGallery] Unexpected response:', result);
@@ -975,10 +1190,10 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     } finally {
       setGalleryLoading(false);
     }
-  }, [isSignedIn]);
+  }, [applyUsageAccess, isAuthenticated]);
 
   const deleteFromGallery = useCallback(async (thumbnailId: number): Promise<void> => {
-    if (!isSignedIn) {
+    if (!isAuthenticated) {
       return;
     }
 
@@ -993,40 +1208,13 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       console.error('[deleteFromGallery] Error:', err);
       setError('Failed to delete thumbnail.');
     }
-  }, [isSignedIn]);
+  }, [isAuthenticated]);
 
-  // Load gallery when user signs in
   useEffect(() => {
-    if (isSignedIn) {
-      loadGallery(0);
-    } else {
+    if (!isAuthenticated) {
       setGallery([]);
     }
-  }, [isSignedIn, loadGallery]);
-
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  const getCurrentThumbnailContext = useCallback((thumbnailId?: string) => {
-    if (thumbnailId) {
-      const thumbnail = thumbnails.find(t => t.id === thumbnailId);
-      return thumbnail ? {
-        prompt: thumbnail.prompt,
-        thumbnailId: thumbnail.id,
-        createdAt: thumbnail.createdAt
-      } : null;
-    }
-    return thumbnails.length > 0 ? {
-      prompt: thumbnails[0].prompt,
-      thumbnailId: thumbnails[0].id,
-      createdAt: thumbnails[0].createdAt
-    } : null;
-  }, [thumbnails]);
-
-  const clearError = useCallback((): void => {
-    setError(null);
-  }, []);
+  }, [isAuthenticated]);
 
   // ---------------------------------------------------------------------------
   // Return
@@ -1040,8 +1228,12 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     error,
     clearError,
     
-    // Quota (server-side)
+    // Usage access
+    usageMode,
     quotaInfo,
+    creditInfo,
+    pricing,
+    insufficientCredits,
     quotaUsed,
     maxQuota,
     canGenerate,
