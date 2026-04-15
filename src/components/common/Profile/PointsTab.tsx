@@ -29,7 +29,7 @@ import {
   useGrowthRewards,
   useRedeemGrowthReward,
 } from '../../../hooks/useGrowth';
-import { getGrowthModeLabel, getLayerLabel, getRedemptionStatusLabel } from '../../../utils/growth';
+import { getGrowthModeLabel, getLayerLabel, getProgressStatusLabel, getRedemptionStatusLabel } from '../../../utils/growth';
 
 const PointsTab: React.FC = () => {
   const [period, setPeriod] = useState<'24h' | '7d' | '30d'>('7d');
@@ -75,39 +75,12 @@ const PointsTab: React.FC = () => {
     return <Error message="Failed to load your growth data" />;
   }
 
-  const visibleBalanceCards = [
-    visibility.xpVisible
-      ? {
-          key: 'xp',
-          label: 'XP',
-          value: growthMe.data.balances.xp ?? 0,
-          helper: 'Your visible growth score across the platform.',
-          icon: <Star className="w-5 h-5 text-[#fa7517]" />,
-        }
-      : null,
-    visibility.reputationVisible
-      ? {
-          key: 'reputation',
-          label: 'Reputation',
-          value: growthMe.data.balances.reputation ?? 0,
-          helper: 'Phase-enabled trust and contribution score.',
-          icon: <Award className="w-5 h-5 text-sky-300" />,
-        }
-      : null,
-    visibility.creditsVisible
-      ? {
-          key: 'credits',
-          label: 'Credits',
-          value: growthMe.data.balances.credits ?? 0,
-          helper: 'Rewards and redeemable growth balance.',
-          icon: <Gift className="w-5 h-5 text-emerald-300" />,
-        }
-      : null,
-  ].filter(Boolean) as Array<{ key: string; label: string; value: number; helper: string; icon: React.ReactNode }>;
-
   const leaderboardModeLabel = getGrowthModeLabel(visibility.leaderboardMode);
-  const canShowRewards = visibility.creditsVisible && rewards.data?.items.length;
-  const canShowRedemptions = visibility.creditsVisible && redemptions.data?.items.length;
+  const hasRewards = !!rewards.data?.items.length;
+  const hasRedemptions = !!redemptions.data?.items.length;
+  const hasMissions = !!(missions.data?.enabled && missions.data.items.length > 0);
+  const hasQuests = !!(quests.data?.enabled && quests.data.items.length > 0);
+  const bothProgressEnabled = hasMissions && hasQuests;
 
   const handleRedeemReward = async (rewardId: number) => {
     try {
@@ -154,225 +127,184 @@ const PointsTab: React.FC = () => {
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {visibleBalanceCards.map((card) => (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {visibility.xpVisible && (
           <motion.div
-            key={card.key}
-            whileHover={{ scale: 1.02 }}
-            className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
+            whileHover={{ scale: 1.01 }}
+            className="lg:col-span-2 relative overflow-hidden p-8 rounded-xl bg-gradient-to-br from-[#fa7517]/15 via-black/60 to-black/80 border border-[#fa7517]/20 backdrop-blur-sm"
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="absolute -top-20 -right-20 w-56 h-56 bg-[#fa7517]/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2.5 bg-[#fa7517]/15 rounded-xl border border-[#fa7517]/20">
+                  <Star className="w-5 h-5 text-[#fa7517]" />
+                </div>
+                <div>
+                  <h2 className="text-xs text-gray-400 uppercase tracking-[0.15em] font-semibold">XP</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Your visible growth score across the platform</p>
+                </div>
+              </div>
+              <div className="flex items-baseline gap-3">
+                <div className="text-6xl font-bold text-white tracking-tight">
+                  {(growthMe.data.balances.xp ?? 0).toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-500 mb-2">pts</div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="space-y-6">
+          <motion.div
+            whileHover={{ scale: 1.01 }}
+            className="p-5 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              {visibility.reputationVisible ? (
+                <Award className="w-4 h-4 text-sky-300" />
+              ) : (
+                <Lock className="w-4 h-4 text-sky-300/60" />
+              )}
+              <h3 className="text-sm font-semibold text-white">Reputation</h3>
+            </div>
+            {visibility.reputationVisible ? (
+              <div className="text-2xl font-bold text-white">
+                {(growthMe.data.balances.reputation ?? 0).toLocaleString()}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 leading-relaxed">
+                {growthMe.data.hiddenState.reputationTracked
+                  ? 'Tracked in the background — visible in a future phase.'
+                  : 'Unlocks in a later growth phase.'}
+              </p>
+            )}
+          </motion.div>
+
+          <motion.div
+            whileHover={{ scale: 1.01 }}
+            className="p-5 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              {visibility.creditsVisible ? (
+                <Gift className="w-4 h-4 text-emerald-300" />
+              ) : (
+                <Lock className="w-4 h-4 text-emerald-300/60" />
+              )}
+              <h3 className="text-sm font-semibold text-white">Rewards</h3>
+            </div>
+            {visibility.creditsVisible ? (
+              <div className="text-2xl font-bold text-white">
+                {(growthMe.data.balances.credits ?? 0).toLocaleString()}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Spendable credits unlock when the active phase enables them.
+              </p>
+            )}
+          </motion.div>
+        </div>
+      </div>
+
+      {(hasMissions || hasQuests) ? (
+        <div className={`grid gap-6 ${bothProgressEnabled ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
+          {hasMissions && (
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm space-y-4"
+            >
               <div className="flex items-center gap-2">
-                {card.icon}
-                <h2 className="text-lg font-semibold text-white">{card.label}</h2>
+                <Target className="w-5 h-5 text-[#fa7517]" />
+                <h2 className="text-xl font-bold text-white">Missions</h2>
               </div>
-            </div>
-            <div className="text-3xl font-bold text-white mb-2">{card.value.toLocaleString()}</div>
-            <p className="text-sm text-gray-400">{card.helper}</p>
-          </motion.div>
-        ))}
-
-        {!visibility.reputationVisible && growthMe.data.hiddenState.reputationTracked && (
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Lock className="w-5 h-5 text-sky-300" />
-              <h2 className="text-lg font-semibold text-white">Reputation</h2>
-            </div>
-            <p className="text-sm text-gray-300">Tracked in the background</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Reputation is being measured, but it is not visible in the current growth phase yet.
-            </p>
-          </motion.div>
-        )}
-
-        {!visibility.creditsVisible && (
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Lock className="w-5 h-5 text-emerald-300" />
-              <h2 className="text-lg font-semibold text-white">Rewards</h2>
-            </div>
-            <p className="text-sm text-gray-300">Phase-gated</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Rewards and spendable credits will appear here once the active growth phase enables them.
-            </p>
-          </motion.div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-[0.95fr,1.05fr] gap-6">
-        <motion.div
-          whileHover={{ scale: 1.01 }}
-          className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm xl:col-span-2"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Gift className="w-5 h-5 text-emerald-300" />
-            <h2 className="text-xl font-bold text-white">Rewards</h2>
-          </div>
-
-          {canShowRewards ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {rewards.data.items.map((reward) => {
-                const costLayer = reward.costLayer ?? 'xp';
-                const costAmount = reward.costAmount ?? 0;
-                const visibleBalance = costLayer === 'xp'
-                  ? growthMe.data.balances.xp
-                  : costLayer === 'reputation'
-                  ? growthMe.data.balances.reputation
-                  : growthMe.data.balances.credits;
-                const hasEnoughBalance = visibleBalance != null && visibleBalance >= costAmount;
-                const inventoryRemaining = reward.inventoryCap == null || reward.inventoryUsed == null
-                  ? null
-                  : Math.max(0, reward.inventoryCap - reward.inventoryUsed);
-                const isInventoryAvailable = inventoryRemaining == null || inventoryRemaining > 0;
-                const isActive = reward.status == null || reward.status === 'active';
-                const isRedeemingThisReward = redeemReward.isPending && redeemReward.variables === reward.id;
-                const isRedeemable = hasEnoughBalance && isInventoryAvailable && isActive && !isRedeemingThisReward;
-
-                return (
-                  <div key={reward.id} className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col gap-4">
-                    <div>
-                      <div className="font-semibold text-white">{reward.title}</div>
-                      {reward.description && <p className="text-sm text-gray-400 mt-1">{reward.description}</p>}
-                    </div>
-                    <div className="text-sm text-emerald-300">
-                      Cost: {costAmount.toLocaleString()} {getLayerLabel(costLayer)}
-                    </div>
-                    {inventoryRemaining != null && (
-                      <div className="text-xs text-gray-500">
-                        {inventoryRemaining.toLocaleString()} remaining
+              <div className={`grid gap-4 ${!bothProgressEnabled ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+                {missions.data!.items.map((mission) => (
+                  <div key={mission.id} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-semibold text-white">{mission.title}</h3>
+                        <p className="text-sm text-gray-400">{mission.description}</p>
                       </div>
-                    )}
-                    <button
-                      onClick={() => handleRedeemReward(reward.id)}
-                      disabled={!isRedeemable}
-                      className="mt-auto px-4 py-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {isRedeemingThisReward ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                      Redeem
-                    </button>
-                    {!hasEnoughBalance && (
-                      <div className="text-xs text-red-300">Not enough {getLayerLabel(costLayer).toLowerCase()} to redeem this reward.</div>
-                    )}
-                    {!isInventoryAvailable && <div className="text-xs text-red-300">This reward is currently exhausted.</div>}
-                    {recentRedeemedRewardId === reward.id && (
-                      <div className="text-xs text-emerald-300">
-                        Reward redeemed. Your reward is awaiting fulfillment.
+                      <div className="text-right text-sm shrink-0">
+                        <div className="text-[#fa7517] font-semibold">
+                          +{mission.reward.amount} {getLayerLabel(mission.reward.layer)}
+                        </div>
+                        <div className="text-gray-500">{getProgressStatusLabel(mission.progress.status)}</div>
                       </div>
-                    )}
+                    </div>
+                    <div className="h-2 bg-gray-900/60 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full bg-[#fa7517]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.max(0, Math.min(100, mission.progress.current * 100))}%` }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      {mission.steps.map((step) => (
+                        <div key={step.stepKey} className="flex items-center justify-between text-sm text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className={`w-4 h-4 ${step.completed ? 'text-emerald-400' : 'text-gray-600'}`} />
+                            <span>{step.stepKey.replace(/_/g, ' ')}</span>
+                          </div>
+                          <span className="text-gray-500">
+                            {step.currentCount} / {step.targetCount}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-400">
-              Rewards are not visible in the current growth phase yet.
-            </div>
+                ))}
+              </div>
+            </motion.div>
           )}
-        </motion.div>
-      </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {missions.data?.enabled && missions.data.items.length > 0 && (
-          <motion.div
-            whileHover={{ scale: 1.01 }}
-            className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm space-y-4"
-          >
-            <div className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-[#fa7517]" />
-              <h2 className="text-xl font-bold text-white">Missions</h2>
-            </div>
-            {missions.data.items.map((mission) => (
-              <div key={mission.id} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold text-white">{mission.title}</h3>
-                    <p className="text-sm text-gray-400">{mission.description}</p>
-                  </div>
-                  <div className="text-right text-sm">
-                    <div className="text-[#fa7517] font-semibold">
-                      +{mission.reward.amount} {getLayerLabel(mission.reward.layer)}
-                    </div>
-                    <div className="text-gray-500 capitalize">{mission.progress.status.replace('_', ' ')}</div>
-                  </div>
-                </div>
-                <div className="h-2 bg-gray-900/60 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-[#fa7517]"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.max(0, Math.min(100, mission.progress.current * 100))}%` }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  {mission.steps.map((step) => (
-                    <div key={step.stepKey} className="flex items-center justify-between text-sm text-gray-300">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className={`w-4 h-4 ${step.completed ? 'text-emerald-400' : 'text-gray-600'}`} />
-                        <span>{step.stepKey.replace(/_/g, ' ')}</span>
+          {hasQuests && (
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm space-y-4"
+            >
+              <div className="flex items-center gap-2">
+                <Flag className="w-5 h-5 text-sky-300" />
+                <h2 className="text-xl font-bold text-white">Quests</h2>
+              </div>
+              <div className={`grid gap-4 ${!bothProgressEnabled ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+                {quests.data!.items.map((quest) => (
+                  <div key={quest.id} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-semibold text-white">{quest.questKey.replace(/_/g, ' ')}</h3>
+                        <p className="text-sm text-gray-400">{quest.templateKey.replace(/_/g, ' ')}</p>
                       </div>
-                      <span className="text-gray-500">
-                        {step.currentCount} / {step.targetCount}
-                      </span>
+                      <div className="text-right text-sm shrink-0">
+                        <div className="text-sky-300 font-semibold">
+                          +{quest.reward.amount} {getLayerLabel(quest.reward.layer)}
+                        </div>
+                        <div className="text-gray-500">{getProgressStatusLabel(quest.progress.status)}</div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </motion.div>
-        )}
-
-        {quests.data?.enabled && quests.data.items.length > 0 && (
-          <motion.div
-            whileHover={{ scale: 1.01 }}
-            className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm space-y-4"
-          >
-            <div className="flex items-center gap-2">
-              <Flag className="w-5 h-5 text-sky-300" />
-              <h2 className="text-xl font-bold text-white">Quests</h2>
-            </div>
-            {quests.data.items.map((quest) => (
-              <div key={quest.id} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold text-white">{quest.questKey.replace(/_/g, ' ')}</h3>
-                    <p className="text-sm text-gray-400">{quest.templateKey.replace(/_/g, ' ')}</p>
+                    <div className="h-2 bg-gray-900/60 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full bg-sky-400"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.max(0, Math.min(100, quest.progress.current * 100))}%` }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      {quest.criteria.map((criterion) => (
+                        <div key={criterion.key} className="flex items-center justify-between text-sm text-gray-300">
+                          <span>{criterion.key.replace(/_/g, ' ')}</span>
+                          <span className="text-gray-500">
+                            {criterion.currentCount} / {criterion.targetCount}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="text-right text-sm">
-                    <div className="text-sky-300 font-semibold">
-                      +{quest.reward.amount} {getLayerLabel(quest.reward.layer)}
-                    </div>
-                    <div className="text-gray-500 capitalize">{quest.progress.status.replace('_', ' ')}</div>
-                  </div>
-                </div>
-                <div className="h-2 bg-gray-900/60 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-sky-400"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.max(0, Math.min(100, quest.progress.current * 100))}%` }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  {quest.criteria.map((criterion) => (
-                    <div key={criterion.key} className="flex items-center justify-between text-sm text-gray-300">
-                      <span>{criterion.key.replace(/_/g, ' ')}</span>
-                      <span className="text-gray-500">
-                        {criterion.currentCount} / {criterion.targetCount}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                ))}
               </div>
-            ))}
-          </motion.div>
-        )}
-      </div>
-
-      {!missions.data?.enabled && !quests.data?.enabled && (
+            </motion.div>
+          )}
+        </div>
+      ) : (
         <motion.div
           whileHover={{ scale: 1.01 }}
           className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
@@ -387,61 +319,135 @@ const PointsTab: React.FC = () => {
         </motion.div>
       )}
 
-      <motion.div
-        whileHover={{ scale: 1.01 }}
-        className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <Search className="w-5 h-5 text-[#fa7517]" />
-          <h2 className="text-xl font-bold text-white">My redemptions</h2>
-        </div>
-        {canShowRedemptions ? (
-          <div className="space-y-3">
-            {redemptions.data.items.map((item) => (
-              <div key={item.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="font-semibold text-white">{item.reward?.title || `Reward #${item.rewardId}`}</div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      {format(new Date(item.createdAt), 'MMM d, yyyy • HH:mm')}
+      {visibility.creditsVisible && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <motion.div
+            whileHover={{ scale: 1.01 }}
+            className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <Gift className="w-5 h-5 text-emerald-300" />
+              <h2 className="text-xl font-bold text-white">Rewards</h2>
+            </div>
+
+            {hasRewards ? (
+              <div className="space-y-4">
+                {rewards.data!.items.map((reward) => {
+                  const costLayer = reward.costLayer ?? 'xp';
+                  const costAmount = reward.costAmount ?? 0;
+                  const visibleBalance = costLayer === 'xp'
+                    ? growthMe.data.balances.xp
+                    : costLayer === 'reputation'
+                    ? growthMe.data.balances.reputation
+                    : growthMe.data.balances.credits;
+                  const hasEnoughBalance = visibleBalance != null && visibleBalance >= costAmount;
+                  const inventoryRemaining = reward.inventoryCap == null || reward.inventoryUsed == null
+                    ? null
+                    : Math.max(0, reward.inventoryCap - reward.inventoryUsed);
+                  const isInventoryAvailable = inventoryRemaining == null || inventoryRemaining > 0;
+                  const isActive = reward.status == null || reward.status === 'active';
+                  const isRedeemingThisReward = redeemReward.isPending && redeemReward.variables === reward.id;
+                  const isRedeemable = hasEnoughBalance && isInventoryAvailable && isActive && !isRedeemingThisReward;
+
+                  return (
+                    <div key={reward.id} className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
+                      <div>
+                        <div className="font-semibold text-white">{reward.title}</div>
+                        {reward.description && <p className="text-sm text-gray-400 mt-1">{reward.description}</p>}
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-emerald-300">
+                          {costAmount.toLocaleString()} {getLayerLabel(costLayer)}
+                        </span>
+                        {inventoryRemaining != null && (
+                          <span className="text-xs text-gray-500">
+                            {inventoryRemaining.toLocaleString()} remaining
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleRedeemReward(reward.id)}
+                        disabled={!isRedeemable}
+                        className="mt-auto px-4 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+                      >
+                        {isRedeemingThisReward ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        Redeem
+                      </button>
+                      {!hasEnoughBalance && (
+                        <div className="text-xs text-red-300">Not enough {getLayerLabel(costLayer).toLowerCase()} to redeem this reward.</div>
+                      )}
+                      {!isInventoryAvailable && <div className="text-xs text-red-300">This reward is currently exhausted.</div>}
+                      {recentRedeemedRewardId === reward.id && (
+                        <div className="text-xs text-emerald-300">
+                          Reward redeemed. Your reward is awaiting fulfillment.
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`font-semibold ${
-                      item.status === 'fulfilled'
-                        ? 'text-emerald-300'
-                        : item.status === 'rejected'
-                        ? 'text-red-300'
-                        : item.status === 'cancelled'
-                        ? 'text-gray-400'
-                        : 'text-[#fa7517]'
-                    }`}>
-                      {getRedemptionStatusLabel(item.status)}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      {item.costAmount.toLocaleString()} {getLayerLabel(item.costLayer)}
-                    </div>
-                  </div>
-                </div>
-                {item.statusReason && (
-                  <div className="text-sm text-gray-400 mt-3">{item.statusReason}</div>
-                )}
-                <div className="flex flex-wrap gap-4 text-xs text-gray-500 mt-3">
-                  {item.fulfilledAt && <span>Fulfilled {format(new Date(item.fulfilledAt), 'MMM d, yyyy')}</span>}
-                  {item.rejectedAt && <span>Rejected {format(new Date(item.rejectedAt), 'MMM d, yyyy')}</span>}
-                  {item.cancelledAt && <span>Cancelled {format(new Date(item.cancelledAt), 'MMM d, yyyy')}</span>}
-                </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-400">
-            {visibility.creditsVisible
-              ? 'No redemptions yet.'
-              : 'Redemption history is hidden in the current growth phase.'}
-          </div>
-        )}
-      </motion.div>
+            ) : (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-400">
+                No rewards available yet.
+              </div>
+            )}
+          </motion.div>
+
+          <motion.div
+            whileHover={{ scale: 1.01 }}
+            className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <Search className="w-5 h-5 text-[#fa7517]" />
+              <h2 className="text-xl font-bold text-white">My redemptions</h2>
+            </div>
+            {hasRedemptions ? (
+              <div className="space-y-3">
+                {redemptions.data!.items.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="font-semibold text-white">{item.reward?.title || `Reward #${item.rewardId}`}</div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {format(new Date(item.createdAt), 'MMM d, yyyy • HH:mm')}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className={`font-semibold ${
+                          item.status === 'fulfilled'
+                            ? 'text-emerald-300'
+                            : item.status === 'rejected'
+                            ? 'text-red-300'
+                            : item.status === 'cancelled'
+                            ? 'text-gray-400'
+                            : 'text-[#fa7517]'
+                        }`}>
+                          {getRedemptionStatusLabel(item.status)}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {item.costAmount.toLocaleString()} {getLayerLabel(item.costLayer)}
+                        </div>
+                      </div>
+                    </div>
+                    {item.statusReason && (
+                      <div className="text-sm text-gray-400 mt-3">{item.statusReason}</div>
+                    )}
+                    <div className="flex flex-wrap gap-4 text-xs text-gray-500 mt-3">
+                      {item.fulfilledAt && <span>Fulfilled {format(new Date(item.fulfilledAt), 'MMM d, yyyy')}</span>}
+                      {item.rejectedAt && <span>Rejected {format(new Date(item.rejectedAt), 'MMM d, yyyy')}</span>}
+                      {item.cancelledAt && <span>Cancelled {format(new Date(item.cancelledAt), 'MMM d, yyyy')}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-gray-400">
+                No redemptions yet.
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.15fr,0.85fr] gap-6">
         <motion.div

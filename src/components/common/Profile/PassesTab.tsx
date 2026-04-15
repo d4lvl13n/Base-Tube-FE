@@ -14,24 +14,27 @@ interface PassCardProps {
   isPending?: boolean;
 }
 
+const stripHtml = (html: string): string =>
+  html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const PassCard: React.FC<PassCardProps> = ({ pass, access, isPending }) => {
   // Get the first video's thumbnail or use fallback
   const thumbnail = pass.videos?.[0]?.thumbnail_url || '/assets/Content-pass.webp';
-  
+
   // Format the purchase date (if we had this info from the API)
   // For now, we'll just show a placeholder
   const purchaseDate = new Date().toLocaleDateString();
-  
-  // Get tier color for badge
-  const getTierColor = (tier: string): string => {
-    switch (tier.toLowerCase()) {
-      case 'bronze': return 'bg-gradient-to-r from-amber-500 to-amber-700';
-      case 'silver': return 'bg-gradient-to-r from-slate-300 to-slate-500';
-      case 'gold': return 'bg-gradient-to-r from-yellow-300 to-yellow-600';
-      case 'platinum': return 'bg-gradient-to-r from-sky-300 to-sky-600';
-      default: return 'bg-gradient-to-r from-purple-400 to-purple-600';
-    }
-  };
+
+  const descriptionText = pass.description ? stripHtml(pass.description) : '';
 
   return (
     <motion.div 
@@ -53,13 +56,6 @@ const PassCard: React.FC<PassCardProps> = ({ pass, access, isPending }) => {
           <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
             <Play className="w-6 h-6 text-white" />
           </div>
-        </div>
-        
-        {/* Tier badge */}
-        <div className="absolute top-2 right-2">
-          <span className={`text-xs font-bold px-2 py-1 rounded-full text-white ${getTierColor(pass.tier)}`}>
-            {pass.tier}
-          </span>
         </div>
         
         {/* Owned/Pending badge */}
@@ -88,7 +84,7 @@ const PassCard: React.FC<PassCardProps> = ({ pass, access, isPending }) => {
       {/* Card content */}
       <div className="p-4">
         <h3 className="font-bold text-lg mb-1 line-clamp-1">{pass.title}</h3>
-        <p className="text-gray-400 text-sm mb-3 line-clamp-2">{pass.description || "No description available"}</p>
+        <p className="text-gray-400 text-sm mb-3 line-clamp-2">{descriptionText || "No description available"}</p>
         
         <div className="flex justify-between items-center text-sm">
           <div className="flex items-center text-gray-400">

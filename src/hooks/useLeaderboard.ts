@@ -7,5 +7,7 @@ export const useLeaderboard = (params?: { mode?: GrowthLeaderboardMode; limit?: 
     queryKey: ['leaderboard', params?.mode ?? 'default', params?.limit ?? 50],
     queryFn: () => getLeaderboard(params),
     gcTime: 60000, // Cache the leaderboard data for 1 minute
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 };

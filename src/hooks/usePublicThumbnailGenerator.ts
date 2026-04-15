@@ -370,35 +370,6 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     }
   }, [applyUsageAccess]);
 
-  const incrementQuota = useCallback(async (): Promise<GeneratorQuotaInfo | null> => {
-    try {
-      const headers = getPublicApiHeaders();
-      const response = await fetch(`${API_URL}/v1/images/quota/increment`, {
-        method: 'POST',
-        credentials: 'include',
-        headers,
-      });
-    
-      if (!response.ok) {
-        console.error('Failed to increment quota:', response.status);
-        return null;
-      }
-      
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        applyUsageAccess(result);
-        const normalized = normalizeUsageAccessResponse(result);
-        return normalized?.mode === 'quota' ? normalized.quotaInfo : null;
-      }
-      
-      return null;
-    } catch (err) {
-      console.error('Error incrementing quota:', err);
-      return null;
-    }
-  }, [applyUsageAccess]);
-
   const refreshQuota = useCallback(async (): Promise<void> => {
     await fetchUsageAccess();
   }, [fetchUsageAccess]);
@@ -496,7 +467,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         if (isAuthenticated) {
           await refreshCreditBalance();
         } else {
-          await incrementQuota();
+          await refreshQuota();
         }
 
         setLoading(false);
@@ -520,7 +491,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       setError(err instanceof Error ? err.message : 'Failed to check job status');
       setLoading(false);
     }
-  }, [incrementQuota, isAuthenticated, refreshCreditBalance]);
+  }, [isAuthenticated, refreshCreditBalance, refreshQuota]);
 
   // ---------------------------------------------------------------------------
   // Thumbnail Generation
@@ -683,7 +654,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         } else if (isAuthenticated) {
           await refreshCreditBalance();
         } else {
-          await incrementQuota();
+          await refreshQuota();
         }
         setLoading(false);
         return;
@@ -881,7 +852,6 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         }
 
         setThumbnails(prev => [...generatedThumbnails, ...prev]);
-        await incrementQuota();
         const accessUpdate = getOperationAccessUpdate(result);
         if (accessUpdate?.mode === 'quota' && accessUpdate.quotaInfo) {
           setUsageMode('quota');
@@ -892,6 +862,8 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
             isAnonymous: true,
             tier: 'anonymous',
           });
+        } else {
+          await refreshQuota();
         }
         setLoading(false);
         return;
@@ -915,12 +887,12 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     creditInfo,
     fetchUsageAccess,
     getGenerationCreditCost,
-    incrementQuota,
     isAuthenticated,
     pollJobStatus,
     pricing,
     quotaInfo,
     refreshCreditBalance,
+    refreshQuota,
     usageMode,
   ]);
 

@@ -42,6 +42,7 @@ export const useGrowthHistory = (params?: {
     queryKey: ['growth', 'history', params?.limit ?? 20, params?.offset ?? 0, params?.layer ?? 'all'],
     queryFn: () => growthApi.getGrowthHistory(params),
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
 export const useGrowthLeaderboard = (params?: {
@@ -52,6 +53,7 @@ export const useGrowthLeaderboard = (params?: {
     queryKey: ['growth', 'leaderboard', params?.limit ?? 50, params?.mode ?? 'default'],
     queryFn: () => growthApi.getGrowthLeaderboard(params),
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
 export const useGrowthRewards = () =>
@@ -66,6 +68,7 @@ export const useGrowthRedemptions = (params?: { limit?: number; offset?: number 
     queryKey: ['growth', 'redemptions', params?.limit ?? 20, params?.offset ?? 0],
     queryFn: () => growthApi.getMyGrowthRedemptions(params),
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
 export const useRedeemGrowthReward = () => {
@@ -79,7 +82,6 @@ export const useRedeemGrowthReward = () => {
         queryClient.invalidateQueries({ queryKey: ['growth', 'rewards'] }),
         queryClient.invalidateQueries({ queryKey: ['growth', 'redemptions'] }),
         queryClient.invalidateQueries({ queryKey: ['growth', 'history'] }),
-        queryClient.invalidateQueries({ queryKey: ['userPoints'] }),
       ]);
     },
   });

@@ -1,6 +1,4 @@
 import type {
-  CompatibilityGrowthHistoryPoint,
-  CompatibilityGrowthUserPoints,
   GrowthBalances,
   GrowthHistoryData,
   GrowthHistoryEntry,
@@ -9,6 +7,7 @@ import type {
   GrowthMeData,
   GrowthMission,
   GrowthMissionsData,
+  GrowthProgressStatus,
   GrowthQuest,
   GrowthQuestsData,
   GrowthRedemptionsData,
@@ -271,46 +270,6 @@ export function normalizeGrowthReferralApplication(raw: any): GrowthReferralAppl
   };
 }
 
-export function normalizeCompatibilityUserPoints(raw: any): CompatibilityGrowthUserPoints {
-  const payload = raw?.data ?? raw;
-  const growth = payload?.growth ? normalizeGrowthMe(payload.growth) : null;
-  const totalPoints = payload?.totalPoints != null
-    ? Number(payload.totalPoints)
-    : Number(growth?.balances.xp ?? 0);
-
-  return {
-    userId: payload?.userId ?? payload?.user_id ?? '',
-    totalPoints,
-    updatedAt: payload?.updatedAt ?? payload?.updated_at,
-    rank: payload?.rank
-      ? {
-          rank: payload.rank.rank,
-          minPoints: Number(payload.rank.minPoints ?? 0),
-          maxPoints: payload.rank.maxPoints == null ? null : Number(payload.rank.maxPoints),
-          nextRank: payload.rank.nextRank ?? null,
-          nextRankPoints: payload.rank.nextRankPoints == null ? null : Number(payload.rank.nextRankPoints),
-          pointsToNextRank: Number(payload.rank.pointsToNextRank ?? 0),
-        }
-      : undefined,
-    growth,
-  };
-}
-
-export function normalizeCompatibilityPointsHistory(raw: any): CompatibilityGrowthHistoryPoint[] {
-  const payload = raw?.data ?? raw;
-  const list = Array.isArray(payload) ? payload : Array.isArray(payload?.entries) ? payload.entries : [];
-
-  return list.map((entry: any) => ({
-    id: entry?.id ?? '',
-    totalPoints: Number(entry?.totalPoints ?? entry?.total_points ?? entry?.amount ?? 0),
-    calculatedAt: entry?.calculatedAt ?? entry?.calculated_at ?? entry?.created_at ?? new Date().toISOString(),
-    layer: entry?.layer ?? 'xp',
-    amount: entry?.amount == null ? undefined : Number(entry.amount),
-    direction: entry?.direction,
-    scoreCode: entry?.score_code ?? entry?.scoreCode ?? null,
-  }));
-}
-
 export function getGrowthModeLabel(mode?: string | null): string {
   switch (mode) {
     case 'reputation':
@@ -343,5 +302,36 @@ export function getRedemptionStatusLabel(status?: string | null): string {
       return 'Cancelled';
     default:
       return 'Awaiting fulfillment';
+  }
+}
+
+// Backend now flips status straight from in_progress → claimed in a single
+// transaction. Pre-existing rows may still report 'completed'; treat them
+// identically to 'claimed' for display purposes.
+export function normalizeProgressStatus(
+  status?: string | null,
+): GrowthProgressStatus {
+  if (status === 'completed') return 'claimed';
+  if (
+    status === 'not_started' ||
+    status === 'in_progress' ||
+    status === 'claimed' ||
+    status === 'expired'
+  ) {
+    return status;
+  }
+  return 'not_started';
+}
+
+export function getProgressStatusLabel(status?: string | null): string {
+  switch (normalizeProgressStatus(status)) {
+    case 'in_progress':
+      return 'In progress';
+    case 'claimed':
+      return 'Claimed';
+    case 'expired':
+      return 'Expired';
+    default:
+      return 'Not started';
   }
 }

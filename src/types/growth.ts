@@ -224,27 +224,3 @@ export interface GrowthReferralApplication {
   updatedAt: string;
 }
 
-export interface CompatibilityGrowthUserPoints {
-  userId: string;
-  totalPoints: number;
-  updatedAt?: string;
-  rank?: {
-    rank: string;
-    minPoints: number;
-    maxPoints: number | null;
-    nextRank: string | null;
-    nextRankPoints: number | null;
-    pointsToNextRank: number;
-  };
-  growth: GrowthMeData | null;
-}
-
-export interface CompatibilityGrowthHistoryPoint {
-  id: number | string;
-  totalPoints: number;
-  calculatedAt: string;
-  layer?: GrowthRewardLayer;
-  amount?: number;
-  direction?: GrowthHistoryDirection;
-  scoreCode?: string | null;
-}
