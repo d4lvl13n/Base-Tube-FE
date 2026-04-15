@@ -1,5 +1,5 @@
 import React, { useState, useMemo, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -16,6 +16,7 @@ import UserProfileWallet from './components/pages/UserProfileWallet';
 import SignInPage from './components/pages/SignInPage';
 import SignUpPage from './components/pages/SignUpPage';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import ReferralAttributionBridge from './components/common/ReferralAttributionBridge';
 import ChannelPage from './components/pages/ChannelPage';
 import ChannelDetailPage from './components/pages/ChannelDetailPage';
 import CreateChannelPage from './components/pages/CreateChannelPage';
@@ -120,6 +121,11 @@ const MonitoringLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   </div>
 );
 
+const AuthRouteAliasRedirect: React.FC<{ to: string }> = ({ to }) => {
+  const location = useLocation();
+  return <Navigate to={`${to}${location.search}`} replace />;
+};
+
 const isInternalMonitoringEnabled = process.env.REACT_APP_ENABLE_INTERNAL_MONITORING === 'true';
 
 function App() {
@@ -141,9 +147,12 @@ function App() {
           <VideoProvider>
             <AuthProvider>
               <div className="min-h-screen bg-black">
+                <ReferralAttributionBridge />
                 <Routes>
                   {/* Public routes that don't need channel context */}
                   <Route path="/" element={<HomePage />} />
+                  <Route path="/signup" element={<AuthRouteAliasRedirect to="/sign-up" />} />
+                  <Route path="/signin" element={<AuthRouteAliasRedirect to="/sign-in" />} />
                   <Route path="/discover" element={<DiscoveryPage />} />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/video/:id" element={<SingleVideo />} />

@@ -128,8 +128,8 @@ export interface InteractionsHistory {
 
 export interface ReferralInfo {
   id: number;
-  user_id: string;
+  userId: string;
   code: string;
-  referrals_count: number;
+  referralsCount: number;
   earnings: number;
 }

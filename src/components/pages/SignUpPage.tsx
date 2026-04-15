@@ -2,11 +2,19 @@ import React from 'react';
 import { SignUp } from '@clerk/clerk-react';
 import { dark } from '@clerk/themes';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Play, Wallet, Users, Trophy } from 'lucide-react';
 import { FeatureCard } from './SignInWeb3/components/FeatureCard';
+import { storePendingReferralCode } from '../../utils/referralAttribution';
 
 const SignUpPage: React.FC = () => {
+  const location = useLocation();
+
+  React.useEffect(() => {
+    const referralCode = new URLSearchParams(location.search).get('ref');
+    storePendingReferralCode(referralCode);
+  }, [location.search]);
+
   return (
     <>
       <style>

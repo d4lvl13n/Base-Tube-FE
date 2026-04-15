@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import {
   Award,
   CheckCircle2,
-  ChevronRight,
   Flag,
   Gift,
   HelpCircle,
@@ -14,7 +13,6 @@ import {
   Star,
   Target,
   TrendingUp,
-  Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -23,7 +21,6 @@ import Loader from '../Loader';
 import Error from '../Error';
 import { LineChart } from '../../../components/pages/CreatorHub/Analytics/charts/LineChart';
 import {
-  useApplyReferralCode,
   useGrowthHistory,
   useGrowthMe,
   useGrowthMissions,
@@ -43,8 +40,6 @@ const PointsTab: React.FC = () => {
   const rewards = useGrowthRewards();
   const redemptions = useGrowthRedemptions({ limit: 20, offset: 0 });
   const redeemReward = useRedeemGrowthReward();
-  const applyReferral = useApplyReferralCode();
-  const [referralCode, setReferralCode] = useState('');
   const [recentRedeemedRewardId, setRecentRedeemedRewardId] = useState<number | null>(null);
 
   const visibility = growthMe.data?.visibility;
@@ -125,23 +120,6 @@ const PointsTab: React.FC = () => {
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to redeem reward');
-    }
-  };
-
-  const handleApplyReferral = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const normalizedCode = referralCode.trim();
-    if (!normalizedCode) {
-      toast.error('Enter a referral code first');
-      return;
-    }
-
-    try {
-      const result = await applyReferral.mutateAsync(normalizedCode);
-      setReferralCode('');
-      toast.success(result.status === 'activated' ? 'Referral applied. Your referral was activated.' : 'Referral applied. Referral recorded.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to apply referral code');
     }
   };
 
@@ -230,41 +208,7 @@ const PointsTab: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-[0.95fr,1.05fr] gap-6">
         <motion.div
           whileHover={{ scale: 1.01 }}
-          className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-[#fa7517]" />
-            <h2 className="text-xl font-bold text-white">Apply referral code</h2>
-          </div>
-          <p className="text-sm text-gray-400 mb-4">
-            Add a referral code to attribute your account to the person who invited you. This is not a coupon or discount flow.
-          </p>
-          <form onSubmit={handleApplyReferral} className="space-y-4">
-            <div className="flex gap-3 flex-col sm:flex-row">
-              <input
-                value={referralCode}
-                onChange={(event) => setReferralCode(event.target.value)}
-                placeholder="Enter referral code"
-                className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:border-[#fa7517]/50"
-              />
-              <button
-                type="submit"
-                disabled={applyReferral.isPending}
-                className="px-5 py-3 rounded-xl bg-[#fa7517] text-white font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {applyReferral.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
-                Apply
-              </button>
-            </div>
-            <div className="text-xs text-gray-500">
-              Successful outcomes can be recorded as either <span className="text-gray-300">registered</span> or <span className="text-gray-300">activated</span>.
-            </div>
-          </form>
-        </motion.div>
-
-        <motion.div
-          whileHover={{ scale: 1.01 }}
-          className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm"
+          className="p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm xl:col-span-2"
         >
           <div className="flex items-center gap-2 mb-4">
             <Gift className="w-5 h-5 text-emerald-300" />

@@ -11,6 +11,13 @@ import {
 import { Video } from '../types/video';
 import { WatchHistory, LikesHistory } from '../types/history';
  
+const normalizeReferralInfo = (raw: any): ReferralInfo => ({
+  id: Number(raw.id),
+  userId: raw.userId ?? raw.user_id ?? '',
+  code: raw.code ?? '',
+  referralsCount: Number(raw.referralsCount ?? raw.referrals_count ?? 0),
+  earnings: Number(raw.earnings ?? 0),
+});
 
 export const getMyProfile = async (): Promise<UserProfile> => {
   const response = await api.get<{ success: boolean; data: UserProfile }>('/api/v1/profile');
@@ -67,14 +74,29 @@ export const getInteractionsHistory = async (): Promise<InteractionsHistory[]> =
   return response.data.data;
 };
 
-export const getReferralInfo = async (): Promise<ReferralInfo> => {
-  const response = await api.get('/api/v1/referrals');
+export const getMyReferral = async (): Promise<ReferralInfo> => {
+  const response = await api.get('/api/v1/referrals/referrals');
+  return normalizeReferralInfo(response.data.data);
+};
+
+export const rotateMyReferralCode = async (): Promise<ReferralInfo> => {
+  const response = await api.post('/api/v1/referrals/referrals/generate', { rotate: true });
+  return normalizeReferralInfo(response.data.data);
+};
+
+export const applyReferralCode = async (code: string) => {
+  const response = await api.post('/api/v1/referrals/referrals/apply', { code });
+  if (response.data?.success === false) {
+    throw new Error(response.data?.message || 'Failed to apply referral code');
+  }
   return response.data.data;
 };
 
+export const getReferralInfo = getMyReferral;
+
 export const generateReferralCode = async (): Promise<ReferralInfo> => {
-  const response = await api.post('/api/v1/referrals/generate');
-  return response.data.data;
+  const response = await api.post('/api/v1/referrals/referrals/generate');
+  return normalizeReferralInfo(response.data.data);
 };
 
 export const getUserMetrics = async (): Promise<UserMetrics> => {

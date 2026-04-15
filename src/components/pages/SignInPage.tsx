@@ -2,11 +2,20 @@ import React from 'react';
 import { SignIn } from '@clerk/clerk-react';
 import { dark } from '@clerk/themes';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Play, Coins, Library } from 'lucide-react';
 import { FeatureCard } from './SignInWeb3/components/FeatureCard';
+import { storePendingReferralCode } from '../../utils/referralAttribution';
 
-export const SignInPage: React.FC = () => (
+export const SignInPage: React.FC = () => {
+  const location = useLocation();
+
+  React.useEffect(() => {
+    const referralCode = new URLSearchParams(location.search).get('ref');
+    storePendingReferralCode(referralCode);
+  }, [location.search]);
+
+  return (
   <>
     <style>
       {`
@@ -176,6 +185,7 @@ export const SignInPage: React.FC = () => (
       </motion.div>
     </div>
   </>
-);
+  );
+};
 
 export default SignInPage;

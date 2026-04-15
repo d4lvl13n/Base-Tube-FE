@@ -1,5 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
-import { getMyProfile, getMyWallet, getProfileSettings, getWatchHistory, getLikesHistory, getReferralInfo } from '../api/profile';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  applyReferralCode,
+  getMyProfile,
+  getMyReferral,
+  getMyWallet,
+  getProfileSettings,
+  getWatchHistory,
+  getLikesHistory,
+  rotateMyReferralCode,
+} from '../api/profile';
 import { WatchHistory, LikesHistory } from '../types/history';
 
 export const useProfileData = () => {
@@ -51,8 +60,34 @@ export const useLikesHistory = () => {
 export const useReferralInfo = () => {
   return useQuery({
     queryKey: ['referralInfo'],
-    queryFn: getReferralInfo,
+    queryFn: getMyReferral,
     staleTime: 5 * 60 * 1000,
     retry: 2
+  });
+};
+
+export const useRotateReferralCode = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: rotateMyReferralCode,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['referralInfo'] });
+    },
+  });
+};
+
+export const useApplyReferralCode = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: applyReferralCode,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['referralInfo'] }),
+        queryClient.invalidateQueries({ queryKey: ['growth', 'me'] }),
+        queryClient.invalidateQueries({ queryKey: ['growth', 'history'] }),
+      ]);
+    },
   });
 };
