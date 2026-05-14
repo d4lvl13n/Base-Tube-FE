@@ -1,47 +1,38 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { useNavigation } from '../../contexts/NavigationContext';
+import CommandOrbNavItem from './CommandOrbNavItem';
 import FloatingSidebar from './FloatingSidebar';
-import { Link } from 'react-router-dom';
-import { Home, Flame, Compass, PlayCircle, User, Tv, Palette, Trophy } from 'lucide-react';
+import { isNavigationItemActive, navigationItems } from './navigationItems';
 
 const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
 
 const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
   const { navStyle } = useNavigation();
+  const location = useLocation();
 
-  // If floating style is selected, render FloatingSidebar
   if (navStyle === 'floating') {
     return <FloatingSidebar />;
   }
 
-  // Otherwise render classic sidebar
   return (
-    <nav className={`bg-[#000000] w-16 h-full flex flex-col items-center py-16 ${className}`}>
-      <div className="flex-1 flex flex-col space-y-8">
-        <Link to="/" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
-          <Home size={24} />
-        </Link>
-        <Link to="/discover" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
-          <Flame size={24} />
-        </Link>
-        <Link to="/nft-marketplace" className={`${!PASSES_ENABLED ? 'text-gray-600 hover:text-gray-600' : 'text-gray-400 hover:text-[#fa7517]'} cursor-pointer`}>
-          <Compass size={24} />
-        </Link>
-        <Link to="/subscribed" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
-          <PlayCircle size={24} />
-        </Link>
-        <Link to="/channel" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
-          <Tv size={24} />
-        </Link>
-        <Link to="/profile" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
-          <User size={24} />
-        </Link>
-        <Link to="/creator-hub" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
-          <Palette size={24} />
-        </Link>
-        <Link to="/leaderboard" className="text-gray-400 cursor-pointer hover:text-[#fa7517]">
-          <Trophy size={24} />
-        </Link>
+    <nav
+      aria-label="Primary navigation"
+      className={`relative h-full w-16 overflow-visible bg-black flex flex-col items-center py-12 ${className}`}
+    >
+      <div className="pointer-events-none absolute left-1/2 top-12 bottom-12 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-[rgba(214,235,253,0.12)] to-transparent" />
+      <div className="pointer-events-none absolute left-1/2 top-20 h-24 w-px -translate-x-1/2 bg-gradient-to-b from-[#fa7517]/0 via-[#fa7517]/35 to-[#fa7517]/0 blur-[1px]" />
+
+      <div className="relative flex flex-1 flex-col items-center gap-5">
+        {navigationItems.map((item) => (
+          <CommandOrbNavItem
+            key={item.path}
+            item={item}
+            active={isNavigationItemActive(location.pathname, item.path)}
+            disabled={item.passGated && !PASSES_ENABLED}
+            tooltipPlacement="right"
+          />
+        ))}
       </div>
     </nav>
   );

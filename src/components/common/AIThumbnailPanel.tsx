@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Wand2, Upload, Check, Video, Info, Zap, AlertCircle, RefreshCw } from 'lucide-react';
-import { ThumbnailGenerationOptions, CustomThumbnailGenerationOptions, ThumbnailWithReferenceOptions } from '../../types/thumbnail';
+import { X, Sparkles, Wand2, Upload, Check, Video, Info, Zap, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
+import {
+  THUMBNAIL_OUTPUT_FORMATS,
+  ThumbnailGenerationOptions,
+  CustomThumbnailGenerationOptions,
+  ThumbnailWithReferenceOptions,
+  ThumbnailRefinementOptions,
+  ThumbnailConversationState,
+} from '../../types/thumbnail';
+import type { ThumbnailOutputFormat } from '../../types/thumbnail';
 
 interface AIThumbnailPanelProps {
   isOpen: boolean;
@@ -13,9 +21,11 @@ interface AIThumbnailPanelProps {
   isGeneratingForVideo: boolean;
   isGeneratingFromPrompt: boolean;
   isGeneratingWithReference: boolean;
+  isRefiningThumbnail: boolean;
   generateForVideo: (videoId: number, options?: ThumbnailGenerationOptions) => Promise<any>;
   generateFromPrompt: (options: CustomThumbnailGenerationOptions) => Promise<any>;
   generateWithReference: (options: ThumbnailWithReferenceOptions) => Promise<any>;
+  refineThumbnail: (options: ThumbnailRefinementOptions) => Promise<any>;
 }
 
 type GenerationTab = 'video' | 'custom';
@@ -36,9 +46,11 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
   isGeneratingForVideo,
   isGeneratingFromPrompt,
   isGeneratingWithReference,
+  isRefiningThumbnail,
   generateForVideo,
   generateFromPrompt,
-  generateWithReference
+  generateWithReference,
+  refineThumbnail
 }) => {
   // Tab management
   const [activeTab, setActiveTab] = useState<GenerationTab>('video');
@@ -48,7 +60,8 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
   const [referenceImage, setReferenceImage] = useState<File | null>(null);
   const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
   const [style, setStyle] = useState('');
-  const [background, setBackground] = useState<'transparent' | 'opaque' | 'auto'>('auto');
+  const [outputFormat, setOutputFormat] = useState<ThumbnailOutputFormat>('landscape');
+  const [background, setBackground] = useState<'opaque' | 'auto'>('auto');
   const [referenceImageDetail, setReferenceImageDetail] = useState<'low' | 'high' | 'auto'>('high');
   
   // Error handling state
@@ -90,8 +103,10 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
   // Results state
   const [generatedThumbnails, setGeneratedThumbnails] = useState<string[]>([]);
   const [selectedThumbnail, setSelectedThumbnail] = useState<string | null>(null);
-  const [lastPromptUsed, setLastPromptUsed] = useState<string>('');
   const [lastGenerationOptions, setLastGenerationOptions] = useState<any | null>(null);
+  const [refinementInstruction, setRefinementInstruction] = useState('');
+  const [thumbnailConversations, setThumbnailConversations] = useState<Record<string, ThumbnailConversationState>>({});
+  const selectedOutputFormat = THUMBNAIL_OUTPUT_FORMATS[outputFormat];
   
   // Funny loading messages that rotate during generation
   const funnyLoadingMessages = React.useMemo(() => ([
@@ -225,12 +240,12 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
         if (!videoId) {
           // If no videoId yet (new upload), use prompt method with video title/description
           const generatedPrompt = `Create a thumbnail for video titled "${videoTitle}" with description "${videoDescription.substring(0, 100)}..."`;
-          setLastPromptUsed(generatedPrompt);
           
           options = {
             prompt: generatedPrompt,
             style,
-            background
+            background,
+            size: outputFormat
           };
           
           result = await generateFromPrompt(options);
@@ -238,16 +253,15 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
           // Use video-specific endpoint if we have a videoId
           options = {
             style,
-            background
+            background,
+            size: outputFormat
           };
           
           result = await generateForVideo(videoId, options);
-          setLastPromptUsed('Generated from video context');
         }
       } else if (activeTab === 'custom') {
         if (referenceImage) {
           // If we have a reference image, use the reference endpoint
-          setLastPromptUsed(customPrompt || 'Generated from reference image');
           
           options = {
             referenceImage,
@@ -255,8 +269,8 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
             customPrompt,
             style,
             background,
+            size: outputFormat,
             referenceImageDetail,
-            // async mode defaults (no size override to keep thumbnail format)
             async: true,
             quality: 'medium' as const,
             n: 1
@@ -265,12 +279,12 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
           result = await generateWithReference(options);
         } else if (customPrompt) {
           // Otherwise, use the prompt endpoint
-          setLastPromptUsed(customPrompt);
           
           options = {
             prompt: customPrompt,
             style,
-            background
+            background,
+            size: outputFormat
           };
           
           result = await generateFromPrompt(options);
@@ -323,6 +337,55 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
       onClose();
     }
   };
+
+  const handleRefineSelectedThumbnail = async () => {
+    if (!selectedThumbnail) {
+      setError('Select a thumbnail before refining it.');
+      return;
+    }
+
+    const instruction = refinementInstruction.trim();
+    if (!instruction) {
+      setError('Describe the change you want to make.');
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const conversation = thumbnailConversations[selectedThumbnail];
+      const result = await refineThumbnail({
+        instruction,
+        imageUrl: conversation ? undefined : selectedThumbnail,
+        previousResponseId: conversation?.responseId,
+        imageGenerationCallId: conversation?.imageGenerationCallId,
+        size: outputFormat,
+        quality: 'high',
+        background,
+      });
+
+      const refinedUrl = result?.data?.thumbnailUrl;
+      const nextConversation = result?.data?.conversation;
+
+      if (!refinedUrl || !nextConversation) {
+        throw new Error('The refinement response was missing thumbnail data.');
+      }
+
+      setGeneratedThumbnails(prev => [refinedUrl, ...prev]);
+      setThumbnailConversations(prev => ({
+        ...prev,
+        [refinedUrl]: nextConversation,
+      }));
+      setSelectedThumbnail(refinedUrl);
+      setRefinementInstruction('');
+    } catch (error: any) {
+      console.error('Error refining thumbnail:', error);
+      setError(error.response?.data?.error?.message ||
+               error.response?.data?.message ||
+               error.message ||
+               'Failed to refine thumbnail. Please try again.');
+    }
+  };
   
   // Reset the panel state
   const resetPanel = () => {
@@ -331,12 +394,29 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
     setReferenceImagePreview(null);
     setGeneratedThumbnails([]);
     setSelectedThumbnail(null);
-    setLastPromptUsed('');
     setActiveTab('video');
     setError(null);
+    setRefinementInstruction('');
+    setThumbnailConversations({});
   };
   
-  // Background transparency selector component
+  // Output format selector component
+  const OutputFormatSelector = () => (
+    <div>
+      <label className="text-sm text-gray-400 mb-1 block">Output Format</label>
+      <select
+        value={outputFormat}
+        onChange={(e) => setOutputFormat(e.target.value as ThumbnailOutputFormat)}
+        className="w-full p-3 bg-gray-900/80 border border-gray-800/30 rounded-lg text-white focus:border-[#fa7517]/50 focus:ring-[#fa7517]/20 focus:ring-2 outline-none"
+      >
+        <option value="landscape">YouTube / BaseTube - 1536x864</option>
+        <option value="short">Shorts / TikTok - 1024x1792</option>
+      </select>
+      <p className="mt-1 text-xs text-gray-500">{selectedOutputFormat.description}</p>
+    </div>
+  );
+
+  // Background selector component
   const BackgroundSelector = () => (
     <div>
       <div className="flex items-center gap-2 mb-1">
@@ -344,19 +424,17 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
         <div className="group relative">
           <Info className="w-4 h-4 text-gray-500 cursor-help" />
           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 rounded-lg shadow-lg text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-            <p><b>Transparent:</b> Creates a PNG with transparency, ideal for overlaying on different backgrounds.</p>
-            <p className="mt-1"><b>Opaque:</b> Creates a PNG with a solid background determined by the content.</p>
+            <p><b>Opaque:</b> Creates an image with a solid background determined by the content.</p>
             <p className="mt-1"><b>Auto:</b> Lets the AI model decide based on the content and style.</p>
           </div>
         </div>
       </div>
       <select 
         value={background}
-        onChange={(e) => setBackground(e.target.value as 'transparent' | 'opaque' | 'auto')}
+        onChange={(e) => setBackground(e.target.value as 'opaque' | 'auto')}
         className="w-full p-3 bg-gray-900/80 border border-gray-800/30 rounded-lg text-white focus:border-[#fa7517]/50 focus:ring-[#fa7517]/20 focus:ring-2 outline-none"
       >
         <option value="auto">Auto (AI Decides)</option>
-        <option value="transparent">Transparent Background</option>
         <option value="opaque">Opaque Background</option>
       </select>
     </div>
@@ -364,6 +442,8 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
   
   // Determine if generation is in progress
   const isGenerating = isGeneratingForVideo || isGeneratingFromPrompt || isGeneratingWithReference;
+  const selectedThumbnailConversation = selectedThumbnail ? thumbnailConversations[selectedThumbnail] : undefined;
+  const thumbnailAspectClass = outputFormat === 'short' ? 'aspect-[9/16]' : 'aspect-video';
   
   // New state for regenerating
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -496,18 +576,24 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                                 Generate 2 thumbnails based on your video title and description.
                                 {!videoId && " Since your video isn't uploaded yet, we'll use text-based generation."}
                               </p>
-                              <p className="text-gray-400 text-sm mt-1">All thumbnails are generated at 1536×1024 resolution in high quality.</p>
+                              <p className="text-gray-400 text-sm mt-1">
+                                Choose landscape for YouTube/BaseTube or vertical for Shorts/TikTok.
+                              </p>
                             </div>
                           </div>
-                          
-                          {/* Background Selector */}
-                          <BackgroundSelector />
-                          
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <OutputFormatSelector />
+                            <BackgroundSelector />
+                          </div>
+
                           {/* Thumbnail Information */}
                           <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
                             <div className="flex items-center gap-2">
                               <Info className="w-5 h-5 text-gray-400" />
-                              <p className="text-gray-300 text-sm">All thumbnails are generated at 1536×1024 resolution in high quality PNG format with optional transparency.</p>
+                              <p className="text-gray-300 text-sm">
+                                Current format: {selectedOutputFormat.label} at {selectedOutputFormat.size}.
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -614,12 +700,14 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                               ))}
                             </div>
                           </div>
-                          
+
                           {/* Settings Group */}
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <OutputFormatSelector />
+
                             {/* Background Selector */}
                             <BackgroundSelector />
-                            
+
                             {/* Reference Image Detail (only shown when reference image present) */}
                             {referenceImage && (
                               <div>
@@ -647,12 +735,14 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                               </div>
                             )}
                           </div>
-                          
+
                           {/* Thumbnail Information */}
                           <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
                             <div className="flex items-center gap-2">
                               <Info className="w-5 h-5 text-gray-400" />
-                              <p className="text-gray-300 text-sm">All thumbnails are generated at 1536×1024 resolution in high quality PNG format with optional transparency.</p>
+                              <p className="text-gray-300 text-sm">
+                                Current format: {selectedOutputFormat.label} at {selectedOutputFormat.size}.
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -665,22 +755,17 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                     <div className="mt-8 space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-medium text-white">Generated Thumbnails</h3>
-                        <div className="flex items-center gap-2">
-                          {regenerationCount > 0 && (
-                            <span className="text-xs text-gray-400 bg-gray-800/80 px-2 py-1 rounded-full">
-                              Regeneration {regenerationCount}/{MAX_REGENERATIONS}
-                            </span>
-                          )}
-                          <span className="text-sm text-gray-400 bg-gray-800/50 px-3 py-1 rounded-full">
-                            {lastPromptUsed.length > 30 ? lastPromptUsed.substring(0, 30) + '...' : lastPromptUsed}
+                        {regenerationCount > 0 && (
+                          <span className="text-xs text-gray-400 bg-gray-800/80 px-2 py-1 rounded-full">
+                            Regeneration {regenerationCount}/{MAX_REGENERATIONS}
                           </span>
-                        </div>
+                        )}
                       </div>
                       
                       <div className="grid grid-cols-3 gap-4">
                         {generatedThumbnails.map((thumbnail, index) => (
                           <motion.div 
-                            key={index}
+                            key={`${thumbnail}-${index}`}
                             whileHover={{ y: -5, scale: 1.02 }}
                             transition={{ type: "spring", stiffness: 300, damping: 15 }}
                             className={`
@@ -694,7 +779,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                             <img 
                               src={thumbnail} 
                               alt={`Generated thumbnail ${index + 1}`} 
-                              className="w-full aspect-video object-cover"
+                              className={`w-full ${thumbnailAspectClass} object-cover`}
                             />
                             
                             {/* Batch indicator for recent generation */}
@@ -725,15 +810,65 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                                 window.open(thumbnail, '_blank');
                               }}
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                <polyline points="15 3 21 3 21 9"></polyline>
-                                <line x1="10" y1="14" x2="21" y2="3"></line>
-                              </svg>
+                              <ExternalLink className="w-4 h-4 text-white" />
                             </motion.button>
                           </motion.div>
                         ))}
                       </div>
+
+                      {selectedThumbnail && (
+                        <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <div>
+                              <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                                <Wand2 className="w-4 h-4 text-[#fa7517]" />
+                                Refine selected thumbnail
+                              </h4>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {selectedThumbnailConversation
+                                  ? 'Continue editing this thumbnail while preserving the previous version as context.'
+                                  : 'Ask for a focused edit while keeping the selected thumbnail as the reference.'}
+                              </p>
+                            </div>
+                            {selectedThumbnailConversation && (
+                              <span className="shrink-0 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-2.5 py-1 text-[11px] font-medium text-[#ffb37a]">
+                                Follow-up ready
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col md:flex-row gap-3">
+                            <textarea
+                              value={refinementInstruction}
+                              onChange={(e) => setRefinementInstruction(e.target.value)}
+                              rows={2}
+                              placeholder="Example: make the expression more surprised, keep the same colors and composition"
+                              className="min-h-[76px] flex-1 rounded-xl border border-white/10 bg-gray-950/80 px-3 py-2 text-sm text-white placeholder:text-gray-600 outline-none resize-none focus:border-[#fa7517]/50 focus:ring-2 focus:ring-[#fa7517]/15"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleRefineSelectedThumbnail}
+                              disabled={isRefiningThumbnail || !refinementInstruction.trim()}
+                              className={`md:w-44 rounded-xl px-4 py-3 text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                                isRefiningThumbnail || !refinementInstruction.trim()
+                                  ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                                  : 'bg-white text-black hover:bg-[#fa7517]'
+                              }`}
+                            >
+                              {isRefiningThumbnail ? (
+                                <>
+                                  <RefreshCw className="w-4 h-4 animate-spin" />
+                                  Refining
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-4 h-4" />
+                                  Refine
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Regenerate Option */}
                       <motion.button
@@ -890,4 +1025,4 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
   );
 };
 
-export default AIThumbnailPanel; 
+export default AIThumbnailPanel;

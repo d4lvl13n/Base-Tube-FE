@@ -17,26 +17,17 @@ export const DescriptionDockProvider: React.FC<{ children: React.ReactNode }> = 
   const [isOpen, setIsOpen] = useState(false);
   const [video, setVideo] = useState<Video | null>(null);
   const playback = usePlayback();
+  const { current } = playback;
   const location = useLocation();
 
   const open = useCallback((v: Video) => {
     setVideo(v);
     setIsOpen(true);
-    try {
-      const t = playback.getPrimaryTime();
-      playback.pausePrimary();
-      playback.setMiniStartAt(t);
-      playback.minimize();
-    } catch {}
-  }, [playback]);
+  }, []);
 
   const close = useCallback(() => {
     setIsOpen(false);
-    // Heuristic: restore only on watch pages
-    if (window.location.pathname.startsWith('/video/')) {
-      playback.restore();
-    }
-  }, [playback]);
+  }, []);
 
   const toggle = useCallback((v?: Video) => {
     if (isOpen) {
@@ -65,11 +56,11 @@ export const DescriptionDockProvider: React.FC<{ children: React.ReactNode }> = 
         e.preventDefault();
         if (isOpen) {
           close();
-        } else if (playback.current) {
+        } else if (current) {
           // Open with a minimal video payload if we don't have a full video
           const v = video ?? ({
-            id: Number(playback.current.videoId),
-            title: playback.current.title || '',
+            id: Number(current.videoId),
+            title: current.title || '',
             description: '',
           } as unknown as Video);
           open(v);
@@ -78,7 +69,7 @@ export const DescriptionDockProvider: React.FC<{ children: React.ReactNode }> = 
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, open, close, playback.current, video]);
+  }, [isOpen, open, close, current, video]);
 
   const value = useMemo<DescriptionDockState>(() => ({ isOpen, video, open, close, toggle }), [isOpen, video, open, close, toggle]);
 
@@ -94,5 +85,3 @@ export const useDescriptionDock = (): DescriptionDockState => {
   if (!ctx) throw new Error('useDescriptionDock must be used within DescriptionDockProvider');
   return ctx;
 };
-
-

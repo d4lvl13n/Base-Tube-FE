@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { onchainPassApi } from '../api/onchainPass';
 import { queryKeys } from '../utils/queryKeys';
 import type {
@@ -10,11 +11,23 @@ import type {
   OnchainPurchaseStatus,
   CryptoPurchaseResponse,
   CryptoPurchaseRequest,
+  CryptoPurchasePhase,
   PendingPurchasesResponse,
   MintPendingResponse,
   MintPendingRequest,
 } from '../types/onchainPass';
 import type { CryptoQuote } from '../types/onchainPass';
+import {
+  confirmWithRetry,
+  CryptoConfirmHardConflictError,
+} from '../utils/cryptoConfirmRetry';
+import {
+  clearCryptoCheckoutContext,
+  persistCryptoCheckoutContext,
+  readCryptoCheckoutContext,
+  updateCryptoCheckoutPhase,
+} from '../utils/checkoutStorage';
+import { getPassErrorMessage } from '../utils/passErrorMessages';
 import { trackOnchainEvent } from '../utils/metrics';
 import { useAccount, useChainId, useConfig, useSwitchChain, useWalletClient } from 'wagmi';
 import { encodeFunctionData } from 'viem';
@@ -180,8 +193,42 @@ export const useCryptoCheckout = (passId?: string | null) => {
 
 /**
  * Direct on-chain purchase using fetched ABI + wallet signer.
+ *
+ * Flow: reserve quote → await signature → broadcast → wait receipt →
+ * POST /crypto/confirm (with transient-409 retries) → fall back to /status
+ * polling if confirm can't finalize. Persists in-flight state to localStorage
+ * so {@link useCryptoResumeConfirm} can finish the job on refresh/reopen.
  */
-export const useCryptoDirectBuy = (passId?: string | null) => {
+export type CryptoDirectBuyResult = UseMutationResult<
+  {
+    hash: `0x${string}`;
+    explorerUrl?: string;
+    purchaseId?: string;
+    reservationId?: string;
+    expiresAt?: string;
+    status?: OnchainPurchaseStatus;
+  },
+  Error,
+  {
+    quantity: number;
+    validSeconds?: number;
+    confirmations?: number;
+    accessPollTimeoutMs?: number;
+    accessPollIntervalMs?: number;
+  }
+> & {
+  phase: CryptoPurchasePhase;
+  errorMessage: string | null;
+  lastTxHash: `0x${string}` | null;
+  lastExplorerUrl: string | null;
+  hardConflict: boolean;
+  resetPhase: () => void;
+  retryPendingConfirmation: () => Promise<boolean>;
+  markCompletedFromResume: (detail?: { txHash?: string | null; explorerUrl?: string | null }) => void;
+  markConflictFromResume: (message: string, detail?: { txHash?: string | null; explorerUrl?: string | null }) => void;
+};
+
+export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResult => {
   const { address } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
@@ -196,7 +243,101 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
     staleTime: 5 * 60_000,
   });
 
-  return useMutation<
+  // Phase state is exposed alongside the react-query mutation so the UI can
+  // render precise copy at every step (wallet prompt → tx pending → confirming).
+  const [phase, setPhase] = useState<CryptoPurchasePhase>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hardConflict, setHardConflict] = useState(false);
+  const [lastTxHash, setLastTxHash] = useState<`0x${string}` | null>(null);
+  const [lastExplorerUrl, setLastExplorerUrl] = useState<string | null>(null);
+
+  const resetPhase = useCallback(() => {
+    setPhase('idle');
+    setErrorMessage(null);
+    setHardConflict(false);
+    setLastTxHash(null);
+    setLastExplorerUrl(null);
+  }, []);
+
+  const markCompletedFromResume = useCallback((detail?: { txHash?: string | null; explorerUrl?: string | null }) => {
+    setErrorMessage(null);
+    setHardConflict(false);
+    setPhase('completed');
+    if (detail?.txHash) setLastTxHash(detail.txHash as `0x${string}`);
+    if (detail?.explorerUrl) setLastExplorerUrl(detail.explorerUrl);
+  }, []);
+
+  const markConflictFromResume = useCallback(
+    (message: string, detail?: { txHash?: string | null; explorerUrl?: string | null }) => {
+      setErrorMessage(message || 'Purchase already confirmed with a different transaction hash.');
+      setHardConflict(true);
+      setPhase('failed');
+      if (detail?.txHash) setLastTxHash(detail.txHash as `0x${string}`);
+      if (detail?.explorerUrl) setLastExplorerUrl(detail.explorerUrl);
+    },
+    [],
+  );
+
+  const retryPendingConfirmation = useCallback(async (): Promise<boolean> => {
+    const ctx = readCryptoCheckoutContext();
+    if (!ctx || ctx.passId !== passId || !ctx.purchaseId || !ctx.txHash) {
+      return false;
+    }
+
+    try {
+      setErrorMessage(null);
+      setHardConflict(false);
+      setLastTxHash(ctx.txHash as `0x${string}`);
+      setLastExplorerUrl(ctx.explorerUrl || null);
+      setPhase('confirming');
+      updateCryptoCheckoutPhase('confirming');
+
+      const resp = await confirmWithRetry(
+        () => onchainPassApi.confirmCryptoPurchase(ctx.purchaseId, ctx.txHash),
+        {
+          onAttempt: (n) => {
+            trackOnchainEvent('onchain.crypto.confirm.retry.attempt', {
+              purchaseId: ctx.purchaseId,
+              attempt: n,
+              source: 'ui-retry',
+            });
+          },
+        },
+      );
+
+      setPhase('completed');
+      clearCryptoCheckoutContext();
+      client.invalidateQueries({ queryKey: queryKeys.onchainPass.accessList() });
+      if (passId) {
+        client.invalidateQueries({ queryKey: queryKeys.onchainPass.access(passId) });
+        client.invalidateQueries({ queryKey: ['pass', passId] });
+      }
+      client.invalidateQueries({ queryKey: queryKeys.onchainPass.purchaseStatus(ctx.purchaseId) });
+      client.invalidateQueries({ queryKey: ['purchased-passes'] });
+      trackOnchainEvent('onchain.crypto.confirm.retry.success', {
+        purchaseId: ctx.purchaseId,
+        status: resp?.data?.status,
+      });
+      return true;
+    } catch (err) {
+      if (err instanceof CryptoConfirmHardConflictError) {
+        clearCryptoCheckoutContext();
+        setErrorMessage(err.message);
+        setHardConflict(true);
+        setPhase('failed');
+        trackOnchainEvent('onchain.crypto.confirm.retry.hard_conflict', { purchaseId: ctx.purchaseId });
+        return false;
+      }
+
+      setErrorMessage(err instanceof Error ? err.message : 'Confirm failed. Please try again.');
+      setHardConflict(false);
+      setPhase('failed');
+      trackOnchainEvent('onchain.crypto.confirm.retry.failed', { purchaseId: ctx.purchaseId });
+      return false;
+    }
+  }, [client, passId]);
+
+  const mutation = useMutation<
     {
       hash: `0x${string}`;
       explorerUrl?: string;
@@ -215,6 +356,9 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
       accessPollTimeoutMs = 60_000,
       accessPollIntervalMs = 2500,
     }) => {
+      setErrorMessage(null);
+      setHardConflict(false);
+      setPhase('reserving');
       if (!passId) throw new Error('passId is required');
       if (!address) throw new Error('Wallet not connected');
       const abiResp = abiQuery.data || (await contractsApi.getContentLedgerAbi());
@@ -305,6 +449,7 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
         ],
       });
       try { console.log('[CryptoPay] sendTransaction', { to: abiResp.address, value: minPriceBN.toString(), dataLen: data.length, chainId: desiredChainId }); } catch {}
+      setPhase('awaiting-signature');
       const hash = await activeWalletClient.sendTransaction({
         account: address as `0x${string}`,
         to: abiResp.address as `0x${string}`,
@@ -313,18 +458,94 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
         chain: targetChain,
       });
       try { console.log('[CryptoPay] tx submitted', { hash }); } catch {}
+      setPhase('tx-pending');
       const explorerUrl = getExplorerTxUrl(desiredChainId, hash as string);
+      setLastTxHash(hash as `0x${string}`);
+      setLastExplorerUrl(explorerUrl || null);
 
-      // UX: wait for confirmations, then poll access endpoint (auth required)
+      // Persist in-flight context so a refresh/reopen can finish via
+      // useCryptoResumeConfirm even if this tab/session dies.
+      if (quote.purchase_id) {
+        persistCryptoCheckoutContext({
+          purchaseId: quote.purchase_id,
+          passId,
+          txHash: hash as string,
+          phase: 'tx-pending',
+          explorerUrl,
+        });
+      }
+
+      // UX: wait for confirmations, then POST /crypto/confirm. Fall back to
+      // /status polling only if confirm is exhausted/unavailable.
       try {
         const publicClient = getPublicClient(wagmiConfig, { chainId: desiredChainId });
         await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}`, confirmations });
         try { console.log('[CryptoPay] tx confirmed', { hash, confirmations }); } catch {}
       } catch (e) {
-        try { console.warn('[CryptoPay] waitForTransactionReceipt failed (continuing to access poll)', e); } catch {}
+        try { console.warn('[CryptoPay] waitForTransactionReceipt failed (continuing to confirm/poll)', e); } catch {}
       }
 
       let finalStatus: OnchainPurchaseStatus | undefined;
+
+      // Primary path: ask the backend to finalize immediately.
+      if (quote.purchase_id) {
+        setPhase('confirming');
+        updateCryptoCheckoutPhase('confirming');
+        try {
+          const confirmResp = await confirmWithRetry(
+            () => onchainPassApi.confirmCryptoPurchase(quote.purchase_id!, hash as string),
+            {
+              onAttempt: (n) => {
+                try { console.log('[CryptoPay] confirm attempt', { attempt: n, purchaseId: quote.purchase_id }); } catch {}
+                trackOnchainEvent('onchain.crypto.confirm.attempt', {
+                  purchaseId: quote.purchase_id,
+                  attempt: n,
+                });
+              },
+              onGiveUp: (kind, n) => {
+                trackOnchainEvent('onchain.crypto.confirm.give_up', {
+                  purchaseId: quote.purchase_id,
+                  kind,
+                  attempt: n,
+                });
+              },
+            },
+          );
+          finalStatus = confirmResp?.data?.status;
+          trackOnchainEvent('onchain.crypto.confirm.success', {
+            purchaseId: quote.purchase_id,
+            status: finalStatus,
+            alreadyConfirmed: confirmResp?.data?.alreadyConfirmed,
+          });
+          setPhase('completed');
+          clearCryptoCheckoutContext();
+          return {
+            hash: hash as `0x${string}`,
+            explorerUrl,
+            purchaseId: quote.purchase_id,
+            reservationId: quote.reservation_id,
+            expiresAt: quote.expires_at,
+            status: finalStatus,
+          };
+        } catch (err) {
+          if (err instanceof CryptoConfirmHardConflictError) {
+            setErrorMessage(err.message);
+            setHardConflict(true);
+            setPhase('failed');
+            clearCryptoCheckoutContext();
+            trackOnchainEvent('onchain.crypto.confirm.hard_conflict', {
+              purchaseId: quote.purchase_id,
+            });
+            throw err;
+          }
+          // Transient/5xx/network exhausted — fall through to status polling.
+          try { console.warn('[CryptoPay] confirm exhausted, falling back to /status polling', err); } catch {}
+          setPhase('polling');
+          updateCryptoCheckoutPhase('polling');
+        }
+      }
+
+      // Fallback path: existing reconcile-friendly polling loop.
       const startedAt = Date.now();
       while (Date.now() - startedAt < accessPollTimeoutMs) {
         try {
@@ -347,6 +568,20 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
         await new Promise((r) => setTimeout(r, accessPollIntervalMs));
       }
 
+      // If polling observed a terminal/entitled state we can call it done.
+      if (isPurchaseTerminal(finalStatus) || hasPurchaseEntitlement(finalStatus)) {
+        setPhase('completed');
+        clearCryptoCheckoutContext();
+      } else {
+        setPhase('failed');
+        setErrorMessage('We could not confirm your purchase yet. Use Try again to resume confirmation.');
+        trackOnchainEvent('onchain.crypto.polling.timeout', {
+          purchaseId: quote.purchase_id,
+          passId,
+        });
+        throw new Error('Purchase confirmation timed out');
+      }
+
       return {
         hash: hash as `0x${string}`,
         explorerUrl,
@@ -356,6 +591,13 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
         status: finalStatus,
       };
     },
+    onError: (err) => {
+      if (!(err instanceof CryptoConfirmHardConflictError)) {
+        const parsed = getPassErrorMessage(err);
+        setErrorMessage(parsed.message);
+        setPhase('failed');
+      }
+    },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: queryKeys.onchainPass.accessList() });
       if (passId) {
@@ -364,6 +606,112 @@ export const useCryptoDirectBuy = (passId?: string | null) => {
       }
     },
   });
+
+  return Object.assign(mutation, {
+    phase,
+    errorMessage,
+    lastTxHash,
+    lastExplorerUrl,
+    hardConflict,
+    resetPhase,
+    retryPendingConfirmation,
+    markCompletedFromResume,
+    markConflictFromResume,
+  }) as CryptoDirectBuyResult;
+};
+
+/**
+ * Resume an in-flight crypto purchase on app mount.
+ *
+ * Reads localStorage for a {@link persistCryptoCheckoutContext} blob and, if the
+ * receipt-bearing txHash is still pending finalization, re-attempts confirm
+ * silently in the background. Mount once at the app root.
+ */
+export const useCryptoResumeConfirm = () => {
+  const queryClient = useQueryClient();
+  // Guards against React Strict Mode double-invoke in development.
+  const hasRunRef = useRef(false);
+
+  useEffect(() => {
+    if (hasRunRef.current) return;
+    hasRunRef.current = true;
+
+    const ctx = readCryptoCheckoutContext();
+    if (!ctx || !ctx.purchaseId || !ctx.txHash) return;
+    if (ctx.phase === 'completed' || ctx.phase === 'failed') {
+      clearCryptoCheckoutContext();
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      trackOnchainEvent('onchain.crypto.resume.start', {
+        purchaseId: ctx.purchaseId,
+        phase: ctx.phase,
+      });
+      updateCryptoCheckoutPhase('confirming');
+      try {
+        const resp = await confirmWithRetry(
+          () => onchainPassApi.confirmCryptoPurchase(ctx.purchaseId, ctx.txHash),
+        );
+        if (cancelled) return;
+        trackOnchainEvent('onchain.crypto.resume.success', {
+          purchaseId: ctx.purchaseId,
+          status: resp?.data?.status,
+        });
+        clearCryptoCheckoutContext();
+        queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.accessList() });
+        queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.access(ctx.passId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.onchainPass.purchaseStatus(ctx.purchaseId) });
+        queryClient.invalidateQueries({ queryKey: ['pass', ctx.passId] });
+        queryClient.invalidateQueries({ queryKey: ['purchased-passes'] });
+        try {
+          window.dispatchEvent(
+            new CustomEvent('crypto-purchase:resumed', {
+              detail: {
+                purchaseId: ctx.purchaseId,
+                passId: ctx.passId,
+                status: resp?.data?.status,
+                txHash: ctx.txHash,
+                explorerUrl: ctx.explorerUrl || null,
+              },
+            }),
+          );
+        } catch {}
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof CryptoConfirmHardConflictError) {
+          clearCryptoCheckoutContext();
+          trackOnchainEvent('onchain.crypto.resume.hard_conflict', {
+            purchaseId: ctx.purchaseId,
+          });
+          try {
+            window.dispatchEvent(
+              new CustomEvent('crypto-purchase:conflict', {
+                detail: {
+                  purchaseId: ctx.purchaseId,
+                  passId: ctx.passId,
+                  message: err.message,
+                  txHash: ctx.txHash,
+                  explorerUrl: ctx.explorerUrl || null,
+                },
+              }),
+            );
+          } catch {}
+          return;
+        }
+        // Transient/5xx exhausted — leave context in place; reconcile will
+        // pick it up server-side and the next resume attempt can retry.
+        try { console.warn('[CryptoPay] resume confirm exhausted, leaving context for next attempt', err); } catch {}
+        trackOnchainEvent('onchain.crypto.resume.give_up', { purchaseId: ctx.purchaseId });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 };
 
 const CHAIN_BY_ID: Record<number, Chain> = {

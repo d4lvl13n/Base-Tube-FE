@@ -1,6 +1,8 @@
 // src/types/ctr.ts
 // CTR Thumbnail Engine Types
 
+import type { ThumbnailSizePreset } from './thumbnail';
+
 // ============================================================================
 // ACCESS TYPES
 // ============================================================================
@@ -278,7 +280,7 @@ export interface GenerateRequest {
   includeFace?: boolean;
   concepts?: number;        // 1-5, default 3
   quality?: 'low' | 'medium' | 'high';
-  size?: '1024x1024' | '1536x1024' | '1024x1536';
+  size?: ThumbnailSizePreset;
 }
 
 export interface CTRGenerationResponse {

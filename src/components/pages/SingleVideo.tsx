@@ -17,7 +17,7 @@ import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 import CommentPanel from '../common/Video/Comments/CommentPanel';
 import { useVideoContext } from '../../contexts/VideoContext';
-import { RadialMenu } from '../common/Video/RadialMenu/RadialMenu';
+import VideoActionWheel from '../common/Video/VideoActionWheel/VideoActionWheel';
 import { useComments } from '../../hooks/useComments';
 import { useLikes } from '../../hooks/useLikes';
 import { useWindowSize } from '../../hooks/useWindowSize';
@@ -25,6 +25,7 @@ import { SharePopup } from '../common/SharePopup/SharePopup';
 import { PersistentCreatorBar } from '../common/Video/PersistentCreatorBar';
 import { DiscoveryPanel } from '../common/Video/DiscoveryPanel';
 import { InfoPanel } from '../common/Video/InfoPanel';
+import { useDescriptionDock } from '../../contexts/DescriptionDockContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
 
@@ -39,6 +40,7 @@ const SingleVideo: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<VideoPlayerRef | null>(null) as MutableRefObject<VideoPlayerRef | null>;
   const { isCommentsPanelOpen, setIsCommentsPanelOpen, isInfoPanelOpen, setIsInfoPanelOpen } = useVideoContext();
+  const { open: openDescriptionDock } = useDescriptionDock();
   const playback = usePlayback();
   const { setSource } = playback;
   const commentsData = useComments({
@@ -263,6 +265,13 @@ const SingleVideo: React.FC = () => {
     setIsSharePopupOpen(true);
   };
 
+  const handleInfoOpen = useCallback(() => {
+    if (!video) return;
+    setIsCommentsPanelOpen(false);
+    setIsInfoPanelOpen(false);
+    openDescriptionDock(video);
+  }, [openDescriptionDock, setIsCommentsPanelOpen, setIsInfoPanelOpen, video]);
+
   if (error) {
     return (
       <div className="flex flex-col bg-black text-white min-h-screen">
@@ -358,17 +367,17 @@ const SingleVideo: React.FC = () => {
           </main>
       </div>
 
-      {/* Radial Menu */}
+      {/* Video Action Wheel */}
       <AnimatePresence>
         {showInterface && (
           <motion.div
-            className="radial-menu-wrapper fixed bottom-0 right-0 z-[60] pointer-events-none"
+            className="pointer-events-none fixed inset-0 z-[60]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <div className="pointer-events-auto">
-              <RadialMenu
+              <VideoActionWheel
                 videoId={video.id.toString()}
                 videoTitle={video.title}
                 commentCount={commentsData.totalComments}
@@ -376,7 +385,9 @@ const SingleVideo: React.FC = () => {
                 isLiked={isLiked}
                 onLike={handleLike}
                 isTogglingLike={isTogglingLike}
+                onCommentsOpen={() => setIsCommentsPanelOpen(true)}
                 onSharePopupOpen={handleSharePopupOpen}
+                onInfoOpen={handleInfoOpen}
               />
             </div>
           </motion.div>
@@ -413,6 +424,7 @@ const SingleVideo: React.FC = () => {
         onClose={() => setIsSharePopupOpen(false)}
         videoUrl={shareUrl}
         title={shareTitle}
+        videoId={video.id.toString()}
       />
 
       {/* Persistent Creator Bar - shows when interface is hidden during playback (desktop only) */}

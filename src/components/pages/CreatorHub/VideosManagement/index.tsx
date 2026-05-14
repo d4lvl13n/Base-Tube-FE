@@ -151,6 +151,21 @@ const VideosManagement: React.FC = () => {
     return <div className="p-6 text-red-500">Failed to load videos</div>;
   }
 
+  if (editingVideo) {
+    return (
+      <div className="relative pt-24">
+        <div className="px-4 md:px-6 max-w-[1920px] mx-auto">
+          <EditVideoModal
+            video={editingVideo}
+            isOpen={!!editingVideo}
+            onClose={() => setEditingVideo(null)}
+            onUpdate={handleUpdateVideo}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative pt-24">
       <div className="px-4 md:px-6 space-y-6 max-w-[1920px] mx-auto">
@@ -181,16 +196,6 @@ const VideosManagement: React.FC = () => {
             onSort={handleSort}
           />
         </div>
-
-        {editingVideo && (
-          <EditVideoModal
-            video={editingVideo}
-            isOpen={!!editingVideo}
-            onClose={() => setEditingVideo(null)}
-            onUpdate={handleUpdateVideo}
-          />
-        )}
-
         {deletingVideo && (
           <DeleteConfirmationDialog
             isOpen={!!deletingVideo}
@@ -205,4 +210,4 @@ const VideosManagement: React.FC = () => {
   );
 };
 
-export default VideosManagement; 
+export default VideosManagement;

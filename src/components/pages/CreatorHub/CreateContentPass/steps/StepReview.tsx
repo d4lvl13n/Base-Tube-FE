@@ -8,11 +8,13 @@ import ContentPassSuccessAnimation from '../../../../animations/ContentPassSucce
 
 interface StepReviewProps {
   watch: UseFormWatch<FormData>;
-  onConfirm?: () => void; // Optional callback for confirmation
-  isLoading?: boolean; // Add loading state prop
-  isSuccess?: boolean; // Add success state prop
-  onContinue?: () => void; // Callback for when the user clicks continue after success
+  onConfirm?: () => void;
+  isLoading?: boolean;
+  isSuccess?: boolean;
+  onContinue?: () => void;
   submitError?: string | null;
+  submitErrorAction?: 'link-youtube' | 'verify-channel' | null;
+  onStartOAuth?: () => void;
   onBackToVideos?: () => void;
 }
 
@@ -71,13 +73,15 @@ const getSourceLabel = (url?: string) => {
   }
 };
 
-const StepReview: React.FC<StepReviewProps> = ({ 
-  watch, 
-  onConfirm, 
+const StepReview: React.FC<StepReviewProps> = ({
+  watch,
+  onConfirm,
   isLoading,
   isSuccess,
   onContinue,
   submitError,
+  submitErrorAction,
+  onStartOAuth,
   onBackToVideos
 }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -285,23 +289,44 @@ const StepReview: React.FC<StepReviewProps> = ({
         >
           {submitError && (
             <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 rounded-full bg-red-500/15 p-2 text-red-300">
                     <AlertTriangle className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="font-medium text-red-200">Launch blocked by validation</p>
+                    <p className="font-medium text-red-200">Could not create pass</p>
                     <p className="mt-1 text-sm text-red-100/90">{submitError}</p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={onBackToVideos}
-                  className="inline-flex items-center justify-center rounded-full border border-red-200/15 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/5"
-                >
-                  Back to videos
-                </button>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {submitErrorAction === 'link-youtube' && onStartOAuth && (
+                    <button
+                      type="button"
+                      onClick={onStartOAuth}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-4 py-2 text-sm font-medium text-[#fa7517] transition-colors hover:bg-[#fa7517]/20"
+                    >
+                      Connect YouTube
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {submitErrorAction === 'verify-channel' && (
+                    <a
+                      href="/creator-hub/channels"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-4 py-2 text-sm font-medium text-[#fa7517] transition-colors hover:bg-[#fa7517]/20"
+                    >
+                      Check channel status
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onBackToVideos}
+                    className="inline-flex items-center justify-center rounded-full border border-red-200/15 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/5"
+                  >
+                    Back to videos
+                  </button>
+                </div>
               </div>
             </div>
           )}

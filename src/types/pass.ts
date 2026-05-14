@@ -55,8 +55,14 @@ export interface AddVideoRequest {
   duration?: number;           // optional, duration in seconds
 }
 
+export type PurchaseBlockReasonCode =
+  | 'PASS_NOT_ONCHAIN'
+  | 'PASS_SALE_INACTIVE'
+  | 'PASS_SOLD_OUT';
+
 export interface Pass {
   id: string;
+  onchain_pass_id?: number | null;
   /** SEO-friendly slug generated from title */
   slug?: string;
   title: string;
@@ -69,6 +75,9 @@ export interface Pass {
   minted_count?: number; // Number of passes minted on-chain
   reserved_count?: number; // Number of passes reserved (Stripe purchases pending mint)
   has_access?: boolean;  // Whether user has access to this pass (purchaser or creator)
+  can_purchase?: boolean;
+  purchase_block_reason_code?: PurchaseBlockReasonCode | string | null;
+  purchase_block_reason?: string | null;
   channel: {
     name: string;
     user: {

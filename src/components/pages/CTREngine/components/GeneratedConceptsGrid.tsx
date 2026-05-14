@@ -2,9 +2,11 @@
 // Premium grid display for generated thumbnail concepts
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Download, ExternalLink, ChevronRight, RefreshCw, Sparkles, BarChart2, Clock, Code } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Download, ExternalLink, RefreshCw, Sparkles, BarChart2, Clock } from 'lucide-react';
 import { GeneratedConcept } from '../../../../types/ctr';
+import type { ThumbnailConversationState, ThumbnailOutputFormat } from '../../../../types/thumbnail';
+import { thumbnailApi } from '../../../../api/thumbnail';
 import { ScoreBadge } from './ScoreGauge';
 import { NicheBadge } from './NicheSelector';
 
@@ -12,6 +14,7 @@ interface GeneratedConceptsGridProps {
   concepts: GeneratedConcept[];
   detectedNiche: string | null;
   generationTime: number | null;
+  outputFormat?: ThumbnailOutputFormat;
   onClear: () => void;
   className?: string;
 }
@@ -19,16 +22,22 @@ interface GeneratedConceptsGridProps {
 interface ConceptCardProps {
   concept: GeneratedConcept;
   index: number;
+  outputFormat: ThumbnailOutputFormat;
 }
 
-const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index }) => {
+const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat }) => {
   const [isDownloading, setIsDownloading] = useState(false);
-  const [showPrompt, setShowPrompt] = useState(false);
+  const [currentThumbnailUrl, setCurrentThumbnailUrl] = useState(concept.thumbnailUrl);
+  const [refineInstruction, setRefineInstruction] = useState('');
+  const [conversation, setConversation] = useState<ThumbnailConversationState | null>(null);
+  const [isRefining, setIsRefining] = useState(false);
+  const [refineError, setRefineError] = useState<string | null>(null);
+  const imageAspectClass = outputFormat === 'short' ? 'aspect-[9/16]' : 'aspect-video';
 
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      const response = await fetch(concept.thumbnailUrl);
+      const response = await fetch(currentThumbnailUrl);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -45,6 +54,43 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index }) => {
     }
   };
 
+  const handleRefine = async () => {
+    const instruction = refineInstruction.trim();
+    if (!instruction) {
+      setRefineError('Describe the change you want to make.');
+      return;
+    }
+
+    setIsRefining(true);
+    setRefineError(null);
+
+    try {
+      const result = await thumbnailApi.refineThumbnailConversationally({
+        instruction,
+        imageUrl: conversation ? undefined : currentThumbnailUrl,
+        previousResponseId: conversation?.responseId,
+        imageGenerationCallId: conversation?.imageGenerationCallId,
+        size: outputFormat,
+        quality: 'high',
+      });
+
+      if (!result.data?.thumbnailUrl || !result.data?.conversation) {
+        throw new Error('The refinement response was missing thumbnail data.');
+      }
+
+      setCurrentThumbnailUrl(result.data.thumbnailUrl);
+      setConversation(result.data.conversation);
+      setRefineInstruction('');
+    } catch (error: any) {
+      setRefineError(error.response?.data?.error?.message ||
+                     error.response?.data?.message ||
+                     error.message ||
+                     'Failed to refine thumbnail.');
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -53,9 +99,9 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index }) => {
       className="group bg-white/5 rounded-2xl overflow-hidden border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300 backdrop-blur-sm"
     >
       {/* Thumbnail Image */}
-      <div className="relative aspect-video bg-black/40 overflow-hidden">
+      <div className={`relative ${imageAspectClass} bg-black/40 overflow-hidden`}>
         <img
-          src={concept.thumbnailUrl}
+          src={currentThumbnailUrl}
           alt={concept.conceptName}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
@@ -85,7 +131,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index }) => {
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            onClick={() => window.open(concept.thumbnailUrl, '_blank')}
+            onClick={() => window.open(currentThumbnailUrl, '_blank')}
             className="p-3 bg-white/20 text-white rounded-xl shadow-lg backdrop-blur-sm border border-white/20"
           >
             <ExternalLink className="w-5 h-5" />
@@ -105,31 +151,6 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index }) => {
           {concept.conceptDescription}
         </p>
 
-        {/* Prompt Toggle */}
-        <button
-          onClick={() => setShowPrompt(!showPrompt)}
-          className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1.5 mb-4"
-        >
-          <Code className="w-3.5 h-3.5" />
-          {showPrompt ? 'Hide' : 'Show'} generation prompt
-          <ChevronRight className={`w-3 h-3 transition-transform ${showPrompt ? 'rotate-90' : ''}`} />
-        </button>
-        
-        <AnimatePresence>
-          {showPrompt && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden mb-4"
-            >
-              <p className="p-3 bg-white/5 rounded-lg text-xs text-gray-400 font-mono border border-white/10">
-                {concept.prompt}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Actions */}
         <div className="flex gap-2">
           <motion.button
@@ -144,7 +165,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index }) => {
           </motion.button>
           
           <motion.a
-            href={`/ai-thumbnails/audit?url=${encodeURIComponent(concept.thumbnailUrl)}`}
+            href={`/ai-thumbnails/audit?url=${encodeURIComponent(currentThumbnailUrl)}`}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2"
@@ -152,6 +173,52 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index }) => {
             <BarChart2 className="w-4 h-4" />
             Audit
           </motion.a>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-white/10 bg-black/25 p-3">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <p className="text-xs font-semibold text-white flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#fa7517]" />
+              Refine
+            </p>
+            {conversation && (
+              <span className="rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-2 py-0.5 text-[10px] text-[#ffb37a]">
+                Follow-up
+              </span>
+            )}
+          </div>
+          <textarea
+            value={refineInstruction}
+            onChange={(e) => setRefineInstruction(e.target.value)}
+            rows={2}
+            placeholder="Make the face more surprised, keep everything else"
+            className="w-full resize-none rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-xs text-white placeholder:text-gray-600 outline-none focus:border-[#fa7517]/50"
+          />
+          {refineError && (
+            <p className="mt-2 text-xs text-red-300">{refineError}</p>
+          )}
+          <button
+            type="button"
+            onClick={handleRefine}
+            disabled={isRefining || !refineInstruction.trim()}
+            className={`mt-2 w-full rounded-lg px-3 py-2 text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
+              isRefining || !refineInstruction.trim()
+                ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                : 'bg-white text-black hover:bg-[#fa7517]'
+            }`}
+          >
+            {isRefining ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                Refining
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                Apply refinement
+              </>
+            )}
+          </button>
         </div>
       </div>
     </motion.div>
@@ -162,6 +229,7 @@ export const GeneratedConceptsGrid: React.FC<GeneratedConceptsGridProps> = ({
   concepts,
   detectedNiche,
   generationTime,
+  outputFormat = 'landscape',
   onClear,
   className = '',
 }) => {
@@ -199,7 +267,7 @@ export const GeneratedConceptsGrid: React.FC<GeneratedConceptsGridProps> = ({
       {/* Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {concepts.map((concept, index) => (
-          <ConceptCard key={concept.id} concept={concept} index={index} />
+          <ConceptCard key={concept.id} concept={concept} index={index} outputFormat={outputFormat} />
         ))}
       </div>
 

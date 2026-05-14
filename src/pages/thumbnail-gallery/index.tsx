@@ -1,24 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Search, Sliders, FileDown, Image, ArrowDownWideNarrow, X } from 'lucide-react';
-import { useAIThumbnailGallery } from '../../hooks/useAIthumbnail';
+import { ArrowUpRight, Image, Search, Sliders, Sparkles, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAIThumbnailInfiniteGallery } from '../../hooks/useAIthumbnail';
 import { ThumbnailGalleryParams } from '../../types/thumbnail';
 import { ThumbnailGrid } from '../../components/ThumbnailGallery/ThumbnailGrid';
 import { ThumbnailDetailDrawer } from '../../components/ThumbnailGallery/ThumbnailDetailDrawer';
 import { cn } from '../../lib/utils';
 import { formatNumber } from '../../utils/format';
 
+const PAGE_SIZE = 24;
+
+const sortOptions = [
+  { value: 'created_at-desc', label: 'Newest First' },
+  { value: 'created_at-asc', label: 'Oldest First' },
+  { value: 'download_count-desc', label: 'Most Popular' },
+  { value: 'download_count-asc', label: 'Least Popular' },
+];
+
 export default function ThumbnailGalleryPage() {
-  // Gallery state
-  const [params, setParams] = useState<ThumbnailGalleryParams>({
-    limit: 20,
-    offset: 0,
-    sort: 'created_at',
-    order: 'desc'
-  });
   const [selectedThumbnailId, setSelectedThumbnailId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [usageFilter, setUsageFilter] = useState<'all' | 'used' | 'unused'>('all');
   const [videoIdFilter, setVideoIdFilter] = useState<string>('');
@@ -26,119 +30,96 @@ export default function ThumbnailGalleryPage() {
     value: 'created_at-desc', 
     label: 'Newest First' 
   });
-  
-  // Filter options
-  const sortOptions = [
-    { value: 'created_at-desc', label: 'Newest First' },
-    { value: 'created_at-asc', label: 'Oldest First' },
-    { value: 'download_count-desc', label: 'Most Popular' },
-    { value: 'download_count-asc', label: 'Least Popular' },
-  ];
 
-  // Refs for infinite scrolling
   const loadMoreRef = useRef<HTMLDivElement>(null);
   
-  // Search input debouncing
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        setParams(prev => ({ ...prev, search: searchQuery || undefined, offset: 0 }));
-      }
-    }, 500);
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 350);
     
     return () => clearTimeout(timer);
   }, [searchQuery]);
-  
-  // Apply filters
-  useEffect(() => {
-    const [sort, order] = sortOption.value.split('-');
-    
-    let updatedParams: ThumbnailGalleryParams = {
-      ...params,
-      sort,
-      order: order as 'asc' | 'desc',
-      offset: 0 // Reset to first page when changing filters
-    };
-    
-    // Apply usage filter if not 'all'
-    if (usageFilter !== 'all') {
-      updatedParams.used = usageFilter === 'used';
-    } else {
-      delete updatedParams.used;
-    }
-    
-    // Apply videoId filter if present
-    if (videoIdFilter && !isNaN(parseInt(videoIdFilter))) {
-      updatedParams.videoId = parseInt(videoIdFilter);
-    } else {
-      delete updatedParams.videoId;
-    }
-    
-    setParams(updatedParams);
-  }, [sortOption, usageFilter, videoIdFilter]);
-  
-  // Fetch thumbnails
+
+  const [sort, order] = useMemo(() => {
+    const [nextSort, nextOrder] = sortOption.value.split('-');
+    return [nextSort, nextOrder as 'asc' | 'desc'];
+  }, [sortOption.value]);
+
+  const parsedVideoId = useMemo(() => {
+    const numericVideoId = Number(videoIdFilter.trim());
+    return Number.isInteger(numericVideoId) && numericVideoId > 0 ? numericVideoId : undefined;
+  }, [videoIdFilter]);
+
+  const galleryParams = useMemo<ThumbnailGalleryParams>(() => ({
+    limit: PAGE_SIZE,
+    search: debouncedSearchQuery || undefined,
+    used: usageFilter === 'all' ? undefined : usageFilter === 'used',
+    videoId: parsedVideoId,
+    sort,
+    order
+  }), [debouncedSearchQuery, order, parsedVideoId, sort, usageFilter]);
+
   const { 
     thumbnails, 
     totalCount, 
     hasMore, 
     isLoading, 
+    isError,
+    error,
     fetchThumbnailById,
     isFetching,
+    fetchNextPage,
+    isFetchingNextPage,
     refetch
-  } = useAIThumbnailGallery(params);
-  
-  // Load more thumbnails when scrolling to the bottom
-  const loadMore = () => {
-    if (!isLoading && !isFetching && hasMore) {
-      setParams(prev => ({ 
-        ...prev, 
-        offset: (prev.offset ?? 0) + (prev.limit ?? 20) 
-      }));
+  } = useAIThumbnailInfiniteGallery(galleryParams);
+
+  const isInitialLoading = isLoading && thumbnails.length === 0;
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !isLoading && !isFetching && !isFetchingNextPage) {
+      fetchNextPage();
     }
-  };
+  }, [fetchNextPage, hasMore, isFetching, isFetchingNextPage, isLoading]);
   
-  // Setup IntersectionObserver for infinite scrolling
   useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node) return;
+
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && hasMore && !isLoading && !isFetching) {
+        if (entries[0].isIntersecting) {
           loadMore();
         }
       },
-      { threshold: 0.1 }
+      { rootMargin: '600px 0px', threshold: 0 }
     );
     
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
+    observer.observe(node);
     
     return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current);
-      }
+      observer.unobserve(node);
     };
-  }, [hasMore, isLoading, isFetching]);
+  }, [loadMore]);
   
-  // Handle thumbnail selection
-  const handleThumbnailClick = (id: number) => {
+  const handleThumbnailClick = useCallback((id: number) => {
     setSelectedThumbnailId(id);
-  };
+  }, []);
   
-  // Clear all filters
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSearchQuery('');
+    setDebouncedSearchQuery('');
     setUsageFilter('all');
     setVideoIdFilter('');
     setSortOption({ value: 'created_at-desc', label: 'Newest First' });
-  };
+  }, []);
   
-  // Check if any filters are active
-  const hasActiveFilters = 
+  const hasActiveFilters = Boolean(
     searchQuery || 
     usageFilter !== 'all' || 
     videoIdFilter || 
-    sortOption.value !== 'created_at-desc';
+    sortOption.value !== 'created_at-desc'
+  );
   
   return (
     <>
@@ -149,51 +130,67 @@ export default function ThumbnailGalleryPage() {
         <meta property="og:description" content="Browse AI-generated thumbnails from Base.tube" />
       </Helmet>
       
-      <main className="flex flex-col min-h-screen bg-black">
+      <main className="flex flex-col min-h-screen bg-black text-white">
         {/* Hero Header */}
-        <section className="relative py-16 px-6 overflow-hidden bg-gradient-to-b from-gray-900 to-black border-b border-gray-800/30">
-          {/* Gradient Orb */}
-          <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-gradient-to-br from-[#fa7517]/30 to-[#ff8c3a]/5 blur-3xl pointer-events-none" />
-          
-          <div className="max-w-7xl mx-auto text-center">
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
+        <section className="relative px-6 pb-8 pt-10 border-b border-white/10 bg-[#050505]">
+          <div className="max-w-7xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400"
+              className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between"
             >
-              AI Thumbnail Gallery
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-[#fa7517]">
+                  <Image className="h-3.5 w-3.5" />
+                  AI Studio
+                </div>
+                <h1 className="text-4xl font-black tracking-normal text-white md:text-5xl">
+                  Thumbnail Gallery
+                </h1>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-gray-400">
+                  <span className="font-semibold text-white">{formatNumber(thumbnails.length)}</span>
+                  <span>loaded</span>
+                  <span className="text-gray-700">/</span>
+                  <span>{formatNumber(totalCount)} total</span>
+                </div>
+
+                <Link
+                  to="/ai-thumbnails/generate"
+                  className="inline-flex h-11 items-center gap-2 rounded-full border border-[#fa7517]/40 bg-[#fa7517] px-4 text-sm font-black text-black shadow-[0_0_30px_rgba(250,117,23,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#ff8a33]"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Create thumbnail
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="mt-4 text-gray-400 max-w-2xl mx-auto"
-            >
-              Browse, search and download AI-generated thumbnails to use in your own videos
-            </motion.p>
-            
-            {/* Search Bar */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="mt-8 max-w-2xl mx-auto flex items-center"
+              className="mt-8 flex items-stretch"
             >
               <div className="relative flex-1">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search thumbnails by prompt content..."
-                  className="w-full pl-12 pr-4 py-3 bg-gray-900/80 backdrop-blur-sm border border-gray-800/30 rounded-l-lg focus:outline-none focus:border-[#fa7517]/50 focus:ring-1 focus:ring-[#fa7517]/20 text-white"
+                  placeholder="Search prompt text"
+                  className="h-14 w-full rounded-l-full border border-white/10 bg-[#0a0a0a] pl-12 pr-12 text-base font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] outline-none transition-colors placeholder:text-gray-600 focus:border-[#fa7517]/50"
                 />
-                <Search className="absolute top-1/2 left-4 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
                 
                 {searchQuery && (
                   <button
+                    type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute top-1/2 right-4 transform -translate-y-1/2 text-gray-500 hover:text-white"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 transition-colors hover:text-white"
+                    aria-label="Clear search"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -201,13 +198,15 @@ export default function ThumbnailGalleryPage() {
               </div>
               
               <button
+                type="button"
                 onClick={() => setShowFilters(!showFilters)}
                 className={cn(
-                  "px-4 py-3 border border-gray-800/30 rounded-r-lg",
+                  "h-14 px-5 border border-l-0 border-white/10 rounded-r-full transition-colors",
                   showFilters 
-                    ? "bg-[#fa7517]/20 border-[#fa7517]/50 text-[#fa7517]" 
-                    : "bg-gray-900/80 text-gray-400 hover:text-white"
+                    ? "bg-[#fa7517] text-black"
+                    : "bg-[#0a0a0a] text-gray-400 hover:text-white"
                 )}
+                aria-label="Toggle filters"
               >
                 <Sliders className="w-5 h-5" />
               </button>
@@ -223,7 +222,7 @@ export default function ThumbnailGalleryPage() {
             opacity: showFilters ? 1 : 0
           }}
           transition={{ duration: 0.3 }}
-          className="sticky top-0 z-10 bg-black/80 backdrop-blur-lg border-b border-gray-800/30 overflow-hidden"
+          className="sticky top-0 z-10 bg-black/90 backdrop-blur-xl border-b border-white/10 overflow-hidden"
         >
           <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -231,8 +230,8 @@ export default function ThumbnailGalleryPage() {
               <div className="flex flex-1 flex-wrap items-center gap-4">
                 {/* Filter by Usage */}
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-500">Usage</label>
-                  <div className="flex bg-gray-900/60 rounded-lg p-1">
+                  <label className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Usage</label>
+                  <div className="flex rounded-full border border-white/10 bg-white/[0.03] p-1">
                     {[
                       { value: 'all', label: 'All' },
                       { value: 'used', label: 'Used' },
@@ -242,7 +241,7 @@ export default function ThumbnailGalleryPage() {
                         key={option.value}
                         onClick={() => setUsageFilter(option.value as any)}
                         className={cn(
-                          "text-sm px-3 py-1 rounded",
+                          "text-sm px-4 py-1.5 rounded-full font-semibold transition-colors",
                           usageFilter === option.value
                             ? "bg-[#fa7517] text-black"
                             : "text-gray-400 hover:text-white"
@@ -256,19 +255,20 @@ export default function ThumbnailGalleryPage() {
                 
                 {/* Filter by Video ID */}
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-500">Video ID</label>
+                  <label className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Video ID</label>
                   <input
                     type="text"
                     value={videoIdFilter}
                     onChange={(e) => setVideoIdFilter(e.target.value)}
-                    placeholder="Filter by Video ID..."
-                    className="px-3 py-1.5 w-32 text-sm bg-gray-900/60 border border-gray-800/30 rounded-lg focus:outline-none focus:border-[#fa7517]/50 text-white"
+                    placeholder="Any"
+                    inputMode="numeric"
+                    className="h-10 w-32 rounded-full border border-white/10 bg-white/[0.03] px-4 text-sm font-semibold text-white outline-none transition-colors placeholder:text-gray-600 focus:border-[#fa7517]/50"
                   />
                 </div>
                 
                 {/* Sort Options */}
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-500">Sort By</label>
+                  <label className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Sort By</label>
                   <select
                     value={sortOption.value}
                     onChange={(e) => {
@@ -277,7 +277,7 @@ export default function ThumbnailGalleryPage() {
                         setSortOption(selectedOption);
                       }
                     }}
-                    className="px-3 py-1.5 text-sm bg-gray-900/60 border border-gray-800/30 rounded-lg focus:outline-none focus:border-[#fa7517]/50 text-white"
+                    className="h-10 rounded-full border border-white/10 bg-[#0a0a0a] px-4 text-sm font-semibold text-white outline-none transition-colors focus:border-[#fa7517]/50"
                   >
                     {sortOptions.map(option => (
                       <option key={option.value} value={option.value}>
@@ -291,8 +291,9 @@ export default function ThumbnailGalleryPage() {
               {/* Clear Filters Button */}
               {hasActiveFilters && (
                 <button
+                  type="button"
                   onClick={clearFilters}
-                  className="text-sm text-[#fa7517] hover:underline flex items-center gap-1"
+                  className="flex items-center gap-1 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-4 py-2 text-sm font-semibold text-[#fa7517] transition-colors hover:bg-[#fa7517]/15"
                 >
                   <X className="w-4 h-4" />
                   Clear filters
@@ -306,25 +307,45 @@ export default function ThumbnailGalleryPage() {
         <section className="flex-1 py-8 px-6">
           <div className="max-w-7xl mx-auto">
             {/* Gallery Stats */}
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
               <div className="flex items-center gap-2">
-                <h2 className="text-white text-xl">{searchQuery ? 'Search Results' : 'Thumbnail Gallery'}</h2>
-                <div className="px-2 py-0.5 bg-gray-800 rounded-full text-xs text-gray-400">
+                <h2 className="text-white text-xl font-bold">{debouncedSearchQuery ? 'Search Results' : 'Gallery Feed'}</h2>
+                <div className="px-2.5 py-1 bg-white/[0.04] border border-white/10 rounded-full text-xs text-gray-400">
                   {formatNumber(totalCount)} thumbnails
                 </div>
               </div>
+              {isFetching && !isFetchingNextPage && !isInitialLoading && (
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-[#fa7517]">
+                  Refreshing
+                </div>
+              )}
             </div>
+
+            {isError && (
+              <div className="mb-6 flex flex-col gap-3 rounded-lg border border-red-500/20 bg-red-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-red-100">
+                  {error instanceof Error ? error.message : 'The thumbnail gallery could not be loaded.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  className="rounded-full border border-red-300/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
             
             {/* Thumbnail Grid */}
             <ThumbnailGrid 
               thumbnails={thumbnails}
-              isLoading={isLoading}
+              isLoading={isInitialLoading}
               onThumbnailClick={handleThumbnailClick}
             />
             
             {/* Load More Indicator */}
             <div ref={loadMoreRef} className="h-20 flex items-center justify-center">
-              {isFetching && hasMore && (
+              {isFetchingNextPage && hasMore && (
                 <div className="flex flex-col items-center pt-4">
                   <motion.div
                     animate={{ rotate: 360 }}
@@ -356,4 +377,4 @@ export default function ThumbnailGalleryPage() {
       </main>
     </>
   );
-} 
+}

@@ -1,30 +1,67 @@
 // src/types/thumbnail.ts
 
+export type ThumbnailOutputFormat = 'landscape' | 'short';
+
+export type ThumbnailSizePreset =
+  | ThumbnailOutputFormat
+  | 'youtube'
+  | 'platform'
+  | 'basetube'
+  | 'base-tube'
+  | 'shorts'
+  | 'tiktok'
+  | 'tiktok-short'
+  | 'youtube-short'
+  | 'youtube-shorts';
+
+export const THUMBNAIL_OUTPUT_FORMATS: Record<ThumbnailOutputFormat, {
+  label: string;
+  description: string;
+  size: '1536x864' | '1024x1792';
+  platforms: string;
+}> = {
+  landscape: {
+    label: 'YouTube / BaseTube',
+    description: 'Landscape thumbnail for long-form videos',
+    size: '1536x864',
+    platforms: 'YouTube, BaseTube',
+  },
+  short: {
+    label: 'Shorts / TikTok',
+    description: 'Vertical thumbnail for short-form feeds',
+    size: '1024x1792',
+    platforms: 'TikTok, Shorts',
+  },
+};
+
 export interface ThumbnailGenerationOptions {
   customPrompt?: string;
   /**
-   * @deprecated No longer used. All thumbnails are now generated at 1280x720 resolution. 
+   * @deprecated Use size instead.
    * Kept for backward compatibility.
    */
   width?: number;
   /**
-   * @deprecated No longer used. All thumbnails are now generated at 1280x720 resolution.
+   * @deprecated Use size instead.
    * Kept for backward compatibility.
    */
   height?: number;
   /**
-   * @deprecated No longer used. All thumbnails are now generated in high quality format.
+   * Rendering quality for GPT Image 2.
    * Kept for backward compatibility.
    */
   quality?: 'low' | 'medium' | 'high' | 'auto';
+  /**
+   * Product-approved thumbnail format.
+   * - landscape: YouTube/BaseTube, resolves server-side to 1536x864
+   * - short: TikTok/Shorts, resolves server-side to 1024x1792
+   */
+  size?: ThumbnailSizePreset;
   style?: string;
   /**
-   * Controls the background transparency of the generated thumbnail.
-   * - 'transparent': Creates PNG with transparency
-   * - 'opaque': Creates PNG with solid background
-   * - 'auto': Let the model decide based on the content
+   * GPT Image 2 does not support transparent backgrounds.
    */
-  background?: 'transparent' | 'opaque' | 'auto';
+  background?: 'opaque' | 'auto';
 }
 
 export interface ThumbnailGenerationResponse {
@@ -55,7 +92,6 @@ export interface ThumbnailWithReferenceOptions extends ThumbnailGenerationOption
   referenceImageDetail?: 'low' | 'high' | 'auto';
   // Async mode and generation tuning
   async?: boolean;
-  size?: '1024x1024' | '1536x1024' | '1024x1536';
   n?: number; // 1–10
 }
 
@@ -71,6 +107,30 @@ export interface ThumbnailWithReferenceResponse {
       thumbnailUrl: string;
       thumbnailPath?: string;
     }>;
+  };
+}
+
+export interface ThumbnailConversationState {
+  responseId: string;
+  imageGenerationCallId: string;
+  revisedPrompt?: string;
+}
+
+export interface ThumbnailRefinementOptions extends ThumbnailGenerationOptions {
+  instruction: string;
+  thumbnailId?: string | number;
+  imageUrl?: string;
+  image?: File;
+  previousResponseId?: string;
+  imageGenerationCallId?: string;
+}
+
+export interface ThumbnailRefinementResponse {
+  success: boolean;
+  data: {
+    thumbnailUrl: string;
+    shareUrl?: string;
+    conversation: ThumbnailConversationState;
   };
 }
 
@@ -121,4 +181,4 @@ export interface ThumbnailGalleryResponse {
   limit: number;
   offset: number;
   hasMore: boolean;
-} 
+}

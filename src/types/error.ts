@@ -73,6 +73,18 @@ export enum ErrorCode {
   PASS_NOT_FOUND = 'PASS_NOT_FOUND',
   PASS_EXPIRED = 'PASS_EXPIRED',
   INSUFFICIENT_ACCESS = 'INSUFFICIENT_ACCESS',
+
+  // Pass Creation Errors
+  CHANNEL_NOT_LINKED = 'CHANNEL_NOT_LINKED',
+  YOUTUBE_CHANNEL_NOT_VERIFIED = 'YOUTUBE_CHANNEL_NOT_VERIFIED',
+  CHANNEL_NOT_APPROVED = 'CHANNEL_NOT_APPROVED',
+  UNSUPPORTED_PLATFORM = 'UNSUPPORTED_PLATFORM',
+  VIDEO_OWNERSHIP_VERIFICATION_FAILED = 'VIDEO_OWNERSHIP_VERIFICATION_FAILED',
+  PASS_CREATE_RATE_LIMIT_EXCEEDED = 'PASS_CREATE_RATE_LIMIT_EXCEEDED',
+
+  // Pass Purchase Errors
+  PASS_CHANNEL_NOT_APPROVED = 'PASS_CHANNEL_NOT_APPROVED',
+  PASS_CONTENT_INVALID = 'PASS_CONTENT_INVALID',
   
   // Analytics Errors
   ANALYTICS_UNAVAILABLE = 'ANALYTICS_UNAVAILABLE',
@@ -132,6 +144,18 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.PASS_NOT_FOUND]: 'Content pass not found or no longer available.',
   [ErrorCode.PASS_EXPIRED]: 'This content pass has expired.',
   [ErrorCode.INSUFFICIENT_ACCESS]: 'You need to purchase this content pass to access this content.',
+
+  // Pass Creation Errors
+  [ErrorCode.CHANNEL_NOT_LINKED]: 'Your YouTube channel isn\'t connected yet. Link it to continue.',
+  [ErrorCode.YOUTUBE_CHANNEL_NOT_VERIFIED]: 'Your YouTube channel hasn\'t been verified. Complete verification to create passes.',
+  [ErrorCode.CHANNEL_NOT_APPROVED]: 'Your channel is pending approval. We\'ll notify you when it\'s ready.',
+  [ErrorCode.UNSUPPORTED_PLATFORM]: 'Only YouTube videos are supported right now.',
+  [ErrorCode.VIDEO_OWNERSHIP_VERIFICATION_FAILED]: 'We couldn\'t verify you own this video. Make sure it belongs to your linked YouTube channel.',
+  [ErrorCode.PASS_CREATE_RATE_LIMIT_EXCEEDED]: 'You\'ve created too many passes recently. Please wait a few minutes.',
+
+  // Pass Purchase Errors
+  [ErrorCode.PASS_CHANNEL_NOT_APPROVED]: 'This creator\'s channel hasn\'t been approved yet. Purchases are temporarily unavailable.',
+  [ErrorCode.PASS_CONTENT_INVALID]: 'This pass contains content that\'s no longer available.',
   
   // Analytics Errors
   [ErrorCode.ANALYTICS_UNAVAILABLE]: 'Analytics data is temporarily unavailable.',

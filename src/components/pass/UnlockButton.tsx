@@ -6,13 +6,14 @@ import { useRequireAuth } from '../../hooks/useRequireAuth';
 interface UnlockButtonProps {
   passId: string;
   className?: string;
+  onError?: (error: Error) => void;
 }
 
 /**
  * UnlockButton handles authentication gating and kicks off the Stripe checkout
  * It also checks if the user already owns the pass to prevent redundant purchases
  */
-export const UnlockButton: React.FC<UnlockButtonProps> = ({ passId, className }) => {
+export const UnlockButton: React.FC<UnlockButtonProps> = ({ passId, className, onError }) => {
   const requireAuth = useRequireAuth();
   const checkoutMutation = useCheckout();
   const { isPending: isCheckoutPending } = checkoutMutation;
@@ -37,7 +38,9 @@ export const UnlockButton: React.FC<UnlockButtonProps> = ({ passId, className })
     }
 
     // If doesn't own, proceed with checkout
-    checkoutMutation.mutate(passId);
+    checkoutMutation.mutate(passId, {
+      onError: (err) => onError?.(err),
+    });
   };
 
   return (

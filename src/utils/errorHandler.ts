@@ -92,29 +92,37 @@ export class ApiErrorHandler {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<StandardApiResponse>;
       
-      // Check if server returned structured error response
-      if (axiosError.response?.data?.error) {
-        const apiError = axiosError.response.data.error;
-        errorCode = this.mapStringToErrorCode(apiError.code);
-        technicalMessage = apiError.message;
-        details = apiError.details;
-      } else {
-        // Map HTTP status to error code
-        const status = axiosError.response?.status;
-        if (status && this.statusCodeMap[status]) {
-          errorCode = this.statusCodeMap[status];
+      const status = axiosError.response?.status;
+      if (status && this.statusCodeMap[status]) {
+        errorCode = this.statusCodeMap[status];
+      }
+
+      const responseData = axiosError.response?.data as any;
+      if (responseData?.error) {
+        if (typeof responseData.error === 'string') {
+          technicalMessage = responseData.error;
+        } else {
+          errorCode = this.mapStringToErrorCode(responseData.error.code) || errorCode;
+          technicalMessage = responseData.error.message || technicalMessage;
+          details = responseData.error.details;
         }
-        
+      }
+
+      if (responseData?.message && typeof responseData.message === 'string') {
+        technicalMessage = responseData.message;
+      }
+
+      if (!technicalMessage || technicalMessage === 'Unknown error occurred') {
         technicalMessage = axiosError.message;
-        
-        // Handle specific error cases
-        if (!axiosError.response) {
-          errorCode = ErrorCode.NETWORK_ERROR;
-          technicalMessage = 'Network error - no response received';
-        } else if (axiosError.code === 'ECONNABORTED') {
-          errorCode = ErrorCode.CONNECTION_TIMEOUT;
-          technicalMessage = 'Request timeout';
-        }
+      }
+
+      // Handle specific transport error cases
+      if (!axiosError.response) {
+        errorCode = ErrorCode.NETWORK_ERROR;
+        technicalMessage = 'Network error - no response received';
+      } else if (axiosError.code === 'ECONNABORTED') {
+        errorCode = ErrorCode.CONNECTION_TIMEOUT;
+        technicalMessage = 'Request timeout';
       }
     }
     // Handle Error objects
@@ -136,9 +144,24 @@ export class ApiErrorHandler {
     }
 
     // Build user-facing error
+    const hasUsefulTechnicalMessage =
+      typeof technicalMessage === 'string' &&
+      technicalMessage.trim().length > 0 &&
+      technicalMessage !== 'Unknown error occurred' &&
+      !/^Request failed with status code/i.test(technicalMessage);
+
+    const userFacingMessage =
+      hasUsefulTechnicalMessage &&
+      (errorCode === ErrorCode.UNKNOWN_ERROR ||
+        errorCode === ErrorCode.NOT_FOUND ||
+        errorCode === ErrorCode.VALIDATION_ERROR ||
+        errorCode === ErrorCode.INVALID_INPUT)
+        ? technicalMessage
+        : ErrorMessages[errorCode];
+
     const userFacingError: UserFacingError = {
       code: errorCode,
-      message: ErrorMessages[errorCode],
+      message: userFacingMessage,
       severity: this.severityMap[errorCode] || ErrorSeverity.MEDIUM,
       timestamp: new Date(),
       canRetry: this.canRetry(errorCode),
@@ -157,7 +180,10 @@ export class ApiErrorHandler {
   /**
    * Maps string error codes to ErrorCode enum
    */
-  private static mapStringToErrorCode(code: string): ErrorCode {
+  private static mapStringToErrorCode(code: string | undefined | null): ErrorCode {
+    if (!code || typeof code !== 'string') {
+      return ErrorCode.UNKNOWN_ERROR;
+    }
     // Convert to uppercase and check if it exists in ErrorCode enum
     const upperCode = code.toUpperCase() as ErrorCode;
     if (Object.values(ErrorCode).includes(upperCode)) {

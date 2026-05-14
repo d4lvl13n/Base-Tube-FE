@@ -200,13 +200,12 @@ describe('usePublicThumbnailGenerator', () => {
 
     expect(mockApiPost).toHaveBeenCalledWith('/api/v1/ctr/generate', {
       title: 'Web3 thumbnail prompt',
-      niche: 'general',
-      generateCount: 2,
-      config: {
-        aspectRatio: '16:9',
-        resolution: '1K',
-        includeFace: false,
-      },
+      prompt: 'Web3 thumbnail prompt',
+      style: undefined,
+      includeFace: false,
+      concepts: 2,
+      quality: 'high',
+      size: 'landscape',
     });
 
     expect(

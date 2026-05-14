@@ -1,75 +1,82 @@
-import React from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { PlayCircle, Shield, ShoppingBag, Gift, Clock3 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { PlayCircle, Wallet, Clock3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import UnlockButton from './UnlockButton';
 import { useAccount } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-// Pricing is computed by backend via quote; no client-side ETH parsing needed
-import { useState } from 'react';
 import { useCryptoDirectBuy } from '../../hooks/useOnchainPass';
-import { Wallet } from 'lucide-react';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
+import CryptoPurchaseModal from './CryptoPurchaseModal';
+import type { CryptoPurchasePhase } from '../../types/onchainPass';
+import { readCryptoCheckoutContext } from '../../utils/checkoutStorage';
+import { getPassErrorMessage } from '../../utils/passErrorMessages';
 
 interface PassActionButtonProps {
   pass: {
     id: string;
+    onchain_pass_id?: number | null;
     tier: string;
     formatted_price: string;
     supply_cap?: number;
     minted_count?: number;
     reserved_count?: number;
+    can_purchase?: boolean;
+    purchase_block_reason_code?: string | null;
+    purchase_block_reason?: string | null;
   };
   alreadyOwns: boolean;
   isAccessLoading: boolean;
 }
 
-const TierBadge: React.FC<{ tier: string }> = ({ tier }) => {
-  const getTierColor = (tier: string) => {
-    switch (tier.toLowerCase()) {
-      case 'bronze': return 'from-amber-500 to-amber-700 border-amber-400/30';
-      case 'silver': return 'from-slate-300 to-slate-500 border-slate-300/30';
-      case 'gold': return 'from-yellow-300 to-yellow-600 border-yellow-300/30';
-      case 'platinum': return 'from-sky-300 to-sky-600 border-sky-300/30';
-      default: return 'from-purple-400 to-purple-600 border-purple-300/30';
-    }
-  };
-
-  return (
-    <motion.span 
-      whileHover={{ scale: 1.05 }}
-      className={`text-xs font-bold uppercase px-3 py-1 rounded-full bg-gradient-to-r ${getTierColor(tier)} text-white border shadow-lg`}
-    >
-      {tier}
-    </motion.span>
-  );
+const BLOCK_REASON_FALLBACKS: Record<string, string> = {
+  PASS_NOT_ONCHAIN: 'Crypto unavailable for this pass yet.',
+  PASS_SALE_INACTIVE: 'This pass is not currently on sale.',
+  PASS_SOLD_OUT: 'This pass is sold out.',
 };
 
-const SupplyCap: React.FC<{ minted_count?: number, reserved_count?: number, total?: number }> = ({
-  minted_count = 0,
-  reserved_count = 0,
-  total
-}) => {
-  if (!total) return null;
+function getBlockMessage(pass: PassActionButtonProps['pass']): string | null {
+  if (pass.can_purchase !== false) return null;
+  if (pass.purchase_block_reason) return pass.purchase_block_reason;
+  if (pass.purchase_block_reason_code) {
+    return BLOCK_REASON_FALLBACKS[pass.purchase_block_reason_code] ?? 'This pass cannot be purchased right now.';
+  }
+  return 'This pass cannot be purchased right now.';
+}
 
-  // Include both minted and reserved (pending Stripe purchases) in sold count
-  const sold = minted_count + reserved_count;
-  const remaining = Math.max(0, total - sold);
-  const percentLeft = (remaining / total) * 100;
+const FROST_BORDER = 'border-[rgba(214,235,253,0.19)]';
 
-  // Different color based on scarcity
-  const getColor = () => {
-    if (percentLeft < 10) return 'text-red-400 border-red-400/30';
-    if (percentLeft < 30) return 'text-amber-400 border-amber-400/30';
-    return 'text-green-400 border-green-400/30';
-  };
+const PRIMARY_PILL =
+  'w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-white text-black font-medium text-sm tracking-tight transition-colors hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed';
 
-  return (
-    <span className={`text-xs px-3 py-1 rounded-full border ${getColor()} bg-black/40 backdrop-blur-sm ml-2`}>
-      {remaining} / {total} left
-    </span>
-  );
-};
+const SECONDARY_PILL = `w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-transparent text-[#f0f0f0] font-medium text-sm tracking-tight border ${FROST_BORDER} transition-colors hover:bg-white/[0.04] disabled:opacity-50 disabled:cursor-not-allowed`;
+
+/**
+ * Crypto-button label for inline display, driven by the crypto flow phase.
+ * Modal renders the full progress UI; this label is the CTA surface only.
+ */
+function cryptoButtonLabel(
+  phase: CryptoPurchasePhase,
+  isConnected: boolean,
+): string {
+  switch (phase) {
+    case 'reserving':
+      return 'Reserving quote…';
+    case 'awaiting-signature':
+      return 'Confirm in wallet…';
+    case 'tx-pending':
+      return 'Transaction pending…';
+    case 'confirming':
+      return 'Confirming purchase…';
+    case 'polling':
+      return 'Finishing up…';
+    case 'completed':
+      return 'Purchase complete';
+    case 'failed':
+      return 'Try again';
+    default:
+      return isConnected ? 'Buy with crypto' : 'Connect wallet for crypto';
+  }
+}
 
 const PassActionButton: React.FC<PassActionButtonProps> = ({
   pass,
@@ -77,151 +84,245 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
   isAccessLoading,
 }) => {
   const navigate = useNavigate();
-  const prefersReducedMotion = useReducedMotion();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const { openConnectModal } = useConnectModal();
-  // const chainId = useChainId();
-  // const { switchChain } = useSwitchChain();
   const requireAuth = useRequireAuth();
   const cryptoDirect = useCryptoDirectBuy(pass.id);
-  const [requestingQuote, setRequestingQuote] = useState(false);
+  const { markCompletedFromResume, markConflictFromResume, retryPendingConfirmation } = cryptoDirect;
   const [cryptoReservationExpiresAt, setCryptoReservationExpiresAt] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const [quantity] = useState(1);
-  // const [, setMinPriceWei] = useState<string | undefined>(undefined); // kept for potential UI display/debug
-  const { address } = useAccount();
-  // Derive total minPriceWei from displayed ETH price as a fallback (prefer backend-calculated values if exposed)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const canPurchase = pass.can_purchase !== false;
+  const blockMessage = getBlockMessage(pass);
+
+  // Resume-hook success event may fire while the user is back on a pass page.
+  // If it matches the pass we're rendering, surface the modal in completed state.
+  useEffect(() => {
+    const resumedHandler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as {
+        passId?: string;
+        txHash?: string | null;
+        explorerUrl?: string | null;
+      } | undefined;
+      if (detail?.passId && detail.passId === pass.id) {
+        markCompletedFromResume({
+          txHash: detail.txHash ?? null,
+          explorerUrl: detail.explorerUrl ?? null,
+        });
+        setModalOpen(true);
+      }
+    };
+    const conflictHandler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as {
+        passId?: string;
+        message?: string;
+        txHash?: string | null;
+        explorerUrl?: string | null;
+      } | undefined;
+      if (detail?.passId && detail.passId === pass.id) {
+        markConflictFromResume(detail.message || 'Purchase confirmation conflict', {
+          txHash: detail.txHash ?? null,
+          explorerUrl: detail.explorerUrl ?? null,
+        });
+        setModalOpen(true);
+      }
+    };
+    window.addEventListener('crypto-purchase:resumed', resumedHandler);
+    window.addEventListener('crypto-purchase:conflict', conflictHandler);
+    return () => {
+      window.removeEventListener('crypto-purchase:resumed', resumedHandler);
+      window.removeEventListener('crypto-purchase:conflict', conflictHandler);
+    };
+  }, [markCompletedFromResume, markConflictFromResume, pass.id]);
 
   if (isAccessLoading) {
-    return (
-      <div className="h-12 bg-black/40 rounded-lg animate-pulse w-32"></div>
-    );
+    return <div className="h-12 w-full bg-white/[0.04] rounded-full animate-pulse" />;
   }
-  
+
   if (alreadyOwns) {
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <TierBadge tier={pass.tier} />
-            <span className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent opacity-80">
-              {pass.formatted_price}
-            </span>
-          </div>
+        <div className="flex items-baseline gap-3">
+          <span
+            className="text-[#f0f0f0] text-4xl font-medium"
+            style={{ letterSpacing: '-0.03em' }}
+          >
+            {pass.formatted_price}
+          </span>
+          <span
+            className="text-[#a1a4a5] text-xs uppercase"
+            style={{ letterSpacing: '0.12em' }}
+          >
+            Owned
+          </span>
         </div>
-        
-        <motion.button
-          whileHover={{ 
-            scale: prefersReducedMotion ? 1 : 1.03,
-            boxShadow: "0 0 20px 5px rgba(34, 197, 94, 0.3)"
-          }}
-          whileTap={{ scale: prefersReducedMotion ? 1 : 0.98 }}
-          onClick={() => navigate(`/watch/${pass.id}`)}
-          className="relative group overflow-hidden bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 w-full flex items-center justify-center gap-2"
-        >
-          <PlayCircle className="w-5 h-5" />
-          Start Watching
-        </motion.button>
-        
+
         <button
-          onClick={() => {}} // Would initiate share flow
-          className="flex items-center justify-center gap-2 text-sm text-white/70 hover:text-white py-2"
+          onClick={() => navigate(`/watch/${pass.id}`)}
+          className={PRIMARY_PILL}
         >
-          <Gift className="w-4 h-4" />
-          Gift this pass to a friend
+          <PlayCircle className="w-4 h-4" />
+          Start watching
         </button>
       </div>
     );
   }
-  
+
+  const handleCryptoClick = async () => {
+    try {
+      console.log('[CryptoPay] click', {
+        passId: pass.id,
+        isConnected,
+        address,
+        quantity,
+        useRelayer: process.env.REACT_APP_CRYPTO_USE_RELAYER,
+      });
+    } catch {}
+
+    if (!canPurchase) return;
+
+    if (!isConnected) {
+      try {
+        sessionStorage.setItem('wallet_connect_intent', 'transaction');
+      } catch {}
+      openConnectModal?.();
+      return;
+    }
+
+    // Reset any stale state from prior attempts.
+    cryptoDirect.resetPhase();
+    setCheckoutError(null);
+    setModalOpen(true);
+
+    try {
+      const ok = await requireAuth();
+      if (!ok) {
+        setModalOpen(false);
+        return;
+      }
+      const { hash, explorerUrl, expiresAt } = await cryptoDirect.mutateAsync({
+        quantity,
+        confirmations: 1,
+      });
+      setCryptoReservationExpiresAt(expiresAt || null);
+      if (explorerUrl) {
+        try {
+          window.dispatchEvent(
+            new CustomEvent('tx:submitted', { detail: { hash, explorerUrl } }),
+          );
+        } catch {}
+      }
+    } catch (err) {
+      // Hook already sets phase: 'failed' + errorMessage. Modal will render it.
+      try {
+        console.error('[CryptoPay] error', err);
+      } catch {}
+    }
+  };
+
+  const handleRetry = async () => {
+    const pendingCtx = readCryptoCheckoutContext();
+    if (pendingCtx?.passId === pass.id && pendingCtx.purchaseId && pendingCtx.txHash) {
+      setModalOpen(true);
+      const resumed = await retryPendingConfirmation();
+      if (!resumed) {
+        return;
+      }
+      return;
+    }
+
+    await handleCryptoClick();
+  };
+
+  const cryptoInFlight =
+    cryptoDirect.isPending ||
+    cryptoDirect.phase === 'reserving' ||
+    cryptoDirect.phase === 'awaiting-signature' ||
+    cryptoDirect.phase === 'tx-pending' ||
+    cryptoDirect.phase === 'confirming' ||
+    cryptoDirect.phase === 'polling';
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <TierBadge tier={pass.tier} />
-          <span className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent">
-            {pass.formatted_price}
-          </span>
+    <>
+      <div className="flex flex-col gap-5">
+        {/* Price — always visible, dimmed when blocked */}
+        <div
+          className={`text-5xl font-medium ${canPurchase ? 'text-[#f0f0f0]' : 'text-[#5c5c5c]'}`}
+          style={{ letterSpacing: '-0.03em', lineHeight: 1 }}
+        >
+          {pass.formatted_price}
         </div>
-        
-        {pass.supply_cap && (
-          <SupplyCap
-            total={pass.supply_cap}
-            minted_count={pass.minted_count || 0}
-            reserved_count={pass.reserved_count || 0}
-          />
+
+        {canPurchase ? (
+          <>
+            {/* Card CTA — white pill, primary */}
+            <UnlockButton
+              passId={pass.id}
+              className={PRIMARY_PILL}
+              onError={(err) => {
+                const parsed = getPassErrorMessage(err);
+                setCheckoutError(parsed.message);
+              }}
+            />
+
+            {/* Checkout error — inline below the card button */}
+            {checkoutError && (
+              <p className="text-xs text-red-300 leading-relaxed -mt-2">
+                {checkoutError}
+              </p>
+            )}
+
+            {/* Crypto CTA — frost-bordered pill, secondary */}
+            <button
+              disabled={cryptoInFlight}
+              onClick={handleCryptoClick}
+              className={SECONDARY_PILL}
+            >
+              <Wallet className="w-4 h-4" />
+              {cryptoButtonLabel(cryptoDirect.phase, isConnected)}
+            </button>
+
+            {/* Fine print */}
+            <p className="text-xs text-[#a1a4a5] leading-relaxed">
+              Card checkout unlocks access instantly. Claim the NFT to your wallet any time.
+              <span className="inline-flex items-center gap-1 ml-1 text-[#5c5c5c]">
+                <Clock3 className="w-3 h-3" />
+                Crypto quotes hold inventory for ~5 minutes.
+                {cryptoReservationExpiresAt ? (
+                  <span>
+                    {' '}
+                    Current hold ends{' '}
+                    {new Date(cryptoReservationExpiresAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    .
+                  </span>
+                ) : null}
+              </span>
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-[#a1a4a5] leading-relaxed">
+            {blockMessage}
+          </p>
         )}
       </div>
 
-      <UnlockButton 
-        passId={pass.id} 
-        className="relative group overflow-hidden bg-gradient-to-r from-orange-500 to-pink-500 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-orange-500/20 transition-all duration-300 w-full flex items-center justify-center gap-2" 
+      <CryptoPurchaseModal
+        open={modalOpen}
+        phase={cryptoDirect.phase}
+        errorMessage={cryptoDirect.errorMessage}
+        txHash={cryptoDirect.lastTxHash}
+        explorerUrl={cryptoDirect.lastExplorerUrl}
+        hardConflict={cryptoDirect.hardConflict}
+        onClose={() => setModalOpen(false)}
+        onRetry={handleRetry}
+        watchRoute={`/watch/${pass.id}`}
       />
-      <p className="text-xs text-center text-white/55">
-        Card checkout unlocks access after payment. Claim the NFT to your wallet later.
-      </p>
-      
-      {/* Crypto checkout button */}
-      <button
-        disabled={cryptoDirect.isPending}
-        onClick={async () => {
-          try { console.log('[CryptoPay] click', { passId: pass.id, isConnected, address, quantity, useRelayer: process.env.REACT_APP_CRYPTO_USE_RELAYER }); } catch {}
-          if (!isConnected) {
-            try { sessionStorage.setItem('wallet_connect_intent', 'transaction'); } catch {}
-            openConnectModal?.();
-            return;
-          }
-          try {
-            const ok = await requireAuth();
-            if (!ok) return;
-            setRequestingQuote(true);
-            // Direct on-chain path: request quote, then wallet sends tx with value = minPriceWei
-            try { console.log('[CryptoPay] invoking direct buy mutate', { passId: pass.id, quantity }); } catch {}
-            const { hash, explorerUrl, expiresAt } = await cryptoDirect.mutateAsync({ quantity, confirmations: 1 });
-            setCryptoReservationExpiresAt(expiresAt || null);
-            setRequestingQuote(false);
-            if (explorerUrl) {
-              try { (window as any).dispatchEvent?.(new CustomEvent('tx:submitted', { detail: { hash, explorerUrl } })); } catch {}
-            }
-          } catch (err) {
-            try { console.error('[CryptoPay] error', err); } catch {}
-            setRequestingQuote(false);
-          }
-        }}
-        className="relative group overflow-hidden bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 w-full flex items-center justify-center gap-2 border border-white/10"
-      >
-        <Wallet className="w-5 h-5" />
-        {requestingQuote
-          ? 'Reserving & quoting…'
-          : cryptoDirect.isPending
-          ? 'Buying on-chain…'
-          : isConnected
-          ? 'Buy with Crypto'
-          : 'Connect wallet to buy with crypto'}
-      </button>
-      <div className="flex items-center justify-center gap-2 text-xs text-white/55">
-        <Clock3 className="w-3 h-3 text-orange-300" />
-        <span>
-          Crypto quotes reserve inventory for about 5 minutes.
-          {cryptoReservationExpiresAt ? ` Current hold ends ${new Date(cryptoReservationExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.` : ''}
-        </span>
-      </div>
-      
-      <div className="flex items-center justify-center gap-6 py-3">
-        <div className="flex items-center gap-1 text-xs text-white/60">
-          <Shield className="w-3 h-3 text-orange-400" />
-          <span>Secure payment</span>
-        </div>
-        <div className="flex items-center gap-1 text-xs text-white/60">
-          <img src="/assets/base-logo.svg" alt="Base L2" className="w-3 h-3" />
-          <span>Base L2</span>
-        </div>
-        <div className="flex items-center gap-1 text-xs text-white/60">
-          <ShoppingBag className="w-3 h-3 text-orange-400" />
-          <span>Claimable NFT ownership</span>
-        </div>
-      </div>
-    </div>
+    </>
   );
 };
 
-export default PassActionButton; 
+export default PassActionButton;

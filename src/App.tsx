@@ -6,7 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import Header from './components/common/Header';
 import CreatorHubNav from './components/pages/CreatorHub/CreatorHubNav';
 import ProtectedRoute from './components/pages/ProtectedRoute';
-import HomePage from './components/pages/HomePage';
+import V2HomePage from './components/pages/V2HomePage';
 import SingleVideo from './components/pages/SingleVideo';
 import DiscoveryPage from './components/pages/DiscoveryPage/index';
 import SearchPage from './components/pages/SearchPage';
@@ -17,6 +17,7 @@ import SignInPage from './components/pages/SignInPage';
 import SignUpPage from './components/pages/SignUpPage';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import ReferralAttributionBridge from './components/common/ReferralAttributionBridge';
+import CryptoResumeBridge from './components/common/CryptoResumeBridge';
 import ChannelPage from './components/pages/ChannelPage';
 import ChannelDetailPage from './components/pages/ChannelDetailPage';
 import CreateChannelPage from './components/pages/CreateChannelPage';
@@ -148,9 +149,11 @@ function App() {
             <AuthProvider>
               <div className="min-h-screen bg-black">
                 <ReferralAttributionBridge />
+                <CryptoResumeBridge />
                 <Routes>
                   {/* Public routes that don't need channel context */}
-                  <Route path="/" element={<HomePage />} />
+                  <Route path="/" element={<V2HomePage />} />
+                  <Route path="/v2" element={<V2HomePage />} />
                   <Route path="/signup" element={<AuthRouteAliasRedirect to="/sign-up" />} />
                   <Route path="/signin" element={<AuthRouteAliasRedirect to="/sign-in" />} />
                   <Route path="/discover" element={<DiscoveryPage />} />

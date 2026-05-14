@@ -104,7 +104,7 @@ export const OptimizedPromptModal: React.FC<OptimizedPromptModalProps> = ({
         niche: 'auto',  // Let AI detect the niche
         concepts: 2,  // Generate 2 concepts
         quality: 'high',
-        size: '1536x1024',  // 16:9 aspect ratio
+        size: 'landscape',
       });
       
       console.log('[OptimizedPromptModal] Generation successful:', result);
@@ -612,4 +612,3 @@ export const OptimizedPromptModal: React.FC<OptimizedPromptModalProps> = ({
 };
 
 export default OptimizedPromptModal;
-

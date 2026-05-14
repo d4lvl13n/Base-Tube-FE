@@ -75,7 +75,7 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
         niche: audit.detectedNiche || 'auto',
         concepts: 3,
         quality: 'high',
-        size: '1536x1024',
+        size: 'landscape',
       });
       
       // Navigate to generate page with generated concepts in state
@@ -85,6 +85,7 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
           detectedNiche: generateResult.detectedNiche,
           generationTime: generateResult.generationTime,
           optimizedPrompt: optimizeResult,
+          outputFormat: 'landscape',
         },
       });
       

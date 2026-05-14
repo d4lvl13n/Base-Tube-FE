@@ -23,12 +23,12 @@ import {
   Coins
 } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
-import { usePublicThumbnailGenerator, AspectRatio, Resolution } from '../../../hooks/usePublicThumbnailGenerator';
+import { usePublicThumbnailGenerator } from '../../../hooks/usePublicThumbnailGenerator';
+import type { ThumbnailOutputFormat } from '../../../types/thumbnail';
 import useCTREngine from '../../../hooks/useCTREngine';
 import { ThumbnailDetailDrawer } from './components/ThumbnailDetailDrawer';
 import { ViralSharePopup } from './components/ViralSharePopup';
-import { AspectRatioSelector } from './components/AspectRatioSelector';
-import { ResolutionSelector } from './components/ResolutionSelector';
+import { ThumbnailFormatSelector } from './components/ThumbnailFormatSelector';
 import { FaceConsistencyToggle } from './components/FaceConsistencyToggle';
 import { TitleTextInput, TitleStyle, TitlePosition, TitleColor } from './components/TitleTextInput';
 import { NicheSelector } from './components/NicheSelector';
@@ -65,6 +65,7 @@ const GeneratePage: React.FC = () => {
     detectedNiche?: string;
     generationTime?: number;
     optimizedPrompt?: any;
+    outputFormat?: ThumbnailOutputFormat;
   } | null;
   
   const generatedConcepts = navigationState?.generatedConcepts || hookGeneratedConcepts;
@@ -98,8 +99,8 @@ const GeneratePage: React.FC = () => {
 
   // Creative mode state
   const [prompt, setPrompt] = useState('');
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
-  const [resolution, setResolution] = useState<Resolution>('1K');
+  const [outputFormat, setOutputFormat] = useState<ThumbnailOutputFormat>('landscape');
+  const [creativeQuality, setCreativeQuality] = useState<'low' | 'medium' | 'high'>('high');
   const [includeFace, setIncludeFace] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedVariations, setSelectedVariations] = useState(2);
@@ -125,6 +126,7 @@ const GeneratePage: React.FC = () => {
   const [selectedNiche, setSelectedNiche] = useState<string | null>(null);
   const [textOverlay, setTextOverlay] = useState('');
   const [ctrIncludeFace, setCtrIncludeFace] = useState(false);
+  const [ctrOutputFormat, setCtrOutputFormat] = useState<ThumbnailOutputFormat>('landscape');
   const [concepts, setConcepts] = useState(3);
   const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('high');
 
@@ -163,8 +165,8 @@ const GeneratePage: React.FC = () => {
     
     clearError();
     await generateThumbnail(prompt, {
-      aspectRatio,
-      resolution,
+      size: outputFormat,
+      quality: creativeQuality,
       includeFace,
       style: selectedStyle.trim() || undefined,
       n: selectedVariations,
@@ -187,6 +189,7 @@ const GeneratePage: React.FC = () => {
       includeFace: ctrIncludeFace && faceReference?.hasFaceReference,
       concepts,
       quality,
+      size: ctrOutputFormat,
     });
   };
 
@@ -203,6 +206,7 @@ const GeneratePage: React.FC = () => {
 
   const creativeCreditCost = (creativePricing?.thumbnail.generatePerImage ?? 0) * selectedVariations;
   const ctrCreditCost = (usageAccess?.mode === 'credits' ? (usageAccess.pricing?.ctr.generatePerConcept ?? 0) : 0) * concepts;
+  const creativePreviewAspectClass = outputFormat === 'short' ? 'aspect-[9/16]' : 'aspect-video';
 
   const canGenerateCreative = creativeUsageMode === 'credits'
     ? (creditInfo?.available ?? 0) >= creativeCreditCost
@@ -238,7 +242,8 @@ const GeneratePage: React.FC = () => {
             <GeneratedConceptsGrid 
               concepts={generatedConcepts}
               detectedNiche={detectedNiche}
-            generationTime={ctrGenerationTime}
+              generationTime={ctrGenerationTime}
+              outputFormat={navigationState?.outputFormat || ctrOutputFormat}
               onClear={clearGeneratedConcepts}
             />
           </motion.div>
@@ -426,19 +431,37 @@ const GeneratePage: React.FC = () => {
                       className="overflow-hidden"
                     >
                       <div className="p-5 bg-black/40 border border-gray-800/50 rounded-xl space-y-6 mb-6">
-                        <AspectRatioSelector
-                          selectedRatio={aspectRatio}
-                          onRatioChange={setAspectRatio}
+                        <ThumbnailFormatSelector
+                          selectedFormat={outputFormat}
+                          onFormatChange={setOutputFormat}
                           disabled={loading}
                         />
 
                         <div className="grid md:grid-cols-2 gap-6">
-                          <ResolutionSelector
-                            selectedResolution={resolution}
-                            onResolutionChange={setResolution}
-                            disabled={loading}
-                            isPremiumUser={quotaInfo?.tier === 'pro' || quotaInfo?.tier === 'enterprise'}
-                          />
+                          <div>
+                            <h3 className="text-sm font-semibold text-white mb-3">Quality</h3>
+                            <div className="grid grid-cols-3 gap-2">
+                              {[
+                                { value: 'low', label: 'Draft' },
+                                { value: 'medium', label: 'Standard' },
+                                { value: 'high', label: 'High' },
+                              ].map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => setCreativeQuality(opt.value as 'low' | 'medium' | 'high')}
+                                  disabled={loading}
+                                  className={`py-3 rounded-xl font-bold text-sm transition-all border-2
+                                             ${creativeQuality === opt.value
+                                               ? 'border-[#fa7517] bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
+                                               : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20 hover:bg-white/10'
+                                             }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
 
                           <div>
                             <h3 className="text-sm font-semibold text-white mb-3">Variations</h3>
@@ -658,6 +681,12 @@ const GeneratePage: React.FC = () => {
                       className="overflow-hidden"
                     >
                       <div className="p-5 bg-black/40 border border-gray-800/50 rounded-xl space-y-5 mb-6">
+                        <ThumbnailFormatSelector
+                          selectedFormat={ctrOutputFormat}
+                          onFormatChange={setCtrOutputFormat}
+                          disabled={ctrProgress.status === 'generating'}
+                        />
+
                         {/* Number of Concepts */}
                         <div>
                           <label className="block text-xs sm:text-sm font-medium text-white mb-2 sm:mb-3">
@@ -861,7 +890,7 @@ const GeneratePage: React.FC = () => {
                     onClick={() => handleThumbnailClick(thumbnail)}
                     className="group bg-black/50 rounded-2xl overflow-hidden border border-gray-800/30 hover:border-[#fa7517]/30 transition-all duration-300 cursor-pointer"
                   >
-                    <div className="relative aspect-video bg-black/40 overflow-hidden">
+                    <div className={`relative ${creativePreviewAspectClass} bg-black/40 overflow-hidden`}>
                       <img
                         src={thumbnail.imageUrl}
                         alt={thumbnail.prompt}

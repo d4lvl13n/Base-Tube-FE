@@ -5,7 +5,9 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, ChevronRight, User, AlertCircle, Zap, Settings2, FileText, Type, Coins } from 'lucide-react';
 import { GenerateRequest, NicheOption, FaceReference, GenerationProgress, CreditPricingCatalog, UsageMode } from '../../../../types/ctr';
+import type { ThumbnailOutputFormat } from '../../../../types/thumbnail';
 import { NicheSelector } from './NicheSelector';
+import { ThumbnailFormatSelector } from './ThumbnailFormatSelector';
 
 interface CTRGeneratorFormProps {
   niches: NicheOption[];
@@ -37,6 +39,7 @@ export const CTRGeneratorForm: React.FC<CTRGeneratorFormProps> = ({
   const [selectedNiche, setSelectedNiche] = useState<string | null>(null);
   const [textOverlay, setTextOverlay] = useState('');
   const [includeFace, setIncludeFace] = useState(false);
+  const [outputFormat, setOutputFormat] = useState<ThumbnailOutputFormat>('landscape');
   const [concepts, setConcepts] = useState(3);
   const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('high');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -61,6 +64,7 @@ export const CTRGeneratorForm: React.FC<CTRGeneratorFormProps> = ({
       includeFace: includeFace && faceReference?.hasFaceReference,
       concepts,
       quality,
+      size: outputFormat,
     });
   };
 
@@ -217,6 +221,12 @@ export const CTRGeneratorForm: React.FC<CTRGeneratorFormProps> = ({
               className="overflow-hidden"
             >
               <div className="mt-4 p-5 bg-white/5 border border-white/10 rounded-xl space-y-5">
+                <ThumbnailFormatSelector
+                  selectedFormat={outputFormat}
+                  onFormatChange={setOutputFormat}
+                  disabled={isLoading}
+                />
+
                 {/* Number of Concepts */}
                 <div>
                   <label className="block text-sm font-medium text-white mb-3">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm, UseFormReturn } from 'react-hook-form';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, 
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useCreatePass } from '../../../../hooks/usePass';
-// import { CreatePassRequest } from '../../../../types/pass';
+import { getPassErrorMessage } from '../../../../utils/passErrorMessages';
 import * as S from './styles';
 import { FormData, transformFormToApiFormat } from './types';
 import { useYouTubeAuth } from '../../../../hooks/useYouTubeAuth';
@@ -58,10 +59,12 @@ const CreateContentPass: React.FC = () => {
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
   const [success, setSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitErrorAction, setSubmitErrorAction] = useState<'link-youtube' | 'verify-channel' | null>(null);
   const [createdPassId, setCreatedPassId] = useState<string | null>(null);
   const [createdPassSlug, setCreatedPassSlug] = useState<string | null>(null);
   const createPass = useCreatePass();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const youtubeAuth = useYouTubeAuth();
   const location = useLocation();
   
@@ -91,12 +94,13 @@ const CreateContentPass: React.FC = () => {
   
   // const watchedFields = watch();
   
-  // Refetch YouTube status when ?ytLinked=1 is present after OAuth callback
+  // Refetch YouTube status + creator videos when ?ytLinked=1 is present after OAuth callback
   useEffect(() => {
     if (location.search.includes('ytLinked')) {
       youtubeAuth.refetch();
+      queryClient.invalidateQueries({ queryKey: ['youtube', 'creator-videos'] });
     }
-  }, [location.search, youtubeAuth]);
+  }, [location.search, youtubeAuth, queryClient]);
   
   // Handle form submission
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -138,20 +142,11 @@ const CreateContentPass: React.FC = () => {
       // No toast here, the animation is the feedback
     } catch (error: any) {
       console.error('Error creating pass:', error);
-      
-      // Attempt to extract a specific message from the API response
-      let message = 'Failed to create content pass. Please try again.'; // Default message
-      if (error.response && error.response.data) {
-        // Look for common error message structures
-        message = error.response.data.message || error.response.data.error || message;
-        // Handle potential array of errors (e.g., validation errors)
-        if (Array.isArray(error.response.data.errors) && error.response.data.errors.length > 0) {
-          message = error.response.data.errors.map((err: any) => err.msg || err.message || 'Invalid input').join(', ');
-        }
-      }
-      
-      toast.error(message);
-      setSubmitError(message);
+
+      const parsed = getPassErrorMessage(error);
+      toast.error(parsed.message);
+      setSubmitError(parsed.message);
+      setSubmitErrorAction(parsed.action);
       setIsLoading(false);
       setHasSubmitted(false);
     }
@@ -232,13 +227,15 @@ const CreateContentPass: React.FC = () => {
           youtubeAuth={youtubeAuth}
         />
       );
-      case 4: return <StepReview 
-        watch={watch} 
+      case 4: return <StepReview
+        watch={watch}
         onConfirm={handleSubmit(onSubmit)}
         isLoading={isLoading}
         isSuccess={isSubmitSuccess}
         onContinue={handleSuccessAnimationComplete}
         submitError={submitError}
+        submitErrorAction={submitErrorAction}
+        onStartOAuth={youtubeAuth.startOAuth}
         onBackToVideos={handleGoToVideosStep}
       />;
       default: return null;

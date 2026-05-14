@@ -108,6 +108,33 @@ export interface CryptoPurchaseData {
 
 export type CryptoPurchaseResponse = StandardApiResponse<CryptoPurchaseData>;
 
+// ---- Crypto purchase confirm (post-receipt finalization) ----
+
+/**
+ * UI phase state-machine for the client-side crypto purchase flow.
+ * Kept in sync with persisted context in checkoutStorage.
+ */
+export type CryptoPurchasePhase =
+  | 'idle'
+  | 'reserving'            // Getting signed quote from backend
+  | 'awaiting-signature'   // Wallet is prompting user to sign
+  | 'tx-pending'           // Tx broadcast, waiting for receipt
+  | 'confirming'           // POST /crypto/confirm in flight (with retries)
+  | 'polling'              // Confirm exhausted / skipped — falling back to /status polling
+  | 'completed'
+  | 'failed';
+
+export interface CryptoConfirmData {
+  purchaseId: string;
+  passId: string;
+  status: OnchainPurchaseStatus;
+  txHash: string;
+  ownerAddress?: string | null;
+  alreadyConfirmed?: boolean;
+}
+
+export type CryptoConfirmResponse = StandardApiResponse<CryptoConfirmData>;
+
 // Quote returned by backend for onchain purchase
 export interface CryptoQuote {
   buyer: string;

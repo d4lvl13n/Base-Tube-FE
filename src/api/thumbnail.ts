@@ -6,6 +6,8 @@ import {
   CustomThumbnailGenerationResponse,
   ThumbnailWithReferenceOptions,
   ThumbnailWithReferenceResponse,
+  ThumbnailRefinementOptions,
+  ThumbnailRefinementResponse,
   ThumbnailGalleryParams,
   ThumbnailGalleryResponse,
   ThumbnailItem
@@ -84,9 +86,8 @@ export const thumbnailApi = {
    * @param options - Options for thumbnail generation
    * @returns A promise that resolves with the thumbnail URL and prompt used
    * 
-   * @note All thumbnails are now generated at 1280x720 resolution in high quality PNG format.
-   * Width, height, and quality parameters are kept for backward compatibility but no longer used.
-   * Use the background parameter to control transparency in the resulting PNG.
+   * @note Use size: "landscape" for YouTube/BaseTube or size: "short" for Shorts/TikTok.
+   * Width and height are kept for backward compatibility but should not be used by new callers.
    */
   generateThumbnailForVideo: async (
     videoId: number,
@@ -108,9 +109,8 @@ export const thumbnailApi = {
    * @param options - Options for thumbnail generation including required prompt
    * @returns A promise that resolves with the thumbnail URL, path, and prompt used
    * 
-   * @note All thumbnails are now generated at 1280x720 resolution in high quality PNG format.
-   * Width, height, and quality parameters are kept for backward compatibility but no longer used.
-   * Use the background parameter to control transparency in the resulting PNG.
+   * @note Use size: "landscape" for YouTube/BaseTube or size: "short" for Shorts/TikTok.
+   * Width and height are kept for backward compatibility but should not be used by new callers.
    */
   generateThumbnailFromPrompt: async (
     options: CustomThumbnailGenerationOptions
@@ -131,9 +131,8 @@ export const thumbnailApi = {
    * @param options - Options including the reference image, optional videoId, and other generation parameters
    * @returns A promise that resolves with the thumbnail URL, path, and prompt used
    * 
-   * @note All thumbnails are now generated at 1280x720 resolution in high quality PNG format.
-   * Width, height, and quality parameters are kept for backward compatibility but no longer used.
-   * Use the background parameter to control transparency in the resulting PNG.
+   * @note Use size: "landscape" for YouTube/BaseTube or size: "short" for Shorts/TikTok.
+   * Width and height are kept for backward compatibility but should not be used by new callers.
    */
   generateThumbnailWithReference: async (
     options: ThumbnailWithReferenceOptions
@@ -162,7 +161,7 @@ export const thumbnailApi = {
       formData.append('style', options.style);
     }
     
-    // Add background parameter for transparency control
+    // Add background parameter. GPT Image 2 does not support transparent output.
     if (options.background) {
       formData.append('background', options.background);
     }
@@ -182,5 +181,67 @@ export const thumbnailApi = {
     );
     
     return response.data;
+  },
+
+  /**
+   * Refine an existing/generated thumbnail conversationally.
+   * The first call can use thumbnailId, imageUrl, or image. Follow-ups should pass
+   * previousResponseId and/or imageGenerationCallId returned by the API.
+   */
+  refineThumbnailConversationally: async (
+    options: ThumbnailRefinementOptions
+  ): Promise<ThumbnailRefinementResponse> => {
+    const hasUpload = Boolean(options.image);
+
+    const appendCommonFields = (target: FormData | Record<string, unknown>) => {
+      const setValue = (key: string, value: unknown) => {
+        if (value === undefined || value === null || value === '') return;
+        if (target instanceof FormData) {
+          target.append(key, String(value));
+        } else {
+          target[key] = value;
+        }
+      };
+
+      setValue('instruction', options.instruction);
+      setValue('thumbnailId', options.thumbnailId);
+      setValue('imageUrl', options.imageUrl);
+      setValue('previousResponseId', options.previousResponseId);
+      setValue('imageGenerationCallId', options.imageGenerationCallId);
+      setValue('size', options.size);
+      setValue('quality', options.quality);
+      setValue('style', options.style);
+      setValue('background', options.background);
+    };
+
+    if (hasUpload && options.image) {
+      const formData = new FormData();
+      formData.append('image', options.image);
+      appendCommonFields(formData);
+
+      const response = await api.post(
+        '/api/v1/thumbnails/thumbnail/conversation/refine',
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 10 * 60 * 1000
+        }
+      );
+      return response.data;
+    }
+
+    const payload: Record<string, unknown> = {};
+    appendCommonFields(payload);
+
+    const response = await api.post(
+      '/api/v1/thumbnails/thumbnail/conversation/refine',
+      payload,
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 10 * 60 * 1000
+      }
+    );
+
+    return response.data;
   }
-}; 
+};

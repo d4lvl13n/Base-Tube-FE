@@ -14,6 +14,7 @@ import {
   getOperationAccessUpdate,
   normalizeUsageAccessResponse,
 } from '../utils/usageAccess';
+import type { ThumbnailOutputFormat, ThumbnailSizePreset } from '../types/thumbnail';
 
 // Extend Window interface for Clerk
 declare global {
@@ -38,25 +39,23 @@ interface GeneratedThumbnail {
   shareUrl?: string;
 }
 
-// Gemini 3 Pro aspect ratios
+// Gemini 3 Pro optional provider controls
 export type AspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9';
-
-// Gemini 3 Pro resolutions  
 export type Resolution = '1K' | '2K' | '4K';
 
 // Model selection
-export type ImageModel = 'gemini-3-pro' | 'gpt-image-1';
+export type ImageModel = 'gpt-image-2' | 'gemini-3-pro';
 
 interface ThumbnailGenerationOptions {
-  // NEW: Gemini 3 Pro options (default model)
+  // GPT Image 2 is the default model. Gemini 3 Pro can still be requested explicitly.
   model?: ImageModel;
+  size?: ThumbnailSizePreset;
+  quality?: 'low' | 'medium' | 'high';
+
+  // Optional Gemini controls.
   aspectRatio?: AspectRatio;
   resolution?: Resolution;
   includeFace?: boolean;  // Use stored face reference for consistency
-  
-  // LEGACY: OpenAI options (still work if model is 'gpt-image-1')
-  size?: '1024x1024' | '1536x1024' | '1024x1536' | 'auto';
-  quality?: 'medium' | 'high';
   style?: string;
   n?: number;
   referenceImage?: File;
@@ -133,6 +132,7 @@ interface UsePublicThumbnailGeneratorReturn {
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 const EMAIL_STORAGE_KEY = 'thumbnailUserEmail';
+const DEFAULT_THUMBNAIL_FORMAT: ThumbnailOutputFormat = 'landscape';
 
 // Public API key for /v1/images/* endpoints (anonymous users)
 // This is different from Clerk auth - it's a BaseTube API key (bt_live_...)
@@ -566,7 +566,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         const formData = new FormData();
         formData.append('image', options.referenceImage);
         formData.append('prompt', enhancedPrompt);
-        formData.append('size', options.size || 'auto');
+        formData.append('size', options.size || DEFAULT_THUMBNAIL_FORMAT);
         formData.append('quality', options.quality || 'high');
         formData.append('n', String(Math.min(options.n || 2, 4)));
         
@@ -661,28 +661,32 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       }
 
       // Text-to-image generation
-      // Build config based on model (Gemini 3 Pro is default)
-      const useGemini = !options?.model || options.model === 'gemini-3-pro';
-      
+      // GPT Image 2 is the default. Gemini 3 Pro remains available only when explicitly selected.
+      const useGemini = options?.model === 'gemini-3-pro';
+      const requestedSize = options?.size || DEFAULT_THUMBNAIL_FORMAT;
+
       const requestBody: Record<string, any> = {
         prompt: enhancedPrompt,
-        config: useGemini ? {
-          // Gemini 3 Pro options
-          aspectRatio: options?.aspectRatio || '16:9',
-          resolution: options?.resolution || '1K',
-          includeFace: options?.includeFace || false,
-        } : {
-          // OpenAI fallback options
-          model: 'gpt-image-1',
-          size: options?.size || 'auto',
-          quality: options?.quality || 'high',
-        },
+        model: useGemini ? 'gemini-3-pro' : 'gpt-image-2',
+        size: requestedSize,
+        quality: options?.quality || 'high',
         n: Math.min(options?.n || 2, 4),
       };
+
+      if (useGemini) {
+        Object.assign(requestBody, {
+          aspectRatio: options?.aspectRatio || '16:9',
+          resolution: options?.resolution || '1K',
+        });
+      }
+
+      if (options?.includeFace) {
+        requestBody.includeFace = true;
+      }
           
       // Add style if provided
       if (options?.style) {
-        requestBody.config.style = options.style;
+        requestBody.style = options.style;
       }
 
       if (isAuthenticated) {
@@ -691,10 +695,13 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         
         try {
           const axiosResponse = await api.post('/api/v1/ctr/generate', {
-            title: enhancedPrompt,
-            niche: options?.style || 'general',
-            generateCount: Math.min(options?.n || 2, 4),
-            config: requestBody.config,
+            title: prompt.trim(),
+            prompt: enhancedPrompt,
+            style: options?.style,
+            includeFace: !!options?.includeFace,
+            concepts: Math.min(options?.n || 2, 4),
+            quality: options?.quality || 'high',
+            size: requestedSize,
           });
           
           const result = axiosResponse.data;

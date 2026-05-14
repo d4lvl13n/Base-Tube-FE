@@ -15,6 +15,7 @@ interface RadialMenuProps {
   onLike: () => void;
   isTogglingLike: boolean;
   onSharePopupOpen: (url: string, title: string) => void;
+  onInfoOpen?: () => void;
 }
 
 export const RadialMenu: React.FC<RadialMenuProps> = ({ 
@@ -25,7 +26,8 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   isLiked,
   onLike,
   isTogglingLike,
-  onSharePopupOpen
+  onSharePopupOpen,
+  onInfoOpen
 }) => {
   const { setIsCommentsPanelOpen, setIsInfoPanelOpen } = useVideoContext();
   const { width } = useWindowSize();
@@ -122,7 +124,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
     {
       Icon: Info,
       label: 'Info',
-      onClick: () => setIsInfoPanelOpen(true)
+      onClick: onInfoOpen || (() => setIsInfoPanelOpen(true))
     },
     {
       Icon: Share2,

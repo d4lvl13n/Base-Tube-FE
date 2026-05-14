@@ -68,7 +68,9 @@ const VideoUpload: React.FC = () => {
     generateFromPrompt,
     isGeneratingFromPrompt,
     generateWithReference,
-    isGeneratingWithReference
+    isGeneratingWithReference,
+    refineThumbnail,
+    isRefiningThumbnail
   } = useAIthumbnail();
 
   useEffect(() => {
@@ -796,9 +798,11 @@ const VideoUpload: React.FC = () => {
         isGeneratingForVideo={isGeneratingForVideo}
         isGeneratingFromPrompt={isGeneratingFromPrompt}
         isGeneratingWithReference={isGeneratingWithReference}
+        isRefiningThumbnail={isRefiningThumbnail}
         generateForVideo={generateForVideo}
         generateFromPrompt={generateFromPrompt}
         generateWithReference={generateWithReference}
+        refineThumbnail={refineThumbnail}
       />
     </motion.div>
   );

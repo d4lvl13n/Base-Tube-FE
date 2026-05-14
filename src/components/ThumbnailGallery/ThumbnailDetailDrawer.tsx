@@ -6,6 +6,7 @@ import { formatNumber } from '../../utils/format';
 import { useAIThumbnailGallery } from '../../hooks/useAIthumbnail';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { resolveThumbnailImageUrl } from '../../utils/thumbnailImage';
 
 interface ThumbnailDetailDrawerProps {
   thumbnailId: number;
@@ -30,7 +31,8 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   
   // Use thumbnail gallery functionality for download
-  const { downloadThumbnail } = useAIThumbnailGallery();
+  const { downloadThumbnail } = useAIThumbnailGallery({}, false);
+  const thumbnailImageUrl = thumbnail ? resolveThumbnailImageUrl(thumbnail.thumbnailUrl) : '';
   
   // Fetch thumbnail details
   useEffect(() => {
@@ -262,7 +264,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                       {/* Blur background for visual appeal */}
                       <div className="absolute inset-0" 
                         style={{ 
-                          backgroundImage: `url(${thumbnail.thumbnailUrl})`, 
+                          backgroundImage: thumbnailImageUrl ? `url(${thumbnailImageUrl})` : undefined,
                           backgroundSize: 'cover',
                           backgroundPosition: 'center',
                           filter: 'blur(30px)',
@@ -296,13 +298,20 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                       
                       {/* Actual image */}
                       <div className="relative z-10 h-full w-full flex items-center justify-center p-4">
-                        <img
-                          src={thumbnail.thumbnailUrl}
-                          alt={`AI Generated Thumbnail`}
-                          className="max-w-full max-h-full object-contain shadow-lg"
-                          onContextMenu={handleContextMenu}
-                          draggable="false"
-                        />
+                        {thumbnailImageUrl ? (
+                          <img
+                            src={thumbnailImageUrl}
+                            alt={`AI Generated Thumbnail`}
+                            className="max-w-full max-h-full object-contain shadow-lg"
+                            onContextMenu={handleContextMenu}
+                            draggable="false"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-3 text-center text-gray-500">
+                            <Image className="h-10 w-10 text-[#fa7517]" />
+                            <p className="text-sm font-semibold text-gray-300">Preview unavailable</p>
+                          </div>
+                        )}
                       </div>
                       
                       {/* Protection overlay */}
@@ -441,4 +450,4 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
       )}
     </AnimatePresence>
   );
-}; 
+};

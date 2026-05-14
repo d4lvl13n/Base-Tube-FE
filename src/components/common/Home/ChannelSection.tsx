@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Users, ExternalLink } from 'lucide-react';
 import { Channel } from '../../../types/channel';
 import { motion } from 'framer-motion';
+import { htmlToPlainText } from '../../../utils/html';
 
 interface ChannelSectionProps {
   channels: Channel[] | undefined;
@@ -92,15 +93,16 @@ const ChannelSection: React.FC<ChannelSectionProps> = ({ channels, renderPlaceho
                 ? rawAvatar
                 : `${process.env.REACT_APP_API_URL}/${rawAvatar}`)
               : '/assets/default-avatar.jpg';
+            const description = htmlToPlainText(channel.description);
 
             return (
               <motion.div
                 key={channel.id}
                 className="flex-shrink-0 w-[300px] group"
                 whileHover={{ scale: 1.02 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 10 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
               >
-                <div className="h-48 relative overflow-hidden rounded-xl">
+                <div className="h-48 relative overflow-hidden rounded-xl border border-[rgba(214,235,253,0.10)] bg-[#08080a] shadow-[0_0_0_1px_rgba(176,199,217,0.05),0_16px_40px_rgba(0,0,0,0.36)]">
                   <motion.img 
                     src={coverImageUrl}
                     alt={`${channel.name} cover`}
@@ -135,32 +137,36 @@ const ChannelSection: React.FC<ChannelSectionProps> = ({ channels, renderPlaceho
                     </div>
                   </div>
 
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/90 to-black/70 
+                  <div className="absolute inset-0 bg-black/[0.92]
                               opacity-0 group-hover:opacity-100 transition-all duration-300
-                              flex flex-col justify-between p-6 transform translate-y-2 
+                              flex flex-col justify-between p-5 transform translate-y-2
                               group-hover:translate-y-0">
-                    <div className="flex justify-end">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/[0.42]">Channel</p>
+                        <h3 className="mt-1 line-clamp-1 text-lg font-bold text-white">{channel.name}</h3>
+                      </div>
                       <Link
                         to={`/channel/${channel.handle}`}
-                        className="p-2 bg-[#fa7517] rounded-lg transition-all duration-300
-                               text-white hover:bg-[#fa9517] hover:scale-110"
+                        aria-label={`Open ${channel.name}`}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#fa7517]/50 bg-[#fa7517] text-black shadow-[0_0_22px_rgba(250,117,23,0.28)] transition-all duration-300 hover:scale-105"
                       >
-                        <ExternalLink className="w-5 h-5" />
+                        <ExternalLink className="h-[18px] w-[18px]" />
                       </Link>
                     </div>
                     
-                    <div className="space-y-4">
-                      {channel.description && (
-                        <p className="text-gray-100 text-sm line-clamp-2 
-                                 transform transition-all duration-300">
-                          {channel.description}
+                    <div className="space-y-4 rounded-lg border border-white/10 bg-[#0b0b0d] p-4">
+                      {description && (
+                        <p className="line-clamp-3 text-sm leading-5 text-gray-200">
+                          {description}
                         </p>
                       )}
-                      <div className="flex items-center text-gray-100">
-                        <span className="flex items-center group-hover:text-[#fa7517] transition-colors">
+                      <div className="flex items-center justify-between text-gray-100">
+                        <span className="flex items-center text-sm font-medium text-[#fa7517]">
                           <Users size={16} className="mr-2" />
                           {(channel.subscribers_count || 0).toLocaleString()}
                         </span>
+                        <span className="truncate text-xs text-gray-500">@{channel.handle}</span>
                       </div>
                     </div>
                   </div>

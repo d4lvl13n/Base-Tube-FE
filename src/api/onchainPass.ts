@@ -1,4 +1,5 @@
 import api from './index';
+import axios from 'axios';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import type {
   OnchainPurchaseStatusResponse,
@@ -8,6 +9,7 @@ import type {
   OnchainClaimResponse,
   CryptoPurchaseRequest,
   CryptoPurchaseResponse,
+  CryptoConfirmResponse,
   PendingPurchasesResponse,
   MintPendingRequest,
   MintPendingResponse,
@@ -91,10 +93,49 @@ export const onchainPassApi = {
       return (res.data?.data ?? res.data) as CryptoQuote;
     };
     try {
-      return await retryWithBackoff(exec, 1, 500);
+      // 4xx here is usually terminal (not on-chain / not found / validation),
+      // so avoid automatic duplicate quote attempts.
+      return await retryWithBackoff(exec, 0, 0);
     } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        const payload = error.response?.data as any;
+        const rawMessage =
+          payload?.error?.message ||
+          payload?.error ||
+          payload?.message;
+        if (typeof rawMessage === 'string' && /not on-?chain/i.test(rawMessage)) {
+          throw new Error('This pass is not available for crypto purchase yet.');
+        }
+      }
       throw handleApiError(error, { action: 'Get crypto quote', component: 'onchainPassApi', additionalData: { passId } });
     }
+  },
+
+  /**
+   * Finalize a crypto purchase after the on-chain receipt has landed.
+   *
+   * Backend contract:
+   * - 200 → { success: true, data: { purchaseId, passId, status, txHash, ownerAddress, alreadyConfirmed } }
+   * - 409 → { success: false, error: "<message>" } — may be transient (retry) or hard conflict
+   *
+   * We deliberately do NOT wrap this in retryWithBackoff because:
+   * - 409s need to be *classified* (transient vs hard conflict) before any retry.
+   * - The retry/backoff lives in the caller (confirmWithRetry) so the UI can
+   *   drive per-attempt phase updates.
+   *
+   * Idempotent on the server side for the same (purchaseId, txHash) pair.
+   */
+  async confirmCryptoPurchase(purchaseId: string, txHash: string): Promise<CryptoConfirmResponse> {
+    const res = await api.post<CryptoConfirmResponse>(
+      `/api/v1/purchases/${purchaseId}/crypto/confirm`,
+      { txHash },
+      {
+        headers: {
+          'Idempotency-Key': `crypto-confirm-${purchaseId}-${txHash}`,
+        },
+      },
+    );
+    return res.data;
   },
 
   // Initiate crypto purchase via backend relayer (expects wallet address and optional signature)
@@ -157,4 +198,3 @@ export const onchainPassApi = {
 };
 
 export default onchainPassApi;
-

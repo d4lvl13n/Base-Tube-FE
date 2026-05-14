@@ -10,6 +10,7 @@ export interface EditVideoModalProps {
 export interface FormErrors {
   title?: string;
   description?: string;
+  video?: string;
   thumbnail?: string;
   submit?: string;
 }
@@ -27,4 +28,4 @@ export interface VisibilityOption {
   icon: React.ElementType;
   label: string;
   description: string;
-} 
+}

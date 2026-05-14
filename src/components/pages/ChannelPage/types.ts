@@ -14,6 +14,7 @@ export interface NavigationOption {
 
 export interface ChannelPageStylesProps {
   channels: Channel[];
+  total: number;
   loading: boolean;
   error: string | null;
   hasMore: boolean;
