@@ -8,9 +8,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { queryClient } from '../src/lib/query';
 import { theme } from '../src/theme';
 
-// Navigation theme: react-navigation (and therefore expo-router) defaults to a
-// LIGHT theme whose scene background is white. Override it so every Stack/Tabs
-// scene is dark by default.
+// react-navigation (and expo-router) default to a LIGHT theme whose scene
+// background is white. Override so scenes are dark by default.
 const navTheme = {
   ...DarkTheme,
   colors: {
@@ -23,7 +22,6 @@ const navTheme = {
   },
 };
 
-// Belt-and-suspenders for web: paint the document background dark too.
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   document.documentElement.style.backgroundColor = theme.colors.background;
   document.body.style.backgroundColor = theme.colors.background;
@@ -39,8 +37,7 @@ export default function RootLayout() {
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="video/[id]" options={{ title: 'Now Playing' }} />
+      <Stack.Screen name="index" options={{ headerShown: false }} />
     </Stack>
   );
 
@@ -49,8 +46,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider value={navTheme}>
           <StatusBar style="light" />
-          {/* On web, constrain to a phone-width frame centred on the dark page
-              so the layout reads as a mobile app. Native renders full-screen. */}
+          {/* On web, constrain to a phone-width frame centred on the dark page. */}
           {Platform.OS === 'web' ? (
             <View style={styles.webShell}>
               <View style={styles.webFrame}>{stack}</View>
@@ -65,11 +61,7 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  webShell: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-  },
+  webShell: { flex: 1, alignItems: 'center', backgroundColor: theme.colors.background },
   webFrame: {
     flex: 1,
     width: '100%',
