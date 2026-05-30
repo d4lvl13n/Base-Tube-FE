@@ -1,20 +1,21 @@
 import { createBasetubeClient } from '@basetube/api';
+import { getSessionToken } from './auth';
 
 /**
  * Backend base URL. Configured via `EXPO_PUBLIC_API_URL`; defaults to the
- * production backend. For local development, point this at a local backend
- * or mock server.
+ * production backend. For local development, point this at a local backend.
  */
 const baseUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://backend.base.tube';
 
 /**
- * Shared API client. Auth is unauthenticated for phase 1 (public endpoints).
- * Phase 2 wires `getToken` to the Clerk Expo session token, and later the
- * Web3 JWT once the backend accepts it as a bearer token.
+ * Shared API client. `getToken` reads the live Clerk session token via the
+ * auth bridge (registered in app/_layout.tsx once Clerk loads). Native uses
+ * bearer tokens only — no cookies (see Mobile Readiness Brief, G.1).
  */
 export const api = createBasetubeClient({
   baseUrl,
-  // getToken: () => clerkSession?.getToken() ?? null,  // wired in phase 2
+  getToken: getSessionToken,
+  withCredentials: false,
 });
 
 export const API_BASE_URL = baseUrl;
