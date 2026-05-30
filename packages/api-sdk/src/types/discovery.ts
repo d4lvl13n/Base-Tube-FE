@@ -46,7 +46,19 @@ export interface GetDiscoveryOptions {
 
 export type SearchSort = 'relevance' | 'date' | 'views';
 
+/** A single search hit from `GET /api/v1/search`. */
+export interface SearchResult {
+  id: number;
+  title: string;
+  search_text?: string;
+  thumbnail_url: string;
+  thumbnail_path: string;
+  duration: number;
+  views_count: number;
+  relevance?: number;
+}
+
 export interface SearchResponse {
   success: boolean;
-  data: unknown;
+  data: SearchResult[];
 }

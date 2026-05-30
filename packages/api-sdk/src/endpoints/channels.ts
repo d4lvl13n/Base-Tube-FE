@@ -39,6 +39,24 @@ export function createChannelsApi(http: AxiosInstance) {
       );
       return res.data;
     },
+
+    /** `GET /api/v1/channels/subscribed` (auth) — the signed-in user's subscriptions. */
+    async subscribed(page = 1, limit = 24): Promise<GetChannelsResponse> {
+      const res = await http.get<GetChannelsResponse>('/api/v1/channels/subscribed', {
+        params: { page, limit },
+      });
+      return res.data;
+    },
+
+    /** `POST /api/v1/channels/:identifier/subscribe` (auth) */
+    async subscribe(identifier: string | number): Promise<void> {
+      await http.post(`/api/v1/channels/${identifier}/subscribe`, {});
+    },
+
+    /** `POST /api/v1/channels/:identifier/unsubscribe` (auth) */
+    async unsubscribe(identifier: string | number): Promise<void> {
+      await http.post(`/api/v1/channels/${identifier}/unsubscribe`, {});
+    },
   };
 }
 

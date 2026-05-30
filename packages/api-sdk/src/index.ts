@@ -6,6 +6,7 @@ import { createDiscoveryApi, createSearchApi } from './endpoints/discovery';
 import { createChannelsApi } from './endpoints/channels';
 import { createProfileApi } from './endpoints/profile';
 import { createAuthApi, createWeb3AuthApi } from './endpoints/web3auth';
+import { createEngagementApi } from './endpoints/engagement';
 
 export * from './types';
 export type { BasetubeClientConfig, TokenProvider } from './config';
@@ -17,6 +18,7 @@ export interface BasetubeClient {
   search: ReturnType<typeof createSearchApi>;
   channels: ReturnType<typeof createChannelsApi>;
   profile: ReturnType<typeof createProfileApi>;
+  engagement: ReturnType<typeof createEngagementApi>;
   web3auth: ReturnType<typeof createWeb3AuthApi>;
   auth: ReturnType<typeof createAuthApi>;
   /** Escape hatch to the underlying axios instance for not-yet-wrapped routes. */
@@ -41,6 +43,7 @@ export function createBasetubeClient(config: BasetubeClientConfig): BasetubeClie
     search: createSearchApi(http),
     channels: createChannelsApi(http),
     profile: createProfileApi(http),
+    engagement: createEngagementApi(http),
     web3auth: createWeb3AuthApi(http),
     auth: createAuthApi(http),
     http,
