@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm, Controller } from 'react-hook-form';
-import { createChannel, checkHandleAvailability } from '../../api/channel';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 import StepIndicator from '../common/StepIndicator';
@@ -30,9 +29,13 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '../common/ConfirmationModal';
-import { handleValidation, isValidHandle } from '../../types/channel';
+import { isValidHandle } from '../../types/channel';
+import { ChannelApiError } from '../../api/channel';
+import { getChannelErrorMessage } from '../../utils/channelErrorMessages';
 import { stripHandleSuffix } from '../../utils/handleUtils';
 import { useChannelAI } from '../../hooks/useChannelAI';
+import { useChannelHandleCheck } from '../../hooks/useChannelHandleCheck';
+import { useCreateChannel } from '../../hooks/useCreateChannel';
 import RichTextEditor from '../common/RichTextEditor';
 import AIAssistantPanel from '../common/AIAssistantPanel';
 import { useYouTubeAuth } from '../../hooks/useYouTubeAuth';
@@ -52,9 +55,7 @@ const CreateChannelPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [channelImagePreview, setChannelImagePreview] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
   const [handleError, setHandleError] = useState<string | null>(null);
-  const [isCheckingHandle, setIsCheckingHandle] = useState(false);
   const [shouldFetchSuggestions, setShouldFetchSuggestions] = useState(false);
   const [showHandleHelpModal, setShowHandleHelpModal] = useState(false);
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
@@ -74,6 +75,7 @@ const CreateChannelPage: React.FC = () => {
     formState: { errors },
     watch,
     setValue,
+    setError,
   } = useForm<FormData>({
     defaultValues: {
       channel_image: null,
@@ -86,6 +88,16 @@ const CreateChannelPage: React.FC = () => {
 
   const watchedName = watch('name');
   const watchedHandle = watch('handle');
+
+  const {
+    isAvailable: handleAvailable,
+    formattedHandle: formattedHandlePreview,
+    error: handleCheckError,
+    isChecking: isCheckingHandle,
+    resolveHandleForSubmit,
+  } = useChannelHandleCheck(watchedHandle);
+
+  const { createChannel: submitCreateChannel, isCreating } = useCreateChannel();
 
   const {
     isGeneratingHandle,
@@ -114,61 +126,16 @@ const CreateChannelPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [watchedName, setValue, watchedHandle]);
 
-  // Handle validation and availability check
+  // Sync hook handle errors and trigger AI suggestions when unavailable
   useEffect(() => {
-    const validateHandle = async (handle: string) => {
-      setIsCheckingHandle(true);
-      setHandleError(null);
-
-      const strippedHandle = stripHandleSuffix(handle);
-      
-      if (handleValidation.reservedHandles.includes(strippedHandle.toLowerCase())) {
-        setHandleError('This handle is reserved. Please choose another one.');
-        setHandleAvailable(false);
-        setShouldFetchSuggestions(true);
-        setIsCheckingHandle(false);
-        return;
-      }
-
-      if (!isValidHandle(strippedHandle)) {
-        setHandleError('Handle can only contain letters, numbers, and underscores.');
-        setHandleAvailable(false);
-        setIsCheckingHandle(false);
-        return;
-      }
-
-      try {
-        const handleCheck = await checkHandleAvailability(strippedHandle);
-        setHandleAvailable(handleCheck.isAvailable);
-
-        if (!handleCheck.isAvailable) {
-          setHandleError('This handle is already taken.');
-          setShouldFetchSuggestions(true);
-        } else {
-          clearSuggestions();
-          setShouldFetchSuggestions(false);
-        }
-      } catch (error) {
-        console.error('Handle validation failed:', error);
-        setHandleError('Unable to verify handle availability.');
-      } finally {
-        setIsCheckingHandle(false);
-      }
-    };
-
-    const timer = setTimeout(() => {
-      if (watchedHandle?.trim()) {
-        validateHandle(watchedHandle);
-      } else {
-        setHandleAvailable(null);
-        clearSuggestions();
-        setHandleError(null);
-        setShouldFetchSuggestions(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [watchedHandle, clearSuggestions]);
+    setHandleError(handleCheckError);
+    if (handleAvailable === false && watchedName) {
+      setShouldFetchSuggestions(true);
+    } else if (handleAvailable === true) {
+      clearSuggestions();
+      setShouldFetchSuggestions(false);
+    }
+  }, [handleCheckError, handleAvailable, watchedName, clearSuggestions]);
 
   // Add this effect to handle suggestions separately
   useEffect(() => {
@@ -256,24 +223,54 @@ const CreateChannelPage: React.FC = () => {
     setStep(step - 1);
   };
 
+  const applyCreateFieldError = (error: unknown) => {
+    const parsed =
+      error instanceof ChannelApiError
+        ? { field: error.field ?? 'submit', message: error.message }
+        : getChannelErrorMessage(error);
+
+    if (parsed.field === 'handle') {
+      setHandleError(parsed.message);
+      setStep(1);
+    } else if (parsed.field === 'name') {
+      setError('name', { type: 'server', message: parsed.message });
+      setStep(1);
+    } else if (parsed.field === 'channel_image') {
+      setStep(4);
+    }
+    toast.error(parsed.message);
+  };
+
   const confirmCreateChannel = async () => {
     const data = watch();
     setIsLoading(true);
 
     try {
-      // Validate required fields
-      if (!data.name?.trim()) throw new Error('Channel name is required');
-      if (!data.handle?.trim()) throw new Error('Channel handle is required');
+      if (!data.name?.trim()) {
+        setError('name', { type: 'manual', message: 'Channel name is required' });
+        setStep(1);
+        throw new Error('Channel name is required');
+      }
+      if (!data.handle?.trim()) {
+        setHandleError('Channel handle is required');
+        setStep(1);
+        throw new Error('Channel handle is required');
+      }
+      if (handleAvailable !== true) {
+        setHandleError('Choose an available handle before creating your channel');
+        setStep(1);
+        throw new Error('Handle is not available');
+      }
       if (!data.description?.trim() || data.description.trim().length < 20) {
+        setStep(2);
         throw new Error('Channel description must be at least 20 characters');
       }
 
       const formData = new FormData();
       formData.append('name', data.name.trim());
-      formData.append('handle', stripHandleSuffix(data.handle.trim()));
+      formData.append('handle', resolveHandleForSubmit(data.handle));
       formData.append('description', data.description.trim());
 
-      // Add optional fields
       if (data.facebook_link?.trim()) formData.append('facebook_link', data.facebook_link.trim());
       if (data.instagram_link?.trim()) formData.append('instagram_link', data.instagram_link.trim());
       if (data.twitter_link?.trim()) formData.append('twitter_link', data.twitter_link.trim());
@@ -282,27 +279,21 @@ const CreateChannelPage: React.FC = () => {
         formData.append('channel_image', data.channel_image);
       }
 
-      const response = await createChannel(formData);
-      
-      if (!response.success || !response.channel?.handle) {
-        throw new Error(response.message || 'Failed to create channel');
+      const channel = await submitCreateChannel(formData);
+
+      if (!channel.handle) {
+        throw new Error('Failed to create channel');
       }
 
-      // Store the created channel handle for navigation
-      setCreatedChannelHandle(response.channel.handle);
-      
-      // Show success message
+      setCreatedChannelHandle(channel.handle);
       toast.success('Channel created successfully!');
-      
-      // Close the modal and show success options
       setIsModalOpen(false);
       setShowSuccessOptions(true);
-      
-      return response.channel.handle;
 
-    } catch (error: any) {
+      return channel.handle;
+    } catch (error: unknown) {
       console.error('Channel creation error:', error);
-      toast.error(error.message || 'Failed to create channel');
+      applyCreateFieldError(error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -466,7 +457,9 @@ const CreateChannelPage: React.FC = () => {
                         exit={{ opacity: 0, y: -10 }}
                         className="text-green-500 mt-2 block text-sm"
                       >
-                        Handle is available!
+                        {formattedHandlePreview
+                          ? `${formattedHandlePreview} is available`
+                          : 'Handle is available!'}
                       </motion.span>
                     ) : null}
                   </AnimatePresence>
@@ -917,15 +910,25 @@ const CreateChannelPage: React.FC = () => {
   // Add this function
   const handleLaunchChannel = () => {
     const name = watch('name');
+    const handle = watch('handle');
     const description = watch('description');
 
-    // Validate required fields before showing modal
-    if (!name?.trim() || !description?.trim() || description.trim().length < 20) {
-      toast.error('Please fill in all required fields (name and description)');
+    if (!name?.trim() || !handle?.trim()) {
+      toast.error('Channel name and handle are required');
+      setStep(1);
+      return;
+    }
+    if (handleAvailable !== true) {
+      toast.error('Choose an available handle before launching your channel');
+      setStep(1);
+      return;
+    }
+    if (!description?.trim() || description.trim().length < 20) {
+      toast.error('Please add a description (minimum 20 characters)');
+      setStep(2);
       return;
     }
 
-    // If validation passes, show the confirmation modal
     setIsModalOpen(true);
   };
 
@@ -994,14 +997,14 @@ const CreateChannelPage: React.FC = () => {
                   <motion.button
                     type="button"
                     onClick={handleLaunchChannel}
-                    disabled={isLoading || !canProceedFromStep()}
+                    disabled={isLoading || isCreating || !canProceedFromStep()}
                     className={`bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black px-8 py-4 
                       rounded-xl flex items-center ml-auto font-medium
-                      ${(isLoading || !canProceedFromStep()) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    whileHover={!isLoading && canProceedFromStep() ? { scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' } : {}}
-                    whileTap={!isLoading && canProceedFromStep() ? { scale: 0.98 } : {}}
+                      ${(isLoading || isCreating || !canProceedFromStep()) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    whileHover={!isLoading && !isCreating && canProceedFromStep() ? { scale: 1.02, boxShadow: '0 0 25px rgba(250, 117, 23, 0.5)' } : {}}
+                    whileTap={!isLoading && !isCreating && canProceedFromStep() ? { scale: 0.98 } : {}}
                   >
-                    {isLoading ? (
+                    {isLoading || isCreating ? (
                       <span className="flex items-center">
                         <motion.div
                           animate={{ rotate: 360 }}

@@ -4,6 +4,60 @@ import { AxiosProgressEvent } from 'axios';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
+import { parseApiErrorFromBody } from '../utils/apiError';
+import { getVideoErrorMessage } from '../utils/videoErrorMessages';
+
+export class VideoApiError extends Error {
+  readonly code: string | null;
+  readonly canRetry: boolean;
+
+  constructor(code: string | null, message: string, canRetry = false) {
+    super(message);
+    this.name = 'VideoApiError';
+    this.code = code;
+    this.canRetry = canRetry;
+  }
+}
+
+export interface VideoUploadResult {
+  videoId: string;
+  status?: string;
+  title?: string;
+  duration?: number;
+}
+
+interface VideoUploadApiResponse {
+  success?: boolean;
+  data?: {
+    videoId?: string;
+    id?: string;
+    status?: string;
+    title?: string;
+    duration?: number;
+  };
+  id?: string;
+  videoId?: string;
+}
+
+function normalizeVideoUploadResponse(body: VideoUploadApiResponse): VideoUploadResult {
+  if (body.success === false) {
+    const parsed = getVideoErrorMessage(body);
+    throw new VideoApiError(parsed.code, parsed.message, parsed.canRetry);
+  }
+
+  const data = body.data && typeof body.data === 'object' ? body.data : body;
+  const rawId = data.videoId ?? data.id ?? body.videoId ?? body.id;
+  if (rawId === undefined || rawId === null || rawId === '') {
+    throw new VideoApiError(null, 'Invalid upload response from server.');
+  }
+
+  return {
+    videoId: String(rawId),
+    status: data.status,
+    title: data.title,
+    duration: data.duration,
+  };
+}
 
 
 interface InitViewResponse {
@@ -175,79 +229,41 @@ export const getNFTVideos = (limit: number = 4) =>
 export const getVideos = (category: string, limit: number = 4) => 
   api.get<Video[]>(`/api/v1/videos?category=${category}&limit=${limit}`);
 
-export const uploadVideo = async (formData: FormData, onUploadProgress?: (progressEvent: AxiosProgressEvent) => void) => {
-  const executeUpload = async () => {
-    // Log the FormData contents
-    console.log('Upload API - FormData contents:', {
-      hasVideo: formData.has('video'),
-      videoFile: formData.get('video'),
-      hasTitle: formData.has('title'),
-      hasDescription: formData.has('description'),
-      hasThumbnail: formData.has('thumbnail'),
-      hasChannelId: formData.has('channel_id'),
-      hasVisibility: formData.has('is_public'),
-    });
-
-    const response = await api.post<{
-      id: string;
-      message: string;
-      video_path: string;
-      thumbnail_path: string;
-    }>('/api/v1/videos/upload', formData, {
-      headers: { 
-        'Content-Type': 'multipart/form-data',
-      },
-      withCredentials: true,
-      onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-        console.log('Upload API - Progress:', {
-          loaded: `${(progressEvent.loaded / (1024 * 1024)).toFixed(2)}MB`,
-          total: progressEvent.total ? `${(progressEvent.total / (1024 * 1024)).toFixed(2)}MB` : 'unknown',
-          progress: progressEvent.total ? `${Math.round((progressEvent.loaded * 100) / progressEvent.total)}%` : 'calculating...'
-        });
-        
-        if (onUploadProgress) {
-          onUploadProgress(progressEvent);
-        }
-      },
-      timeout: 300000, // 5 minutes
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity
-    });
-
-    console.log('Upload API - Success:', {
-      status: response.status,
-      statusText: response.statusText,
-      data: response.data
-    });
-
-    return response;
-  };
-
+export const uploadVideo = async (
+  formData: FormData,
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
+): Promise<VideoUploadResult> => {
   try {
-    // Note: Upload shouldn't be retried automatically due to large file size
-    return await executeUpload();
-  } catch (error) {
-    const userError = handleApiError(error, {
-      action: 'video upload',
-      component: 'videoAPI',
-      additionalData: {
-        hasVideo: formData.has('video'),
-        videoSize: formData.get('video') instanceof File ? (formData.get('video') as File).size : 0
+    const response = await api.post<VideoUploadApiResponse>(
+      '/api/v1/videos/upload',
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true,
+        onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+          if (onUploadProgress) {
+            onUploadProgress(progressEvent);
+          }
+        },
+        timeout: 300000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
       }
-    });
+    );
 
-    // Custom error handling for upload-specific errors
-    if (userError.code === ErrorCode.REQUEST_FAILED && error instanceof Error) {
-      if (error.message.includes('413') || error.message.includes('file too large')) {
-        userError.code = ErrorCode.FILE_TOO_LARGE;
-        userError.message = 'Video file is too large. Please choose a smaller file or compress your video.';
-      } else if (error.message.includes('timeout')) {
-        userError.code = ErrorCode.CONNECTION_TIMEOUT;
-        userError.message = 'Upload timed out. Please check your connection and try again.';
-      }
+    const body = response.data;
+    if (parseApiErrorFromBody(body)) {
+      const parsed = getVideoErrorMessage(body);
+      throw new VideoApiError(parsed.code, parsed.message, parsed.canRetry);
     }
 
-    throw userError;
+    return normalizeVideoUploadResponse(body);
+  } catch (error: unknown) {
+    if (error instanceof VideoApiError) {
+      throw error;
+    }
+    const parsed = getVideoErrorMessage(error);
+    throw new VideoApiError(parsed.code, parsed.message, parsed.canRetry);
   }
 };
 

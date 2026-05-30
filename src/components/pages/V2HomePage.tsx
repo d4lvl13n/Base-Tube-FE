@@ -327,7 +327,7 @@ const PassPulse: React.FC<{ passes: Pass[] }> = ({ passes }) => {
   const topPass = passes[0];
 
   const pulseItems = [
-    { label: 'Drops live', value: passes.length ? passes.length.toString() : 'Soon', Icon: Ticket },
+    { label: 'Drops preview', value: passes.length ? passes.length.toString() : 'Soon', Icon: Ticket },
     { label: 'Minted / reserved', value: mintedTotal ? formatCompact(mintedTotal) : '0', Icon: Gem },
     { label: 'Top drop', value: topPass?.title || 'Content passes warming up', Icon: Flame },
     { label: 'Starting at', value: formatPrice(minPricePass), Icon: TrendingUp },
@@ -336,6 +336,15 @@ const PassPulse: React.FC<{ passes: Pass[] }> = ({ passes }) => {
   return (
     <motion.section variants={fadeUp} className={`mb-5 overflow-hidden rounded-[22px] border ${FROST_BORDER} bg-[#050505]/92`}>
       <div className="pointer-events-none h-px bg-[linear-gradient(90deg,transparent,rgba(250,117,23,0.54),transparent)]" />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(214,235,253,0.12)] px-5 py-3">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-black uppercase tracking-[0.18em] text-white/45">Content passes</span>
+          <span className="inline-flex items-center rounded-full border border-[#fa7517]/35 bg-[#fa7517]/12 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-[#ff9a4d]">
+            Beta · coming soon
+          </span>
+        </div>
+        <span className="text-xs font-semibold text-white/40">Preview data while minting opens.</span>
+      </div>
       <div className="grid grid-cols-1 divide-y divide-[rgba(214,235,253,0.12)] md:grid-cols-4 md:divide-x md:divide-y-0">
         {pulseItems.map(({ label, value, Icon }, index) => (
           <motion.div
@@ -423,8 +432,8 @@ const BentoPassTile: React.FC<{ pass?: Pass; className?: string }> = ({ pass, cl
         className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
       />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.06),rgba(0,0,0,0.92))]" />
-      <div className="absolute left-4 top-4 rounded-full border border-[#f2c94c]/30 bg-[#f2c94c]/10 px-3 py-1 text-xs font-black uppercase text-[#f2c94c]">
-        Pass
+      <div className="absolute left-4 top-4 rounded-full border border-[#fa7517]/35 bg-black/55 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#ff9a4d] backdrop-blur">
+        Beta soon
       </div>
       <div className="absolute inset-x-0 bottom-0 p-5">
         <h3 className="text-2xl font-black leading-tight text-white">{pass?.title || 'First drops are coming'}</h3>

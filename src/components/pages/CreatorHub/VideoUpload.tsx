@@ -16,7 +16,8 @@ import { uploadVideo, generateVideoDescription } from '../../../api/video';
 import VideoUploadSuccess from '../../common/ModalScreen/VideoUploadSuccess';
 import { useNavigate } from 'react-router-dom';
 import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
-import { showErrorToast, uploadErrors } from '../../common/Notifications/ErrorToast';
+import { showErrorToast } from '../../common/Notifications/ErrorToast';
+import { getVideoErrorMessage } from '../../../utils/videoErrorMessages';
 import { UploadRequirements } from '../../common/CreatorHub/UploadRequirements';
 import AIAssistantPanel from '../../common/AIAssistantPanel';
 import AIThumbnailPanel from '../../common/AIThumbnailPanel';
@@ -223,12 +224,11 @@ const VideoUpload: React.FC = () => {
         formData.append('thumbnail', thumbnailFile);
       }
 
-      const response = await uploadVideo(formData, (progressEvent) => {
+      const result = await uploadVideo(formData, (progressEvent) => {
         if (progressEvent.total) {
           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(progress);
-          
-          // Update stall detection refs
+
           if (progress > lastProgressRef.current) {
             lastProgressRef.current = progress;
             lastProgressTimeRef.current = Date.now();
@@ -238,28 +238,14 @@ const VideoUpload: React.FC = () => {
       });
 
       clearTimers();
-      setUploadedVideoId(response.data.id);
+      setUploadedVideoId(result.videoId);
       setStep(4);
-    } catch (error: any) {
+    } catch (error: unknown) {
       clearTimers();
-      console.error('Upload failed with error:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data
-      });
+      console.error('Upload failed:', error);
 
-      let errorMessage = uploadErrors.uploadFailed;
-      
-      if (error.response?.status === 413) {
-        errorMessage = uploadErrors.fileTooLarge;
-      } else if (error.response?.status === 415) {
-        errorMessage = uploadErrors.unsupportedFormat;
-      } else if (error.message.includes('Network Error')) {
-        errorMessage = uploadErrors.networkError;
-      }
-
-      showErrorToast(errorMessage);
+      const parsed = getVideoErrorMessage(error);
+      showErrorToast(parsed.message);
       setStep(2);
     }
   };

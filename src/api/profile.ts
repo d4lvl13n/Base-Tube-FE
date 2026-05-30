@@ -10,7 +10,21 @@ import {
 } from '../types/user';
 import { Video } from '../types/video';
 import { WatchHistory, LikesHistory } from '../types/history';
- 
+import { parseApiErrorFromBody } from '../utils/apiError';
+import { getProfileErrorMessage } from '../utils/profileErrorMessages';
+
+export class ProfileApiError extends Error {
+  readonly code: string | null;
+  readonly canRetry: boolean;
+
+  constructor(code: string | null, message: string, canRetry = false) {
+    super(message);
+    this.name = 'ProfileApiError';
+    this.code = code;
+    this.canRetry = canRetry;
+  }
+}
+
 const normalizeReferralInfo = (raw: any): ReferralInfo => ({
   id: Number(raw.id),
   userId: raw.userId ?? raw.user_id ?? '',
@@ -49,14 +63,34 @@ export const updateProfileSettings = async (settingsData: ProfileSettings) => {
 };
 
 export const updateProfile = async (profileData: FormData): Promise<UserProfile> => {
-  const response = await api.put<{ success: boolean; message: string; data: UserProfile }>(
-    '/api/v1/profile/update',
-    profileData,
-    {
+  try {
+    const response = await api.put<{
+      success: boolean;
+      message?: string;
+      data: UserProfile;
+    }>('/api/v1/profile/update', profileData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    const body = response.data;
+    const apiError = parseApiErrorFromBody(body);
+    if (apiError) {
+      const parsed = getProfileErrorMessage(body);
+      throw new ProfileApiError(parsed.code, parsed.message, parsed.canRetry);
     }
-  );
-  return response.data.data;
+
+    if (!body.data) {
+      throw new ProfileApiError(null, 'Invalid profile update response from server.');
+    }
+
+    return body.data;
+  } catch (error: unknown) {
+    if (error instanceof ProfileApiError) {
+      throw error;
+    }
+    const parsed = getProfileErrorMessage(error);
+    throw new ProfileApiError(parsed.code, parsed.message, parsed.canRetry);
+  }
 };
 
 export const getWatchHistory = async (): Promise<{ data: WatchHistory[] }> => {
@@ -87,7 +121,8 @@ export const rotateMyReferralCode = async (): Promise<ReferralInfo> => {
 export const applyReferralCode = async (code: string) => {
   const response = await api.post('/api/v1/referrals/referrals/apply', { code });
   if (response.data?.success === false) {
-    throw new Error(response.data?.message || 'Failed to apply referral code');
+    const parsed = parseApiErrorFromBody(response.data);
+    throw new Error(parsed?.message ?? 'Failed to apply referral code');
   }
   return response.data.data;
 };

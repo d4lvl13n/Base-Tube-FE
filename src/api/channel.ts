@@ -4,6 +4,7 @@ import api from './index';
 import { 
   Channel, 
   ChannelResponse, 
+  ChannelWriteResponse,
   ChannelsResponse, 
   ChannelDetailsResponse,
   ChannelAnalyticsResponse,
@@ -11,7 +12,9 @@ import {
   GetChannelsOptions,
   GetChannelsResponse,
   SubscribedChannelResponse,
-  GetSubscribedChannelsOptions
+  GetSubscribedChannelsOptions,
+  HandleAvailabilityResponse,
+  HandleAvailabilityData,
 } from '../types/channel';
 import { 
   SocialMetrics, 
@@ -22,6 +25,38 @@ import {
 import axios from 'axios';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
+import { getChannelErrorMessage } from '../utils/channelErrorMessages';
+
+export class ChannelApiError extends Error {
+  readonly code: string | null;
+  readonly field: ReturnType<typeof getChannelErrorMessage>['field'];
+  readonly details?: unknown;
+
+  constructor(result: ReturnType<typeof getChannelErrorMessage>, details?: unknown) {
+    super(result.message);
+    this.name = 'ChannelApiError';
+    this.code = result.code;
+    this.field = result.field;
+    this.details = details;
+  }
+}
+
+/** Prefer `data`; fall back to legacy `channel` on create responses */
+export const getChannelFromWriteResponse = (
+  response: ChannelWriteResponse
+): Channel => {
+  if (response.data) return response.data;
+  if (response.channel) return response.channel;
+  throw new ChannelApiError({
+    code: null,
+    message: 'Invalid channel response from server.',
+    field: 'submit',
+  });
+};
+
+export interface CreateChannelOptions {
+  idempotencyKey?: string;
+}
 
 export const getMyChannels = async (
   options: ChannelQueryOptions = {}
@@ -141,66 +176,62 @@ export const getPopularChannels = async (
   }
 };
 
-export const createChannel = async (channelData: FormData) => {
-  const executeCreate = async () => {
-    // Log the request details (but sanitize sensitive data)
-    console.log('Creating channel with data:', {
-      name: channelData.get('name'),
-      handle: channelData.get('handle'),
-      hasDescription: Boolean(channelData.get('description')),
-      hasImage: Boolean(channelData.get('channel_image')),
-      apiUrl: api.defaults.baseURL
-    });
-
-    const response = await api.post<ChannelResponse>('/api/v1/channels', channelData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 30000, // 30 seconds
-    });
-
-    // Log response for debugging
-    console.log('Channel creation response:', {
-      status: response.status,
-      statusText: response.statusText,
-      data: response.data
-    });
-
-    return response.data;
-  };
+export const createChannel = async (
+  channelData: FormData,
+  options: CreateChannelOptions = {}
+): Promise<ChannelWriteResponse> => {
+  const idempotencyKey =
+    options.idempotencyKey ??
+    (typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `create-${Date.now()}`);
 
   try {
-    return await retryWithBackoff(executeCreate, 2, 1000);
-  } catch (error: any) {
-    const userError = handleApiError(error, {
-      action: 'create channel',
-      component: 'channelAPI',
-      additionalData: {
-        channelName: channelData.get('name'),
-        hasImage: Boolean(channelData.get('channel_image'))
+    const response = await api.post<ChannelWriteResponse>(
+      '/api/v1/channels',
+      channelData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Idempotency-Key': idempotencyKey,
+        },
+        timeout: 30000,
       }
-    });
+    );
 
-    // Handle specific channel creation errors
-    if (userError.code === ErrorCode.VALIDATION_ERROR) {
-      if (error?.response?.data?.message?.includes('handle')) {
-        userError.message = 'Channel handle already exists. Please choose a different handle.';
-      } else if (error?.response?.data?.message?.includes('name')) {
-        userError.message = 'Channel name is invalid or already taken.';
-      }
+    const replayed =
+      response.headers['idempotency-replayed'] === 'true' ||
+      response.headers['Idempotency-Replayed'] === 'true';
+
+    if (replayed) {
+      console.info('Channel create idempotency replay — returning existing channel');
     }
 
-    throw userError;
+    return {
+      ...response.data,
+      data: getChannelFromWriteResponse(response.data),
+    };
+  } catch (error: unknown) {
+    const parsed = getChannelErrorMessage(error);
+    throw new ChannelApiError(parsed, parseApiErrorDetails(error));
   }
 };
 
+function parseApiErrorDetails(error: unknown): unknown {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as { error?: { details?: unknown } } | undefined;
+    return data?.error?.details;
+  }
+  return undefined;
+}
+
 export const updateChannel = async (
-  channelId: string, 
+  channelId: string,
   formData: FormData
-): Promise<ChannelResponse> => {
+): Promise<ChannelWriteResponse> => {
   try {
-    const response = await api.put<ChannelResponse>(
-      `/api/v1/channels/${channelId}`, 
+    const response = await api.put<ChannelWriteResponse>(
+      `/api/v1/channels/${channelId}`,
       formData,
       {
         headers: {
@@ -208,10 +239,13 @@ export const updateChannel = async (
         },
       }
     );
-    return response.data;
-  } catch (error) {
-    console.error('Error updating channel:', error);
-    throw error;
+    return {
+      ...response.data,
+      data: getChannelFromWriteResponse(response.data),
+    };
+  } catch (error: unknown) {
+    const parsed = getChannelErrorMessage(error);
+    throw new ChannelApiError(parsed, parseApiErrorDetails(error));
   }
 };
 
@@ -350,9 +384,17 @@ export const getChannelByHandle = async (handle: string): Promise<Channel> => {
 
 export const checkHandleAvailability = async (
   handle: string
-): Promise<{ isAvailable: boolean; message?: string }> => {
-  const response = await api.get(`/api/v1/channels/handle-check/${handle}`);
-  return response.data;
+): Promise<HandleAvailabilityData> => {
+  const response = await api.get<HandleAvailabilityResponse>(
+    `/api/v1/channels/handle-check/${encodeURIComponent(handle)}`
+  );
+  const payload = response.data;
+  const data = payload.data ?? {
+    isAvailable: payload.isAvailable ?? false,
+    formattedHandle: payload.formattedHandle ?? handle,
+    validation: payload.validation ?? { isValid: false, errors: [] },
+  };
+  return data;
 };
 
 // Fetch channel by ID
@@ -548,14 +590,18 @@ export const validateChannelData = (data: ChannelUpdateData): string[] => {
   return errors;
 };
 
-// Helper function to create FormData from channel update data
-export const createChannelFormData = (data: ChannelUpdateData): FormData => {
+// Helper function to create FormData from channel update data.
+// For updates, omit `handle` unless the user changed it (API treats handle as optional on PUT).
+export const createChannelFormData = (
+  data: ChannelUpdateData,
+  options?: { includeHandle?: boolean }
+): FormData => {
   const formData = new FormData();
+  const includeHandle = options?.includeHandle !== false;
 
-  // Only append fields that are defined
   if (data.name) formData.append('name', data.name);
   if (data.description) formData.append('description', data.description);
-  if (data.handle) formData.append('handle', data.handle);
+  if (includeHandle && data.handle) formData.append('handle', data.handle);
   if (data.facebook_link) formData.append('facebook_link', data.facebook_link);
   if (data.instagram_link) formData.append('instagram_link', data.instagram_link);
   if (data.twitter_link) formData.append('twitter_link', data.twitter_link);

@@ -65,6 +65,8 @@ export interface Pass {
   onchain_pass_id?: number | null;
   /** SEO-friendly slug generated from title */
   slug?: string;
+  /** Stripe checkout URL (present on create response) */
+  checkout_url?: string;
   title: string;
   description: string;
   price_cents: number;

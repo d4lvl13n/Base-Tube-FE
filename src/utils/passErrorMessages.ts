@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { parseApiError, isRateLimitError, isRetryableServiceError } from './apiError';
 
 export type PassErrorAction = 'link-youtube' | 'verify-channel' | null;
 
@@ -6,16 +6,41 @@ export interface PassErrorResult {
   code: string | null;
   message: string;
   action: PassErrorAction;
+  canRetry: boolean;
 }
 
-const PASS_ERROR_MAP: Record<string, { message: string; action: PassErrorAction }> = {
-  // Pass creation codes (POST /api/v1/passes)
+const PASS_ERROR_MAP: Record<
+  string,
+  { message: string; action: PassErrorAction; canRetry?: boolean }
+> = {
+  INVALID_PASS_INPUT: {
+    message: 'Add a title, price (min $1), and at least one YouTube video URL.',
+    action: null,
+  },
+  PASS_URL_ALREADY_USED: {
+    message:
+      'This URL already has a content pass. Use a different video URL.',
+    action: null,
+    canRetry: false,
+  },
+  PASS_CHAIN_REGISTRATION_FAILED: {
+    message:
+      'On-chain registration failed and nothing was saved. You can safely try again.',
+    action: null,
+    canRetry: true,
+  },
+  PASS_CREATE_RATE_LIMIT_EXCEEDED: {
+    message:
+      "You've reached today's limit for creating passes. Please try again tomorrow.",
+    action: null,
+  },
   CHANNEL_NOT_LINKED: {
     message: "Your YouTube channel isn't connected yet. Link it to continue.",
     action: 'link-youtube',
   },
   YOUTUBE_CHANNEL_NOT_VERIFIED: {
-    message: "Your YouTube channel hasn't been verified. Complete verification to create passes.",
+    message:
+      "Your YouTube channel hasn't been verified. Complete verification to create passes.",
     action: 'verify-channel',
   },
   CHANNEL_NOT_APPROVED: {
@@ -27,16 +52,21 @@ const PASS_ERROR_MAP: Record<string, { message: string; action: PassErrorAction 
     action: null,
   },
   VIDEO_OWNERSHIP_VERIFICATION_FAILED: {
-    message: "We couldn't verify you own this video. Make sure it belongs to your linked YouTube channel.",
+    message:
+      "We couldn't verify you own this video. Make sure it belongs to your linked YouTube channel.",
     action: null,
   },
-  PASS_CREATE_RATE_LIMIT_EXCEEDED: {
-    message: "You've created too many passes recently. Please wait a few minutes.",
+  PASS_CREATE_FAILED: {
+    message: 'Could not create your pass. Please try again or contact support.',
     action: null,
   },
-  // Checkout / crypto quote codes
+  UNAUTHORIZED: {
+    message: 'Please sign in to continue.',
+    action: null,
+  },
   PASS_CHANNEL_NOT_APPROVED: {
-    message: "This creator's channel hasn't been approved yet. Purchases are temporarily unavailable.",
+    message:
+      "This creator's channel hasn't been approved yet. Purchases are temporarily unavailable.",
     action: null,
   },
   PASS_CONTENT_INVALID: {
@@ -47,58 +77,29 @@ const PASS_ERROR_MAP: Record<string, { message: string; action: PassErrorAction 
 
 const DEFAULT_MESSAGE = 'Something went wrong. Please try again.';
 
-/**
- * Extract a structured error from an API failure (typically from axios).
- *
- * Tries three shapes the backend may use:
- *   1. `{ error: { code, message } }`  — structured API error
- *   2. `{ error: "<string>" }`          — flat error string
- *   3. `{ code: "<string>" }`           — code at top level
- *
- * Returns a user-facing message + an optional action hint so the UI can
- * render an inline recovery button (e.g. "Connect YouTube").
- */
 export function getPassErrorMessage(error: unknown): PassErrorResult {
-  const fallback: PassErrorResult = { code: null, message: DEFAULT_MESSAGE, action: null };
-
-  if (!error) return fallback;
-
-  let code: string | null = null;
-  let serverMessage: string | null = null;
-
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data as Record<string, any> | undefined;
-    if (data) {
-      if (typeof data.error === 'object' && data.error !== null) {
-        code = data.error.code ?? null;
-        serverMessage = data.error.message ?? data.error.userMessage ?? null;
-      } else if (typeof data.error === 'string') {
-        code = data.code ?? null;
-        serverMessage = data.error;
-      }
-      if (!code && typeof data.code === 'string') {
-        code = data.code;
-      }
-      if (!serverMessage && typeof data.message === 'string') {
-        serverMessage = data.message;
-      }
-      if (Array.isArray(data.errors) && data.errors.length > 0) {
-        serverMessage = data.errors
-          .map((e: any) => e.msg || e.message || 'Invalid input')
-          .join(', ');
-      }
-    }
-  } else if (error instanceof Error) {
-    serverMessage = error.message;
-  }
+  const { code, message } = parseApiError(error);
 
   if (code && PASS_ERROR_MAP[code]) {
-    return { code, ...PASS_ERROR_MAP[code] };
+    const mapped = PASS_ERROR_MAP[code];
+    return {
+      code,
+      message: mapped.message,
+      action: mapped.action,
+      canRetry: mapped.canRetry ?? isRetryableServiceError(code),
+    };
   }
+
+  const hasServerMessage =
+    typeof message === 'string' &&
+    message.trim().length > 0 &&
+    message !== DEFAULT_MESSAGE &&
+    !/^Request failed with status code/i.test(message);
 
   return {
     code,
-    message: serverMessage || DEFAULT_MESSAGE,
+    message: hasServerMessage ? message : DEFAULT_MESSAGE,
     action: null,
+    canRetry: isRetryableServiceError(code) && !isRateLimitError(code),
   };
 }

@@ -34,6 +34,33 @@ export interface ChannelResponse {
   message?: string;
 }
 
+/** POST create / PUT update — prefer `data`; `channel` is legacy on create only */
+export interface ChannelWriteResponse {
+  success: boolean;
+  data: Channel;
+  channel?: Channel;
+  message?: string;
+}
+
+export interface HandleAvailabilityData {
+  isAvailable: boolean;
+  formattedHandle: string;
+  validation: {
+    isValid: boolean;
+    errors: string[];
+  };
+}
+
+export interface HandleAvailabilityResponse {
+  success: boolean;
+  data: HandleAvailabilityData;
+  /** @deprecated read from `data` */
+  isAvailable?: boolean;
+  /** @deprecated read from `data` */
+  formattedHandle?: string;
+  validation?: HandleAvailabilityData['validation'];
+}
+
 // Base response interface
 export interface BaseChannelsResponse {
   success: boolean;

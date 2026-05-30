@@ -16,6 +16,8 @@ import { useClerk } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getProfileSettings, updateProfileSettings, updateProfile } from '../../../api/profile';
+import { getProfileErrorMessage } from '../../../utils/profileErrorMessages';
+import { toast } from 'react-toastify';
 import Error from '../Error';
 import Loader from '../Loader';
 import { ProfileSettings } from '../../../types/user';
@@ -105,7 +107,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           profile_image_url: updatedProfile.profile_image_url,
         });
       }
-    }
+      toast.success('Profile updated successfully');
+    },
+    onError: (error) => {
+      const parsed = getProfileErrorMessage(error);
+      toast.error(parsed.message);
+    },
   });
 
   // Toggle notification preference

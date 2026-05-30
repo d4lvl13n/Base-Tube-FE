@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'react-toastify';
-import {
-  updateChannel,
-  validateChannelData,
-  createChannelFormData,
-} from '../../../../../api/channel';
+import { validateChannelData, ChannelApiError } from '../../../../../api/channel';
+import { stripHandleSuffix } from '../../../../../utils/handleUtils';
+import { useUpdateChannel } from '../../../../../hooks/useUpdateChannel';
+import { getChannelErrorMessage } from '../../../../../utils/channelErrorMessages';
 import { EditChannelModalProps, FormFields, FormErrors } from '../types';
 import RichTextEditor from '../../../../common/RichTextEditor';
 import { UpdateChannelData, isValidHandle } from '../../../../../types/channel';
@@ -21,9 +20,11 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
   // -------------------------------------------------------
   // 1. State
   // -------------------------------------------------------
+  const originalHandle = stripHandleSuffix(channel.handle);
+
   const [formData, setFormData] = useState<FormFields>({
     name: channel.name,
-    handle: channel.handle.replace('.base', ''),
+    handle: originalHandle,
     description: channel.description || '',
     channel_image: undefined, // No new file by default
     facebook_link: channel.facebook_link || '',
@@ -32,8 +33,9 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
   });
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  const { updateChannel: submitUpdateChannel, isUpdating } = useUpdateChannel();
   
   // -------------------------------------------------------
   // 2. Effects
@@ -42,7 +44,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
   useEffect(() => {
     setFormData({
       name: channel.name,
-      handle: channel.handle.replace('.base', ''),
+      handle: stripHandleSuffix(channel.handle),
       description: channel.description || '',
       channel_image: undefined,
       facebook_link: channel.facebook_link || '',
@@ -131,31 +133,39 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
     e.preventDefault();
     if (!validateForm()) return;
 
-    setIsSubmitting(true);
     try {
-      const channelUpdateObj: UpdateChannelData = {
-        name: formData.name.trim(),
-        handle: `${formData.handle.trim()}.base`,
-        description: formData.description.trim(),
-        facebook_link: formData.facebook_link.trim() || undefined,
-        instagram_link: formData.instagram_link.trim() || undefined,
-        twitter_link: formData.twitter_link.trim() || undefined,
-        ...(formData.channel_image ? { channel_image: formData.channel_image } : {}),
-      };
-
-      // Convert to FormData and send
-      const formDataToSubmit = createChannelFormData(channelUpdateObj);
-      await updateChannel(channel.id.toString(), formDataToSubmit);
+      await submitUpdateChannel({
+        channelId: channel.id.toString(),
+        originalHandle: channel.handle,
+        data: {
+          name: formData.name.trim(),
+          handle: stripHandleSuffix(formData.handle.trim()),
+          description: formData.description.trim(),
+          facebook_link: formData.facebook_link.trim() || undefined,
+          instagram_link: formData.instagram_link.trim() || undefined,
+          twitter_link: formData.twitter_link.trim() || undefined,
+          ...(formData.channel_image ? { channel_image: formData.channel_image } : {}),
+        },
+      });
 
       toast.success('Channel updated successfully.');
       onUpdate();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to update channel.';
-      toast.error(message);
-      setErrors((prev) => ({ ...prev, submit: message }));
-    } finally {
-      setIsSubmitting(false);
+      const parsed =
+        error instanceof ChannelApiError
+          ? { field: error.field ?? 'submit', message: error.message }
+          : getChannelErrorMessage(error);
+
+      if (parsed.field === 'handle') {
+        setErrors((prev) => ({ ...prev, handle: parsed.message }));
+      } else if (parsed.field === 'name') {
+        setErrors((prev) => ({ ...prev, name: parsed.message }));
+      } else if (parsed.field === 'channel_image') {
+        setErrors((prev) => ({ ...prev, channel_image: parsed.message }));
+      } else {
+        setErrors((prev) => ({ ...prev, submit: parsed.message }));
+      }
+      toast.error(parsed.message);
     }
   };
 
@@ -432,16 +442,16 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                     type="button"
                     onClick={onClose}
                     className={styles.cancelButton}
-                    disabled={isSubmitting}
+                    disabled={isUpdating}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     className={styles.saveButton}
-                    disabled={isSubmitting}
+                    disabled={isUpdating}
                   >
-                    {isSubmitting ? 'Saving...' : 'Save Changes'}
+                    {isUpdating ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>

@@ -14,6 +14,70 @@ import {
 } from '../types/pass';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
+import { getPassErrorMessage, PassErrorResult } from '../utils/passErrorMessages';
+import type { PassVideo } from '../types/pass';
+
+export class PassApiError extends Error {
+  readonly code: string | null;
+  readonly action: PassErrorResult['action'];
+  readonly canRetry: boolean;
+
+  constructor(result: PassErrorResult) {
+    super(result.message);
+    this.name = 'PassApiError';
+    this.code = result.code;
+    this.action = result.action;
+    this.canRetry = result.canRetry;
+  }
+}
+
+/** POST /api/v1/passes — `data` is canonical; top-level fields are compat shim */
+export interface PassCreateApiResponse {
+  success: boolean;
+  data?: Partial<Pass> & { checkout_url?: string; videos?: PassVideo[] };
+  id?: string;
+  slug?: string;
+  checkout_url?: string;
+  videos?: PassVideo[];
+}
+
+export function normalizePassCreateResponse(body: PassCreateApiResponse): Pass {
+  if (body.success === false) {
+    throw new PassApiError(getPassErrorMessage(body));
+  }
+
+  const fromData =
+    body.data && typeof body.data === 'object' ? body.data : (body as Partial<Pass>);
+
+  const id = fromData.id ?? body.id;
+  if (!id) {
+    throw new PassApiError({
+      code: null,
+      message: 'Invalid pass create response from server.',
+      action: null,
+      canRetry: false,
+    });
+  }
+
+  const checkout_url =
+    (fromData as { checkout_url?: string }).checkout_url ?? body.checkout_url;
+
+  return {
+    title: '',
+    description: '',
+    price_cents: 0,
+    currency: 'USD',
+    formatted_price: '',
+    tier: 'bronze',
+    channel: { name: '', user: { username: '' } },
+    videos: [],
+    ...fromData,
+    id,
+    slug: fromData.slug ?? body.slug,
+    videos: fromData.videos ?? body.videos ?? [],
+    ...(checkout_url ? { checkout_url } : {}),
+  } as Pass;
+}
 
 /**
  * Custom error class for video playback errors
@@ -195,20 +259,22 @@ export const passApi = {
    * @returns The newly created pass
    */
   createPass: async (data: CreatePassRequest): Promise<Pass> => {
-    // Simple deterministic hash from payload to dedupe accidental double-submits client-side
     const payloadString = JSON.stringify(data);
     let hash = 0;
     for (let i = 0; i < payloadString.length; i++) {
-      hash = ((hash << 5) - hash) + payloadString.charCodeAt(i);
-      hash |= 0; // 32-bit
+      hash = (hash << 5) - hash + payloadString.charCodeAt(i);
+      hash |= 0;
     }
     const idempotencyKey = `pass-create-${Math.abs(hash)}`;
-    const response = await api.post<Pass>('/api/v1/passes', data, {
-      headers: {
-        'Idempotency-Key': idempotencyKey
-      }
-    });
-    return response.data;
+
+    try {
+      const response = await api.post<PassCreateApiResponse>('/api/v1/passes', data, {
+        headers: { 'Idempotency-Key': idempotencyKey },
+      });
+      return normalizePassCreateResponse(response.data);
+    } catch (error: unknown) {
+      throw new PassApiError(getPassErrorMessage(error));
+    }
   },
   
   /**
@@ -258,36 +324,17 @@ export const passApi = {
 /**
  * Creates a new content pass
  */
-export const createContentPass = async (passData: CreatePassRequest): Promise<PassDetailsResponse> => {
-  const executeCreate = async () => {
-    const response = await api.post<PassDetailsResponse>('/api/v1/passes', passData);
-    return response.data;
-  };
-
+export const createContentPass = async (
+  passData: CreatePassRequest
+): Promise<PassDetailsResponse> => {
   try {
-    return await retryWithBackoff(executeCreate, 2, 1000);
-  } catch (error) {
-    const userError = handleApiError(error, {
-      action: 'create content pass',
-      component: 'passAPI',
-      additionalData: { 
-        title: passData.title,
-        price_cents: passData.price_cents
-      }
-    });
-
-    // Handle specific pass creation errors
-    if (userError.code === ErrorCode.VALIDATION_ERROR) {
-      if (error instanceof Error && error.message.includes('price')) {
-        userError.message = 'Invalid price. Please check the pricing format.';
-      } else if (error instanceof Error && error.message.includes('title')) {
-        userError.message = 'Pass title is required and must be unique.';
-      }
-    } else if (userError.code === ErrorCode.FORBIDDEN) {
-      userError.message = 'You don\'t have permission to create passes for this channel.';
+    const pass = await passApi.createPass(passData);
+    return { success: true, data: pass };
+  } catch (error: unknown) {
+    if (error instanceof PassApiError) {
+      throw error;
     }
-
-    throw userError;
+    throw new PassApiError(getPassErrorMessage(error));
   }
 };
 
