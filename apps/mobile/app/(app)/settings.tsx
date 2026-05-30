@@ -1,6 +1,6 @@
 import React from 'react';
 import { Linking, ScrollView, StyleSheet } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { theme } from '../../src/theme';
@@ -9,6 +9,7 @@ import { Row, RowGroup } from '../../src/components/Row';
 export default function SettingsScreen() {
   const { user } = useUser();
   const { signOut } = useAuth();
+  const router = useRouter();
   const version = Constants.expoConfig?.version ?? '0.1.0';
 
   return (
@@ -16,6 +17,7 @@ export default function SettingsScreen() {
       <Stack.Screen options={{ title: 'Settings' }} />
       <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
         <RowGroup title="Account">
+          <Row icon="create-outline" label="Edit profile" onPress={() => router.push('/edit-profile')} />
           <Row icon="person-outline" label="Username" value={user?.username ?? '—'} />
           <Row icon="mail-outline" label="Email" value={user?.primaryEmailAddress?.emailAddress ?? '—'} />
         </RowGroup>

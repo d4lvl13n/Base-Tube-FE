@@ -33,6 +33,17 @@ export function createEngagementApi(http: AxiosInstance) {
       return res.data.data;
     },
 
+    /** `PUT /api/v1/comments/:commentId` (auth, owner) */
+    async updateComment(commentId: string | number, content: string): Promise<Comment> {
+      const res = await http.put<SuccessEnvelope<Comment>>(`/api/v1/comments/${commentId}`, { content });
+      return res.data.data;
+    },
+
+    /** `DELETE /api/v1/comments/:commentId` (auth, owner) */
+    async deleteComment(commentId: string | number): Promise<void> {
+      await http.delete(`/api/v1/comments/${commentId}`);
+    },
+
     /** `POST /api/v1/likes/videos/:videoId/toggle` (auth) */
     async toggleLike(videoId: string | number): Promise<LikeToggleResponse> {
       const res = await http.post<LikeToggleResponse>(`/api/v1/likes/videos/${videoId}/toggle`, {});

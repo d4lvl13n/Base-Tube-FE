@@ -1,10 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import type { SearchSort } from '@basetube/api';
 import { api } from '../../../src/lib/client';
 import { theme } from '../../../src/theme';
 import { EmptyState, ErrorState, LoadingState, VideoCard } from '../../../src/components/media';
+
+const SORTS: { key: SearchSort; label: string }[] = [
+  { key: 'relevance', label: 'Relevance' },
+  { key: 'date', label: 'Newest' },
+  { key: 'views', label: 'Most viewed' },
+];
 
 /** Debounce a changing value by `ms`. */
 function useDebounced<T>(value: T, ms: number): T {
@@ -18,11 +25,12 @@ function useDebounced<T>(value: T, ms: number): T {
 
 export default function SearchScreen() {
   const [text, setText] = useState('');
+  const [sort, setSort] = useState<SearchSort>('relevance');
   const query = useDebounced(text.trim(), 350);
 
   const search = useQuery({
-    queryKey: ['search', query],
-    queryFn: () => api.search.videos(query, 1, 24, 'relevance'),
+    queryKey: ['search', query, sort],
+    queryFn: () => api.search.videos(query, 1, 24, sort),
     enabled: query.length > 1,
   });
 
@@ -43,6 +51,19 @@ export default function SearchScreen() {
           returnKeyType="search"
         />
       </View>
+
+      {query.length > 1 ? (
+        <View style={styles.sortRow}>
+          {SORTS.map((s) => {
+            const active = s.key === sort;
+            return (
+              <Pressable key={s.key} onPress={() => setSort(s.key)} style={[styles.sortChip, active && styles.sortChipActive]}>
+                <Text style={[styles.sortText, active && styles.sortTextActive]}>{s.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       {query.length <= 1 ? (
         <EmptyState message="Search BaseTube for videos and creators." />
@@ -79,5 +100,10 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   input: { flex: 1, color: theme.colors.text, fontSize: 16, paddingVertical: theme.spacing(3.5) },
+  sortRow: { flexDirection: 'row', gap: theme.spacing(2), paddingHorizontal: theme.spacing(4), marginBottom: theme.spacing(3) },
+  sortChip: { paddingHorizontal: theme.spacing(3.5), paddingVertical: theme.spacing(2), borderRadius: theme.radius.pill, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  sortChipActive: { backgroundColor: theme.colors.accentSoft, borderColor: 'rgba(250,117,23,0.5)' },
+  sortText: { color: theme.colors.textMuted, fontWeight: '700', fontSize: 12.5 },
+  sortTextActive: { color: theme.colors.accentBright },
   list: { paddingHorizontal: theme.spacing(4), paddingBottom: theme.spacing(28) },
 });

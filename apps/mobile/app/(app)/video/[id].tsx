@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ResizeMode, Video as ExpoVideo } from 'expo-av';
@@ -43,9 +43,12 @@ export default function VideoScreen() {
   const [descExpanded, setDescExpanded] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+
   const video = useQuery({ queryKey: ['video', id], queryFn: () => api.videos.getById(id), enabled: !!id });
   const liked = useQuery({ queryKey: ['like', id], queryFn: () => api.engagement.likeStatus(id), enabled: !!id });
   const comments = useQuery({ queryKey: ['comments', id], queryFn: () => api.engagement.listComments(id), enabled: !!id });
+  const me = useQuery({ queryKey: ['me'], queryFn: () => api.profile.me(), staleTime: 5 * 60_000, retry: false });
 
   useEffect(() => { if (id) api.engagement.trackView(id); }, [id]);
 
@@ -68,6 +71,32 @@ export default function VideoScreen() {
     mutationFn: (content: string) => api.engagement.addComment(id, content),
     onSuccess: () => { setComment(''); queryClient.invalidateQueries({ queryKey: ['comments', id] }); },
   });
+  const editComment = useMutation({
+    mutationFn: ({ commentId, content }: { commentId: number; content: string }) => api.engagement.updateComment(commentId, content),
+    onSuccess: () => { setComment(''); setEditingId(null); queryClient.invalidateQueries({ queryKey: ['comments', id] }); },
+  });
+  const removeComment = useMutation({
+    mutationFn: (commentId: number) => api.engagement.deleteComment(commentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments', id] }),
+  });
+
+  const submitComment = () => {
+    const text = comment.trim();
+    if (!text) return;
+    if (editingId) editComment.mutate({ commentId: editingId, content: text });
+    else addComment.mutate(text);
+  };
+  const startEdit = (commentId: number, content: string) => {
+    setEditingId(commentId);
+    setComment(content);
+    inputRef.current?.focus();
+  };
+  const confirmDelete = (commentId: number) => {
+    Alert.alert('Delete comment', 'This can’t be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => removeComment.mutate(commentId) },
+    ]);
+  };
 
   // Subscribe from the video page (parity with web). Optimistic local state.
   const [subOverride, setSubOverride] = useState<boolean | null>(null);
@@ -171,32 +200,46 @@ export default function VideoScreen() {
               ref={inputRef}
               value={comment}
               onChangeText={setComment}
-              placeholder="Add a comment…"
+              placeholder={editingId ? 'Edit your comment…' : 'Add a comment…'}
               placeholderTextColor={theme.colors.textFaint}
               style={styles.commentInput}
               multiline
             />
             <Pressable
-              disabled={!comment.trim() || addComment.isPending}
-              onPress={() => addComment.mutate(comment.trim())}
-              style={[styles.postBtn, (!comment.trim() || addComment.isPending) && styles.postBtnDim]}
+              disabled={!comment.trim() || addComment.isPending || editComment.isPending}
+              onPress={submitComment}
+              style={[styles.postBtn, (!comment.trim() || addComment.isPending || editComment.isPending) && styles.postBtnDim]}
             >
-              <Text style={styles.postBtnText}>Post</Text>
+              <Text style={styles.postBtnText}>{editingId ? 'Save' : 'Post'}</Text>
             </Pressable>
           </View>
+          {editingId ? (
+            <Pressable onPress={() => { setEditingId(null); setComment(''); }} style={styles.cancelEdit}>
+              <Text style={styles.cancelEditText}>Cancel edit</Text>
+            </Pressable>
+          ) : null}
 
           {comments.isLoading ? (
             <LoadingState />
           ) : (
-            (comments.data?.comments ?? []).map((c) => (
-              <View key={`c-${c.id}`} style={styles.comment}>
-                <Image source={{ uri: imageUrl(c.user?.profile_image_url) }} style={styles.commentAvatar} />
-                <View style={styles.flex}>
-                  <Text style={styles.commentAuthor}>{c.user?.username || 'user'} <Text style={styles.commentTime}>· {timeAgo(c.createdAt)}</Text></Text>
-                  <Text style={styles.commentBody}>{c.content}</Text>
+            (comments.data?.comments ?? []).map((c) => {
+              const own = me.data?.id != null && String(c.user?.id) === String(me.data.id);
+              return (
+                <View key={`c-${c.id}`} style={styles.comment}>
+                  <Image source={{ uri: imageUrl(c.user?.profile_image_url) }} style={styles.commentAvatar} />
+                  <View style={styles.flex}>
+                    <Text style={styles.commentAuthor}>{c.user?.username || 'user'} <Text style={styles.commentTime}>· {timeAgo(c.createdAt)}</Text></Text>
+                    <Text style={styles.commentBody}>{c.content}</Text>
+                    {own ? (
+                      <View style={styles.commentActions}>
+                        <Pressable onPress={() => startEdit(c.id, c.content)} hitSlop={6}><Text style={styles.commentAction}>Edit</Text></Pressable>
+                        <Pressable onPress={() => confirmDelete(c.id)} hitSlop={6}><Text style={[styles.commentAction, styles.commentDelete]}>Delete</Text></Pressable>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -254,4 +297,9 @@ const styles = StyleSheet.create({
   commentAuthor: { color: theme.colors.text, fontWeight: '700', fontSize: 13.5 },
   commentTime: { color: theme.colors.textFaint, fontWeight: '400' },
   commentBody: { color: theme.colors.text, fontSize: 14, marginTop: 3, lineHeight: 20 },
+  commentActions: { flexDirection: 'row', gap: theme.spacing(4), marginTop: theme.spacing(2) },
+  commentAction: { color: theme.colors.textMuted, fontSize: 12.5, fontWeight: '700' },
+  commentDelete: { color: theme.colors.danger },
+  cancelEdit: { alignSelf: 'flex-start', marginTop: -theme.spacing(2), marginBottom: theme.spacing(4) },
+  cancelEditText: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '600' },
 });
