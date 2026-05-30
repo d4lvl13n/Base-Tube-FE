@@ -66,6 +66,10 @@ export default function SignInScreen() {
           placeholder="••••••••"
         />
 
+        <View style={styles.forgotRow}>
+          <Link href="/(auth)/reset-password" style={styles.forgotLink}>Forgot password?</Link>
+        </View>
+
         <ErrorText>{error ?? google.error}</ErrorText>
 
         <View style={styles.actions}>
@@ -102,7 +106,9 @@ const styles = StyleSheet.create({
   content: { padding: theme.spacing(6), paddingTop: theme.spacing(16), flexGrow: 1 },
   brandRow: { marginBottom: theme.spacing(8) },
   brand: { color: theme.colors.text, fontSize: 28, fontWeight: '800' },
-  actions: { marginTop: theme.spacing(6) },
+  forgotRow: { alignItems: 'flex-end', marginTop: theme.spacing(3) },
+  forgotLink: { color: theme.colors.textMuted, fontWeight: '600', fontSize: 13 },
+  actions: { marginTop: theme.spacing(5) },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: theme.spacing(6) },
   divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.border },
   dividerText: { color: theme.colors.textMuted, marginHorizontal: theme.spacing(3) },
