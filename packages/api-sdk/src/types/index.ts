@@ -4,4 +4,6 @@ export * from './channel';
 export * from './video';
 export * from './discovery';
 export * from './engagement';
+export * from './pass';
+export * from './purchase';
 export * from './auth';

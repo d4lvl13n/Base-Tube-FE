@@ -13,6 +13,7 @@ import {
   VideoCard,
   VideoRail,
 } from '../../../src/components/media';
+import { PassRail } from '../../../src/components/pass';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function HomeScreen() {
   const featured = useQuery({ queryKey: ['featured'], queryFn: () => api.videos.getFeatured(3) });
   const trending = useQuery({ queryKey: ['trending', 'home'], queryFn: () => api.videos.getTrending({ limit: 10, timeFrame: 'week' }) });
   const channels = useQuery({ queryKey: ['channels', 'popular'], queryFn: () => api.channels.popular(1, 12) });
+  const passes = useQuery({ queryKey: ['passes', 'drops'], queryFn: () => api.passes.discover({ limit: 8 }), retry: false });
 
   const refreshing = featured.isRefetching || trending.isRefetching || channels.isRefetching;
   const onRefresh = useCallback(() => {
@@ -61,6 +63,13 @@ export default function HomeScreen() {
             videos={trendingVideos}
             action="See all"
             onAction={() => router.push('/discover')}
+          />
+
+          <PassRail
+            title="Drops this week"
+            passes={passes.data?.data ?? []}
+            action="View all"
+            onAction={() => router.push('/passes')}
           />
 
           <CreatorRail
