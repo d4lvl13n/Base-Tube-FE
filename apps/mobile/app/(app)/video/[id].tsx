@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Image, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ResizeMode, Video as ExpoVideo } from 'expo-av';
@@ -41,6 +41,7 @@ export default function VideoScreen() {
   const queryClient = useQueryClient();
   const [comment, setComment] = useState('');
   const [descExpanded, setDescExpanded] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
   const video = useQuery({ queryKey: ['video', id], queryFn: () => api.videos.getById(id), enabled: !!id });
   const liked = useQuery({ queryKey: ['like', id], queryFn: () => api.engagement.likeStatus(id), enabled: !!id });
@@ -48,9 +49,17 @@ export default function VideoScreen() {
 
   useEffect(() => { if (id) api.engagement.trackView(id); }, [id]);
 
+  // Optimistic like — flips instantly, rolls back on error.
   const toggleLike = useMutation({
     mutationFn: () => api.engagement.toggleLike(id),
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['like', id] });
+      const prev = queryClient.getQueryData<boolean>(['like', id]);
+      queryClient.setQueryData(['like', id], !prev);
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => { if (ctx) queryClient.setQueryData(['like', id], ctx.prev); },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['like', id] });
       queryClient.invalidateQueries({ queryKey: ['video', id] });
     },
@@ -58,6 +67,27 @@ export default function VideoScreen() {
   const addComment = useMutation({
     mutationFn: (content: string) => api.engagement.addComment(id, content),
     onSuccess: () => { setComment(''); queryClient.invalidateQueries({ queryKey: ['comments', id] }); },
+  });
+
+  // Subscribe from the video page (parity with web). Optimistic local state.
+  const [subOverride, setSubOverride] = useState<boolean | null>(null);
+
+  const onShare = async () => {
+    const url = `https://base.tube/video/${id}`;
+    try {
+      const res = await Share.share({ message: `${v?.title ?? 'Watch on BaseTube'}\n${url}`, url, title: v?.title });
+      if (res.action === Share.sharedAction) api.engagement.share(id, 'other').catch(() => {});
+    } catch {
+      /* user dismissed */
+    }
+  };
+
+  const subscribeMut = useMutation({
+    mutationFn: () => {
+      const subbed = subOverride ?? !!channel?.isSubscribed;
+      return subbed ? api.channels.unsubscribe(channel.handle) : api.channels.subscribe(channel.handle);
+    },
+    onMutate: () => setSubOverride((cur) => !(cur ?? !!channel?.isSubscribed)),
   });
 
   const v: any = video.data;
@@ -92,22 +122,36 @@ export default function VideoScreen() {
 
           <View style={styles.actions}>
             <ActionChip icon={liked.data ? 'heart' : 'heart-outline'} label={formatCount(v.likes_count)} active={!!liked.data} onPress={() => toggleLike.mutate()} />
-            <ActionChip icon="chatbubble-outline" label={formatCount(comments.data?.totalComments ?? v.comment_count ?? 0)} onPress={() => {}} />
-            <ActionChip icon="share-social-outline" label="Share" onPress={() => api.engagement.share(id, 'other')} />
+            <ActionChip icon="chatbubble-outline" label={formatCount(comments.data?.totalComments ?? v.comment_count ?? 0)} onPress={() => inputRef.current?.focus()} />
+            <ActionChip icon="share-social-outline" label="Share" onPress={onShare} />
           </View>
 
           {channel ? (
             <Card hairline padded style={styles.creatorCard}>
-              <Pressable style={styles.creatorRow} onPress={() => router.push(`/channel/${channel.handle}`)}>
-                <View style={styles.creatorRing}>
-                  <Image source={{ uri: channelAvatarUrl(channel) }} style={styles.creatorAvatar} />
-                </View>
-                <View style={styles.flex}>
-                  <Text style={styles.creatorName}>{channel.name}</Text>
-                  <Text style={styles.metaFaint}>{formatCount(channel.subscribers_count)} subscribers</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
-              </Pressable>
+              <View style={styles.creatorRow}>
+                <Pressable style={styles.creatorTap} onPress={() => router.push(`/channel/${channel.handle}`)}>
+                  <View style={styles.creatorRing}>
+                    <Image source={{ uri: channelAvatarUrl(channel) }} style={styles.creatorAvatar} />
+                  </View>
+                  <View style={styles.flex}>
+                    <Text style={styles.creatorName} numberOfLines={1}>{channel.name}</Text>
+                    <Text style={styles.metaFaint}>{formatCount(channel.subscribers_count)} subscribers</Text>
+                  </View>
+                </Pressable>
+                {(() => {
+                  const subscribed = subOverride ?? !!channel.isSubscribed;
+                  return (
+                    <Pressable
+                      onPress={() => subscribeMut.mutate()}
+                      style={[styles.subBtn, subscribed ? styles.subBtnOn : styles.subBtnOff]}
+                    >
+                      <Text style={[styles.subText, subscribed ? styles.subTextOn : styles.subTextOff]}>
+                        {subscribed ? 'Subscribed' : 'Subscribe'}
+                      </Text>
+                    </Pressable>
+                  );
+                })()}
+              </View>
             </Card>
           ) : null}
 
@@ -124,6 +168,7 @@ export default function VideoScreen() {
 
           <View style={styles.addRow}>
             <TextInput
+              ref={inputRef}
               value={comment}
               onChangeText={setComment}
               placeholder="Add a comment…"
@@ -183,6 +228,13 @@ const styles = StyleSheet.create({
 
   creatorCard: { marginTop: theme.spacing(5) },
   creatorRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing(3) },
+  creatorTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: theme.spacing(3) },
+  subBtn: { borderRadius: theme.radius.pill, paddingHorizontal: theme.spacing(4.5), paddingVertical: theme.spacing(2.5) },
+  subBtnOff: { backgroundColor: theme.colors.accent },
+  subBtnOn: { backgroundColor: theme.colors.surfaceAlt, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.borderStrong },
+  subText: { fontWeight: '800', fontSize: 13 },
+  subTextOff: { color: '#1a0c00' },
+  subTextOn: { color: theme.colors.text },
   creatorRing: { width: 48, height: 48, borderRadius: 24, padding: 2, borderWidth: 1.5, borderColor: theme.colors.borderStrong },
   creatorAvatar: { width: '100%', height: '100%', borderRadius: 24, backgroundColor: theme.colors.surfaceAlt },
   creatorName: { color: theme.colors.text, fontWeight: '800', fontSize: 15 },

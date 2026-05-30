@@ -27,7 +27,18 @@ export default function ChannelScreen() {
 
   const subscribe = useMutation({
     mutationFn: () => (channel.data?.isSubscribed ? api.channels.unsubscribe(handle) : api.channels.subscribe(handle)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channel', handle] }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['channel', handle] });
+      const prev = queryClient.getQueryData<any>(['channel', handle]);
+      queryClient.setQueryData(['channel', handle], (old: any) =>
+        old
+          ? { ...old, isSubscribed: !old.isSubscribed, subscribers_count: (old.subscribers_count || 0) + (old.isSubscribed ? -1 : 1) }
+          : old
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) queryClient.setQueryData(['channel', handle], ctx.prev); },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['channel', handle] }),
   });
 
   const list = useMemo(() => videos.data?.pages.flatMap((p) => p.data ?? []) ?? [], [videos.data]);

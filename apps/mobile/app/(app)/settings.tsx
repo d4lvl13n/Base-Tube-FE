@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Linking, ScrollView, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import Constants from 'expo-constants';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -27,7 +27,7 @@ export default function SettingsScreen() {
 
         <RowGroup title="About">
           <Row icon="information-circle-outline" label="App version" value={version} />
-          <Row icon="document-text-outline" label="Terms & privacy" />
+          <Row icon="document-text-outline" label="Terms & privacy" onPress={() => Linking.openURL('https://base.tube/legal')} />
         </RowGroup>
 
         <RowGroup>
