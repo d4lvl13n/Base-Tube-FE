@@ -1,8 +1,8 @@
 import React from 'react';
-import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../src/theme';
+import { GlassBar } from '../../../src/components/primitives';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -20,13 +20,18 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: theme.colors.background },
         headerTintColor: theme.colors.text,
         headerTitleStyle: { fontWeight: '700' },
+        headerTransparent: false,
+        // Floating liquid-glass tab bar: translucent, content scrolls beneath.
         tabBarStyle: {
-          backgroundColor: theme.colors.background,
-          borderTopColor: theme.colors.border,
-          ...(Platform.OS === 'web' ? { height: 58 } : {}),
+          position: 'absolute',
+          borderTopWidth: 0,
+          backgroundColor: 'transparent',
+          elevation: 0,
         },
+        tabBarBackground: () => <GlassBar />,
         tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Home', headerShown: false, tabBarIcon: tabIcon('home', 'home-outline') }} />

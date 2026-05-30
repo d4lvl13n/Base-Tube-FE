@@ -71,5 +71,5 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   chipText: { color: theme.colors.textMuted, fontWeight: '700', fontSize: 13 },
   chipTextActive: { color: '#000' },
-  list: { paddingHorizontal: theme.spacing(4), paddingBottom: theme.spacing(12) },
+  list: { paddingHorizontal: theme.spacing(4), paddingBottom: theme.spacing(28) },
 });

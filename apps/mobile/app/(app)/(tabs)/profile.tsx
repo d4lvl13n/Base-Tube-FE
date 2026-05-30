@@ -83,7 +83,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.background },
   flex: { flex: 1 },
-  content: { padding: theme.spacing(4), paddingBottom: theme.spacing(12) },
+  content: { padding: theme.spacing(4), paddingBottom: theme.spacing(28) },
   header: { alignItems: 'center', marginTop: theme.spacing(8) },
   avatarRing: { width: 96, height: 96, borderRadius: 48, padding: 3, borderWidth: 1.5, borderColor: theme.colors.borderStrong },
   avatar: { width: '100%', height: '100%', borderRadius: 48, backgroundColor: theme.colors.surfaceAlt },

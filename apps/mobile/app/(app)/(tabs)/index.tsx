@@ -114,7 +114,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.background },
   flex: { flex: 1 },
-  content: { padding: theme.spacing(4), paddingBottom: theme.spacing(14) },
+  content: { padding: theme.spacing(4), paddingBottom: theme.spacing(28) },
   header: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: theme.spacing(2), marginBottom: theme.spacing(5) },
   greeting: { color: theme.colors.textMuted, fontSize: 14, fontWeight: '600' },
   feed: { marginTop: theme.spacing(8) },

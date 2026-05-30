@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ResizeMode, Video as ExpoVideo } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../src/lib/client';
 import { theme } from '../../../src/theme';
-import { AccentHairline, Card } from '../../../src/components/primitives';
+import { AccentHairline, Card, GlassCircleButton } from '../../../src/components/primitives';
 import { ErrorState, LoadingState } from '../../../src/components/media';
 import { channelAvatarUrl, formatCount, imageUrl, thumbnailUrl, timeAgo } from '../../../src/lib/format';
 
@@ -14,9 +15,13 @@ function playableUrl(video: any): string | null {
   if (video?.video_url) return video.video_url;
   const urls = video?.video_urls;
   if (urls && typeof urls === 'object') {
+    // Prefer a balanced quality; fall back through the available renditions.
+    const preferred = urls['720p'] || urls['480p'] || urls['1080p'] || urls['360p'];
+    if (typeof preferred === 'string' && preferred) return preferred;
     const first = Object.values(urls).find((u) => typeof u === 'string' && u);
     if (first) return first as string;
   }
+  if (video?.video_path) return `${process.env.EXPO_PUBLIC_API_URL ?? ''}/${video.video_path}`;
   return null;
 }
 
@@ -32,6 +37,7 @@ function ActionChip({ icon, label, active, onPress }: { icon: any; label: string
 export default function VideoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [comment, setComment] = useState('');
   const [descExpanded, setDescExpanded] = useState(false);
@@ -58,18 +64,24 @@ export default function VideoScreen() {
   const url = useMemo(() => playableUrl(v), [v]);
   const channel = v?.channel;
 
-  if (video.isLoading) return (<><Stack.Screen options={{ title: 'Video' }} /><View style={styles.bg}><LoadingState label="Loading video…" /></View></>);
-  if (video.isError || !v) return (<><Stack.Screen options={{ title: 'Video' }} /><View style={styles.bg}><ErrorState onRetry={() => video.refetch()} /></View></>);
+  const backButton = (
+    <GlassCircleButton icon="chevron-back" onPress={() => router.back()} style={[styles.backBtn, { top: insets.top + 6 }]} />
+  );
+
+  if (video.isLoading) return (<><Stack.Screen options={{ headerShown: false }} /><View style={styles.bg}>{backButton}<LoadingState label="Loading video…" /></View></>);
+  if (video.isError || !v) return (<><Stack.Screen options={{ headerShown: false }} /><View style={styles.bg}>{backButton}<ErrorState onRetry={() => video.refetch()} /></View></>);
 
   return (
-    <>
-      <Stack.Screen options={{ title: '', headerTransparent: true, headerBackTitleVisible: false }} />
-      <ScrollView style={styles.bg} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <View style={styles.bg}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        {/* status-bar strip so the clock/wifi sit on black, not over the player */}
+        <View style={[styles.statusStrip, { height: insets.top }]} />
         <View style={styles.player}>
           {url ? (
-            <ExpoVideo source={{ uri: url }} style={styles.video} useNativeControls resizeMode={ResizeMode.CONTAIN} posterSource={{ uri: thumbnailUrl(v) }} />
+            <ExpoVideo source={{ uri: url }} style={styles.video} useNativeControls shouldPlay resizeMode={ResizeMode.CONTAIN} posterSource={{ uri: thumbnailUrl(v) }} usePoster />
           ) : (
-            <Image source={{ uri: thumbnailUrl(v) }} style={styles.video} />
+            <Image source={{ uri: thumbnailUrl(v) }} style={styles.video} resizeMode="cover" />
           )}
           <AccentHairline style={styles.playerHairline} />
         </View>
@@ -143,12 +155,15 @@ export default function VideoScreen() {
           )}
         </View>
       </ScrollView>
-    </>
+      {backButton}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   bg: { flex: 1, backgroundColor: theme.colors.background },
+  statusStrip: { backgroundColor: '#000', width: '100%' },
+  backBtn: { position: 'absolute', left: theme.spacing(4), zIndex: 20 },
   flex: { flex: 1 },
   pressed: { opacity: 0.85 },
   content: { paddingBottom: theme.spacing(14) },

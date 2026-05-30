@@ -10,8 +10,83 @@ import {
   ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import MaskedView from '@react-native-masked-view/masked-view';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+/**
+ * Floating liquid-glass circular icon button (frosted BlurView + frost rim +
+ * subtle specular highlight). The iOS-glass control for overlaying media.
+ */
+export function GlassCircleButton({
+  icon,
+  onPress,
+  size = 40,
+  style,
+}: {
+  icon: IoniconName;
+  onPress: () => void;
+  size?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      style={({ pressed }) => [
+        glassStyles.btn,
+        { width: size, height: size, borderRadius: size / 2 },
+        pressed && { opacity: 0.7 },
+        style,
+      ]}
+    >
+      <BlurView tint="dark" intensity={36} style={StyleSheet.absoluteFill} />
+      <View style={glassStyles.btnTint} />
+      <LinearGradient
+        colors={['rgba(255,255,255,0.22)', 'rgba(255,255,255,0)']}
+        start={{ x: 0.3, y: 0 }}
+        end={{ x: 0.7, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <Ionicons name={icon} size={size * 0.5} color="#fff" />
+    </Pressable>
+  );
+}
+
+/** Translucent frosted background for a floating tab bar (liquid glass). */
+export function GlassBar({ tint = 'dark' as const }: { tint?: 'dark' | 'light' }) {
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <BlurView tint={tint} intensity={50} style={StyleSheet.absoluteFill} />
+      <View style={glassStyles.barTint} />
+      <LinearGradient
+        colors={theme.gradient.accentHairline}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={glassStyles.barHairline}
+        pointerEvents="none"
+      />
+    </View>
+  );
+}
+
+const glassStyles = StyleSheet.create({
+  btn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.28)',
+    ...theme.shadow.soft,
+  },
+  btnTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,10,12,0.28)' },
+  barTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,5,6,0.55)' },
+  barHairline: { position: 'absolute', top: 0, left: 0, right: 0, height: 1 },
+});
 
 /** Thin orange→white gradient hairline — the premium accent line atop cards/sections. */
 export function AccentHairline({ variant = 'accent', style }: { variant?: 'accent' | 'gold'; style?: StyleProp<ViewStyle> }) {

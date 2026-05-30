@@ -79,5 +79,5 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   input: { flex: 1, color: theme.colors.text, fontSize: 16, paddingVertical: theme.spacing(3.5) },
-  list: { paddingHorizontal: theme.spacing(4), paddingBottom: theme.spacing(12) },
+  list: { paddingHorizontal: theme.spacing(4), paddingBottom: theme.spacing(28) },
 });
