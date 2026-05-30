@@ -136,18 +136,21 @@ export interface CryptoConfirmData {
 export type CryptoConfirmResponse = StandardApiResponse<CryptoConfirmData>;
 
 // Quote returned by backend for onchain purchase
+/**
+ * Crypto checkout payload (Unlock flow). The backend reserves supply + creates a
+ * pending purchase and returns the Lock address + USDC token + per-key price so the
+ * client can approve() then Lock.purchase(). No signed price quote — the Lock
+ * enforces price on-chain.
+ */
 export interface CryptoQuote {
   buyer: string;
-  passId: number;
-  quantity: number;
-  minPriceWei: string;
-  validUntil: number;
-  nonce: string; // 0x…32
-  signature: string; // 0x…65
-  digest: string; // 0x…32
+  purchase_id: string;
   reservation_id?: string;
   expires_at?: string;
-  purchase_id?: string;
+  lock_address: string;     // Unlock PublicLock for this pass
+  payment_token: string;    // USDC address
+  key_price: string;        // USDC raw units (6 decimals)
+  chain_id: number;
 }
 
 // ---- Pending Purchases (Stripe purchases awaiting wallet mint) ----

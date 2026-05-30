@@ -31,8 +31,7 @@ import { getPassErrorMessage } from '../utils/passErrorMessages';
 import { trackOnchainEvent } from '../utils/metrics';
 import { useAccount, useChainId, useConfig, useSwitchChain, useWalletClient } from 'wagmi';
 import { encodeFunctionData } from 'viem';
-import { contractsApi } from '../api/contracts';
-import type { ContractAbiResponse } from '../types/contracts';
+import { PUBLIC_LOCK_ABI, ERC20_ABI, ZERO_ADDRESS } from '../abis/unlock';
 import type { Chain } from 'wagmi/chains';
 import { base, baseSepolia } from 'wagmi/chains';
 import { getPublicClient, getWalletClient } from 'wagmi/actions';
@@ -142,18 +141,18 @@ export const useClaim = () => {
  * Optional crypto quote retrieval. Some backends expose a quote step for signing.
  */
 export const useCryptoQuote = (
-  params?: { passId?: string | null; buyer?: string; quantity?: number; validSeconds?: number },
+  params?: { passId?: string | null; buyer?: string },
   options: { enabled?: boolean } = {}
 ) => {
   const { enabled = true } = options;
-  const { passId, buyer, quantity, validSeconds } = params || {};
+  const { passId, buyer } = params || {};
   return useQuery<CryptoQuote>({
     queryKey: queryKeys.onchainPass.cryptoQuote(passId || ''),
     queryFn: () => {
-      if (!passId || !buyer || !quantity) throw new Error('quote params missing');
-      return onchainPassApi.getCryptoQuote(passId, { buyer, quantity, validSeconds });
+      if (!passId || !buyer) throw new Error('quote params missing');
+      return onchainPassApi.getCryptoQuote(passId, { buyer });
     },
-    enabled: enabled && Boolean(passId && buyer && quantity),
+    enabled: enabled && Boolean(passId && buyer),
     staleTime: 30_000,
   });
 };
@@ -165,12 +164,6 @@ export const useCryptoCheckout = (passId?: string | null) => {
   const { address } = useAccount();
   const chainId = useChainId();
   const client = useQueryClient();
-  // Preload ABI so consumers can switch to direct-contract path as needed
-  useQuery<ContractAbiResponse>({
-    queryKey: ['contracts', 'content-ledger', 'abi'],
-    queryFn: () => contractsApi.getContentLedgerAbi(),
-    staleTime: 5 * 60_000,
-  });
 
   return useMutation<CryptoPurchaseResponse, Error, Partial<CryptoPurchaseRequest>>({
     mutationFn: async (overrides = {}) => {
@@ -236,12 +229,6 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
   const client = useQueryClient();
   // Using walletClient.sendTransaction to align with SignInWeb3 working path
   const { data: walletClient } = useWalletClient();
-
-  const abiQuery = useQuery<ContractAbiResponse>({
-    queryKey: ['contracts', 'content-ledger', 'abi'],
-    queryFn: () => contractsApi.getContentLedgerAbi(),
-    staleTime: 5 * 60_000,
-  });
 
   // Phase state is exposed alongside the react-query mutation so the UI can
   // render precise copy at every step (wallet prompt → tx pending → confirming).
@@ -350,8 +337,8 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
     { quantity: number; validSeconds?: number; confirmations?: number; accessPollTimeoutMs?: number; accessPollIntervalMs?: number }
   >({
     mutationFn: async ({
-      quantity,
-      validSeconds,
+      // `quantity`/`validSeconds` retained in the type for API compatibility;
+      // the Unlock flow buys exactly one key at the Lock's on-chain price.
       confirmations = 1,
       accessPollTimeoutMs = 60_000,
       accessPollIntervalMs = 2500,
@@ -361,9 +348,19 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       setPhase('reserving');
       if (!passId) throw new Error('passId is required');
       if (!address) throw new Error('Wallet not connected');
-      const abiResp = abiQuery.data || (await contractsApi.getContentLedgerAbi());
-      try { console.log('[CryptoPay] ABI loaded', { address: abiResp.address, chainIdServer: abiResp.chainId, chainIdClient: chainId, hasFn: Array.isArray((abiResp as any).abi) && (abiResp as any).abi.some((f: any) => f?.name === 'buyPassWithQuote') }); } catch {}
-      const desiredChainId = Number(abiResp.chainId ?? chainId);
+
+      // Start the purchase: backend reserves supply + creates a pending purchase
+      // and returns the Lock address, USDC token, and per-key price. No signed
+      // price quote — the Unlock Lock enforces the price on-chain.
+      const quote = await onchainPassApi.getCryptoQuote(passId, { buyer: address });
+      if ((quote?.buyer || '').toLowerCase() !== address.toLowerCase()) {
+        throw new Error('Checkout buyer does not match connected wallet');
+      }
+      if (!quote.lock_address) {
+        throw new Error('This pass is not available for crypto purchase yet.');
+      }
+
+      const desiredChainId = Number(quote.chain_id ?? chainId);
       if (!Number.isInteger(desiredChainId)) {
         throw new Error('Unsupported contract chain');
       }
@@ -371,89 +368,75 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       if (!targetChain) {
         throw new Error(`Unsupported chain id ${desiredChainId}`);
       }
-      if (abiResp.chainId && chainId !== desiredChainId) {
-        try { console.log('[CryptoPay] switching chain', { from: chainId, to: abiResp.chainId }); } catch {}
+      if (chainId !== desiredChainId) {
         await switchChainAsync({ chainId: desiredChainId as any });
       }
-      // Request signed quote from backend
-      try { console.log('[CryptoPay] requesting quote (direct)', { passId, buyer: address, quantity }); } catch {}
-      const quote = await onchainPassApi.getCryptoQuote(passId, { buyer: address, quantity, validSeconds });
-      // Sender wallet must equal buyer in the quote
-      if ((quote?.buyer || '').toLowerCase() !== address.toLowerCase()) {
-        throw new Error('Quote buyer does not match connected wallet');
-      }
+
       const refreshedWalletClient = await getWalletClient(wagmiConfig, { chainId: desiredChainId }).catch(() => undefined);
       const activeWalletClient = refreshedWalletClient ?? walletClient;
       if (!activeWalletClient) throw new Error('Wallet client unavailable');
       if ((activeWalletClient as any)?.chain?.id !== desiredChainId) {
         throw new Error(`Wallet client on unexpected chain ${(activeWalletClient as any)?.chain?.id}; expected ${desiredChainId}`);
       }
-      try { console.log('[CryptoPay] quote ok (direct)', { minPriceWei: quote.minPriceWei, passId: quote.passId, validUntil: quote.validUntil }); } catch {}
+      const pubClient = getPublicClient(wagmiConfig, { chainId: desiredChainId });
 
-      // If user isn't using web3 auth, they must link the wallet for access checks to work.
-      // Try opportunistically; non-blocking (user can still buy, but access polling may fail until linked).
+      const lockAddress = quote.lock_address as `0x${string}`;
+      const usdc = quote.payment_token as `0x${string}`;
+      const keyPrice = BigInt(quote.key_price);
+
+      // Opportunistic wallet link for Clerk users (access checks key off the linked wallet).
+      // Non-blocking: the buy still proceeds even if linking fails.
       try {
-        const authMethod = (() => {
-          try { return localStorage.getItem('auth_method'); } catch { return null; }
-        })();
-        const hasClerkSession = (() => {
-          try { return Object.keys(localStorage).some((k) => k.startsWith('__clerk')); } catch { return false; }
-        })();
+        const authMethod = (() => { try { return localStorage.getItem('auth_method'); } catch { return null; } })();
+        const hasClerkSession = (() => { try { return Object.keys(localStorage).some((k) => k.startsWith('__clerk')); } catch { return false; } })();
         const isClerkUser = authMethod === 'clerk' || hasClerkSession;
         if (isClerkUser && address && !isWalletAlreadyLinked(address)) {
           const { walletAddress, signature } = await createWalletAuthPayload(
             address,
-            (message) => activeWalletClient.signMessage({
-              account: address as `0x${string}`,
-              message,
-            })
+            (message) => activeWalletClient.signMessage({ account: address as `0x${string}`, message }),
           );
           await web3AuthApi.linkWallet(walletAddress, signature);
           setLinkedWalletHint(walletAddress);
-          try { console.log('[CryptoPay] wallet linked to account'); } catch {}
         }
       } catch (e) {
         try { console.warn('[CryptoPay] wallet link attempt failed (non-blocking)', e); } catch {}
       }
-      // Validate and normalize args
-      const isHex = (v: string) => /^0x[0-9a-fA-F]*$/.test(v);
-      const normalizeBytes32 = (v: string): `0x${string}` => {
-        const hex = (v || '').toLowerCase();
-        const raw = hex.startsWith('0x') ? hex.slice(2) : hex;
-        const padded = raw.padStart(64, '0');
-        return (`0x${padded}`) as `0x${string}`;
-      };
-      const normalizedNonce = normalizeBytes32(quote.nonce);
-      if (!isHex(normalizedNonce) || normalizedNonce.length !== 66) {
-        throw new Error('Invalid nonce (bytes32)');
-      }
-      if (!isHex(quote.signature) || quote.signature.length !== 132) {
-        throw new Error('Invalid signature (65-byte)');
-      }
-      const passIdBN = BigInt(quote.passId);
-      const quantityBN = BigInt(quote.quantity);
-      const minPriceBN = BigInt(quote.minPriceWei);
-      const validUntilBN = BigInt(quote.validUntil);
-      try { console.log('[CryptoPay] normalized args', { passIdBN: passIdBN.toString(), quantityBN: quantityBN.toString(), minPriceBN: minPriceBN.toString(), validUntilBN: validUntilBN.toString(), nonceLen: normalizedNonce.length, sigLen: quote.signature.length }); } catch {}
-      // Use the same approach as SignInWeb3 stack: encode data and sendTransaction via wallet client
-      const data = encodeFunctionData({
-        abi: abiResp.abi as any,
-        functionName: 'buyPassWithQuote',
-        args: [
-          passIdBN,
-          quantityBN,
-          minPriceBN,
-          validUntilBN,
-          normalizedNonce,
-          quote.signature as `0x${string}`,
-        ],
-      });
-      try { console.log('[CryptoPay] sendTransaction', { to: abiResp.address, value: minPriceBN.toString(), dataLen: data.length, chainId: desiredChainId }); } catch {}
+
       setPhase('awaiting-signature');
+
+      // 1. Ensure the Lock can pull the USDC key price.
+      const allowance = (await pubClient.readContract({
+        address: usdc,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [address as `0x${string}`, lockAddress],
+      })) as bigint;
+      if (allowance < keyPrice) {
+        try { console.log('[CryptoPay] approving USDC', { usdc, lock: lockAddress, keyPrice: keyPrice.toString() }); } catch {}
+        const approveData = encodeFunctionData({
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [lockAddress, keyPrice],
+        });
+        const approveHash = await activeWalletClient.sendTransaction({
+          account: address as `0x${string}`,
+          to: usdc,
+          data: approveData,
+          chain: targetChain,
+        });
+        try { await pubClient.waitForTransactionReceipt({ hash: approveHash }); } catch {}
+      }
+
+      // 2. Purchase the key (USDC payment → msg.value = 0). Legacy v14 purchase sig.
+      try { console.log('[CryptoPay] purchasing key', { lock: lockAddress, keyPrice: keyPrice.toString(), chainId: desiredChainId }); } catch {}
+      const data = encodeFunctionData({
+        abi: PUBLIC_LOCK_ABI,
+        functionName: 'purchase',
+        args: [[keyPrice], [address as `0x${string}`], [ZERO_ADDRESS], [ZERO_ADDRESS], ['0x']],
+      });
       const hash = await activeWalletClient.sendTransaction({
         account: address as `0x${string}`,
-        to: abiResp.address as `0x${string}`,
-        value: minPriceBN,
+        to: lockAddress,
         data,
         chain: targetChain,
       });

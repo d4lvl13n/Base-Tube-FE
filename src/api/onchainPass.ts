@@ -86,7 +86,7 @@ export const onchainPassApi = {
   },
   
   // Optional quote step if backend exposes it
-  async getCryptoQuote(passId: string, payload: { buyer: string; quantity: number; validSeconds?: number }): Promise<CryptoQuote> {
+  async getCryptoQuote(passId: string, payload: { buyer: string }): Promise<CryptoQuote> {
     const exec = async () => {
       const res = await api.post(`/api/v1/passes/${passId}/crypto/quote`, payload);
       // Some backends wrap in { success, data }, others return raw object
