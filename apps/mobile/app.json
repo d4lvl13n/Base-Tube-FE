@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "BaseTube",
+    "slug": "basetube-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "basetube",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
+    "splash": {
+      "backgroundColor": "#09090B"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "tube.base.mobile"
+    },
+    "android": {
+      "package": "tube.base.mobile"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
