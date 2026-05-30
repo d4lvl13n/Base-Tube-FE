@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+node_modules/
 /.pnp
 .pnp.js
 
@@ -10,6 +11,16 @@
 
 # production
 /build
+
+# monorepo build outputs
+dist/
+apps/*/dist/
+packages/*/dist/
+
+# expo / react-native
+.expo/
+apps/*/.expo/
+*.tsbuildinfo
 
 # misc
 .DS_Store

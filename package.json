@@ -2,6 +2,10 @@
   "name": "base-tube-mockup",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "dependencies": {
     "@clerk/clerk-react": "^5.15.1",
     "@clerk/themes": "^2.1.41",
