@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { Link, useRouter } from 'expo-router';
 import { useSignIn } from '@clerk/clerk-expo';
 import { Button, ErrorText, Field, Heading, Subtle } from '../../src/components/ui';
+import { AmbientGlow, Wordmark } from '../../src/components/primitives';
 import { useGoogleOAuth } from '../../src/features/auth/oauth';
 import { theme } from '../../src/theme';
 
@@ -38,11 +39,10 @@ export default function SignInScreen() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+      <AmbientGlow height={360} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.brandRow}>
-          <Text style={styles.brand}>
-            Base<Text style={{ color: theme.colors.accent }}>Tube</Text>
-          </Text>
+          <Wordmark size={28} />
         </View>
 
         <Heading>Welcome back</Heading>

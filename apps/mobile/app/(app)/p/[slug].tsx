@@ -7,6 +7,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../../../src/lib/client';
 import { theme } from '../../../src/theme';
 import { Button, ErrorText } from '../../../src/components/ui';
+import { AccentHairline, Pill, Scrim } from '../../../src/components/primitives';
 import { ErrorState, LoadingState } from '../../../src/components/media';
 import { formatCount, formatDuration, formatPrice, thumbnailUrl } from '../../../src/lib/format';
 
@@ -45,15 +46,21 @@ export default function PassDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ title: '' }} />
-      <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
-        <Image source={{ uri: cover }} style={styles.hero} />
-        <View style={styles.body}>
-          <View style={styles.tierRow}>
-            <View style={styles.tierBadge}><Text style={styles.tierText}>{(p.tier || 'pass').toUpperCase()}</Text></View>
-            <Text style={styles.supply}>{supplyLine}</Text>
+      <ScrollView style={styles.flex} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.hero}>
+          <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} />
+          <Scrim />
+          <AccentHairline variant="gold" style={styles.heroHairline} />
+          <View style={styles.heroTop}>
+            <Pill label={p.tier || 'Pass'} tone="gold" />
+            {owned ? <Pill label="Owned" tone="accent" /> : null}
           </View>
-          <Text style={styles.title}>{p.title}</Text>
-          <Text style={styles.creator}>{p.channel?.name || p.channel?.user?.username || 'Creator'}</Text>
+          <View style={styles.heroBottom}>
+            <Text style={styles.title}>{p.title}</Text>
+            <Text style={styles.creator}>{p.channel?.name || p.channel?.user?.username || 'Creator'}  ·  {supplyLine}</Text>
+          </View>
+        </View>
+        <View style={styles.body}>
           {p.description ? <Text style={styles.desc}>{p.description}</Text> : null}
 
           <Text style={styles.sectionTitle}>What's included</Text>
@@ -94,21 +101,20 @@ export default function PassDetailScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { paddingBottom: theme.spacing(28) },
-  hero: { width: '100%', aspectRatio: 16 / 9, backgroundColor: theme.colors.surface },
+  content: { paddingBottom: theme.spacing(30) },
+  hero: { width: '100%', aspectRatio: 16 / 10, backgroundColor: theme.colors.surface, overflow: 'hidden' },
+  heroHairline: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 5 },
+  heroTop: { position: 'absolute', top: theme.spacing(12), left: theme.spacing(4), right: theme.spacing(4), flexDirection: 'row', gap: theme.spacing(2) },
+  heroBottom: { position: 'absolute', left: theme.spacing(4), right: theme.spacing(4), bottom: theme.spacing(4), gap: theme.spacing(1.5) },
   body: { padding: theme.spacing(4) },
-  tierRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  tierBadge: { backgroundColor: theme.colors.surfaceAlt, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  tierText: { color: theme.colors.accent, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  supply: { color: theme.colors.textMuted, fontSize: 13 },
-  title: { color: theme.colors.text, fontSize: 24, fontWeight: '800', marginTop: theme.spacing(3) },
-  creator: { color: theme.colors.textMuted, fontSize: 15, marginTop: theme.spacing(1) },
-  desc: { color: theme.colors.textMuted, fontSize: 14, lineHeight: 21, marginTop: theme.spacing(4) },
-  sectionTitle: { color: theme.colors.text, fontSize: 17, fontWeight: '800', marginTop: theme.spacing(7), marginBottom: theme.spacing(3) },
+  title: { color: '#fff', fontSize: 25, fontWeight: '800', letterSpacing: -0.5, lineHeight: 29 },
+  creator: { color: 'rgba(255,255,255,0.72)', fontSize: 14, fontWeight: '500' },
+  desc: { color: theme.colors.textMuted, fontSize: 14.5, lineHeight: 22 },
+  sectionTitle: { color: theme.colors.text, fontSize: 17, fontWeight: '800', letterSpacing: -0.3, marginTop: theme.spacing(7), marginBottom: theme.spacing(3) },
   includeRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing(3), paddingVertical: theme.spacing(2.5) },
-  includeThumb: { width: 96, height: 54, borderRadius: 8, backgroundColor: theme.colors.surface },
+  includeThumb: { width: 104, height: 58, borderRadius: 10, backgroundColor: theme.colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
   includeTitle: { color: theme.colors.text, fontSize: 14, fontWeight: '600' },
-  includeMeta: { color: theme.colors.textMuted, fontSize: 12, marginTop: 2 },
-  cta: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: theme.colors.background, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border, padding: theme.spacing(4), paddingBottom: theme.spacing(6) },
-  ctaNote: { color: theme.colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: theme.spacing(2) },
+  includeMeta: { color: theme.colors.textFaint, fontSize: 12, marginTop: 2 },
+  cta: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(5,5,6,0.96)', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border, padding: theme.spacing(4), paddingBottom: theme.spacing(7) },
+  ctaNote: { color: theme.colors.textFaint, fontSize: 12, textAlign: 'center', marginTop: theme.spacing(2.5) },
 });

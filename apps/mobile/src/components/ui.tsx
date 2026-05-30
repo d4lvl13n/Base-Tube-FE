@@ -9,6 +9,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
 /** Full-screen padded container on the dark background. */
@@ -56,21 +57,28 @@ export function Button({
   variant?: 'primary' | 'secondary';
 }) {
   const isDisabled = disabled || loading;
+  const inner = loading ? (
+    <ActivityIndicator color={variant === 'primary' ? '#1a0c00' : theme.colors.text} />
+  ) : (
+    <Text style={[styles.btnText, variant === 'secondary' && styles.btnTextSecondary]}>{label}</Text>
+  );
+
+  if (variant === 'primary') {
+    return (
+      <Pressable onPress={onPress} disabled={isDisabled} style={({ pressed }) => [styles.btnWrap, (pressed || isDisabled) && styles.btnDim]}>
+        <LinearGradient colors={theme.gradient.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.btn}>
+          {inner}
+        </LinearGradient>
+      </Pressable>
+    );
+  }
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
-      style={({ pressed }) => [
-        styles.btn,
-        variant === 'primary' ? styles.btnPrimary : styles.btnSecondary,
-        (pressed || isDisabled) && styles.btnDim,
-      ]}
+      style={({ pressed }) => [styles.btn, styles.btnSecondary, (pressed || isDisabled) && styles.btnDim]}
     >
-      {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#000' : theme.colors.text} />
-      ) : (
-        <Text style={[styles.btnText, variant === 'secondary' && styles.btnTextSecondary]}>{label}</Text>
-      )}
+      {inner}
     </Pressable>
   );
 }
@@ -101,16 +109,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing(4),
     paddingVertical: theme.spacing(3.5),
   },
+  btnWrap: { borderRadius: theme.radius.md, overflow: 'hidden' },
   btn: {
     borderRadius: theme.radius.md,
     paddingVertical: theme.spacing(4),
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnPrimary: { backgroundColor: theme.colors.accent },
-  btnSecondary: { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border, borderWidth: StyleSheet.hairlineWidth },
-  btnDim: { opacity: 0.6 },
-  btnText: { color: '#000', fontSize: 16, fontWeight: '700' },
+  btnSecondary: { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.borderStrong, borderWidth: StyleSheet.hairlineWidth },
+  btnDim: { opacity: 0.5 },
+  btnText: { color: '#1a0c00', fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
   btnTextSecondary: { color: theme.colors.text },
   link: { color: theme.colors.accent, fontWeight: '700' },
 });
