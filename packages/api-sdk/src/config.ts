@@ -10,7 +10,7 @@ import type { AxiosAdapter } from 'axios';
 export type TokenProvider = () => string | null | Promise<string | null>;
 
 export interface BasetubeClientConfig {
-  /** Backend base URL, e.g. `https://backend.base.tube`. No trailing slash required. */
+  /** Backend base URL, e.g. `https://api.base.tube`. No trailing slash required. */
   baseUrl: string;
 
   /** Optional bearer-token provider (Clerk session token or Web3 JWT). */

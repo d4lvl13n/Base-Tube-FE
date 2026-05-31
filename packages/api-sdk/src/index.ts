@@ -35,7 +35,7 @@ export interface BasetubeClient {
  *
  * @example
  * const client = createBasetubeClient({
- *   baseUrl: 'https://backend.base.tube',
+ *   baseUrl: 'https://api.base.tube',
  *   getToken: () => clerk.session?.getToken() ?? null,
  * });
  * const { data } = await client.videos.getTrending({ limit: 10 });

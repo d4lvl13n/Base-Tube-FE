@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,6 +9,7 @@ import { theme } from '../../../src/theme';
 import { EmptyState, ErrorState, LoadingState, VideoCard } from '../../../src/components/media';
 import { AccentHairline, GlassCircleButton, Scrim } from '../../../src/components/primitives';
 import { channelAvatarUrl, channelImageUrl, formatCount } from '../../../src/lib/format';
+import { haptics } from '../../../src/lib/haptics';
 
 const LIMIT = 12;
 const NO_HEADER = { headerShown: false } as const;
@@ -32,6 +34,7 @@ export default function ChannelScreen() {
   const subscribe = useMutation({
     mutationFn: () => (channel.data?.isSubscribed ? api.channels.unsubscribe(handle) : api.channels.subscribe(handle)),
     onMutate: async () => {
+      haptics.medium();
       await queryClient.cancelQueries({ queryKey: ['channel', handle] });
       const prev = queryClient.getQueryData<any>(['channel', handle]);
       queryClient.setQueryData(['channel', handle], (old: any) =>
@@ -82,13 +85,13 @@ export default function ChannelScreen() {
   const header = (
     <View>
       <View style={styles.bannerWrap}>
-        <Image source={{ uri: channelImageUrl(c) }} style={StyleSheet.absoluteFill} />
+        <Image transition={150} source={{ uri: channelImageUrl(c) }} style={StyleSheet.absoluteFill} />
         <Scrim />
         <AccentHairline style={styles.bannerHairline} />
       </View>
       <View style={styles.headerBody}>
         <View style={styles.avatarRing}>
-          <Image source={{ uri: channelAvatarUrl(c) }} style={styles.avatar} />
+          <Image transition={150} source={{ uri: channelAvatarUrl(c) }} style={styles.avatar} />
         </View>
         <Text style={styles.name}>{c.name}</Text>
         <Text style={styles.meta}>@{c.handle} · {formatCount(c.subscribers_count)} subscribers · {formatCount(c.videos_count)} videos</Text>

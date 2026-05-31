@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@clerk/clerk-expo';
@@ -34,7 +35,7 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <View style={styles.avatarRing}>
           {avatar ? (
-            <Image source={{ uri: avatar }} style={styles.avatar} />
+            <Image transition={150} source={{ uri: avatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarFallback]}>
               <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>

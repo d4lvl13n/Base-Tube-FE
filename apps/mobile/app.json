@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "tube.base.mobile"
+      "bundleIdentifier": "tube.base.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "tube.base.mobile"
@@ -30,6 +33,14 @@
     ],
     "experiments": {
       "typedRoutes": false
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "67f71333-dfd0-4c92-ae34-1e9aaf80fbb2"
+      }
     }
   }
 }

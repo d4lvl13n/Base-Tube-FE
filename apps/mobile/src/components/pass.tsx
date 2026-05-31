@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import type { Pass } from '@basetube/api';
 import { theme } from '../theme';
@@ -25,7 +26,7 @@ export function PassCard({ pass }: { pass: Pass }) {
   return (
     <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={() => router.push(passHref(pass))}>
       <View style={styles.coverWrap}>
-        <Image source={{ uri: passCover(pass) }} style={StyleSheet.absoluteFill} />
+        <Image transition={150} source={{ uri: passCover(pass) }} style={StyleSheet.absoluteFill} />
         <Scrim />
         <AccentHairline variant="gold" style={styles.hairline} />
         <View style={styles.coverTop}>
@@ -58,7 +59,7 @@ export function PassRail({ title, passes, action, onAction }: { title: string; p
           return (
             <Pressable key={`pr-${p.id}`} style={({ pressed }) => [styles.railItem, pressed && styles.pressed]} onPress={() => router.push(passHref(p))}>
               <View style={styles.railCover}>
-                <Image source={{ uri: passCover(p) }} style={StyleSheet.absoluteFill} />
+                <Image transition={150} source={{ uri: passCover(p) }} style={StyleSheet.absoluteFill} />
                 <Scrim />
                 <AccentHairline variant="gold" style={styles.hairline} />
                 <View style={styles.railCoverTop}><Pill label={p.tier || 'Pass'} tone="gold" /></View>

@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { theme } from '../theme';
+import { haptics } from '../lib/haptics';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -40,6 +41,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                 accessibilityState={focused ? { selected: true } : {}}
                 hitSlop={6}
                 onPress={() => {
+                  haptics.selection();
                   const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
                   if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
                 }}

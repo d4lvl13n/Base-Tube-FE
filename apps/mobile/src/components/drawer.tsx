@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { theme } from '../theme';
 import { Wordmark } from './primitives';
+import { haptics } from '../lib/haptics';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 interface DrawerItem {
@@ -57,6 +58,7 @@ export function SideMenu({ open, onClose }: { open: boolean; onClose: () => void
   const backdropOpacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
 
   const go = (route: string) => {
+    haptics.selection();
     onClose();
     router.push(route as never);
   };

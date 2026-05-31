@@ -1,13 +1,13 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import type { Channel } from '@basetube/api';
 import { theme } from '../theme';
@@ -76,7 +76,7 @@ export function FeaturedCard({ video }: { video: AnyVideo }) {
   const router = useRouter();
   return (
     <Pressable style={({ pressed }) => [styles.hero, pressed && styles.pressed]} onPress={() => router.push(`/video/${video.id}`)}>
-      <Image source={{ uri: thumbnailUrl(video) }} style={StyleSheet.absoluteFill} />
+      <Image transition={150} source={{ uri: thumbnailUrl(video) }} style={StyleSheet.absoluteFill} />
       <Scrim />
       <AccentHairline style={styles.heroHairline} />
       <View style={styles.heroMeta}>
@@ -97,11 +97,11 @@ export function VideoCard({ video }: { video: AnyVideo }) {
   return (
     <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={() => router.push(`/video/${video.id}`)}>
       <View style={styles.thumbWrap}>
-        <Image source={{ uri: thumbnailUrl(video) }} style={styles.thumb} />
+        <Image transition={150} source={{ uri: thumbnailUrl(video) }} style={styles.thumb} />
         <View style={styles.durationAnchor}><DurationPill seconds={video.duration} /></View>
       </View>
       <View style={styles.cardBody}>
-        <Image source={{ uri: videoChannelAvatar(video) }} style={styles.cardAvatar} />
+        <Image transition={150} source={{ uri: videoChannelAvatar(video) }} style={styles.cardAvatar} />
         <View style={styles.cardText}>
           <Text style={styles.cardTitle} numberOfLines={2}>{video.title}</Text>
           <Text style={styles.cardMeta} numberOfLines={1}>{videoChannelName(video)}</Text>
@@ -125,7 +125,7 @@ export function VideoRail({ title, videos, action, onAction }: { title: string; 
         {videos.map((v) => (
           <Pressable key={String(v.id)} style={({ pressed }) => [styles.railItem, pressed && styles.pressed]} onPress={() => router.push(`/video/${v.id}`)}>
             <View style={styles.railThumbWrap}>
-              <Image source={{ uri: thumbnailUrl(v) }} style={styles.railThumb} />
+              <Image transition={150} source={{ uri: thumbnailUrl(v) }} style={styles.railThumb} />
               <View style={styles.durationAnchor}><DurationPill seconds={v.duration} /></View>
             </View>
             <Text style={styles.railTitle} numberOfLines={2}>{v.title}</Text>
@@ -148,7 +148,7 @@ export function CreatorRail({ title, channels, action, onAction }: { title: stri
         {channels.map((c) => (
           <Pressable key={String(c.id)} style={({ pressed }) => [styles.creatorItem, pressed && styles.pressed]} onPress={() => router.push(`/channel/${c.handle}`)}>
             <View style={styles.creatorRing}>
-              <Image source={{ uri: channelAvatarUrl(c) }} style={styles.creatorAvatar} />
+              <Image transition={150} source={{ uri: channelAvatarUrl(c) }} style={styles.creatorAvatar} />
             </View>
             <Text style={styles.creatorName} numberOfLines={1}>{c.name}</Text>
             <Text style={styles.cardMetaFaint} numberOfLines={1}>{formatCount(c.subscribers_count)} subs</Text>
@@ -165,7 +165,7 @@ export function ChannelRow({ channel }: { channel: Channel }) {
   return (
     <Pressable style={({ pressed }) => [styles.channelRow, pressed && styles.pressed]} onPress={() => router.push(`/channel/${channel.handle}`)}>
       <View style={styles.rowRing}>
-        <Image source={{ uri: channelAvatarUrl(channel) }} style={styles.rowAvatar} />
+        <Image transition={150} source={{ uri: channelAvatarUrl(channel) }} style={styles.rowAvatar} />
       </View>
       <View style={styles.cardText}>
         <Text style={styles.cardTitle} numberOfLines={1}>{channel.name}</Text>

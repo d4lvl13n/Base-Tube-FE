@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ResizeMode, Video as ExpoVideo } from 'expo-av';
@@ -10,6 +11,7 @@ import { theme } from '../../../src/theme';
 import { AccentHairline, Card, GlassCircleButton } from '../../../src/components/primitives';
 import { ErrorState, LoadingState } from '../../../src/components/media';
 import { channelAvatarUrl, formatCount, imageUrl, thumbnailUrl, timeAgo } from '../../../src/lib/format';
+import { haptics } from '../../../src/lib/haptics';
 
 function playableUrl(video: any): string | null {
   if (video?.video_url) return video.video_url;
@@ -62,6 +64,8 @@ export default function VideoScreen() {
       const prevLiked = queryClient.getQueryData<boolean>(['like', id]) ?? false;
       const prevVideo = queryClient.getQueryData<any>(['video', id]);
       const nextLiked = !prevLiked;
+      if (nextLiked) haptics.success();
+      else haptics.light();
       queryClient.setQueryData(['like', id], nextLiked);
       queryClient.setQueryData(['video', id], (old: any) =>
         old
@@ -94,7 +98,7 @@ export default function VideoScreen() {
   });
   const addComment = useMutation({
     mutationFn: (content: string) => api.engagement.addComment(id, content),
-    onSuccess: () => { setComment(''); queryClient.invalidateQueries({ queryKey: ['comments', id] }); },
+    onSuccess: () => { haptics.success(); setComment(''); queryClient.invalidateQueries({ queryKey: ['comments', id] }); },
   });
   const editComment = useMutation({
     mutationFn: ({ commentId, content }: { commentId: number; content: string }) => api.engagement.updateComment(commentId, content),
@@ -127,6 +131,7 @@ export default function VideoScreen() {
   const [subOverride, setSubOverride] = useState<boolean | null>(null);
 
   const onShare = async () => {
+    haptics.selection();
     const url = `https://base.tube/video/${id}`;
     const title = v?.title ?? 'Watch on BaseTube';
     try {
@@ -149,6 +154,7 @@ export default function VideoScreen() {
     onMutate: async () => {
       const wasSubbed = subOverride ?? !!channel?.isSubscribed;
       const nextSubbed = !wasSubbed;
+      haptics.medium();
       setSubOverride(nextSubbed);
       await queryClient.cancelQueries({ queryKey: ['video', id] });
       const prevVideo = queryClient.getQueryData<any>(['video', id]);
@@ -195,7 +201,7 @@ export default function VideoScreen() {
           {url ? (
             <ExpoVideo ref={videoRef} source={{ uri: url }} style={styles.video} useNativeControls shouldPlay resizeMode={ResizeMode.CONTAIN} posterSource={{ uri: thumbnailUrl(v) }} usePoster />
           ) : (
-            <Image source={{ uri: thumbnailUrl(v) }} style={styles.video} resizeMode="cover" />
+            <Image transition={150} source={{ uri: thumbnailUrl(v) }} style={styles.video} contentFit="cover" />
           )}
           <AccentHairline style={styles.playerHairline} />
           {url ? (
@@ -224,7 +230,7 @@ export default function VideoScreen() {
               <View style={styles.creatorRow}>
                 <Pressable style={styles.creatorTap} onPress={() => router.push(`/channel/${channel.handle}`)}>
                   <View style={styles.creatorRing}>
-                    <Image source={{ uri: channelAvatarUrl(channel) }} style={styles.creatorAvatar} />
+                    <Image transition={150} source={{ uri: channelAvatarUrl(channel) }} style={styles.creatorAvatar} />
                   </View>
                   <View style={styles.flex}>
                     <Text style={styles.creatorName} numberOfLines={1}>{channel.name}</Text>
@@ -290,7 +296,7 @@ export default function VideoScreen() {
               const own = me.data?.id != null && String(c.user?.id) === String(me.data.id);
               return (
                 <View key={`c-${c.id}`} style={styles.comment}>
-                  <Image source={{ uri: imageUrl(c.user?.profile_image_url) }} style={styles.commentAvatar} />
+                  <Image transition={150} source={{ uri: imageUrl(c.user?.profile_image_url) }} style={styles.commentAvatar} />
                   <View style={styles.flex}>
                     <Text style={styles.commentAuthor}>{c.user?.username || 'user'} <Text style={styles.commentTime}>· {timeAgo(c.createdAt)}</Text></Text>
                     <Text style={styles.commentBody}>{c.content}</Text>

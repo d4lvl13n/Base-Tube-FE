@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 import { Wordmark } from './primitives';
 import { SideMenu } from './drawer';
+import { haptics } from '../lib/haptics';
 
 /** Bare header height (below the status bar). Screens pad their content by this + the inset. */
 export const HEADER_HEIGHT = 54;
@@ -99,7 +100,10 @@ export function AppHeader({ right }: { right?: React.ReactNode }) {
         <View style={[styles.row, { height: HEADER_HEIGHT }]}>
           <View style={styles.brand}>
             <Pressable
-              onPress={() => setMenuOpen(true)}
+              onPress={() => {
+                haptics.selection();
+                setMenuOpen(true);
+              }}
               hitSlop={10}
               style={styles.iconBtn}
               accessibilityRole="button"

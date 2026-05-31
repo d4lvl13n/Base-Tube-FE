@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ResizeMode, Video as ExpoVideo } from 'expo-av';
 import * as WebBrowser from 'expo-web-browser';
@@ -87,7 +88,7 @@ export default function WatchScreen() {
             const isLoading = v.id === loadingVideoId;
             return (
               <Pressable key={`w-${v.id}`} style={[styles.episode, active && styles.episodeActive]} onPress={() => playVideo(v)}>
-                <Image source={{ uri: thumbnailUrl({ thumbnail_url: v.thumbnail_url }) }} style={styles.epThumb} />
+                <Image transition={150} source={{ uri: thumbnailUrl({ thumbnail_url: v.thumbnail_url }) }} style={styles.epThumb} />
                 <View style={styles.flex}>
                   <Text style={styles.epTitle} numberOfLines={2}>{v.title || 'Video'}</Text>
                   <Text style={styles.epMeta}>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
@@ -60,7 +61,7 @@ export default function PassDetailScreen() {
       <Stack.Screen options={NO_HEADER} />
       <ScrollView style={styles.flex} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} />
+          <Image transition={150} source={{ uri: cover }} style={StyleSheet.absoluteFill} />
           <Scrim />
           <AccentHairline variant="gold" style={styles.heroHairline} />
           <View style={styles.heroTop}>
@@ -78,7 +79,7 @@ export default function PassDetailScreen() {
           <Text style={styles.sectionTitle}>What's included</Text>
           {(p.videos ?? []).map((v) => (
             <View key={`pv-${v.id}`} style={styles.includeRow}>
-              <Image source={{ uri: thumbnailUrl({ thumbnail_url: v.thumbnail_url }) }} style={styles.includeThumb} />
+              <Image transition={150} source={{ uri: thumbnailUrl({ thumbnail_url: v.thumbnail_url }) }} style={styles.includeThumb} />
               <View style={styles.flex}>
                 <Text style={styles.includeTitle} numberOfLines={2}>{v.title || 'Video'}</Text>
                 {v.duration ? <Text style={styles.includeMeta}>{formatDuration(v.duration)}</Text> : null}
