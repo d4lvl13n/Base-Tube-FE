@@ -1,12 +1,11 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import type { TokenCache } from '@clerk/clerk-expo/dist/cache';
 
 /**
  * Clerk token cache backed by the device secure storage (Keychain/Keystore).
  * On web, Clerk uses its own browser storage, so this is a no-op there.
  */
-export const tokenCache: TokenCache = {
+export const tokenCache = {
   async getToken(key: string) {
     if (Platform.OS === 'web') return null;
     try {

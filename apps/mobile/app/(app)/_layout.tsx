@@ -13,7 +13,7 @@ export default function AppLayout() {
         headerStyle: { backgroundColor: theme.colors.background },
         headerTintColor: theme.colors.text,
         headerTitleStyle: { fontWeight: '700' },
-        headerBackTitleVisible: false,
+        headerBackButtonDisplayMode: 'minimal',
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >

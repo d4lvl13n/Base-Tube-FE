@@ -1,0 +1,15 @@
+{
+  // Type-check-only config. Metro reads `tsconfig.json` (NOT this file), so the
+  // `react` alias below stays invisible to the bundler. It pins every `react`
+  // import to the mobile app's own @types/react (v19), resolving the monorepo
+  // React 18 (web) / 19 (mobile) type skew without touching `tsconfig.json`.
+  // Run via `npm run typecheck`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"]
+    }
+  }
+}
