@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ResizeMode, Video as ExpoVideo } from 'expo-av';
@@ -42,6 +42,7 @@ export default function VideoScreen() {
   const [comment, setComment] = useState('');
   const [descExpanded, setDescExpanded] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const videoRef = useRef<ExpoVideo>(null);
 
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -52,20 +53,44 @@ export default function VideoScreen() {
 
   useEffect(() => { if (id) api.engagement.trackView(id); }, [id]);
 
-  // Optimistic like — flips instantly, rolls back on error.
+  // Optimistic like — flips the heart AND moves the count instantly, rolls back on error.
   const toggleLike = useMutation({
     mutationFn: () => api.engagement.toggleLike(id),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['like', id] });
-      const prev = queryClient.getQueryData<boolean>(['like', id]);
-      queryClient.setQueryData(['like', id], !prev);
-      return { prev };
+      await queryClient.cancelQueries({ queryKey: ['video', id] });
+      const prevLiked = queryClient.getQueryData<boolean>(['like', id]) ?? false;
+      const prevVideo = queryClient.getQueryData<any>(['video', id]);
+      const nextLiked = !prevLiked;
+      queryClient.setQueryData(['like', id], nextLiked);
+      queryClient.setQueryData(['video', id], (old: any) =>
+        old
+          ? { ...old, likes_count: Math.max(0, (old.likes_count ?? 0) + (nextLiked ? 1 : -1)) }
+          : old
+      );
+      return { prevLiked, prevVideo };
     },
-    onError: (_e, _v, ctx) => { if (ctx) queryClient.setQueryData(['like', id], ctx.prev); },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['like', id] });
-      queryClient.invalidateQueries({ queryKey: ['video', id] });
+    onError: (_e, _v, ctx) => {
+      if (!ctx) return;
+      queryClient.setQueryData(['like', id], ctx.prevLiked);
+      if (ctx.prevVideo) queryClient.setQueryData(['video', id], ctx.prevVideo);
     },
+    onSuccess: (resp: any) => {
+      // Use the toggle response's authoritative count when present; otherwise keep
+      // the optimistic value. Do NOT refetch the video — its denormalized
+      // likes_count lags and would clobber the count back to 0.
+      const c = resp?.data?.likesCount ?? resp?.data?.likes_count;
+      if (typeof c === 'number') {
+        queryClient.setQueryData(['video', id], (old: any) => (old ? { ...old, likes_count: c } : old));
+      }
+      if (typeof resp?.data?.isLiked === 'boolean') {
+        queryClient.setQueryData(['like', id], resp.data.isLiked);
+      } else if (typeof resp?.data?.liked === 'boolean') {
+        queryClient.setQueryData(['like', id], resp.data.liked);
+      }
+    },
+    // Only reconcile the boolean like-state; the count is handled above.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['like', id] }),
   });
   const addComment = useMutation({
     mutationFn: (content: string) => api.engagement.addComment(id, content),
@@ -103,8 +128,12 @@ export default function VideoScreen() {
 
   const onShare = async () => {
     const url = `https://base.tube/video/${id}`;
+    const title = v?.title ?? 'Watch on BaseTube';
     try {
-      const res = await Share.share({ message: `${v?.title ?? 'Watch on BaseTube'}\n${url}`, url, title: v?.title });
+      // iOS shows a rich URL chip when `url` is passed; Android only reads `message`.
+      const res = await Share.share(
+        Platform.OS === 'ios' ? { url, message: title, title } : { message: `${title}\n${url}`, title }
+      );
       if (res.action === Share.sharedAction) api.engagement.share(id, 'other').catch(() => {});
     } catch {
       /* user dismissed */
@@ -116,7 +145,33 @@ export default function VideoScreen() {
       const subbed = subOverride ?? !!channel?.isSubscribed;
       return subbed ? api.channels.unsubscribe(channel.handle) : api.channels.subscribe(channel.handle);
     },
-    onMutate: () => setSubOverride((cur) => !(cur ?? !!channel?.isSubscribed)),
+    // Optimistic: flip the button AND move the subscriber count instantly.
+    onMutate: async () => {
+      const wasSubbed = subOverride ?? !!channel?.isSubscribed;
+      const nextSubbed = !wasSubbed;
+      setSubOverride(nextSubbed);
+      await queryClient.cancelQueries({ queryKey: ['video', id] });
+      const prevVideo = queryClient.getQueryData<any>(['video', id]);
+      queryClient.setQueryData(['video', id], (old: any) =>
+        old?.channel
+          ? {
+              ...old,
+              channel: {
+                ...old.channel,
+                isSubscribed: nextSubbed,
+                subscribers_count: Math.max(0, (old.channel.subscribers_count ?? 0) + (nextSubbed ? 1 : -1)),
+              },
+            }
+          : old
+      );
+      return { prevVideo, wasSubbed };
+    },
+    onError: (_e, _v, ctx) => {
+      if (!ctx) return;
+      setSubOverride(ctx.wasSubbed);
+      if (ctx.prevVideo) queryClient.setQueryData(['video', id], ctx.prevVideo);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['video', id] }),
   });
 
   const v: any = video.data;
@@ -138,11 +193,20 @@ export default function VideoScreen() {
         <View style={[styles.statusStrip, { height: insets.top }]} />
         <View style={styles.player}>
           {url ? (
-            <ExpoVideo source={{ uri: url }} style={styles.video} useNativeControls shouldPlay resizeMode={ResizeMode.CONTAIN} posterSource={{ uri: thumbnailUrl(v) }} usePoster />
+            <ExpoVideo ref={videoRef} source={{ uri: url }} style={styles.video} useNativeControls shouldPlay resizeMode={ResizeMode.CONTAIN} posterSource={{ uri: thumbnailUrl(v) }} usePoster />
           ) : (
             <Image source={{ uri: thumbnailUrl(v) }} style={styles.video} resizeMode="cover" />
           )}
           <AccentHairline style={styles.playerHairline} />
+          {url ? (
+            <Pressable
+              onPress={() => videoRef.current?.presentFullscreenPlayer()}
+              hitSlop={8}
+              style={styles.fsBtn}
+            >
+              <Ionicons name="expand" size={17} color="#fff" />
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={styles.body}>
@@ -258,6 +322,7 @@ const styles = StyleSheet.create({
   player: { width: '100%', backgroundColor: '#000', aspectRatio: 16 / 9 },
   video: { width: '100%', height: '100%' },
   playerHairline: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+  fsBtn: { position: 'absolute', top: theme.spacing(2.5), right: theme.spacing(2.5), width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.28)' },
   body: { padding: theme.spacing(4) },
   title: { color: theme.colors.text, fontSize: 19, fontWeight: '800', lineHeight: 25, letterSpacing: -0.4 },
   meta: { color: theme.colors.textMuted, fontSize: 13, marginTop: theme.spacing(1.5), fontWeight: '500' },

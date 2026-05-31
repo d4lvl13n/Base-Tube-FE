@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../../../src/lib/client';
 import { theme } from '../../../src/theme';
 import { Button, ErrorText } from '../../../src/components/ui';
-import { AccentHairline, Pill, Scrim } from '../../../src/components/primitives';
+import { AccentHairline, GlassCircleButton, Pill, Scrim } from '../../../src/components/primitives';
 import { ErrorState, LoadingState } from '../../../src/components/media';
 import { formatCount, formatDuration, formatPrice, thumbnailUrl } from '../../../src/lib/format';
+
+const NO_HEADER = { headerShown: false } as const;
 
 export default function PassDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
 
   const pass = useQuery({ queryKey: ['pass', slug], queryFn: () => api.passes.getById(slug), enabled: !!slug });
@@ -35,8 +39,16 @@ export default function PassDetailScreen() {
     onError: (e: any) => setError(e?.response?.data?.error?.message ?? e?.message ?? 'Could not start checkout.'),
   });
 
-  if (pass.isLoading) return (<><Stack.Screen options={{ title: 'Pass' }} /><LoadingState label="Loading pass…" /></>);
-  if (pass.isError || !p) return (<><Stack.Screen options={{ title: 'Pass' }} /><ErrorState onRetry={() => pass.refetch()} /></>);
+  const backBtn = (
+    <GlassCircleButton
+      icon="chevron-back"
+      onPress={() => router.back()}
+      style={[styles.backBtn, { top: insets.top + 6 }]}
+    />
+  );
+
+  if (pass.isLoading) return (<View style={styles.screen}><Stack.Screen options={NO_HEADER} /><LoadingState label="Loading pass…" />{backBtn}</View>);
+  if (pass.isError || !p) return (<View style={styles.screen}><Stack.Screen options={NO_HEADER} /><ErrorState onRetry={() => pass.refetch()} />{backBtn}</View>);
 
   const cover = thumbnailUrl(p.videos?.[0] ? { thumbnail_url: p.videos[0].thumbnail_url } : null);
   const supplyLine = p.supply_cap ? `${formatCount(p.minted_count ?? 0)} / ${formatCount(p.supply_cap)} minted` : 'Open edition';
@@ -44,8 +56,8 @@ export default function PassDetailScreen() {
   const blocked = p.can_purchase === false && !owned;
 
   return (
-    <>
-      <Stack.Screen options={{ title: '' }} />
+    <View style={styles.screen}>
+      <Stack.Screen options={NO_HEADER} />
       <ScrollView style={styles.flex} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} />
@@ -95,12 +107,15 @@ export default function PassDetailScreen() {
           </>
         )}
       </View>
-    </>
+      {backBtn}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  screen: { flex: 1, backgroundColor: theme.colors.background },
+  backBtn: { position: 'absolute', left: theme.spacing(4), zIndex: 20 },
   content: { paddingBottom: theme.spacing(30) },
   hero: { width: '100%', aspectRatio: 16 / 10, backgroundColor: theme.colors.surface, overflow: 'hidden' },
   heroHairline: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 5 },

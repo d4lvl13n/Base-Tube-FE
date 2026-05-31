@@ -1,10 +1,12 @@
 import React, { useCallback } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../src/lib/client';
 import { theme } from '../../../src/theme';
-import { AmbientGlow, Skeleton, Wordmark } from '../../../src/components/primitives';
+import { AmbientGlow, Skeleton } from '../../../src/components/primitives';
+import { AppHeader, HEADER_HEIGHT, ScrollChromeProvider, useScrollChrome } from '../../../src/components/chrome';
 import {
   CreatorRail,
   EmptyState,
@@ -40,9 +42,11 @@ function HomeSkeleton() {
   );
 }
 
-export default function HomeScreen() {
+function HomeFeed() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { onScroll } = useScrollChrome();
 
   const featured = useQuery({ queryKey: ['featured'], queryFn: () => api.videos.getFeatured(3) });
   const trending = useQuery({ queryKey: ['trending', 'home'], queryFn: () => api.videos.getTrending({ limit: 10, timeFrame: 'week' }) });
@@ -65,20 +69,33 @@ export default function HomeScreen() {
   const featuredVideos = featured.data ?? [];
   const hero = featuredVideos[0];
   const restFeatured = featuredVideos.slice(1);
+  // De-dupe: a featured video can also be trending → avoid duplicate React keys.
+  const seenFeed = new Set<string | number>();
+  const moreToWatch = [...restFeatured, ...trendingVideos].filter((v) => {
+    if (seenFeed.has(v.id)) return false;
+    seenFeed.add(v.id);
+    return true;
+  });
 
   return (
     <View style={styles.root}>
       <AmbientGlow height={320} />
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + HEADER_HEIGHT + theme.spacing(2) }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.accent}
+            progressViewOffset={insets.top + HEADER_HEIGHT}
+          />
+        }
       >
-        <View style={styles.header}>
-          <Wordmark size={26} />
-          <Text style={styles.greeting}>For you</Text>
-        </View>
+        <Text style={styles.greeting}>For you</Text>
 
         {loading ? (
           <HomeSkeleton />
@@ -92,12 +109,12 @@ export default function HomeScreen() {
 
             <PassRail title="Drops this week" passes={passes.data?.data ?? []} action="View all" onAction={() => router.push('/passes')} />
 
-            <CreatorRail title="Creators to watch" channels={popularChannels} action="See all" onAction={() => router.push('/discover')} />
+            <CreatorRail title="Creators to watch" channels={popularChannels} action="See all" onAction={() => router.push('/channels')} />
 
-            {restFeatured.length > 0 || trendingVideos.length > 0 ? (
+            {moreToWatch.length > 0 ? (
               <View style={styles.feed}>
                 <Text style={styles.feedHeading}>More to watch</Text>
-                {[...restFeatured, ...trendingVideos].map((v) => (
+                {moreToWatch.map((v) => (
                   <VideoCard key={`feed-${v.id}`} video={v} />
                 ))}
               </View>
@@ -107,16 +124,24 @@ export default function HomeScreen() {
           </>
         )}
       </ScrollView>
+      <AppHeader />
     </View>
+  );
+}
+
+export default function HomeScreen() {
+  return (
+    <ScrollChromeProvider>
+      <HomeFeed />
+    </ScrollChromeProvider>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.background },
   flex: { flex: 1 },
-  content: { padding: theme.spacing(4), paddingBottom: theme.spacing(28) },
-  header: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: theme.spacing(2), marginBottom: theme.spacing(5) },
-  greeting: { color: theme.colors.textMuted, fontSize: 14, fontWeight: '600' },
+  content: { paddingHorizontal: theme.spacing(4), paddingBottom: theme.spacing(28) },
+  greeting: { color: theme.colors.textMuted, fontSize: 14, fontWeight: '600', marginBottom: theme.spacing(4) },
   feed: { marginTop: theme.spacing(8) },
   feedHeading: { color: theme.colors.text, fontSize: 19, fontWeight: '800', letterSpacing: -0.3, marginBottom: theme.spacing(4) },
 

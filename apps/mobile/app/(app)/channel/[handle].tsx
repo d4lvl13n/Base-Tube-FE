@@ -1,17 +1,21 @@
 import React, { useCallback, useMemo } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../src/lib/client';
 import { theme } from '../../../src/theme';
 import { EmptyState, ErrorState, LoadingState, VideoCard } from '../../../src/components/media';
-import { AccentHairline, Scrim } from '../../../src/components/primitives';
+import { AccentHairline, GlassCircleButton, Scrim } from '../../../src/components/primitives';
 import { channelAvatarUrl, channelImageUrl, formatCount } from '../../../src/lib/format';
 
 const LIMIT = 12;
+const NO_HEADER = { headerShown: false } as const;
 
 export default function ChannelScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
   const channel = useQuery({ queryKey: ['channel', handle], queryFn: () => api.channels.getByHandle(handle), enabled: !!handle });
@@ -46,11 +50,31 @@ export default function ChannelScreen() {
     if (videos.hasNextPage && !videos.isFetchingNextPage) videos.fetchNextPage();
   }, [videos]);
 
+  const backBtn = (
+    <GlassCircleButton
+      icon="chevron-back"
+      onPress={() => router.back()}
+      style={[styles.backBtn, { top: insets.top + 6 }]}
+    />
+  );
+
   if (channel.isLoading) {
-    return (<><Stack.Screen options={{ title: 'Channel' }} /><LoadingState label="Loading channel…" /></>);
+    return (
+      <View style={styles.flex}>
+        <Stack.Screen options={NO_HEADER} />
+        <LoadingState label="Loading channel…" />
+        {backBtn}
+      </View>
+    );
   }
   if (channel.isError || !channel.data) {
-    return (<><Stack.Screen options={{ title: 'Channel' }} /><ErrorState onRetry={() => channel.refetch()} /></>);
+    return (
+      <View style={styles.flex}>
+        <Stack.Screen options={NO_HEADER} />
+        <ErrorState onRetry={() => channel.refetch()} />
+        {backBtn}
+      </View>
+    );
   }
 
   const c = channel.data;
@@ -84,8 +108,8 @@ export default function ChannelScreen() {
   );
 
   return (
-    <>
-      <Stack.Screen options={{ title: c.name }} />
+    <View style={styles.flex}>
+      <Stack.Screen options={NO_HEADER} />
       <FlatList
         style={styles.flex}
         data={list}
@@ -98,12 +122,14 @@ export default function ChannelScreen() {
         onEndReachedThreshold={0.6}
         ListEmptyComponent={videos.isLoading ? <LoadingState /> : <EmptyState message="No videos yet." />}
       />
-    </>
+      {backBtn}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: theme.colors.background },
+  backBtn: { position: 'absolute', left: theme.spacing(4), zIndex: 20 },
   content: { paddingHorizontal: theme.spacing(4), paddingBottom: theme.spacing(12) },
   bannerWrap: { height: 150, backgroundColor: theme.colors.surface, marginLeft: -theme.spacing(4), marginRight: -theme.spacing(4), overflow: 'hidden' },
   bannerHairline: { position: 'absolute', top: 0, left: 0, right: 0 },

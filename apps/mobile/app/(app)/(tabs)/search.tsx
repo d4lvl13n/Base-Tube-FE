@@ -3,9 +3,11 @@ import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import type { SearchSort } from '@basetube/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../../../src/lib/client';
 import { theme } from '../../../src/theme';
 import { EmptyState, ErrorState, LoadingState, VideoCard } from '../../../src/components/media';
+import { AppHeader, HEADER_HEIGHT } from '../../../src/components/chrome';
 
 const SORTS: { key: SearchSort; label: string }[] = [
   { key: 'relevance', label: 'Relevance' },
@@ -27,6 +29,7 @@ export default function SearchScreen() {
   const [text, setText] = useState('');
   const [sort, setSort] = useState<SearchSort>('relevance');
   const query = useDebounced(text.trim(), 350);
+  const insets = useSafeAreaInsets();
 
   const search = useQuery({
     queryKey: ['search', query, sort],
@@ -38,7 +41,8 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.flex}>
-      <View style={styles.searchBar}>
+      <AppHeader />
+      <View style={[styles.searchBar, { marginTop: insets.top + HEADER_HEIGHT + theme.spacing(2) }]}>
         <Ionicons name="search" size={18} color={theme.colors.textMuted} />
         <TextInput
           value={text}

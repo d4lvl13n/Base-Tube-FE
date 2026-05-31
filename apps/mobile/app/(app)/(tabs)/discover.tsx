@@ -2,9 +2,11 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { VideoSort } from '@basetube/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../../../src/lib/client';
 import { theme } from '../../../src/theme';
 import { EmptyState, ErrorState, LoadingState, VideoCard } from '../../../src/components/media';
+import { AppHeader, HEADER_HEIGHT } from '../../../src/components/chrome';
 
 const SORTS: { key: VideoSort; label: string }[] = [
   { key: 'trending', label: 'Trending' },
@@ -16,6 +18,7 @@ const LIMIT = 12;
 
 export default function DiscoverScreen() {
   const [sort, setSort] = useState<VideoSort>('trending');
+  const insets = useSafeAreaInsets();
 
   const query = useInfiniteQuery({
     queryKey: ['discovery', sort],
@@ -32,7 +35,7 @@ export default function DiscoverScreen() {
 
   return (
     <View style={styles.flex}>
-      <View style={styles.chips}>
+      <View style={[styles.chips, { paddingTop: insets.top + HEADER_HEIGHT + theme.spacing(2) }]}>
         {SORTS.map((s) => {
           const active = s.key === sort;
           return (
@@ -60,6 +63,7 @@ export default function DiscoverScreen() {
           refreshControl={<RefreshControl refreshing={query.isRefetching && !query.isFetchingNextPage} onRefresh={() => query.refetch()} tintColor={theme.colors.accent} />}
         />
       )}
+      <AppHeader />
     </View>
   );
 }

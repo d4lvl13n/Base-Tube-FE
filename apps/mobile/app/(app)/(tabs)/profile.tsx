@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@clerk/clerk-expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
@@ -8,6 +9,7 @@ import { api } from '../../../src/lib/client';
 import { theme } from '../../../src/theme';
 import { Row, RowGroup } from '../../../src/components/Row';
 import { AccentHairline, AmbientGlow } from '../../../src/components/primitives';
+import { AppHeader, HEADER_HEIGHT } from '../../../src/components/chrome';
 import { Ionicons } from '@expo/vector-icons';
 
 function shortAddress(addr?: string | null): string {
@@ -18,6 +20,7 @@ function shortAddress(addr?: string | null): string {
 export default function ProfileScreen() {
   const { user } = useUser();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const wallet = useQuery({ queryKey: ['my-wallet'], queryFn: () => api.profile.myWallet(), retry: false });
 
@@ -27,7 +30,7 @@ export default function ProfileScreen() {
   return (
     <View style={styles.root}>
       <AmbientGlow height={260} />
-      <ScrollView style={styles.flex} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.flex} contentContainerStyle={[styles.content, { paddingTop: insets.top + HEADER_HEIGHT + theme.spacing(2) }]} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={styles.avatarRing}>
           {avatar ? (
@@ -76,6 +79,7 @@ export default function ProfileScreen() {
         <Row icon="settings-outline" label="Settings" onPress={() => router.push('/settings')} />
       </RowGroup>
       </ScrollView>
+      <AppHeader />
     </View>
   );
 }
