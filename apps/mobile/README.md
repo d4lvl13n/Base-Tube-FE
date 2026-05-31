@@ -14,7 +14,7 @@ From the monorepo root:
 ```bash
 npm install
 # Metro bundles @basetube/api directly from its TypeScript source — no SDK build step needed.
-EXPO_PUBLIC_API_URL="https://api.base.tube" npm run web -w @basetube/mobile
+EXPO_PUBLIC_API_URL="https://beta.base.tube" npm run web -w @basetube/mobile
 ```
 
 - `npm run web -w @basetube/mobile` — run in the browser (react-native-web)
@@ -22,7 +22,7 @@ EXPO_PUBLIC_API_URL="https://api.base.tube" npm run web -w @basetube/mobile
 
 | Env var | Purpose | Default |
 |---|---|---|
-| `EXPO_PUBLIC_API_URL` | Backend base URL | `https://api.base.tube` |
+| `EXPO_PUBLIC_API_URL` | Backend base URL | `https://beta.base.tube` |
 
 ## v1 screen list (derived from the web app routes)
 

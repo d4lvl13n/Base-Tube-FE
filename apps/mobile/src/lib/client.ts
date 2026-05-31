@@ -5,7 +5,7 @@ import { getSessionToken } from './auth';
  * Backend base URL. Configured via `EXPO_PUBLIC_API_URL`; defaults to the
  * production backend. For local development, point this at a local backend.
  */
-const baseUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.base.tube';
+const baseUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://beta.base.tube';
 
 /**
  * Shared API client. `getToken` reads the live Clerk session token via the
