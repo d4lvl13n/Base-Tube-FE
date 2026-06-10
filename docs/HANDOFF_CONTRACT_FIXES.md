@@ -6,11 +6,11 @@
 
 A matching backend handoff lives at `base-be/docs/HANDOFF_POST_AUDIT_FIXES.md`. Items marked **[BE-paired]** depend on (or are alternatives to) a backend fix listed there — coordinate before starting them.
 
-> **STATUS (2026-06-10): Sprint 1 is DONE** (commit `a04602f`; BE counterparts in base-be `8f936f0`/`a2fe8a7`), and `feat/mobile-auth-screens` has been **rebased onto main** (0 behind) and pushed. **Start with Sprint 2**, ideally pulling 3.1 (TS toolchain) forward — it's what let the Sprint 1 bugs ship undetected. The Sprint 1 sections below are kept for context/verification.
+> **STATUS (2026-06-10): Sprint 1 is DONE** (commit `a04602f`; BE counterparts in base-be `8f936f0`/`a2fe8a7`), and the mobile monorepo work (`feat/mobile-auth-screens`) has been **merged into `main` and the branch deleted** — `main` is now the single branch carrying both the web app (`src/`) and the Expo mobile app (`apps/mobile` + `packages/api-sdk`). **Start with Sprint 2**, ideally pulling 3.1 (TS toolchain) forward — it's what let the Sprint 1 bugs ship undetected. The Sprint 1 sections below are kept for context/verification.
 
 ## Read this first
 
-- **Deploy the web app from `main` only.** The branch `feat/mobile-auth-screens` carries the mobile monorepo work. It has been rebased onto `main` (its web `src/` is current again), but web deploys should still come from `main`.
+- **Everything lives on `main`** (web + mobile monorepo). Web deploys build the CRA app from `src/`; the mobile app and SDK live in `apps/mobile` / `packages/api-sdk` and don't affect the web bundle. Note for CI: root `package.json` now declares npm workspaces, so `npm ci` also installs mobile deps.
 - Line numbers below are accurate as of `main@1dd9e97`; treat them as anchors, not gospel.
 - Everything here was verified by reading both codebases — each item says exactly what the backend sends.
 
@@ -131,8 +131,8 @@ Verified unused by any component, all pointing at routes that don't exist on the
 - MSW mock handlers define endpoints that don't exist on the backend (`/api/v1/auth/refresh`, `/api/v1/users/me`, `/v1/images/quota/increment`, `/api/v1/premium-content`) — tests pass against fiction; align or delete.
 
 ### 3.3 Branch consolidation (mirror of the backend cleanup)
-- Rebase `feat/mobile-auth-screens` onto `main` (its web `src/` is missing the Unlock rewrite — see "Read this first").
-- Audit + delete merged/stale branches: `feature/phase-1-*`, `feature/pass-as-link`, `feature/analytics-tab-restructure`, `feature/task-1.2/1.3-*`, `feature/technical-excellence`, `cursor/dev-env-setup-a0ce` (already cherry-picked to base-be), and prune the 4 orphaned `~/.codex/worktrees/*` + the `claude/friendly-bohr-d36868` worktree.
+- ~~Rebase `feat/mobile-auth-screens` onto `main`~~ **DONE** — merged into `main` and deleted (2026-06-10).
+- Audit + delete remaining merged/stale branches: `feature/phase-1-*`, `feature/pass-as-link`, `feature/analytics-tab-restructure`, `feature/task-1.2/1.3-*`, `feature/technical-excellence`, `cursor/mobile-monorepo-phase1-cdb4`, `cursor/dev-env-setup-a0ce` (already cherry-picked to base-be), and prune the 4 orphaned `~/.codex/worktrees/*` + the `claude/friendly-bohr-d36868` worktree.
 
 ---
 
