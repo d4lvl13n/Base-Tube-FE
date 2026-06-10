@@ -113,3 +113,17 @@ Required in `.env`:
 - `REACT_APP_API_URL` - Backend API base URL
 - Clerk keys (see Clerk docs)
 - Web3/wallet configuration
+
+## Monorepo Layout & Mobile Contract (read before touching src/api or the SDK)
+
+This repo holds BOTH apps on `main` (single-branch model — do not create long-lived feature branches):
+- **Web** (CRA): `src/` — deploys with the backend, redeployable in minutes.
+- **Mobile** (Expo): `apps/mobile/` consuming `packages/api-sdk` (`@basetube/api`). Mobile binaries can't be hot-fixed once shipped.
+
+**Rules:**
+1. The mobile app must ONLY call the backend through `packages/api-sdk` — never duplicate endpoint calls inside `apps/mobile`.
+2. When the SDK adds/changes an endpoint, regenerate the surface list in `base-be/docs/MOBILE_CONTRACT_SURFACE.md` (command is in that file) and commit it there.
+3. Backend route changes touching the SDK surface must be additive or land with an SDK update + green SDK tests (`npm test -w @basetube/api`) in the same session. Same rule for the web layer (`src/api/*`), but web coordination is same-day, not release-gated.
+4. After ANY contract-affecting change, run the SDK tests; after web `src/api` changes, run the web tests.
+
+Handoff/backlog: `docs/HANDOFF_CONTRACT_FIXES.md`.
