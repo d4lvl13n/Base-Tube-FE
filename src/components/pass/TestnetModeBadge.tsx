@@ -18,7 +18,7 @@ const TestnetModeBadge: React.FC<TestnetModeBadgeProps> = ({
   topOffsetPx = 64,
 }) => {
   const isTestnetModeEnabled = useMemo(
-    () => process.env.REACT_APP_CRYPTO_USE_RELAYER === 'true',
+    () => process.env.REACT_APP_TESTNET_MODE === 'true',
     []
   );
 

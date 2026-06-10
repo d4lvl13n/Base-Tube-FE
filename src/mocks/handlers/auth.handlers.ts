@@ -260,6 +260,9 @@ export const sessionHandlers = [
 
 // ============================================================
 // AUTH TOKEN HANDLERS
+// ⚠️ FIXTURES ONLY: /api/v1/auth/refresh and /api/v1/users/me do NOT exist
+// on the backend. They are generic targets for axios-interceptor tests —
+// do not treat these shapes as API contract documentation.
 // ============================================================
 
 export const tokenHandlers = [

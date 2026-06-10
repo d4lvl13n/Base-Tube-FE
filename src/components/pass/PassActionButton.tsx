@@ -176,7 +176,6 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
         isConnected,
         address,
         quantity,
-        useRelayer: process.env.REACT_APP_CRYPTO_USE_RELAYER,
       });
     } catch {}
 
