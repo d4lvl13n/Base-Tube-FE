@@ -6,7 +6,9 @@
 
 A matching backend handoff lives at `base-be/docs/HANDOFF_POST_AUDIT_FIXES.md`. Items marked **[BE-paired]** depend on (or are alternatives to) a backend fix listed there — coordinate before starting them.
 
-> **STATUS (updated 2026-06-10): Sprints 1, 2 and 3.1 are DONE** (Sprint 1: `a04602f`; Sprint 2: `e6ebe36`; toolchain revival incl. 6 runtime bug fixes: `ad41c36` — `npm run typecheck` now works and must stay green). Remaining: **3.2 (env hygiene/MSW mocks) and 3.3 (stale branch cleanup)**, plus the CI tripwire + nightly canary from `base-be/docs/MOBILE_CONTRACT_SURFACE.md`. Original banner kept below for history.
+> **STATUS (final 2026-06-10): ALL SPRINTS DONE** — 1, 2, 3.1 (toolchain), 3.2 (env/mocks: `1b6123f`), 3.3 (branch cleanup: repo is single-branch `main`), plus web CI with a typecheck gate and the nightly live contract canary (`a570bfb`). Nothing in this document remains open; future contract work follows `base-be/docs/MOBILE_CONTRACT_SURFACE.md`. Earlier banner kept for history:
+>
+> ~~**STATUS (updated 2026-06-10): Sprints 1, 2 and 3.1 are DONE**~~ (Sprint 1: `a04602f`; Sprint 2: `e6ebe36`; toolchain revival incl. 6 runtime bug fixes: `ad41c36` — `npm run typecheck` now works and must stay green). Remaining: **3.2 (env hygiene/MSW mocks) and 3.3 (stale branch cleanup)**, plus the CI tripwire + nightly canary from `base-be/docs/MOBILE_CONTRACT_SURFACE.md`. Original banner kept below for history.
 >
 > ~~**STATUS (2026-06-10): Sprint 1 is DONE**~~ (commit `a04602f`; BE counterparts in base-be `8f936f0`/`a2fe8a7`), and the mobile monorepo work (`feat/mobile-auth-screens`) has been **merged into `main` and the branch deleted** — `main` is now the single branch carrying both the web app (`src/`) and the Expo mobile app (`apps/mobile` + `packages/api-sdk`). **Start with Sprint 2**, ideally pulling 3.1 (TS toolchain) forward — it's what let the Sprint 1 bugs ship undetected. The Sprint 1 sections below are kept for context/verification.
 
