@@ -75,7 +75,12 @@ export interface Pass {
   tier: string;
   supply_cap?: number;  // Optional number for max supply, null/undefined means unlimited
   minted_count?: number; // Number of passes minted on-chain
-  reserved_count?: number; // Number of passes reserved (Stripe purchases pending mint)
+  /** Aggregate sold count (minted + pending reservations) — the backend never exposes raw reserved_count */
+  sold_count?: number;
+  /** Unlock Lock contract address (public chain data needed to purchase with crypto) */
+  lock_address?: string | null;
+  /** ERC-20 the Lock is priced in (USDC) */
+  payment_token?: string | null;
   has_access?: boolean;  // Whether user has access to this pass (purchaser or creator)
   can_purchase?: boolean;
   purchase_block_reason_code?: PurchaseBlockReasonCode | string | null;
@@ -118,7 +123,7 @@ export interface SignedUrlResponse {
  * Purchase status response from the /passes/purchase/status/:sessionId endpoint
  */
 export interface PurchaseStatus {
-  status: 'reserved' | 'pending' | 'processing' | 'minting' | 'claimed' | 'completed' | 'open' | 'expired' | 'failed';
+  status: 'reserved' | 'pending' | 'processing' | 'minting' | 'claimed' | 'completed' | 'open' | 'expired' | 'failed' | 'refunded' | 'disputed' | 'not_found';
   purchase_id?: string;
   pass_id?: string;
   reservation_id?: string;

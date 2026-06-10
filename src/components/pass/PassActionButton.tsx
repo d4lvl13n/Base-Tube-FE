@@ -19,7 +19,7 @@ interface PassActionButtonProps {
     formatted_price: string;
     supply_cap?: number;
     minted_count?: number;
-    reserved_count?: number;
+    sold_count?: number;
     can_purchase?: boolean;
     purchase_block_reason_code?: string | null;
     purchase_block_reason?: string | null;

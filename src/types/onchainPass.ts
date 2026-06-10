@@ -74,40 +74,6 @@ export type OnchainClaimResponse = StandardApiResponse<OnchainClaimData>;
 
 
 // ---- Crypto purchase (optional quote flow) ----
-export interface CryptoQuoteData {
-  // EIP-712 typed data or pre-hashed digest to sign
-  typedData?: Record<string, any> | null;
-  digest?: string | null;
-  // Minimum price protection in wei (string to avoid JS precision issues)
-  minPriceWei?: string | null;
-  deadline?: number | null; // epoch ms or seconds depending on backend
-  chainId?: number | null;
-}
-
-export type CryptoQuoteResponse = StandardApiResponse<CryptoQuoteData>;
-
-export interface CryptoPurchaseRequest {
-  address: string;
-  // If backend expects typed data signature
-  signature?: string;
-  // Echo back to backend for verification
-  digest?: string | null;
-  typedData?: Record<string, any> | null;
-  minPriceWei?: string | null;
-}
-
-export interface CryptoPurchaseData {
-  // Backend may immediately return identifiers/tx info
-  purchaseId?: string | null;
-  purchase_id?: string | null;
-  mintTxHash?: string | null;
-  mint_tx_hash?: string | null;
-  mintTxUrl?: string | null;
-  mint_tx_url?: string | null;
-}
-
-export type CryptoPurchaseResponse = StandardApiResponse<CryptoPurchaseData>;
-
 // ---- Crypto purchase confirm (post-receipt finalization) ----
 
 /**

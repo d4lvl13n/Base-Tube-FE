@@ -84,7 +84,7 @@ const PassDetailView: React.FC = () => {
   }
   
   // Calculate total sold (minted + reserved for pending Stripe purchases)
-  const totalSold = (pass.minted_count || 0) + (pass.reserved_count || 0);
+  const totalSold = (pass.sold_count ?? (pass.minted_count || 0));
 
   // Calculate remaining supply
   const remainingSupply = pass.supply_cap ?

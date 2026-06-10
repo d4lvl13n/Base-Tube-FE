@@ -183,7 +183,7 @@ const PassDetailsPage: React.FC = () => {
 
   const heroThumbnail = pass.videos?.[0]?.thumbnail_url || '/assets/Content-pass.webp';
   const hasSupplyCap = Boolean(pass.supply_cap && pass.supply_cap > 0);
-  const soldCount = (pass.minted_count || 0) + (pass.reserved_count || 0);
+  const soldCount = (pass.sold_count ?? (pass.minted_count || 0));
   const totalCount = pass.supply_cap || 0;
   const soldPct = hasSupplyCap ? Math.min(100, (soldCount / totalCount) * 100) : 0;
   const videoCount = pass.videos?.length || 0;
@@ -491,7 +491,7 @@ const PassDetailsPage: React.FC = () => {
                     formatted_price: pass.formatted_price,
                     supply_cap: pass.supply_cap,
                     minted_count: pass.minted_count,
-                    reserved_count: pass.reserved_count,
+                    sold_count: pass.sold_count,
                     can_purchase: pass.can_purchase,
                     purchase_block_reason_code: pass.purchase_block_reason_code,
                     purchase_block_reason: pass.purchase_block_reason,

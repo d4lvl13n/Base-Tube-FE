@@ -92,7 +92,18 @@ export enum ErrorCode {
   
   // General Errors
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
-  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED'
+  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
+
+  // Backend error-code vocabulary (codes the API actually emits — keep in
+  // sync with base-be errorHandler/controllers so classification works)
+  AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
+  BAD_REQUEST = 'BAD_REQUEST',
+  TOO_MANY_REQUESTS = 'TOO_MANY_REQUESTS',
+  INTERNAL_ERROR = 'INTERNAL_ERROR',
+  DUPLICATE_ENTRY = 'DUPLICATE_ENTRY',
+  FILE_UPLOAD_ERROR = 'FILE_UPLOAD_ERROR',
+  WALLET_NOT_LINKED = 'WALLET_NOT_LINKED',
+  PLAY_TOKEN_RATE_LIMIT_EXCEEDED = 'PLAY_TOKEN_RATE_LIMIT_EXCEEDED'
 }
 
 /**
@@ -163,7 +174,17 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   
   // General Errors
   [ErrorCode.UNKNOWN_ERROR]: 'An unexpected error occurred. Please try again.',
-  [ErrorCode.RATE_LIMIT_EXCEEDED]: 'Too many requests. Please wait a moment and try again.'
+  [ErrorCode.RATE_LIMIT_EXCEEDED]: 'Too many requests. Please wait a moment and try again.',
+
+  // Backend error-code vocabulary
+  [ErrorCode.AUTHENTICATION_ERROR]: 'Please sign in to continue.',
+  [ErrorCode.BAD_REQUEST]: 'The request was invalid. Please check your input and try again.',
+  [ErrorCode.TOO_MANY_REQUESTS]: 'Too many requests. Please wait a moment and try again.',
+  [ErrorCode.INTERNAL_ERROR]: 'Something went wrong on our side. Please try again.',
+  [ErrorCode.DUPLICATE_ENTRY]: 'This already exists. Please use a different value.',
+  [ErrorCode.FILE_UPLOAD_ERROR]: 'File upload failed. Please check the file and try again.',
+  [ErrorCode.WALLET_NOT_LINKED]: 'Connect your wallet before publishing a paid pass.',
+  [ErrorCode.PLAY_TOKEN_RATE_LIMIT_EXCEEDED]: 'You\'ve requested this video too many times. Please wait a few minutes.'
 };
 
 /**

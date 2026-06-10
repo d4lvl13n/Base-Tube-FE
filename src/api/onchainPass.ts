@@ -7,8 +7,6 @@ import type {
   OnchainAccessListResponse,
   OnchainClaimRequest,
   OnchainClaimResponse,
-  CryptoPurchaseRequest,
-  CryptoPurchaseResponse,
   CryptoConfirmResponse,
   PendingPurchasesResponse,
   MintPendingRequest,
@@ -136,22 +134,6 @@ export const onchainPassApi = {
       },
     );
     return res.data;
-  },
-
-  // Initiate crypto purchase via backend relayer (expects wallet address and optional signature)
-  async buyWithCrypto(passId: string, payload: CryptoPurchaseRequest): Promise<CryptoPurchaseResponse> {
-    const exec = async () => {
-      const idempotencyKey = `crypto-purchase-${passId}-${Date.now()}`;
-      const res = await api.post<CryptoPurchaseResponse>(`/api/v1/passes/${passId}/crypto`, payload, {
-        headers: { 'Idempotency-Key': idempotencyKey }
-      });
-      return res.data;
-    };
-    try {
-      return await retryWithBackoff(exec, 0, 0);
-    } catch (error) {
-      throw handleApiError(error, { action: 'Buy with crypto', component: 'onchainPassApi', additionalData: { passId, address: payload.address } });
-    }
   },
 
   /**

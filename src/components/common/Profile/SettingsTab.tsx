@@ -243,9 +243,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
                 Notification Preferences
               </h2>
+              {/* The backend does not persist notification preferences yet —
+                  keep the toggles visibly disabled instead of silently no-oping. */}
+              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-800 text-gray-400 border border-gray-700">
+                Coming soon
+              </span>
             </div>
-            
-            <div className="space-y-4">
+
+            <div className="space-y-4 opacity-60">
               <div className="p-4 bg-gray-900/50 rounded-lg flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Mail className="w-5 h-5 text-gray-400" />
@@ -254,13 +259,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                     <p className="text-sm text-gray-400">Receive updates via email</p>
                   </div>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
+                <label className="relative inline-flex items-center cursor-not-allowed">
                   <input
                     type="checkbox"
                     checked={notificationPreferences.emailNotifications}
                     onChange={(e) => handleToggleNotification('emailNotifications', e.target.checked)}
                     className="sr-only peer"
-                    disabled={updateSettingsMutation.isPending}
+                    disabled
                   />
                   <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#fa7517]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#fa7517]"></div>
                 </label>
@@ -274,13 +279,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                     <p className="text-sm text-gray-400">Receive updates via SMS</p>
                   </div>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
+                <label className="relative inline-flex items-center cursor-not-allowed">
                   <input
                     type="checkbox"
                     checked={notificationPreferences.smsNotifications}
                     onChange={(e) => handleToggleNotification('smsNotifications', e.target.checked)}
                     className="sr-only peer"
-                    disabled={updateSettingsMutation.isPending}
+                    disabled
                   />
                   <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#fa7517]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#fa7517]"></div>
                 </label>

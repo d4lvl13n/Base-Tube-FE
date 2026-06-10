@@ -130,7 +130,7 @@ interface UsePublicThumbnailGeneratorReturn {
 // Constants
 // =============================================================================
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 const EMAIL_STORAGE_KEY = 'thumbnailUserEmail';
 const DEFAULT_THUMBNAIL_FORMAT: ThumbnailOutputFormat = 'landscape';
 

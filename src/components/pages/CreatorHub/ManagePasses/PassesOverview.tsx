@@ -19,7 +19,7 @@ const PassesOverview: React.FC = () => {
     
     passes.forEach(pass => {
       // Count sold passes (minted + reserved for pending Stripe purchases)
-      const passSold = (pass.minted_count || 0) + (pass.reserved_count || 0);
+      const passSold = (pass.sold_count ?? (pass.minted_count || 0));
       totalMinted += passSold;
 
       // Add to supply cap if finite

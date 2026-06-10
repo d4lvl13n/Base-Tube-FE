@@ -223,9 +223,6 @@ export const getTrendingVideos = async ({
   }
 };
 
-export const getNFTVideos = (limit: number = 4) =>
-  api.get(`/api/v1/videos/nft?limit=${limit}`).then((res) => res.data.data);
-
 export const getVideos = (category: string, limit: number = 4) => 
   api.get<Video[]>(`/api/v1/videos?category=${category}&limit=${limit}`);
 

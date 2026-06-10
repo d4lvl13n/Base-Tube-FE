@@ -43,11 +43,6 @@ export const getMyVideos = async (): Promise<Video[]> => {
   return response.data;
 };
 
-export const getMyNFTs = async (): Promise<UserNFT[]> => {
-  const response = await api.get('/api/v1/profile/nfts');
-  return response.data;
-};
-
 export const getMyWallet = async (): Promise<UserWallet> => {
   const response = await api.get<{ success: boolean; data: UserWallet }>('/api/v1/profile/wallet');
   return response.data.data;

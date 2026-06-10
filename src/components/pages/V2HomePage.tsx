@@ -320,7 +320,7 @@ const StageHero: React.FC<{ video?: HomeVideo }> = ({ video }) => {
 };
 
 const PassPulse: React.FC<{ passes: Pass[] }> = ({ passes }) => {
-  const mintedTotal = passes.reduce((total, pass) => total + (pass.minted_count || 0) + (pass.reserved_count || 0), 0);
+  const mintedTotal = passes.reduce((total, pass) => total + (pass.sold_count ?? (pass.minted_count || 0)), 0);
   const minPricePass = passes
     .filter((pass) => typeof pass.price_cents === 'number')
     .sort((a, b) => a.price_cents - b.price_cents)[0];

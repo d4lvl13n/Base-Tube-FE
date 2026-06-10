@@ -9,8 +9,6 @@ import type {
   OnchainClaimRequest,
   OnchainClaimResponse,
   OnchainPurchaseStatus,
-  CryptoPurchaseResponse,
-  CryptoPurchaseRequest,
   CryptoPurchasePhase,
   PendingPurchasesResponse,
   MintPendingResponse,
@@ -154,33 +152,6 @@ export const useCryptoQuote = (
     },
     enabled: enabled && Boolean(passId && buyer),
     staleTime: 30_000,
-  });
-};
-
-/**
- * Buy with crypto via backend relayer. Mirrors Stripe flow: on success, begin polling purchase status.
- */
-export const useCryptoCheckout = (passId?: string | null) => {
-  const { address } = useAccount();
-  const chainId = useChainId();
-  const client = useQueryClient();
-
-  return useMutation<CryptoPurchaseResponse, Error, Partial<CryptoPurchaseRequest>>({
-    mutationFn: async (overrides = {}) => {
-      if (!passId) throw new Error('passId is required');
-      if (!address) throw new Error('Wallet not connected');
-      const payload: CryptoPurchaseRequest = {
-        address,
-        ...overrides,
-      };
-      trackOnchainEvent('onchain.crypto.purchase.start', { passId, address, chainId });
-      const resp = await onchainPassApi.buyWithCrypto(passId, payload);
-      trackOnchainEvent('onchain.crypto.purchase.accepted', { passId, address, chainId, purchaseId: resp?.data?.purchaseId || (resp?.data as any)?.purchase_id });
-      return resp;
-    },
-    onSuccess: () => {
-      client.invalidateQueries();
-    },
   });
 };
 
@@ -442,7 +413,7 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       });
       try { console.log('[CryptoPay] tx submitted', { hash }); } catch {}
       setPhase('tx-pending');
-      const explorerUrl = getExplorerTxUrl(desiredChainId, hash as string);
+      const explorerUrl = getExplorerTxUrl(hash as string, desiredChainId);
       setLastTxHash(hash as `0x${string}`);
       setLastExplorerUrl(explorerUrl || null);
 

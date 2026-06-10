@@ -26,17 +26,5 @@ export const onboardingApi = {
       { withCredentials: true }
     );
     return data;
-  },
-
-  /**
-   * Gets the current onboarding status for a user
-   * Returns the full user object with onboarding_status
-   */
-  getOnboardingStatus: async (): Promise<{ user: User }> => {
-    const { data } = await api.get(
-      '/api/v1/web3auth/onboarding/status',
-      { withCredentials: true }
-    );
-    return data;
   }
 };

@@ -21,13 +21,12 @@ import {
 import { handleApiError as handleError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
 
-// Add the missing WatchTimeData interface
+// Matches GET /analytics/channels/:id/watch-hours
 interface WatchTimeData {
-  totalWatchTime: number;
-  avgSessionDuration: number;
-  uniqueViewers: number;
-  retentionRate: number;
-  periodLabel: string;
+  channelId: string;
+  totalWatchHours: number;
+  period: string;
+  formattedHours: string;
 }
 
 // ===========================================
@@ -313,30 +312,20 @@ export const getTopLikedVideos = async (channelId: string): Promise<TopLikedVide
 };
 
 /**
- * Get the like-to-view ratio for a specific video
- * @param creatorId The ID of the creator who owns the video
- * @param videoId The ID of the video to get the like-to-view ratio for
- */
-export const getLikeViewRatio = async (creatorId: string, videoId: number): Promise<LikeViewRatio> => {
-  const response = await api.get<{ success: boolean; data: LikeViewRatio }>(
-    `/api/v1/creators/${creatorId}/videos/${videoId}/like-ratio`
-  );
-  return response.data.data;
-};
-
-/**
  * Get watch hours for a specific channel, optionally filtered by time period
  * @param channelId The ID of the channel to get watch hours for
  * @param period Optional time period to filter by ('7d' or '30d')
  */
 export const getChannelWatchHours = async (
-  channelId: string, 
-  period: '7d' | '30d' | '90d' | '1y' = '30d'
+  channelId: string,
+  // Backend accepts only 7d|30d; omit for all-time (no default — '30d' here
+  // silently turned the dashboard's "all-time" stat into 30-day data).
+  period?: '7d' | '30d'
 ): Promise<WatchTimeData> => {
   const fetchWatchTime = async () => {
     const response = await api.get<{ success: boolean; data: WatchTimeData }>(
       `/api/v1/analytics/channels/${channelId}/watch-hours`,
-      { params: { period } }
+      { params: period ? { period } : {} }
     );
 
     if (!response.data.success) {
@@ -640,28 +629,6 @@ export const getChannelVideosPerformance = async (
     }
 
     throw userError;
-  }
-};
-
-// ===========================================
-// DEPRECATED ENDPOINTS
-// ===========================================
-
-/**
- * @deprecated Use getChannelWatchHours instead, specifying the channel
- */
-export const getCreatorWatchHours = async (period: '7d' | '30d'): Promise<CreatorWatchHours> => {
-  try {
-    const response = await api.get<{ success: boolean; data: CreatorWatchHours }>(
-      `/api/v1/analytics/watch-hours?period=${period}`
-    );
-    if (!response.data.success) {
-      throw new Error('Failed to fetch creator watch hours');
-    }
-    return response.data.data;
-  } catch (error) {
-    console.error('Failed to fetch creator watch hours:', error);
-    throw error;
   }
 };
 

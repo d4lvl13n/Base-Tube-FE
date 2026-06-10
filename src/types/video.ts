@@ -5,13 +5,15 @@ import { User } from './user';
 
 export interface Video {
   id: number;
-  user_id: number;
+  /** @deprecated Stripped by the backend in all responses — always undefined. */
+  user_id?: number;
   channel_id: number;
   title: string;
   description: string;
-  
+
   // Video paths and URLs
-  video_path: string;           // Local path (for development)
+  /** @deprecated Internal storage path — stripped by the backend in all responses. */
+  video_path?: string;
   video_url?: string;          // Full Storj URL
   video_urls?: {               // Different quality versions
     '240p'?: string;
@@ -23,10 +25,12 @@ export interface Video {
     '2160p'?: string;
     'original'?: string;
   };
+  /** @deprecated Internal storage paths — stripped by the backend in all responses. */
   processed_video_paths?: string[] | null;
-  
+
   // Thumbnail paths and URLs
-  thumbnail_path: string;       // Local path (for development)
+  /** @deprecated Internal storage path — stripped by the backend in all responses. */
+  thumbnail_path?: string;
   thumbnail_url?: string;      // Full Storj URL
   thumbnail_urls?: {           // Different thumbnail sizes
     small?: string;
@@ -121,7 +125,9 @@ export interface ProgressResponse {
   };
 }
 
-export type VideoStatus = 'pending' | 'processing' | 'completed' | 'failed';
+// 'processed' is the raw DB value the progress endpoint passes through;
+// 'completed' is the normalized UI value. Handle both.
+export type VideoStatus = 'pending' | 'processing' | 'processed' | 'completed' | 'failed';
 
 export interface VideoProgress {
   videoId: number;

@@ -171,20 +171,25 @@ export const useCTREngine = (): UseCTREngineReturn => {
     const message = responseMessage || (err instanceof Error ? err.message : 'An unexpected error occurred');
     setError(message);
     
-    // Extract error code if present
-    if (axiosError?.response?.status === 402 || responseCode === 'INSUFFICIENT_CREDITS') {
+    // Classify on the machine-readable error.code — NOT the human message.
+    // Prod messages are sentences like "Daily audit limit of N reached.",
+    // they never contain the code tokens.
+    const code = typeof responseCode === 'string' ? responseCode : '';
+    if (axiosError?.response?.status === 402 || code === 'INSUFFICIENT_CREDITS') {
       setErrorCode('INSUFFICIENT_CREDITS');
-    } else if (message.includes('QUOTA_EXCEEDED')) {
-      if (message.includes('ANONYMOUS')) {
+    } else if (code.includes('QUOTA_EXCEEDED')) {
+      if (code.startsWith('ANONYMOUS')) {
         setErrorCode('ANONYMOUS_AUDIT_QUOTA_EXCEEDED');
-      } else if (message.includes('AUDIT')) {
+      } else if (code.includes('AUDIT')) {
         setErrorCode('AUDIT_QUOTA_EXCEEDED');
-      } else if (message.includes('GENERATE')) {
+      } else if (code.includes('GENERATE')) {
         setErrorCode('GENERATE_QUOTA_EXCEEDED');
+      } else {
+        setErrorCode('AUDIT_QUOTA_EXCEEDED');
       }
-    } else if (message.includes('AUTHENTICATION_REQUIRED') || message.includes('authentication')) {
+    } else if (code === 'AUTHENTICATION_REQUIRED' || axiosError?.response?.status === 401) {
       setErrorCode('AUTHENTICATION_REQUIRED');
-    } else if (message.includes('RATE_LIMIT')) {
+    } else if (code.includes('RATE_LIMIT') || axiosError?.response?.status === 429) {
       setErrorCode('RATE_LIMIT_EXCEEDED');
     } else {
       setErrorCode('UNKNOWN_ERROR');

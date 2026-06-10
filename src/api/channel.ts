@@ -7,7 +7,6 @@ import {
   ChannelWriteResponse,
   ChannelsResponse, 
   ChannelDetailsResponse,
-  ChannelAnalyticsResponse,
   ChannelQueryOptions,
   GetChannelsOptions,
   GetChannelsResponse,
@@ -306,21 +305,6 @@ export const getChannelVideos = async (channelId: string | number, page: number 
   }
 };
 
-export const getChannelAnalytics = async (
-  channelId: string,
-  period: '7d' | '30d' = '7d'
-): Promise<ChannelAnalyticsResponse> => {
-  try {
-    const response = await api.get<ChannelAnalyticsResponse>(
-      `/api/v1/channels/${channelId}/analytics?period=${period}`
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching channel analytics:', error);
-    throw error;
-  }
-};
-
 export const getChannelWatchPatterns = async (channelId: string): Promise<WatchPatterns> => {
   try {
     const response = await api.get<{ success: boolean; data: WatchPatterns }>(
@@ -565,12 +549,14 @@ export const validateChannelData = (data: ChannelUpdateData): string[] => {
   }
 
   if (data.channel_image) {
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    // Keep in sync with the backend multer fileFilter (channelRoutes):
+    // JPEG/PNG/WebP only, 3MB max — GIF and >3MB are rejected with a 400.
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(data.channel_image.type)) {
-      errors.push('Invalid image type. Please use JPEG, PNG, GIF, or WebP');
+      errors.push('Invalid image type. Please use JPEG, PNG, or WebP');
     }
-    if (data.channel_image.size > 5 * 1024 * 1024) { // 5MB limit
-      errors.push('Image size must be less than 5MB');
+    if (data.channel_image.size > 3 * 1024 * 1024) { // 3MB limit (backend-enforced)
+      errors.push('Image size must be less than 3MB');
     }
   }
 

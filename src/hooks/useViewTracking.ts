@@ -62,7 +62,23 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
           watchedDurationRef.current,
           isComplete
         );
-      } catch (error) {
+      } catch (error: any) {
+        // The backend can 409 on a view-count conflict under concurrency —
+        // one retry recovers the lost view instead of silently dropping it.
+        if (error?.response?.status === 409) {
+          try {
+            await updateVideoView(
+              videoId,
+              viewIdRef.current!,
+              watchedDurationRef.current,
+              isVideoComplete(watchedDurationRef.current)
+            );
+            return;
+          } catch (retryError) {
+            console.error('Failed to update view after 409 retry:', retryError);
+            return;
+          }
+        }
         console.error('Failed to update view:', error);
       }
     };

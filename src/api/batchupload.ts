@@ -52,23 +52,8 @@ export async function uploadBatchVideos(
   // the .data.data is based on your backend returning { success: true, data: [videoObjects] } 
 }
 
-export interface VideoStatusResponse {
-  status: string; // e.g. "pending", "processed", "failed", etc.
-  progress?: number; // optional, if your backend returns some numeric progress
-}
-
-/**
- * If your back-end offers a GET endpoint to check a single video's processing status,
- * you can add that here:
- */
-export async function getVideoStatus(videoId: number): Promise<VideoStatusResponse> {
-  const response = await api.get(`/api/v1/videos/${videoId}/status`);
-  return response.data.data;
-}
-
 const batchUploadApi = {
   uploadBatchVideos,
-  getVideoStatus,
 };
 
 export default batchUploadApi;

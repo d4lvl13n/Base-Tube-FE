@@ -1,6 +1,6 @@
 import { parseApiError, isRateLimitError, isRetryableServiceError } from './apiError';
 
-export type PassErrorAction = 'link-youtube' | 'verify-channel' | null;
+export type PassErrorAction = 'link-youtube' | 'verify-channel' | 'link-wallet' | null;
 
 export interface PassErrorResult {
   code: string | null;
@@ -72,6 +72,42 @@ const PASS_ERROR_MAP: Record<
   PASS_CONTENT_INVALID: {
     message: "This pass contains content that's no longer available.",
     action: null,
+  },
+  WALLET_NOT_LINKED: {
+    message:
+      'Connect your wallet (Base Account) before publishing a paid pass — it receives your 90% revenue share.',
+    action: 'link-wallet',
+    canRetry: false,
+  },
+  BLACKLISTED: {
+    message: 'Purchases are not available on this account. Contact support if you think this is a mistake.',
+    action: null,
+    canRetry: false,
+  },
+  PASS_SOLD_OUT: {
+    message: 'This pass is sold out.',
+    action: null,
+    canRetry: false,
+  },
+  PASS_NOT_ONCHAIN: {
+    message: 'This pass is not available for purchase yet. Please check back soon.',
+    action: null,
+    canRetry: false,
+  },
+  PASS_SALE_INACTIVE: {
+    message: 'Sales are paused for this pass.',
+    action: null,
+    canRetry: false,
+  },
+  CRYPTO_QUOTE_FAILED: {
+    message: 'Could not prepare the crypto checkout. Please try again.',
+    action: null,
+    canRetry: true,
+  },
+  CHECKOUT_CREATE_FAILED: {
+    message: 'Could not start the checkout. Please try again.',
+    action: null,
+    canRetry: true,
   },
 };
 

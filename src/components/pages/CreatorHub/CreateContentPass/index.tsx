@@ -59,7 +59,7 @@ const CreateContentPass: React.FC = () => {
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
   const [success, setSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitErrorAction, setSubmitErrorAction] = useState<'link-youtube' | 'verify-channel' | null>(null);
+  const [submitErrorAction, setSubmitErrorAction] = useState<'link-youtube' | 'verify-channel' | 'link-wallet' | null>(null);
   const [createdPassId, setCreatedPassId] = useState<string | null>(null);
   const [createdPassSlug, setCreatedPassSlug] = useState<string | null>(null);
   const createPass = useCreatePass();

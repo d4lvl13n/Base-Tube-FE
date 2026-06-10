@@ -16,7 +16,7 @@ const CreatorPassCard: React.FC<CreatorPassCardProps> = ({ pass }) => {
   const thumbnail = pass.videos?.[0]?.thumbnail_url || '/assets/Content-pass.webp';
   
   // Calculate total sold (minted + reserved for pending Stripe purchases)
-  const totalSold = (pass.minted_count || 0) + (pass.reserved_count || 0);
+  const totalSold = (pass.sold_count ?? (pass.minted_count || 0));
 
   // Calculate remaining supply
   const remainingSupply = pass.supply_cap ?

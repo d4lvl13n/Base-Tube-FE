@@ -13,7 +13,7 @@ interface StepReviewProps {
   isSuccess?: boolean;
   onContinue?: () => void;
   submitError?: string | null;
-  submitErrorAction?: 'link-youtube' | 'verify-channel' | null;
+  submitErrorAction?: 'link-youtube' | 'verify-channel' | 'link-wallet' | null;
   onStartOAuth?: () => void;
   onBackToVideos?: () => void;
 }
@@ -316,6 +316,15 @@ const StepReview: React.FC<StepReviewProps> = ({
                       className="inline-flex items-center gap-1.5 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-4 py-2 text-sm font-medium text-[#fa7517] transition-colors hover:bg-[#fa7517]/20"
                     >
                       Check channel status
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                  {submitErrorAction === 'link-wallet' && (
+                    <a
+                      href="/profile"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-4 py-2 text-sm font-medium text-[#fa7517] transition-colors hover:bg-[#fa7517]/20"
+                    >
+                      Connect wallet
                       <ChevronRight className="h-3.5 w-3.5" />
                     </a>
                   )}

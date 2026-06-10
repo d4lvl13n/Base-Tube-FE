@@ -7,9 +7,9 @@ interface UsernameOptions {
   suggestions: string[];
 }
 
+// Matches PUT /web3auth/username — the backend returns only { message }
 interface UpdateUsernameResponse {
   message: string;
-  username: string;
 }
 
 class Web3AuthApi {

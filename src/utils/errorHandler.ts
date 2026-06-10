@@ -102,7 +102,13 @@ export class ApiErrorHandler {
         if (typeof responseData.error === 'string') {
           technicalMessage = responseData.error;
         } else {
-          errorCode = this.mapStringToErrorCode(responseData.error.code) || errorCode;
+          // Only override the status-derived classification when the backend
+          // code is one we actually know — an unknown code must NOT clobber a
+          // perfectly good 401/403/429 classification with UNKNOWN_ERROR.
+          const mappedCode = this.mapStringToErrorCode(responseData.error.code);
+          if (mappedCode !== ErrorCode.UNKNOWN_ERROR) {
+            errorCode = mappedCode;
+          }
           technicalMessage = responseData.error.message || technicalMessage;
           details = responseData.error.details;
         }
@@ -201,13 +207,14 @@ export class ApiErrorHandler {
       ErrorCode.CONNECTION_TIMEOUT,
       ErrorCode.REQUEST_FAILED,
       ErrorCode.INTERNAL_SERVER_ERROR,
+      ErrorCode.INTERNAL_ERROR,
       ErrorCode.SERVICE_UNAVAILABLE,
       ErrorCode.DATABASE_ERROR,
       ErrorCode.UPLOAD_FAILED,
       ErrorCode.ANALYTICS_UNAVAILABLE,
       ErrorCode.DATA_PROCESSING_ERROR
     ];
-    
+
     return retryableErrors.includes(errorCode);
   }
 
@@ -233,9 +240,17 @@ export class ApiErrorHandler {
     switch (errorCode) {
       case ErrorCode.UNAUTHORIZED:
       case ErrorCode.TOKEN_EXPIRED:
+      case ErrorCode.AUTHENTICATION_ERROR:
         actions.push({
           label: 'Sign In',
           action: () => window.location.href = '/sign-in'
+        });
+        break;
+
+      case ErrorCode.WALLET_NOT_LINKED:
+        actions.push({
+          label: 'Link Wallet',
+          action: () => window.location.href = '/profile'
         });
         break;
         
