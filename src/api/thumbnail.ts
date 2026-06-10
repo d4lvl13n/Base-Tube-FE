@@ -44,7 +44,7 @@ export const thumbnailApi = {
    * @param id - The thumbnail ID
    * @returns A promise that resolves with the thumbnail details
    */
-  getThumbnailById: async (id: number): Promise<ThumbnailItem> => {
+  getThumbnailById: async (id: string): Promise<ThumbnailItem> => {
     const response = await api.get(`/api/v1/thumbnails/${id}`);
     return response.data;
   },
@@ -56,7 +56,7 @@ export const thumbnailApi = {
    * @returns A promise that resolves with the image blob data
    */
   downloadThumbnail: async (
-    thumbnailId: number,
+    thumbnailId: string,
     options: { responseType?: 'blob' | 'arraybuffer' } = { responseType: 'blob' }
   ): Promise<Blob | ArrayBuffer> => {
     const response = await api.get(`/api/v1/thumbnails/${thumbnailId}/download`, {
@@ -70,7 +70,7 @@ export const thumbnailApi = {
    * @param thumbnailId - The ID of the thumbnail to download
    * @param filename - Optional custom filename (defaults to thumbnail-{id}.webp)
    */
-  triggerThumbnailDownload: (thumbnailId: number, filename?: string): void => {
+  triggerThumbnailDownload: (thumbnailId: string, filename?: string): void => {
     // Create a link to trigger the download
     const link = document.createElement('a');
     link.href = `/api/v1/thumbnails/${thumbnailId}/download`;

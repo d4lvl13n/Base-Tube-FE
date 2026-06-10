@@ -9,10 +9,10 @@ import { Link } from 'react-router-dom';
 import { resolveThumbnailImageUrl } from '../../utils/thumbnailImage';
 
 interface ThumbnailDetailDrawerProps {
-  thumbnailId: number;
+  thumbnailId: string;
   isOpen: boolean;
   onClose: () => void;
-  fetchThumbnailById: (id: number) => Promise<ThumbnailItem>;
+  fetchThumbnailById: (id: string) => Promise<ThumbnailItem>;
   onDownloadSuccess?: () => void;
 }
 
@@ -249,7 +249,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                       </h2>
                       <div className="text-gray-400 flex items-center space-x-2 mt-1">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>Generated on {formatDate(thumbnail.created_at)}</span>
+                        <span>Generated on {formatDate(thumbnail.createdAt)}</span>
                       </div>
                     </div>
                   </div>
@@ -324,7 +324,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                       </div>
                       
                       {/* Usage Badge - Enhanced */}
-                      {thumbnail.is_used && (
+                      {thumbnail.isUsed && (
                         <div className="absolute top-3 left-3 px-4 py-1.5 bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] text-black rounded-full text-sm font-medium shadow-lg">
                           Used in Video
                         </div>
@@ -340,37 +340,40 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                         <div className="p-1.5 bg-[#fa7517]/20 rounded-lg">
                           <Code className="w-4 h-4 text-[#fa7517]" />
                         </div>
-                        AI Prompt
+                        AI Thumbnail
                       </h3>
                       <div className="px-3 py-1 bg-gray-800/70 rounded-lg text-gray-400 font-mono text-sm">
                         ID: #{thumbnail.id}
                       </div>
                     </div>
-                    
-                    {/* Prompt Section with Copy Button - Smaller and with icon inline */}
-                    <div className="relative mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-gray-400">Prompt</span>
-                        <motion.button
-                          onClick={copyPrompt}
-                          whileHover={{ scale: 1.05, backgroundColor: copiedPrompt ? 'rgba(34, 197, 94, 0.2)' : 'rgba(250, 117, 23, 0.2)' }}
-                          whileTap={{ scale: 0.95 }}
-                          className={`p-1.5 rounded-md ${copiedPrompt ? 'bg-green-500/20 text-green-500' : 'bg-gray-800/80 text-gray-400 hover:text-white'} 
-                            transition-colors border border-gray-700/50 flex items-center space-x-1`}
+
+                    {/* Prompt section — the public gallery API doesn't expose other
+                        creators' prompts, so this only renders when present */}
+                    {thumbnail.prompt && (
+                      <div className="relative mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-gray-400">Prompt</span>
+                          <motion.button
+                            onClick={copyPrompt}
+                            whileHover={{ scale: 1.05, backgroundColor: copiedPrompt ? 'rgba(34, 197, 94, 0.2)' : 'rgba(250, 117, 23, 0.2)' }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`p-1.5 rounded-md ${copiedPrompt ? 'bg-green-500/20 text-green-500' : 'bg-gray-800/80 text-gray-400 hover:text-white'}
+                              transition-colors border border-gray-700/50 flex items-center space-x-1`}
+                          >
+                            {copiedPrompt ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            <span className="text-xs">{copiedPrompt ? 'Copied' : 'Copy'}</span>
+                          </motion.button>
+                        </div>
+
+                        <motion.div
+                          className="p-4 bg-gradient-to-br from-gray-900/90 to-black rounded-xl text-gray-300
+                            whitespace-pre-wrap leading-relaxed border border-gray-800/40 max-h-[180px] overflow-y-auto"
+                          whileHover={{ boxShadow: '0 0 20px rgba(250, 117, 23, 0.1)' }}
                         >
-                          {copiedPrompt ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                          <span className="text-xs">{copiedPrompt ? 'Copied' : 'Copy'}</span>
-                        </motion.button>
+                          {thumbnail.prompt}
+                        </motion.div>
                       </div>
-                      
-                      <motion.div 
-                        className="p-4 bg-gradient-to-br from-gray-900/90 to-black rounded-xl text-gray-300 
-                          whitespace-pre-wrap leading-relaxed border border-gray-800/40 max-h-[180px] overflow-y-auto"
-                        whileHover={{ boxShadow: '0 0 20px rgba(250, 117, 23, 0.1)' }}
-                      >
-                        {thumbnail.prompt}
-                      </motion.div>
-                    </div>
+                    )}
                     
                     {/* Image Stats + Downloads - Grid layout (4 cards, no download button) */}
                     <div className="grid grid-cols-4 gap-3 mb-4">
@@ -391,7 +394,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                           <Download className="w-4 h-4" />
                           <span className="text-xs text-gray-500">Downloads</span>
                         </div>
-                        <div className="text-white font-medium text-sm">{formatNumber(thumbnail.download_count)}</div>
+                        <div className="text-white font-medium text-sm">{formatNumber(thumbnail.downloadCount)}</div>
                       </div>
                     </div>
                     

@@ -86,14 +86,12 @@ export const pinComment = async (
 export const unpinComment = async (
   commentId: number
 ): Promise<ApiResponse<void>> => {
-  const response = await fetch(`/api/comments/${commentId}/unpin`, {
-    method: 'POST',
-    credentials: 'include',
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to unpin comment');
+  try {
+    // Shared axios client: correct base URL, /api/v1 path, auth headers.
+    const response = await api.post(`/api/v1/comments/${commentId}/unpin`);
+    return response.data;
+  } catch (error) {
+    console.error('Error unpinning comment:', error);
+    throw error;
   }
-  
-  return response.json();
 };

@@ -15,15 +15,17 @@ export const creditsApi = {
     pricing: CreditPricingCatalog | null;
   }> => {
     const response = await api.get<CreditBalanceResponse>(`${CREDITS_BASE_PATH}/balance`);
+    // Backend shape: { data: { balance: { balance, reserved, available }, pricing } }
     return {
-      creditInfo: response.data.data.creditInfo,
+      creditInfo: response.data.data.balance,
       pricing: response.data.data.pricing ?? null,
     };
   },
 
   getCreditLedger: async (): Promise<CreditLedgerEntry[]> => {
+    // Backend shape: { data: { balance, pricing, entries: [...], pagination } }
     const response = await api.get<CreditLedgerResponse>(`${CREDITS_BASE_PATH}/ledger`);
-    return response.data.data.ledger;
+    return response.data.data.entries;
   },
 };
 

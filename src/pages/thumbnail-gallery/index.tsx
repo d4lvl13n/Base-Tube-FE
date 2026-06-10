@@ -20,7 +20,7 @@ const sortOptions = [
 ];
 
 export default function ThumbnailGalleryPage() {
-  const [selectedThumbnailId, setSelectedThumbnailId] = useState<number | null>(null);
+  const [selectedThumbnailId, setSelectedThumbnailId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -102,7 +102,7 @@ export default function ThumbnailGalleryPage() {
     };
   }, [loadMore]);
   
-  const handleThumbnailClick = useCallback((id: number) => {
+  const handleThumbnailClick = useCallback((id: string) => {
     setSelectedThumbnailId(id);
   }, []);
   

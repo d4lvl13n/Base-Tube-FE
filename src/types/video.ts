@@ -62,7 +62,8 @@ export interface Video {
   
   // Counts
   comment_count: number;
-  like_count: number;
+  /** @deprecated The backend sends likes_count; this is only set by feed transforms. */
+  like_count?: number;
   
   // Additional metadata
   engagement_score?: number;
@@ -77,15 +78,13 @@ export interface Video {
   };
 }
 
+// Matches GET /api/v1/videos/trending: videos array under `data`,
+// pagination fields on the envelope itself.
 export interface TrendingVideoResponse {
   success: boolean;
-  data: {
-    videos: Video[];
-    total: number;
-    hasMore: boolean;
-    timeFrame: 'today' | 'week' | 'month' | 'all';
-    sort: 'trending' | 'latest' | 'popular' | 'random';
-  }
+  data: Video[];
+  total: number;
+  hasMore: boolean;
 }
 
 export interface VideoResponse {

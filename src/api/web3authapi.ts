@@ -1,6 +1,6 @@
 import api from './index';
 import { LoginResponse, SignupResponse, LinkWalletResponse, NonceResponse } from '../types/auth';
-import { handleApiError } from '../utils/errorHandler';
+import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
 
 interface UsernameOptions {

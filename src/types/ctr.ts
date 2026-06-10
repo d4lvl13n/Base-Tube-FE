@@ -54,20 +54,24 @@ export interface CreditPricingCatalog {
   };
 }
 
+// Matches GET /api/v1/credits/balance
 export interface CreditBalanceResponse {
   success: boolean;
   data: {
-    creditInfo: CreditInfo;
+    balance: CreditInfo;
     pricing?: CreditPricingCatalog;
   };
 }
 
+// Matches GET /api/v1/credits/ledger entries
 export interface CreditLedgerEntry {
-  id?: string;
+  id?: number;
   type?: string;
-  amount: number;
-  balanceAfter?: number;
-  description?: string;
+  balanceDelta: number;
+  reservedDelta?: number;
+  operation?: string | null;
+  referenceType?: string | null;
+  referenceId?: string | null;
   createdAt: string;
   metadata?: Record<string, unknown>;
 }
@@ -75,7 +79,10 @@ export interface CreditLedgerEntry {
 export interface CreditLedgerResponse {
   success: boolean;
   data: {
-    ledger: CreditLedgerEntry[];
+    balance: CreditInfo;
+    pricing?: CreditPricingCatalog;
+    entries: CreditLedgerEntry[];
+    pagination?: { limit: number; offset: number; hasMore: boolean };
   };
 }
 

@@ -152,10 +152,12 @@ export const useTrendingVideos = (initialParams: GetDiscoveryOptions = {}): UseT
         const transformedVideos = response.data.map(transformToVideo);
         console.log('Transformed videos:', transformedVideos);
         
+        // hasMore/total live on the envelope, not on the videos array:
+        // the backend returns { success, data: Video[], total, hasMore }
         return {
           videos: transformedVideos,
-          hasMore: response.data.hasMore || false,
-          total: response.data.total || 0,
+          hasMore: response.hasMore || false,
+          total: response.total || 0,
           actualTimeFrame: timeFrame
         };
       } else {

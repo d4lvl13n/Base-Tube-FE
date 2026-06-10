@@ -111,7 +111,7 @@ export const ThumbnailCard: React.FC<ThumbnailCardProps> = ({ thumbnail, onClick
         )}
         
         {/* Only keep Used badge */}
-        {thumbnail.is_used && (
+        {thumbnail.isUsed && (
           <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#fa7517] text-black rounded text-xs font-medium">
             Used
           </div>

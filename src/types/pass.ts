@@ -106,8 +106,12 @@ export interface CheckoutSessionResponse {
 }
 
 // API response for fetching a signed video URL
+// Backend shape: { success, data: { signed_url } }
 export interface SignedUrlResponse {
-  signed_url: string;
+  success: boolean;
+  data: {
+    signed_url: string;
+  };
 }
 
 /**

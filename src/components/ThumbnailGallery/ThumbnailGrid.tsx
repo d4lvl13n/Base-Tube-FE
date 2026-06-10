@@ -6,7 +6,7 @@ import { ThumbnailItem } from '../../types/thumbnail';
 interface ThumbnailGridProps {
   thumbnails: ThumbnailItem[];
   isLoading: boolean;
-  onThumbnailClick: (id: number) => void;
+  onThumbnailClick: (id: string) => void;
 }
 
 export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({ 

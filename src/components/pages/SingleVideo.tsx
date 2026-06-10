@@ -101,10 +101,13 @@ const SingleVideo: React.FC = () => {
   }
 
   useEffect(() => {
-    if (video?.like_count !== undefined) {
-      setLikesCount(video.like_count);
+    // GET /videos/:id returns the DB column likes_count; like_count only
+    // exists on feed-transformed objects.
+    const initialLikes = video?.likes_count ?? video?.like_count;
+    if (initialLikes !== undefined) {
+      setLikesCount(initialLikes);
     }
-  }, [video?.like_count]);
+  }, [video?.likes_count, video?.like_count]);
 
   const handleLike = useCallback(async () => {
     try {

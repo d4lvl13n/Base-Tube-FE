@@ -140,23 +140,22 @@ export interface ThumbnailRefinementResponse {
  * Individual thumbnail item as returned by the API
  */
 export interface ThumbnailItem {
-  id: number;
-  storj_key: string;
-  prompt: string;
+  /** Public short_id (string), not the numeric DB id */
+  id: string;
   model: string;
   quality: string;
   style: string;
   size: string;
-  video_id: number | null;
-  used_in_video_id: number | null;
-  is_used: boolean;
-  username: string;
-  config: Record<string, any>;
-  download_count: number;
-  created_at: string;
-  updated_at: string;
-  thumbnailUrl: string;
-  channelHandle: string;
+  isUsed: boolean;
+  downloadCount: number;
+  createdAt: string;
+  thumbnailUrl: string | null;
+  channelHandle: string | null;
+  /** Only returned by the single-item endpoint, never by the public gallery list */
+  username?: string | null;
+  usedInVideoId?: number | null;
+  /** Not exposed by the public gallery (other creators' prompts stay private) */
+  prompt?: string;
 }
 
 /**

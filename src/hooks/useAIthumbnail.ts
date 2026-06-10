@@ -51,7 +51,7 @@ const EMPTY_THUMBNAILS: ThumbnailItem[] = [];
 const flattenUniqueThumbnails = (pages?: ThumbnailGalleryResponse[]): ThumbnailItem[] => {
   if (!pages?.length) return EMPTY_THUMBNAILS;
 
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   const thumbnails: ThumbnailItem[] = [];
 
   pages.forEach(page => {
@@ -105,7 +105,7 @@ export const useAIThumbnailGallery = (params: ThumbnailGalleryParams = {}, enabl
    * @param id - The thumbnail ID
    * @returns Promise with the thumbnail details
    */
-  const fetchThumbnailById = useCallback(async (id: number): Promise<ThumbnailItem> => {
+  const fetchThumbnailById = useCallback(async (id: string): Promise<ThumbnailItem> => {
     return thumbnailApi.getThumbnailById(id);
   }, []);
 
@@ -116,7 +116,7 @@ export const useAIThumbnailGallery = (params: ThumbnailGalleryParams = {}, enabl
    * @returns Promise with the blob or arraybuffer data
    */
   const downloadThumbnail = useCallback(async (
-    id: number, 
+    id: string, 
     responseType: 'blob' | 'arraybuffer' = 'blob'
   ): Promise<Blob | ArrayBuffer> => {
     return thumbnailApi.downloadThumbnail(id, { responseType });
@@ -137,7 +137,7 @@ export const useAIThumbnailGallery = (params: ThumbnailGalleryParams = {}, enabl
    * @param id - The thumbnail ID
    * @param filename - Optional custom filename
    */
-  const triggerDownload = useCallback((id: number, filename?: string): void => {
+  const triggerDownload = useCallback((id: string, filename?: string): void => {
     thumbnailApi.triggerThumbnailDownload(id, filename);
   }, []);
 
@@ -147,7 +147,7 @@ export const useAIThumbnailGallery = (params: ThumbnailGalleryParams = {}, enabl
    * @returns Promise with the object URL
    * @note Remember to release the URL with URL.revokeObjectURL when done
    */
-  const fetchAndCreateObjectURL = useCallback(async (id: number): Promise<string> => {
+  const fetchAndCreateObjectURL = useCallback(async (id: string): Promise<string> => {
     const blob = await downloadThumbnail(id) as Blob;
     return createObjectURL(blob);
   }, [createObjectURL, downloadThumbnail]);
@@ -215,12 +215,12 @@ export const useAIThumbnailInfiniteGallery = (params: ThumbnailGalleryParams = {
   const firstPage = data?.pages[0];
   const lastPage = data?.pages[data.pages.length - 1];
 
-  const fetchThumbnailById = useCallback(async (id: number): Promise<ThumbnailItem> => {
+  const fetchThumbnailById = useCallback(async (id: string): Promise<ThumbnailItem> => {
     return thumbnailApi.getThumbnailById(id);
   }, []);
 
   const downloadThumbnail = useCallback(async (
-    id: number,
+    id: string,
     responseType: 'blob' | 'arraybuffer' = 'blob'
   ): Promise<Blob | ArrayBuffer> => {
     return thumbnailApi.downloadThumbnail(id, { responseType });
@@ -230,11 +230,11 @@ export const useAIThumbnailInfiniteGallery = (params: ThumbnailGalleryParams = {
     return URL.createObjectURL(blob);
   }, []);
 
-  const triggerDownload = useCallback((id: number, filename?: string): void => {
+  const triggerDownload = useCallback((id: string, filename?: string): void => {
     thumbnailApi.triggerThumbnailDownload(id, filename);
   }, []);
 
-  const fetchAndCreateObjectURL = useCallback(async (id: number): Promise<string> => {
+  const fetchAndCreateObjectURL = useCallback(async (id: string): Promise<string> => {
     const blob = await downloadThumbnail(id) as Blob;
     return createObjectURL(blob);
   }, [createObjectURL, downloadThumbnail]);

@@ -135,7 +135,8 @@ export const passApi = {
       const response = await api.get<SignedUrlResponse>(
         `/api/v1/passes/videos/${videoId}/signed-url`
       );
-      return response.data.signed_url;
+      // Backend shape: { success, data: { signed_url } }
+      return response.data.data.signed_url;
     } catch (error: any) {
       // Handle USE_PLAY_TOKEN error - video is external, need play-token endpoint
       if (error.response?.data?.error?.code === 'USE_PLAY_TOKEN') {
