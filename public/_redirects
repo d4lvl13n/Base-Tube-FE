@@ -1,0 +1,3 @@
+# Cloudflare Pages SPA fallback (CRA copies this into build/).
+# Vercel ignores this file (it uses vercel.json rewrites instead).
+/*    /index.html   200
