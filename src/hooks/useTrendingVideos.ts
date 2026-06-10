@@ -44,6 +44,7 @@ const transformToVideo = (discoveryVideo: DiscoveryVideo): Video => {
     if (!status) return determineStatus();
     
     switch (status.toLowerCase()) {
+      case 'processed': // raw DB value the feed endpoints actually send
       case 'completed':
       case 'done':
         return 'completed';

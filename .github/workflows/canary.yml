@@ -1,0 +1,25 @@
+name: nightly-contract-canary
+
+on:
+  schedule:
+    # 03:30 UTC nightly — verifies the live API still matches the shapes the
+    # web app and mobile SDK read. A red run = contract drift, caught the
+    # same night instead of a broken app weeks later.
+    - cron: "30 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run contract canary against beta
+        run: node scripts/contract-canary.mjs
+        env:
+          CANARY_BASE_URL: https://beta.base.tube
