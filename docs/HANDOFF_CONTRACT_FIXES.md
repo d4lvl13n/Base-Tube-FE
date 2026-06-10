@@ -6,10 +6,11 @@
 
 A matching backend handoff lives at `base-be/docs/HANDOFF_POST_AUDIT_FIXES.md`. Items marked **[BE-paired]** depend on (or are alternatives to) a backend fix listed there — coordinate before starting them.
 
+> **STATUS (2026-06-10): Sprint 1 is DONE** (commit `a04602f`; BE counterparts in base-be `8f936f0`/`a2fe8a7`), and `feat/mobile-auth-screens` has been **rebased onto main** (0 behind) and pushed. **Start with Sprint 2**, ideally pulling 3.1 (TS toolchain) forward — it's what let the Sprint 1 bugs ship undetected. The Sprint 1 sections below are kept for context/verification.
+
 ## Read this first
 
-- **Deploy the web app from `main` only.** The branch `feat/mobile-auth-screens` carries the mobile monorepo work but its copy of the web `src/` is 2 commits behind `main` and is missing the **Unlock crypto purchase rewrite** (`41f0974`) and the upload-response normalizer (`1dd9e97`). A web build from that branch ships a crypto buy flow that fails 100% of the time.
-- After finishing Sprint 1, rebase `feat/mobile-auth-screens` onto `main` so its web copy stops being stale.
+- **Deploy the web app from `main` only.** The branch `feat/mobile-auth-screens` carries the mobile monorepo work. It has been rebased onto `main` (its web `src/` is current again), but web deploys should still come from `main`.
 - Line numbers below are accurate as of `main@1dd9e97`; treat them as anchors, not gospel.
 - Everything here was verified by reading both codebases — each item says exactly what the backend sends.
 
