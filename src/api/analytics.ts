@@ -349,11 +349,10 @@ export const getChannelWatchHours = async (
         userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
       console.warn('Watch hours unavailable, returning empty data:', userError.message);
       return {
-        totalWatchTime: 0,
-        avgSessionDuration: 0,
-        uniqueViewers: 0,
-        retentionRate: 0,
-        periodLabel: period
+        channelId,
+        totalWatchHours: 0,
+        period: period ?? 'all',
+        formattedHours: '0h'
       };
     }
 

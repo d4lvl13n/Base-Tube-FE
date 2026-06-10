@@ -55,15 +55,16 @@ export const useGeneratedName = (options: { enabled?: boolean } = {}) => {
       console.log('Updating username via API:', username);
       return web3AuthApi.updateUsername(username);
     },
-    onSuccess: (data) => {
+    onSuccess: (data, username) => {
       console.log('Username update API response:', data);
-      
+
       // Update both localStorage values to keep them in sync
-      localStorage.setItem('wallet_username', data.username);
-      
+      // (the backend returns only { message }, so use the submitted username)
+      localStorage.setItem('wallet_username', username);
+
       // Update the auth_user object with the new username
       const authUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
-      authUser.username = data.username;
+      authUser.username = username;
       localStorage.setItem('auth_user', JSON.stringify(authUser));
       
       // Trigger UI updates

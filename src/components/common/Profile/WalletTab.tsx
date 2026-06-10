@@ -165,7 +165,7 @@ const WalletTab: React.FC = () => {
 
       {/* Claimable Balances */}
       {isOnchainEnabled && (
-        <ClaimableBalances accessItems={accessList?.data || []} loading={isAccessLoading} />
+        <ClaimableBalances accessItems={accessList?.data || []} loading={isAccessLoading} walletAddress={wallet?.walletAddress} />
       )}
     </motion.div>
   );
@@ -175,7 +175,7 @@ export default WalletTab;
 
 // --- Claimable Balances Section ---
 
-const ClaimableBalances: React.FC<{ accessItems: OnchainAccessData[]; loading?: boolean }> = ({ accessItems, loading }) => {
+const ClaimableBalances: React.FC<{ accessItems: OnchainAccessData[]; loading?: boolean; walletAddress?: string | null }> = ({ accessItems, loading, walletAddress }) => {
   const claimable = useMemo(() => {
     return (accessItems || []).filter((a) => {
       const raw = (a && typeof a.vaultBalance === 'string') ? a.vaultBalance : '0';
@@ -217,7 +217,7 @@ const ClaimableBalances: React.FC<{ accessItems: OnchainAccessData[]; loading?: 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {claimable.map((a) => (
-          <ClaimItem key={a.passId} access={a} walletAddress={wallet?.walletAddress} />
+          <ClaimItem key={a.passId} access={a} walletAddress={walletAddress} />
         ))}
       </div>
     </div>

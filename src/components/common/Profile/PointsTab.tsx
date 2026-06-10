@@ -42,7 +42,6 @@ const PointsTab: React.FC = () => {
   const redeemReward = useRedeemGrowthReward();
   const [recentRedeemedRewardId, setRecentRedeemedRewardId] = useState<number | null>(null);
 
-  const visibility = growthMe.data?.visibility;
   const now = Date.now();
   const cutoff = period === '24h'
     ? now - 24 * 60 * 60 * 1000
@@ -75,6 +74,7 @@ const PointsTab: React.FC = () => {
     return <Error message="Failed to load your growth data" />;
   }
 
+  const visibility = growthMe.data.visibility;
   const leaderboardModeLabel = getGrowthModeLabel(visibility.leaderboardMode);
   const hasRewards = !!rewards.data?.items.length;
   const hasRedemptions = !!redemptions.data?.items.length;
@@ -92,7 +92,7 @@ const PointsTab: React.FC = () => {
           : 'Reward redeemed. Your reward is awaiting fulfillment.'
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to redeem reward');
+      toast.error(error instanceof globalThis.Error ? error.message : 'Failed to redeem reward');
     }
   };
 

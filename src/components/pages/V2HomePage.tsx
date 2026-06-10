@@ -45,7 +45,7 @@ const stagger = {
   },
 };
 
-type HomeVideo = Partial<Video> & {
+type HomeVideo = Omit<Partial<Video>, 'channel'> & {
   id: number;
   title: string;
   duration?: number;

@@ -120,15 +120,13 @@ const pendingPurchaseToPass = (purchase: PendingPurchase): Pass => ({
   description: purchase.pass.description || '',
   tier: purchase.pass.tier,
   slug: purchase.pass.slug || '',
-  price: purchase.priceCents / 100,
+  price_cents: purchase.priceCents,
+  currency: purchase.currency,
   formatted_price: `$${(purchase.priceCents / 100).toFixed(2)}`,
+  channel: { name: '', user: { username: '' } },
   videos: [],
-  supply_cap: null,
+  supply_cap: undefined,
   minted_count: 0,
-  creator_id: '',
-  status: 'active',
-  created_at: purchase.createdAt,
-  updated_at: purchase.createdAt,
 });
 
 const PassesTab = () => {

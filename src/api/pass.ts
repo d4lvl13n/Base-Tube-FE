@@ -68,7 +68,6 @@ export function normalizePassCreateResponse(body: PassCreateApiResponse): Pass {
     formatted_price: '',
     tier: 'bronze',
     channel: { name: '', user: { username: '' } },
-    videos: [],
     ...fromData,
     id,
     slug: fromData.slug ?? body.slug,

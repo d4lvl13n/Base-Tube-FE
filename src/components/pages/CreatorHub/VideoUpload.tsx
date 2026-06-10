@@ -16,7 +16,7 @@ import { uploadVideo, generateVideoDescription } from '../../../api/video';
 import VideoUploadSuccess from '../../common/ModalScreen/VideoUploadSuccess';
 import { useNavigate } from 'react-router-dom';
 import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
-import { showErrorToast } from '../../common/Notifications/ErrorToast';
+import { showErrorToast, uploadErrors } from '../../common/Notifications/ErrorToast';
 import { getVideoErrorMessage } from '../../../utils/videoErrorMessages';
 import { UploadRequirements } from '../../common/CreatorHub/UploadRequirements';
 import AIAssistantPanel from '../../common/AIAssistantPanel';

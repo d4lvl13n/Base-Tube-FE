@@ -316,7 +316,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     }
 
     setUsageMode('quota');
-    setQuotaInfo(normalized.quotaInfo);
+    setQuotaInfo('quotaInfo' in normalized ? normalized.quotaInfo : null);
     setCreditInfo(null);
     setPricing(null);
   }, []);
@@ -360,7 +360,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         if (normalized?.mode === 'credits') {
           return normalized.creditInfo;
         }
-        return normalized?.quotaInfo ?? null;
+        return normalized && 'quotaInfo' in normalized ? normalized.quotaInfo : null;
       }
       
       return null;

@@ -30,7 +30,7 @@ interface ProfileInfoCardProps {
 const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({ profile }) => {
   const { isAuthenticated } = useAuth();
   const { isSignedIn } = useUser();
-  const { wallet, isLoading } = useWallet();
+  const { data: wallet, isLoading } = useWallet();
   const { modalState, clearModal } = useLinkWallet();
 
   console.log('ProfileInfoCard render:', { 

@@ -26,7 +26,7 @@ export function useLinkWallet() {
   
   const queryClient = useQueryClient();
   const { address } = useAccount();
-  const { connect, connectors } = useConnect();
+  const { connectAsync, connectors } = useConnect();
   const { signMessageAsync } = useSignMessage();
   const { setUser } = useAuth();
 
@@ -144,7 +144,7 @@ export function useLinkWallet() {
         throw new Error('No wallet connector available');
       }
 
-      const connectResult = await connect({ connector: primaryConnector });
+      const connectResult = await connectAsync({ connector: primaryConnector });
       const nextAddress = normalizeWalletAddress(connectResult.accounts?.[0] || null);
 
       if (!nextAddress) {
@@ -166,7 +166,7 @@ export function useLinkWallet() {
       });
       return null;
     }
-  }, [address, connect, connectors, performLink]);
+  }, [address, connectAsync, connectors, performLink]);
 
   return {
     isLinking,

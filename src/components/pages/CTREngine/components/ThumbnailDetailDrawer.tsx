@@ -97,7 +97,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
     clearError();
 
     try {
-      await submitEmailForDownload(email, thumbnail?.id);
+      await submitEmailForDownload(email, thumbnail != null ? String(thumbnail.id) : undefined);
       setEmailSuccess(true);
 
       if (thumbnail) {

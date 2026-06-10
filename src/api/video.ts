@@ -45,7 +45,8 @@ function normalizeVideoUploadResponse(body: VideoUploadApiResponse): VideoUpload
     throw new VideoApiError(parsed.code, parsed.message, parsed.canRetry);
   }
 
-  const data = body.data && typeof body.data === 'object' ? body.data : body;
+  const data: { videoId?: string; id?: string; status?: string; title?: string; duration?: number } =
+    body.data && typeof body.data === 'object' ? body.data : body;
   const rawId = data.videoId ?? data.id ?? body.videoId ?? body.id;
   if (rawId === undefined || rawId === null || rawId === '') {
     throw new VideoApiError(null, 'Invalid upload response from server.');

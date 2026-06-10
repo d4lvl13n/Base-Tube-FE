@@ -349,7 +349,7 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       if ((activeWalletClient as any)?.chain?.id !== desiredChainId) {
         throw new Error(`Wallet client on unexpected chain ${(activeWalletClient as any)?.chain?.id}; expected ${desiredChainId}`);
       }
-      const pubClient = getPublicClient(wagmiConfig, { chainId: desiredChainId });
+      const pubClient = getPublicClient(wagmiConfig, { chainId: targetChain.id });
 
       const lockAddress = quote.lock_address as `0x${string}`;
       const usdc = quote.payment_token as `0x${string}`;
@@ -432,7 +432,7 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       // UX: wait for confirmations, then POST /crypto/confirm. Fall back to
       // /status polling only if confirm is exhausted/unavailable.
       try {
-        const publicClient = getPublicClient(wagmiConfig, { chainId: desiredChainId });
+        const publicClient = getPublicClient(wagmiConfig, { chainId: targetChain.id });
         await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}`, confirmations });
         try { console.log('[CryptoPay] tx confirmed', { hash, confirmations }); } catch {}
       } catch (e) {
@@ -668,7 +668,7 @@ export const useCryptoResumeConfirm = () => {
   }, []);
 };
 
-const CHAIN_BY_ID: Record<number, Chain> = {
+const CHAIN_BY_ID: Record<number, (Chain & { id: typeof base.id | typeof baseSepolia.id }) | undefined> = {
   [base.id]: base,
   [baseSepolia.id]: baseSepolia,
 };

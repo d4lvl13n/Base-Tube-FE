@@ -91,7 +91,7 @@ const ReferralsTab: React.FC<ReferralsTabProps> = ({ errors }) => {
           : 'Referral applied. Referral recorded.'
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to apply referral code');
+      toast.error(error instanceof globalThis.Error ? error.message : 'Failed to apply referral code');
     }
   };
 
@@ -101,7 +101,7 @@ const ReferralsTab: React.FC<ReferralsTabProps> = ({ errors }) => {
       setShowRotateConfirm(false);
       toast.success('Referral code rotated');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to rotate referral code');
+      toast.error(error instanceof globalThis.Error ? error.message : 'Failed to rotate referral code');
     }
   };
 

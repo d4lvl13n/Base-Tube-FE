@@ -76,7 +76,7 @@ const UserProfileWallet: React.FC = () => {
       case 'Dashboard':
         return activeUser ? (
           <DashboardTab
-            userProfile={activeUser as ExtendedUser}
+            userProfile={activeUser as unknown as ExtendedUser}
             userWallet={userWallet}
             errors={errors}
           />
@@ -154,7 +154,7 @@ const UserProfileWallet: React.FC = () => {
           >
             {/* Profile Info Card */}
             {activeUser && (
-              <ProfileInfoCard profile={activeUser as ExtendedUser} />
+              <ProfileInfoCard profile={activeUser as unknown as ExtendedUser} />
             )}
 
             {/* Navigation Tabs with Mobile Optimization */}

@@ -71,7 +71,23 @@ export class ApiErrorHandler {
     [ErrorCode.ANALYTICS_UNAVAILABLE]: ErrorSeverity.LOW,
     [ErrorCode.DATA_PROCESSING_ERROR]: ErrorSeverity.MEDIUM,
     [ErrorCode.UNKNOWN_ERROR]: ErrorSeverity.MEDIUM,
-    [ErrorCode.RATE_LIMIT_EXCEEDED]: ErrorSeverity.HIGH
+    [ErrorCode.RATE_LIMIT_EXCEEDED]: ErrorSeverity.HIGH,
+    [ErrorCode.CHANNEL_NOT_LINKED]: ErrorSeverity.MEDIUM,
+    [ErrorCode.YOUTUBE_CHANNEL_NOT_VERIFIED]: ErrorSeverity.MEDIUM,
+    [ErrorCode.CHANNEL_NOT_APPROVED]: ErrorSeverity.MEDIUM,
+    [ErrorCode.UNSUPPORTED_PLATFORM]: ErrorSeverity.MEDIUM,
+    [ErrorCode.VIDEO_OWNERSHIP_VERIFICATION_FAILED]: ErrorSeverity.MEDIUM,
+    [ErrorCode.PASS_CREATE_RATE_LIMIT_EXCEEDED]: ErrorSeverity.HIGH,
+    [ErrorCode.PASS_CHANNEL_NOT_APPROVED]: ErrorSeverity.MEDIUM,
+    [ErrorCode.PASS_CONTENT_INVALID]: ErrorSeverity.MEDIUM,
+    [ErrorCode.AUTHENTICATION_ERROR]: ErrorSeverity.HIGH,
+    [ErrorCode.BAD_REQUEST]: ErrorSeverity.LOW,
+    [ErrorCode.TOO_MANY_REQUESTS]: ErrorSeverity.HIGH,
+    [ErrorCode.INTERNAL_ERROR]: ErrorSeverity.CRITICAL,
+    [ErrorCode.DUPLICATE_ENTRY]: ErrorSeverity.LOW,
+    [ErrorCode.FILE_UPLOAD_ERROR]: ErrorSeverity.MEDIUM,
+    [ErrorCode.WALLET_NOT_LINKED]: ErrorSeverity.MEDIUM,
+    [ErrorCode.PLAY_TOKEN_RATE_LIMIT_EXCEEDED]: ErrorSeverity.HIGH
   };
 
   /**

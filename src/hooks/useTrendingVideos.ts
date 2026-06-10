@@ -148,8 +148,10 @@ export const useTrendingVideos = (initialParams: GetDiscoveryOptions = {}): UseT
           return { videos: [], hasMore: false, total: 0, actualTimeFrame: 'all' };
         }
 
-        // Transform the response data to match Video type expected by the app
-        const transformedVideos = response.data.map(transformToVideo);
+        // Transform the response data to match Video type expected by the app.
+        // The trending endpoint actually returns discovery-format rows, so the
+        // envelope's Video[] typing is nominal — recast for the transform.
+        const transformedVideos = (response.data as unknown as DiscoveryVideo[]).map(transformToVideo);
         console.log('Transformed videos:', transformedVideos);
         
         // hasMore/total live on the envelope, not on the videos array:

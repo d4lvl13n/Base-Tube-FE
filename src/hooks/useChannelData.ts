@@ -15,7 +15,7 @@ export const useChannelData = (identifier?: number | string | null) => {
       if (isHandle) {
         return getChannelByHandle(identifier as string);
       } else {
-        const response = await getChannelById(identifier as number);
+        const response = await getChannelById(String(identifier));
         return response.channel;
       }
     },
