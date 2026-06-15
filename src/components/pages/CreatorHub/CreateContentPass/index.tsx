@@ -406,7 +406,7 @@ const CreateContentPass: React.FC = () => {
             
             <S.Button
               variant="primary"
-              onClick={youtubeAuth.startOAuth}
+              onClick={() => youtubeAuth.startOAuth()}
               whileHover={{ scale: 1.02 }}
               className="mt-2 px-6 py-3 text-lg"
             >

@@ -67,7 +67,13 @@ const CreateChannelPage: React.FC = () => {
   const [suggestedHandle, setSuggestedHandle] = useState<string | undefined>();
   const [showSuccessOptions, setShowSuccessOptions] = useState(false);
   const [createdChannelHandle, setCreatedChannelHandle] = useState('');
-  const { startOAuth, status: youtubeStatus, channel: youtubeChannel } = useYouTubeAuth();
+  const {
+    startOAuth,
+    status: youtubeStatus,
+    channelTitle: youtubeTitle,
+    handle: youtubeHandle,
+    justLinked: youtubeJustLinked,
+  } = useYouTubeAuth();
   
   const {
     register,
@@ -150,33 +156,38 @@ const CreateChannelPage: React.FC = () => {
     }
   }, [shouldFetchSuggestions, watchedName, generateHandleSuggestions, watch]);
 
-  // Update the YouTube data handling in useEffect
+  // One-click YouTube sync: when the user returns from the OAuth redirect the
+  // backend has already created (or linked) their channel from the YouTube
+  // metadata. We do NOT submit the manual form again — that would be a second
+  // channel. Instead we jump straight to the success screen and route them to
+  // their freshly synced channel.
   useEffect(() => {
-    if (youtubeStatus === 'linked' && youtubeChannel) {
-      // Auto-fill form with YouTube data
-      setValue('name', youtubeChannel.title || '');
-      
-      // Generate handle from YouTube channel name if we have one
-      if (youtubeChannel.title) {
-        const suggestedHandle = youtubeChannel.title
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-zA-Z0-9_]/g, '_')
-          .replace(/^_+|_+$/g, '')
-          .substring(0, 29);
-        
-        setValue('handle', suggestedHandle, { shouldValidate: true });
-      }
-      
-      // Add description if available - safely access it
-      const channelDescription = (youtubeChannel as any).description;
-      if (channelDescription && typeof channelDescription === 'string') {
-        setValue('description', channelDescription);
-      }
-      
-      toast.success("YouTube channel details imported successfully!");
+    if (!youtubeJustLinked) return;
+    if (youtubeStatus === 'linked' && youtubeHandle) {
+      setCreatedChannelHandle(youtubeHandle);
+      setShowSuccessOptions(true);
+      toast.success(
+        youtubeTitle
+          ? `“${youtubeTitle}” is now on BaseTube!`
+          : 'Your YouTube channel is now on BaseTube!'
+      );
+    } else if (youtubeStatus === 'unlinked') {
+      // Returned from OAuth but nothing got linked (e.g. user cancelled).
+      toast.error('YouTube connection didn’t complete. You can try again or set up manually.');
     }
-  }, [youtubeStatus, youtubeChannel, setValue]);
+  }, [youtubeJustLinked, youtubeStatus, youtubeHandle, youtubeTitle]);
+
+  // Surface a backend ytError redirect (callback failed) as a toast.
+  useEffect(() => {
+    if (window.location.search.includes('ytError')) {
+      toast.error('YouTube verification failed. Please try again or set up manually.');
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('ytError');
+        window.history.replaceState({}, document.title, url.toString());
+      } catch { /* noop */ }
+    }
+  }, []);
 
   // Helper to check if we're on the final step
   const isLastStep = step === totalSteps;
@@ -568,15 +579,16 @@ const CreateChannelPage: React.FC = () => {
                     <Youtube className="text-red-500" size={24} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold text-white mb-1">Already have a YouTube channel?</h3>
+                    <h3 className="text-xl font-semibold text-white mb-1">Are you a YouTuber? Set up in one click</h3>
                     <p className="text-gray-400">
-                      Optionally connect your YouTube channel to import your details and speed up the process.
+                      Connect your YouTube channel and we’ll create your BaseTube channel instantly —
+                      name, description and banner included. No form to fill in.
                     </p>
                   </div>
                 </div>
-                
+
                 <motion.button
-                  onClick={startOAuth}
+                  onClick={() => startOAuth('create')}
                   disabled={youtubeStatus === 'linked'}
                   className={`px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium
                     ${youtubeStatus === 'linked' 
@@ -603,21 +615,21 @@ const CreateChannelPage: React.FC = () => {
                   ) : (
                     <>
                       <Youtube size={18} />
-                      Connect YouTube
+                      Sync in one click
                     </>
                   )}
                 </motion.button>
               </div>
-              
-              {youtubeStatus === 'linked' && youtubeChannel && (
-                <motion.div 
+
+              {youtubeStatus === 'linked' && youtubeTitle && (
+                <motion.div
                   className="mt-4 p-3 bg-green-600/10 border border-green-600/20 rounded-lg flex items-center gap-3"
                   initial={{ opacity: 0, height: 0, marginTop: 0 }}
                   animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
                 >
                   <CheckCircle className="text-green-500" size={18} />
                   <span className="text-green-400">
-                    Details imported from: <span className="font-medium">{youtubeChannel.title}</span>
+                    Synced from: <span className="font-medium">{youtubeTitle}</span>
                   </span>
                 </motion.div>
               )}

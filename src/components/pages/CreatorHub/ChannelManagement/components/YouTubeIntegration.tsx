@@ -110,7 +110,7 @@ const YouTubeIntegration: React.FC<YouTubeIntegrationProps> = ({ className }) =>
           </div>
           
           <button
-            onClick={startOAuth}
+            onClick={() => startOAuth()}
             className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-500 transition-colors flex items-center justify-center text-xs sm:text-sm"
           >
             <Youtube size={18} className="mr-2" />

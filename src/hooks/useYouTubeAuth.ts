@@ -9,8 +9,18 @@ export interface UseYouTubeAuthReturn {
   status: YouTubeLinkStatus;
   /** Optional channel metadata returned by backend */
   channel?: YouTubeVerificationStatus['channel'];
-  /** Opens Google consent screen in a new tab */
-  startOAuth: () => Promise<void>;
+  /** YouTube channel title (when linked) */
+  channelTitle?: string | null;
+  /** The BaseTube channel handle (when linked) — to route to the synced channel */
+  handle?: string | null;
+  /** True when this page load is the return from a completed OAuth redirect */
+  justLinked: boolean;
+  /**
+   * Opens the Google consent screen.
+   * @param returnTo where the backend returns the user afterwards
+   *   ('create' = back to the channel-creation success view).
+   */
+  startOAuth: (returnTo?: 'create' | 'dashboard') => Promise<void>;
   /** Re-fetch the link status (e.g. after redirect) */
   refetch: () => Promise<void>;
   /** Disconnect the linked channel */
@@ -28,6 +38,9 @@ export function useYouTubeAuth(): UseYouTubeAuthReturn {
   const { isLoaded, getToken } = useClerkAuth();
   const [status, setStatus] = useState<YouTubeLinkStatus>('unknown');
   const [channel, setChannel] = useState<YouTubeVerificationStatus['channel']>();
+  const [channelTitle, setChannelTitle] = useState<string | null>();
+  const [handle, setHandle] = useState<string | null>();
+  const [justLinked, setJustLinked] = useState(false);
 
   /** Fetches current status */
   const fetchStatus = useCallback(async (forceRefresh = false) => {
@@ -50,6 +63,8 @@ export function useYouTubeAuth(): UseYouTubeAuthReturn {
       const res = await youtubeAuthApi.getStatus();
       console.log('YouTube verification result:', res);
       setChannel(res.channel);
+      setChannelTitle(res.channel_title ?? res.channel?.title ?? null);
+      setHandle(res.handle ?? null);
       setStatus(res.verified ? 'linked' : 'unlinked');
     } catch (err) {
       console.warn('Failed to fetch YouTube auth status:', err);
@@ -58,15 +73,15 @@ export function useYouTubeAuth(): UseYouTubeAuthReturn {
   }, [isLoaded, getToken]);
 
   /** Initiates OAuth flow */
-  const startOAuth = useCallback(async () => {
+  const startOAuth = useCallback(async (returnTo?: 'create' | 'dashboard') => {
     try {
       const token = await getToken();
       if (!token) {
         console.error('No authentication token available for YouTube OAuth');
         return;
       }
-      
-      const url = await youtubeAuthApi.startOAuth();
+
+      const url = await youtubeAuthApi.startOAuth(returnTo);
       window.location.href = url;
     } catch (err) {
       console.error('Failed to initiate YouTube OAuth flow:', err);
@@ -95,8 +110,9 @@ export function useYouTubeAuth(): UseYouTubeAuthReturn {
     const hasRedirectParam = window.location.search.includes('ytLinked');
     if (hasRedirectParam) {
       console.log('YouTube OAuth redirect detected, refreshing status');
+      setJustLinked(true);
       fetchStatus(true);
-      
+
       // Clean up URL by removing ytLinked parameter
       try {
         const url = new URL(window.location.href);
@@ -111,8 +127,11 @@ export function useYouTubeAuth(): UseYouTubeAuthReturn {
   return {
     status,
     channel,
+    channelTitle,
+    handle,
+    justLinked,
     startOAuth,
     refetch: () => fetchStatus(true),
     unlink
   };
-} 
+}

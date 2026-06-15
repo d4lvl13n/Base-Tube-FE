@@ -5,6 +5,11 @@ import api from './index';
  */
 export interface YouTubeVerificationStatus {
   verified: boolean;
+  linked?: boolean;
+  /** YouTube channel title (backend field: channel_title) */
+  channel_title?: string | null;
+  /** The BaseTube channel handle — used to route to the synced channel after a one-click link */
+  handle?: string | null;
   // The backend may also return channel metadata when linked
   channel?: {
     id?: string;
@@ -38,13 +43,16 @@ export const youtubeAuthApi = {
    * Start the YouTube OAuth flow.
    * The backend returns an object containing the Google consent URL.
    */
-  startOAuth: async (): Promise<string> => {
+  startOAuth: async (returnTo?: 'create' | 'dashboard'): Promise<string> => {
     try {
       console.log('Starting YouTube OAuth flow...');
-      // Backend must generate the URL with correct redirect_uri pointing to its own /callback
-      const res = await api.get<{ url: string }>('/api/integrations/youtube/auth');
+      // Backend must generate the URL with correct redirect_uri pointing to its own /callback.
+      // returnTo=create brings the user back to the channel-creation success view.
+      const res = await api.get<{ url: string }>('/api/integrations/youtube/auth', {
+        params: returnTo ? { returnTo } : undefined,
+      });
       console.log('YouTube OAuth URL response:', res.data);
-      
+
       const data = 'data' in res.data ? (res.data as any).data : res.data;
       return data.url;
     } catch (error) {

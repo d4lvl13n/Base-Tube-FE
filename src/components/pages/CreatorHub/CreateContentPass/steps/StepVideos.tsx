@@ -197,7 +197,7 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
           <div>
             <h4 className="font-medium mb-2">Connect your YouTube channel</h4>
             <S.InfoText className="mb-2">Verify a channel before adding videos.</S.InfoText>
-            <S.Button type="button" variant="primary" onClick={youtubeAuth.startOAuth}>
+            <S.Button type="button" variant="primary" onClick={() => youtubeAuth.startOAuth()}>
               Connect YouTube
             </S.Button>
           </div>
@@ -257,7 +257,7 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
                     {pickerError.code === 'YOUTUBE_NOT_LINKED' ? (
                       <button
                         type="button"
-                        onClick={youtubeAuth.startOAuth}
+                        onClick={() => youtubeAuth.startOAuth()}
                         className="inline-flex items-center gap-1.5 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-3 py-1.5 text-xs font-medium text-[#fa7517] hover:bg-[#fa7517]/20"
                       >
                         Connect YouTube
