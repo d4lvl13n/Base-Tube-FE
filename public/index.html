@@ -2,7 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    
+
+    <!-- Google Analytics 4 (property base-early-access, stream "Base tube").
+         send_page_view is disabled here: this is an SPA, so page_view events
+         are fired on every route change (including the initial load) by
+         PageViewTracker in src/index.tsx — avoids double-counting. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DQELH44BE4"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-DQELH44BE4', { send_page_view: false });
+    </script>
+
     <!-- Favicons -->
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png">
