@@ -334,8 +334,8 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
           </div>
         </div>
 
-        {/* Format clusters — your content types ranked by how they perform */}
-        {formatClusters.length > 0 && (
+        {/* Format clusters — only meaningful when there's more than one type to compare */}
+        {formatClusters.length >= 2 && (
           <div className="mb-5">
             <p className="text-sm font-medium text-gray-400 mb-2">
               How your content types perform{' '}
