@@ -225,11 +225,13 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
         {examplePeers.length > 0 && (
           <div>
             <p className="text-sm font-medium text-gray-400 mb-3">Real peer examples</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Fixed-width cards so a thumbnail never renders far above its native
+                resolution (YouTube thumbs are 320–480px wide → no upscale blur). */}
+            <div className="flex flex-wrap gap-4">
               {examplePeers.map((peer, i) => (
                 <div
                   key={i}
-                  className="bg-black/40 border border-gray-800/50 rounded-xl overflow-hidden group"
+                  className="bg-black/40 border border-gray-800/50 rounded-xl overflow-hidden group w-full sm:w-[280px]"
                 >
                   <a
                     href={peer.videoUrl || undefined}
