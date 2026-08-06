@@ -209,6 +209,14 @@ const V2HomePage: React.FC = () => {
                 </motion.div>
               )}
             </div>
+            {/* Legal footer — a discoverable Privacy Policy link on the home page
+                (required for Google/YouTube OAuth verification). */}
+            <footer className="relative mt-8 border-t border-white/10 px-4 py-6 text-xs text-gray-500 md:px-6 lg:px-8 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span>© 2026 BaseTube</span>
+              <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+              <Link to="/refund" className="hover:text-white transition-colors">Refunds</Link>
+            </footer>
           </main>
         </div>
       </div>
