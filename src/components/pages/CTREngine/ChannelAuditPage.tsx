@@ -22,6 +22,7 @@ import useCTREngine from '../../../hooks/useCTREngine';
 import ctrApi from '../../../api/ctr';
 import type { ChannelPackagingAudit } from '../../../types/ctr';
 import { ChannelAuditReport } from './components/ChannelAuditReport';
+import ChannelAuditProgress from './components/ChannelAuditProgress';
 
 const EXAMPLE_CHANNELS = [
   '@MrBeast',
@@ -183,32 +184,14 @@ const ChannelAuditPage: React.FC = () => {
             </motion.form>
 
             {/* Auditing progress */}
-            <AnimatePresence>
-              {isAuditing && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="bg-[#fa7517]/10 border border-[#fa7517]/20 rounded-xl p-5 mb-6 flex items-center gap-3"
-                >
-                  <RefreshCw className="w-5 h-5 text-[#fa7517] animate-spin flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-white">Reading the channel…</p>
-                    <p className="text-xs text-gray-400">
-                      Pulling recent videos, critiquing packaging, and finding size-band peers.
-                      This can take up to a minute.
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <AnimatePresence>{isAuditing && <ChannelAuditProgress />}</AnimatePresence>
 
             {/* What you'll get */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="grid sm:grid-cols-3 gap-4"
+              className={`grid sm:grid-cols-3 gap-4 ${isAuditing ? 'hidden' : ''}`}
             >
               {[
                 {
