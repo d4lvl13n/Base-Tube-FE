@@ -53,5 +53,13 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <!-- Static, always-crawlable legal links, OUTSIDE #root so React never
+         removes them. Guarantees Google/YouTube OAuth verification finds the
+         Privacy Policy link on the home page even without full SPA rendering. -->
+    <footer style="text-align:center;padding:16px;font:12px/1.5 system-ui,sans-serif;color:#6b7280;background:#000">
+      <a href="/privacy" style="color:#9ca3af;margin:0 8px">Privacy Policy</a>
+      <a href="/terms" style="color:#9ca3af;margin:0 8px">Terms of Service</a>
+      <a href="/refund" style="color:#9ca3af;margin:0 8px">Refunds</a>
+    </footer>
   </body>
 </html>
