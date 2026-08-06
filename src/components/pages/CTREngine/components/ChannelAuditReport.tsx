@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Trophy,
   ListChecks,
+  ExternalLink,
 } from 'lucide-react';
 import type {
   ChannelPackagingAudit,
@@ -228,20 +229,37 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
               {examplePeers.map((peer, i) => (
                 <div
                   key={i}
-                  className="bg-black/40 border border-gray-800/50 rounded-xl overflow-hidden"
+                  className="bg-black/40 border border-gray-800/50 rounded-xl overflow-hidden group"
                 >
-                  <div className="relative aspect-video bg-black/40 overflow-hidden">
+                  <a
+                    href={peer.videoUrl || undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`relative block aspect-video bg-black/40 overflow-hidden ${peer.videoUrl ? 'cursor-pointer' : 'pointer-events-none'}`}
+                  >
                     {peer.thumbnailUrl && (
                       <img
                         src={peer.thumbnailUrl}
                         alt={peer.title}
                         loading="lazy"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
                       />
                     )}
-                  </div>
+                    {peer.videoUrl && (
+                      <span className="absolute bottom-2 right-2 flex items-center gap-1 text-[11px] font-medium text-white bg-black/70 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ExternalLink className="w-3 h-3" /> Watch
+                      </span>
+                    )}
+                  </a>
                   <div className="p-3">
-                    <p className="text-sm text-white font-medium line-clamp-2">{peer.title}</p>
+                    <a
+                      href={peer.videoUrl || undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`text-sm text-white font-medium line-clamp-2 ${peer.videoUrl ? 'hover:text-[#fa7517]' : ''}`}
+                    >
+                      {peer.title}
+                    </a>
                     <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
@@ -254,6 +272,16 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
                     </div>
                     {peer.whyItWorks && (
                       <p className="text-xs text-gray-400 mt-2 italic">{peer.whyItWorks}</p>
+                    )}
+                    {peer.channelUrl && (
+                      <a
+                        href={peer.channelUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-white mt-2"
+                      >
+                        View channel <ExternalLink className="w-3 h-3" />
+                      </a>
                     )}
                   </div>
                 </div>
@@ -306,30 +334,45 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
           </div>
         </div>
 
-        {/* Format clusters */}
+        {/* Format clusters — your content types ranked by how they perform */}
         {formatClusters.length > 0 && (
-          <div className="space-y-2 mb-5">
-            {formatClusters.map((cluster, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between gap-3 p-3 bg-black/40 border border-gray-800/50 rounded-xl"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{cluster.label}</p>
-                  {cluster.sampleTitles && cluster.sampleTitles.length > 0 && (
-                    <p className="text-xs text-gray-500 truncate">
-                      e.g. {cluster.sampleTitles[0]}
+          <div className="mb-5">
+            <p className="text-sm font-medium text-gray-400 mb-2">
+              How your content types perform{' '}
+              <span className="text-gray-600">— median views per format, best first</span>
+            </p>
+            <div className="space-y-2">
+              {formatClusters.map((cluster, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between gap-3 p-3 bg-black/40 border border-gray-800/50 rounded-xl"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white truncate flex items-center gap-2">
+                      {i === 0 && formatClusters.length > 1 && (
+                        <span className="text-[10px] font-semibold text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded">
+                          BEST
+                        </span>
+                      )}
+                      {cluster.label}
                     </p>
-                  )}
+                    {cluster.sampleTitles && cluster.sampleTitles.length > 0 && (
+                      <p className="text-xs text-gray-500 truncate">
+                        e.g. {cluster.sampleTitles[0]}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-semibold text-white">
+                      {formatCount(cluster.medianViews)}
+                    </p>
+                    <p className="text-[11px] text-gray-500">
+                      median · {cluster.videoCount} video{cluster.videoCount === 1 ? '' : 's'}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold text-white">{formatCount(cluster.avgViews)}</p>
-                  <p className="text-[11px] text-gray-500">
-                    avg · {cluster.videoCount} video{cluster.videoCount === 1 ? '' : 's'}
-                  </p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
@@ -396,25 +439,42 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
             >
               <div className="flex flex-col sm:flex-row">
                 {/* Thumbnail */}
-                <div className="relative w-full sm:w-64 flex-shrink-0 aspect-video bg-black/40 overflow-hidden">
+                <a
+                  href={video.videoUrl || undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`group/thumb relative w-full sm:w-64 flex-shrink-0 aspect-video bg-black/40 overflow-hidden block ${video.videoUrl ? 'cursor-pointer' : 'pointer-events-none'}`}
+                >
                   {video.thumbnailUrl && (
                     <img
                       src={video.thumbnailUrl}
                       alt={video.title}
                       loading="lazy"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform group-hover/thumb:scale-105"
                     />
                   )}
                   <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-0.5 bg-black/70 rounded text-xs text-white">
                     <Eye className="w-3 h-3" />
                     {formatCount(video.views)}
                   </div>
-                </div>
+                  {video.videoUrl && (
+                    <span className="absolute bottom-2 right-2 flex items-center gap-1 text-[11px] font-medium text-white bg-black/70 px-2 py-1 rounded opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+                      <ExternalLink className="w-3 h-3" /> Open
+                    </span>
+                  )}
+                </a>
 
                 {/* Body */}
                 <div className="flex-1 p-4 sm:p-5 min-w-0">
                   <div className="flex items-start justify-between gap-3 mb-3">
-                    <h3 className="text-sm font-semibold text-white line-clamp-2">{video.title}</h3>
+                    <a
+                      href={video.videoUrl || undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`text-sm font-semibold text-white line-clamp-2 ${video.videoUrl ? 'hover:text-[#fa7517]' : ''}`}
+                    >
+                      {video.title}
+                    </a>
                     {typeof video.score === 'number' && (
                       <span
                         className={`text-sm font-bold flex-shrink-0 ${scoreColor(video.score)}`}

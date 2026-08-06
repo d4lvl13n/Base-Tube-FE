@@ -472,7 +472,8 @@ export interface PackagingOutlier {
 /** A title/format cluster correlated with performance (e.g. "listicle" vs "raw match clip"). */
 export interface PackagingFormatCluster {
   label: string;
-  avgViews: number;
+  /** Median views across the videos in this format cluster (backend: medianViews). */
+  medianViews: number;
   videoCount: number;
   sampleTitles?: string[];
 }
@@ -499,6 +500,9 @@ export interface NicheBenchmarkPeer {
   subscribers: number;
   views: number;
   thumbnailUrl: string;
+  /** Public YouTube URLs so the user can open the winning video / channel. */
+  videoUrl?: string;
+  channelUrl?: string;
   whyItWorks: string;
 }
 
@@ -516,6 +520,8 @@ export interface ChannelAuditPerVideo {
   title: string;
   views: number;
   thumbnailUrl: string;
+  /** Public YouTube watch URL so the user can open their own video. */
+  videoUrl?: string;
   issues: string[];
   fix: string;
   score: number;
