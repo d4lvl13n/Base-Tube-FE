@@ -36,14 +36,14 @@ const HELP_CONTENT: Record<string, HelpContent> = {
     tips: [
       'Describe the emotion + focal subject first (e.g. “shocked face + huge red arrow”).',
       'Keep on-image text under 5 words for mobile.',
-      'After you like a concept, run an Audit to identify quick CTR upgrades.',
+      'After you like a concept, run a Review to identify quick upgrades.',
       'Save variants you like, then A/B test on your next uploads.',
     ],
   },
   '/ai-thumbnails/generate': {
     title: 'Generation Protocols',
     icon: Brain,
-    description: 'Our engine transforms semantic titles into high-CTR visual concepts. For maximum performance, align your input with the specific "Niche Bias" of your channel.',
+    description: 'Our engine transforms semantic titles into high-performing visual concepts. For maximum performance, align your input with the specific "Niche Bias" of your channel.',
     features: [
       'Face ID Consistency (Upload in Settings)',
       'Niche-Specific Style Weights',

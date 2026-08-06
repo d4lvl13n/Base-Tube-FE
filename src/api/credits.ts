@@ -1,9 +1,13 @@
 import api from './index';
 import {
   CreditBalanceResponse,
+  CreditCheckoutResponse,
+  CreditCheckoutSession,
   CreditInfo,
   CreditLedgerEntry,
   CreditLedgerResponse,
+  CreditPack,
+  CreditPacksResponse,
   CreditPricingCatalog,
 } from '../types/ctr';
 
@@ -26,6 +30,23 @@ export const creditsApi = {
     // Backend shape: { data: { balance, pricing, entries: [...], pagination } }
     const response = await api.get<CreditLedgerResponse>(`${CREDITS_BASE_PATH}/ledger`);
     return response.data.data.entries;
+  },
+
+  // PUBLIC — the buyable credit pack catalog (prices are config-driven server-side).
+  getPacks: async (): Promise<CreditPack[]> => {
+    // Backend shape: { data: { packs: [{ id, label, credits, priceCents, currency }] } }
+    const response = await api.get<CreditPacksResponse>(`${CREDITS_BASE_PATH}/packs`);
+    return response.data.data.packs;
+  },
+
+  // AUTH — create a Stripe Checkout session for the chosen pack.
+  // Returns { sessionId, url, pack }; caller redirects the browser to `url`.
+  createCheckout: async (packId: string): Promise<CreditCheckoutSession> => {
+    const response = await api.post<CreditCheckoutResponse>(
+      `${CREDITS_BASE_PATH}/checkout`,
+      { packId }
+    );
+    return response.data.data;
   },
 };
 

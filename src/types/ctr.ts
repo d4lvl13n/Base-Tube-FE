@@ -54,6 +54,36 @@ export interface CreditPricingCatalog {
   };
 }
 
+// A buyable credit pack — matches GET /api/v1/credits/packs items.
+export interface CreditPack {
+  id: string;
+  label: string;
+  credits: number;
+  priceCents: number;
+  currency: string;
+}
+
+// Matches GET /api/v1/credits/packs
+export interface CreditPacksResponse {
+  success: boolean;
+  data: {
+    packs: CreditPack[];
+  };
+}
+
+// Stripe Checkout session returned by POST /api/v1/credits/checkout.
+export interface CreditCheckoutSession {
+  sessionId: string;
+  url: string;
+  pack: CreditPack;
+}
+
+// Matches POST /api/v1/credits/checkout
+export interface CreditCheckoutResponse {
+  success: boolean;
+  data: CreditCheckoutSession;
+}
+
 // Matches GET /api/v1/credits/balance
 export interface CreditBalanceResponse {
   success: boolean;

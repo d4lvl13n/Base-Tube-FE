@@ -61,16 +61,16 @@ const ThumbnailFAQ: React.FC = () => {
 
   const faqs = [
     {
-      question: "What exactly is a CTR Audit?",
-      answer: "A CTR (Click-Through Rate) Audit is an AI-powered analysis of your thumbnail that scores it against 15+ factors known to influence viewer clicks. Unlike generic feedback, our audit shows you specific metrics like color contrast, text readability, facial prominence, and composition—all with actionable scores and recommendations."
+      question: "What exactly is a Thumbnail Review?",
+      answer: "A Thumbnail Review is an AI-powered analysis of your thumbnail that scores it against 15+ factors known to influence whether viewers click—color contrast, text readability, facial prominence, composition, mobile legibility, and more. Instead of generic feedback, you get an Attention Score and specific, actionable notes on what's helping and what's hurting."
     },
     {
-      question: "How accurate is the CTR prediction?",
-      answer: "Our CTR predictions are based on analyzing millions of YouTube thumbnails and their actual performance data. While no prediction is 100% accurate (CTR also depends on title, timing, and audience), our users typically see their actual CTR fall within ±0.5% of our prediction. The real value is in the relative improvement—thumbnails that score higher in our audit consistently outperform their lower-scoring counterparts."
+      question: "Do you predict my CTR?",
+      answer: "No—and we're upfront about that. Real click-through rate depends on your title, topic, timing, audience, and the other thumbnails you're competing against in the feed, none of which a single image can know. What we give you is an Attention Score and specific feedback on what's weakening your thumbnail and why. The value is knowing exactly what to change—not a made-up percentage."
     },
     {
       question: "What makes this different from other thumbnail generators?",
-      answer: "Most AI thumbnail tools focus solely on generation—making something that 'looks good.' We focus on optimization. Our CTR Audit tells you exactly why a thumbnail performs well or poorly, then helps you either fix your existing thumbnail or generate a new one based on those insights. It's the difference between guessing and knowing."
+      answer: "Most AI thumbnail tools focus solely on generation—making something that 'looks good.' We focus on feedback. Our Review tells you exactly why a thumbnail is strong or weak, then helps you either fix your existing thumbnail or generate a new one based on those insights. It's the difference between guessing and knowing what to change."
     },
     {
       question: "Can I audit thumbnails I didn't create here?",
@@ -81,8 +81,8 @@ const ThumbnailFAQ: React.FC = () => {
       answer: "The audit analyzes: Mobile Readability (how clear it is on small screens), Color Contrast (visibility and attention-grabbing potential), Composition Score (visual balance and focal points), Brightness (overall luminosity and appeal), Text Clarity (font size, legibility, and impact), Face Prominence (presence and positioning of faces), plus niche-specific factors based on your content category."
     },
     {
-      question: "How long does an audit take?",
-      answer: "Most audits complete in under 5 seconds. You'll get your CTR score, detailed metric breakdown, and AI-generated recommendations almost instantly. No waiting around—iterate quickly and find your best-performing thumbnail."
+      question: "How long does a review take?",
+      answer: "Most reviews complete in under 5 seconds. You'll get your Attention Score, detailed metric breakdown, and AI-generated recommendations almost instantly. No waiting around—iterate quickly and find your strongest thumbnail."
     },
     {
       question: "Is it free to try?",
@@ -116,7 +116,7 @@ const ThumbnailFAQ: React.FC = () => {
             transition={{ delay: 0.1 }}
             className="text-3xl md:text-4xl font-bold text-white mb-4"
           >
-            Questions About CTR Optimization
+            Questions About Thumbnail Reviews
           </motion.h2>
           
           <motion.p

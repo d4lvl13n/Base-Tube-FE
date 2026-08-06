@@ -105,11 +105,11 @@ const ThumbnailLanding: React.FC = () => {
                   <span className="text-lg font-bold bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent">
                     Base.Tube
                   </span>
-                  <p className="text-xs text-gray-400">CTR Optimization</p>
+                  <p className="text-xs text-gray-400">Thumbnail Studio</p>
                 </div>
               </div>
               <p className="text-sm text-gray-400 leading-relaxed">
-                The AI-powered thumbnail optimization engine. Audit, analyze, and generate thumbnails that actually convert.
+                AI thumbnail review and generation. See what's weakening your thumbnail, and fix it.
               </p>
             </div>
 
@@ -118,7 +118,7 @@ const ThumbnailLanding: React.FC = () => {
               <h3 className="text-white font-semibold mb-4">Product</h3>
               <div className="space-y-2">
                 <a href="/ai-thumbnails/audit" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
-                  CTR Audit
+                  Thumbnail Review
                 </a>
                 <a href="/ai-thumbnails/generate" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Generate Thumbnails
@@ -163,6 +163,9 @@ const ThumbnailLanding: React.FC = () => {
                 </a>
                 <a href="/terms" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   Terms of Service
+                </a>
+                <a href="/refund" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
+                  Refund Policy
                 </a>
                 <a href="#faq" className="block text-sm text-gray-400 hover:text-[#fa7517] transition-colors">
                   FAQ

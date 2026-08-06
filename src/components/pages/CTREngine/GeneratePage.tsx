@@ -33,6 +33,7 @@ import { FaceConsistencyToggle } from './components/FaceConsistencyToggle';
 import { TitleTextInput, TitleStyle, TitlePosition, TitleColor } from './components/TitleTextInput';
 import { NicheSelector } from './components/NicheSelector';
 import { GeneratedConceptsGrid } from './components/GeneratedConceptsGrid';
+import { BuyCreditsModal } from './components/BuyCreditsModal';
 
 type GenerationMode = 'creative' | 'ctr';
 
@@ -91,6 +92,7 @@ const GeneratePage: React.FC = () => {
   const [mode, setMode] = useState<GenerationMode>(urlMode === 'ctr' ? 'ctr' : 'creative');
 
   // UI State
+  const [isBuyCreditsOpen, setIsBuyCreditsOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedThumbnail, setSelectedThumbnail] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -266,13 +268,14 @@ const GeneratePage: React.FC = () => {
             <div className="flex-1">
               <p className="text-red-400">{error || ctrError}</p>
               {(insufficientCredits || ctrErrorCode === 'INSUFFICIENT_CREDITS') && (
-                <a
-                  href="/pricing"
+                <button
+                  type="button"
+                  onClick={() => setIsBuyCreditsOpen(true)}
                   className="mt-3 inline-flex items-center gap-2 text-sm text-[#fa7517] hover:text-orange-400 transition-colors"
                 >
                   <Coins className="w-4 h-4" />
-                  Buy credits soon
-                </a>
+                  Buy credits
+                </button>
               )}
             </div>
             <button
@@ -314,8 +317,8 @@ const GeneratePage: React.FC = () => {
                 }`}
             >
               <Target className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">CTR-Optimized</span>
-              <span className="xs:hidden">CTR</span>
+              <span className="hidden xs:inline">Optimized</span>
+              <span className="xs:hidden">Auto</span>
             </button>
           </div>
           <p className="mt-2 text-xs text-gray-500 px-1">
@@ -836,7 +839,7 @@ const GeneratePage: React.FC = () => {
                   ) : (
                     <>
                       <Target className="w-5 h-5" />
-                      <span>Generate {concepts} CTR Thumbnail{concepts > 1 ? 's' : ''}</span>
+                      <span>Generate {concepts} Thumbnail{concepts > 1 ? 's' : ''}</span>
                     </>
                   )}
                 </motion.button>
@@ -934,7 +937,7 @@ const GeneratePage: React.FC = () => {
         >
           <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#fa7517]" />
-            {mode === 'creative' ? 'Tips for Great Thumbnails' : 'CTR Optimization Tips'}
+            {mode === 'creative' ? 'Tips for Great Thumbnails' : 'Optimization Tips'}
           </h3>
           <ul className="space-y-2 text-sm text-gray-400">
             {mode === 'creative' ? (
@@ -964,7 +967,7 @@ const GeneratePage: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-[#fa7517]">•</span>
-                  Add short, impactful text overlays for better CTR
+                  Add short, impactful text overlays for better click-through
                 </li>
               </>
             )}
@@ -990,6 +993,11 @@ const GeneratePage: React.FC = () => {
           setIsViralShareOpen(false);
           setShareSelectedThumbnail(null);
         }}
+      />
+
+      <BuyCreditsModal
+        isOpen={isBuyCreditsOpen}
+        onClose={() => setIsBuyCreditsOpen(false)}
       />
     </AIThumbnailsLayout>
   );

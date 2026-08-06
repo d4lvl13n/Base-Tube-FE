@@ -6,6 +6,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useAuth as useWeb3Auth } from '../../../../contexts/AuthContext';
+import ReferralPanel from './ReferralPanel';
 import { 
   BarChart2, 
   Lock, 
@@ -140,6 +141,13 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
           );
         })}
       </nav>
+
+      {/* Referral — self-fetches and self-hides when unauthenticated; only render expanded + signed-in */}
+      {isSignedInAny && !isCollapsed && (
+        <div className="px-4 pb-2">
+          <ReferralPanel />
+        </div>
+      )}
 
       {/* Quota Section */}
       {!isLoadingQuota && usageAccess && (

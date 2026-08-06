@@ -301,7 +301,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
           <div>
             <p className="text-sm font-semibold text-white">Video context</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Required for accurate CTR analysis (title + niche).
+              Required for accurate analysis (title + niche).
             </p>
           </div>
           <div className={`text-xs font-semibold px-3 py-1 rounded-lg border ${

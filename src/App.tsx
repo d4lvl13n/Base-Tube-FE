@@ -54,6 +54,8 @@ import MomentNFTMintPage from './pages/MomentNFTMint';
 import { GrowthTab } from './components/pages/CreatorHub/Analytics/tabs/GrowthMonetizationTab';
 import PassDetailsPage from './pages/PassDetailsPage';
 import CheckoutSuccessPage from './pages/CheckoutSuccessPage';
+import CreditsSuccessPage from './pages/CreditsSuccessPage';
+import { TermsPage, PrivacyPage, RefundPage } from './pages/legal/LegalStubs';
 import WatchPassPage from './pages/WatchPassPage';
 import { ManagePassesPage } from './components/pages/CreatorHub/ManagePasses';
 import { PassDetailView } from './components/pages/CreatorHub/ManagePasses';
@@ -153,6 +155,11 @@ function App() {
                 <Routes>
                   {/* Public routes that don't need channel context */}
                   <Route path="/" element={<V2HomePage />} />
+                  {/* Legal (Phase C placeholders — replace with counsel-reviewed content).
+                      Paths match the existing footer links (/privacy, /terms). */}
+                  <Route path="/terms" element={<TermsPage />} />
+                  <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/refund" element={<RefundPage />} />
                   <Route path="/v2" element={<V2HomePage />} />
                   <Route path="/signup" element={<AuthRouteAliasRedirect to="/sign-up" />} />
                   <Route path="/signin" element={<AuthRouteAliasRedirect to="/sign-in" />} />
@@ -435,6 +442,10 @@ function App() {
                   {/* New routes */}
                   <Route path="/p/:slug" element={<PassDetailsPage />} />
                   <Route path="/pay/success" element={<CheckoutSuccessPage />} />
+
+                  {/* Credit checkout return (separate from the NFT-pass /pay/success flow) */}
+                  <Route path="/credits/success" element={<CreditsSuccessPage />} />
+                  <Route path="/credits/cancel" element={<Navigate to="/ai-thumbnails/generate" replace />} />
                   <Route path="/watch/:passId" element={<WatchPassPage />} />
 
                   {/* MyPasses route */}

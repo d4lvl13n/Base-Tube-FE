@@ -158,6 +158,7 @@ export const ScoreBadge: React.FC<{
     <span
       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg backdrop-blur-sm border ${colors.bg} ${colors.text} ${colors.border} text-sm font-semibold ${className}`}
     >
+      <span className="text-xs font-medium opacity-70">Attention</span>
       <span className="font-bold">{score.toFixed(1)}</span>
       <span className="text-xs opacity-70">/10</span>
     </span>

@@ -84,7 +84,7 @@ const PredictionVisual = () => (
                  <circle cx="600" cy="20" r="6" fill="white" stroke="#fa7517" strokeWidth="3" />
                  <foreignObject x="480" y="-40" width="140" height="50">
                      <div className="bg-[#fa7517] text-black text-sm font-bold px-3 py-1.5 rounded-lg shadow-xl text-center transform hover:scale-110 transition-transform">
-                        🚀 8.4% CTR
+                        🚀 8.4 Attention
                      </div>
                  </foreignObject>
             </motion.g>
@@ -228,21 +228,21 @@ const ThumbnailFeatures: React.FC = () => {
             <span className="text-gray-600">Generate the fix.</span>
           </h2>
           <p className="text-xl text-gray-400">
-            Our loop is simple: we identify why your thumbnail is failing, then use Generative AI to rebuild it for higher CTR.
+            Our loop is simple: we identify why your thumbnail is losing attention, then use Generative AI to rebuild the weak parts.
           </p>
         </div>
 
         {/* BENTO GRID - NEW LAYOUT */}
-        {/* Row 1: CTR (Large) + Mobile (Tall) */}
+        {/* Row 1: Attention (Large) + Mobile (Tall) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[420px]">
-          
-          {/* Card 1: Prediction (THE HERO CARD) */}
-          <BentoCard 
+
+          {/* Card 1: Attention analysis (THE HERO CARD) */}
+          <BentoCard
             className="md:col-span-2"
-            title="CTR Forecasting"
-            description="Stop guessing. Get a predicted Click-Through Rate score based on millions of historical data points."
+            title="Attention Analysis"
+            description="Stop guessing. Get an Attention Score plus specific feedback on what's helping and hurting your thumbnail—and why."
             icon={<TrendingUp />}
-            tag="AI MODEL v2.0"
+            tag="AI REVIEW"
             delay={0.1}
           >
             <PredictionVisual />

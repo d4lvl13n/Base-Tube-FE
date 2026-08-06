@@ -4,10 +4,11 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Target, TrendingUp, AlertCircle, X, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Zap, Target, TrendingUp, AlertCircle, X, ArrowLeft, RefreshCw, Coins } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import { ThumbnailAuditForm } from './components/ThumbnailAuditForm';
 import { ThumbnailAuditResult } from './components/ThumbnailAuditResult';
+import { BuyCreditsModal } from './components/BuyCreditsModal';
 import useCTREngine from '../../../hooks/useCTREngine';
 import { ThumbnailAudit } from '../../../types/ctr';
 
@@ -39,6 +40,7 @@ const AuditPage: React.FC = () => {
   const [historicalAudit, setHistoricalAudit] = useState<ThumbnailAudit | null>(null);
   const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
   const [historicalError, setHistoricalError] = useState<string | null>(null);
+  const [isBuyCreditsOpen, setIsBuyCreditsOpen] = useState(false);
   
   // Load historical audit if ID is in URL
   useEffect(() => {
@@ -89,7 +91,19 @@ const AuditPage: React.FC = () => {
             className="max-w-3xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3 backdrop-blur-sm"
           >
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="flex-1 text-red-400">{error}</p>
+            <div className="flex-1">
+              <p className="text-red-400">{error}</p>
+              {errorCode === 'INSUFFICIENT_CREDITS' && (
+                <button
+                  type="button"
+                  onClick={() => setIsBuyCreditsOpen(true)}
+                  className="mt-3 inline-flex items-center gap-2 text-sm text-[#fa7517] hover:text-orange-400 transition-colors"
+                >
+                  <Coins className="w-4 h-4" />
+                  Buy credits
+                </button>
+              )}
+            </div>
             <button
               onClick={clearError}
               className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
@@ -179,7 +193,7 @@ const AuditPage: React.FC = () => {
               >
                 {[
                   { icon: Zap, title: 'Instant Analysis', desc: 'Get results in seconds' },
-                  { icon: Target, title: 'CTR Prediction', desc: 'AI-powered scoring' },
+                  { icon: Target, title: 'Performance Prediction', desc: 'AI-powered scoring' },
                   { icon: TrendingUp, title: 'Actionable Tips', desc: 'Improve your click rate' },
                 ].map((feature) => (
                   <div
@@ -198,6 +212,11 @@ const AuditPage: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <BuyCreditsModal
+        isOpen={isBuyCreditsOpen}
+        onClose={() => setIsBuyCreditsOpen(false)}
+      />
     </AIThumbnailsLayout>
   );
 };

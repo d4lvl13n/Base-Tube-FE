@@ -171,7 +171,7 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
         </motion.div>
       )}
 
-      {/* CTR Score - Large Prominent Display */}
+      {/* Attention Score - Large Prominent Display */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -182,26 +182,25 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
           {/* Score Gauge - Center focus */}
           <div className="flex flex-col items-center">
             <ScoreGauge score={audit.overallScore} size="lg" />
-            <h3 className="text-xl font-bold text-white mt-4">CTR Score</h3>
-            <p className="text-sm text-gray-400">Overall effectiveness</p>
+            <h3 className="text-xl font-bold text-white mt-4">Attention Score</h3>
+            <p className="text-sm text-gray-400">Know what to change, and why</p>
           </div>
 
-          {/* AI-Estimated CTR Band & Summary */}
+          {/* Attention Score & Summary */}
           <div className="flex-1 grid sm:grid-cols-2 gap-4 w-full">
-            {audit.estimatedCTR && (
-              <div className="p-5 bg-gradient-to-br from-[#fa7517]/10 to-orange-500/5 border border-[#fa7517]/30 rounded-xl">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-5 h-5 text-[#fa7517]" />
-                  <span className="text-sm font-medium text-gray-300">AI‑estimated CTR band</span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-[#fa7517]">{audit.estimatedCTR.mid}%</span>
-                  <span className="text-sm text-gray-500">
-                    ({audit.estimatedCTR.low}% - {audit.estimatedCTR.high}%)
-                  </span>
-                </div>
+            <div className="p-5 bg-gradient-to-br from-[#fa7517]/10 to-orange-500/5 border border-[#fa7517]/30 rounded-xl">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-5 h-5 text-[#fa7517]" />
+                <span className="text-sm font-medium text-gray-300">Attention Score</span>
               </div>
-            )}
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold text-[#fa7517]">{audit.overallScore.toFixed(1)}</span>
+                <span className="text-sm text-gray-500">/ 10</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                How hard this thumbnail fights for attention
+              </p>
+            </div>
 
             <div className="p-5 bg-black/40 border border-gray-800/50 rounded-xl">
               <div className="flex items-center gap-2 mb-3">

@@ -332,9 +332,10 @@ export const OptimizedPromptModal: React.FC<OptimizedPromptModalProps> = ({
                                   alt={`Generated thumbnail ${index + 1}`}
                                   className="w-full h-full object-cover"
                                 />
-                                {/* CTR Score Badge */}
+                                {/* Attention Score Badge */}
                                 {concept.estimatedCTRScore !== undefined && (
-                                  <div className="absolute top-3 right-3 px-2.5 py-1 bg-black/70 backdrop-blur-sm rounded-lg">
+                                  <div className="absolute top-3 right-3 px-2.5 py-1 bg-black/70 backdrop-blur-sm rounded-lg flex items-center gap-1">
+                                    <span className="text-[10px] uppercase tracking-wide text-gray-400">Attention</span>
                                     <span className="text-sm font-bold text-[#fa7517]">
                                       {concept.estimatedCTRScore.toFixed(1)}
                                     </span>

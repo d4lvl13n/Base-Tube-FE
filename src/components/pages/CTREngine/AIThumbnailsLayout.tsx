@@ -7,6 +7,7 @@ import { CTRUsageAccess } from '../../../types/ctr';
 import AIThumbnailsSidebar from './components/AIThumbnailsSidebar';
 import AIThumbnailsHeader from './components/AIThumbnailsHeader';
 import HelpCard from './components/HelpCard';
+import EmailGateModal from './components/EmailGateModal';
 
 // Hook for responsive sidebar visibility
 const useIsDesktop = () => {
@@ -113,6 +114,11 @@ export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
 
       {/* Floating helper (does not affect layout flow) */}
       <HelpCard />
+
+      {/* Freemium email gate (Phase D) — self-mounting via the
+          `tool:email-gate:open` window event dispatched by
+          usePublicThumbnailGenerator when the anon quota is exhausted. */}
+      <EmailGateModal />
     </div>
   );
 };

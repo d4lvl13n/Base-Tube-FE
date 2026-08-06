@@ -111,6 +111,13 @@ interface UsePublicThumbnailGeneratorReturn {
   // Email capture (for anonymous downloads)
   needsEmailCapture: boolean;
   submitEmailForDownload: (email: string, thumbnailId?: string) => Promise<void>;
+
+  // Freemium email gate (Phase D) — fires when the anonymous quota is exhausted.
+  // Consumed by a top-level <EmailGateModal>. Also broadcast as the
+  // `tool:email-gate:open` window event for event-driven mounts.
+  showEmailGate: boolean;
+  openEmailGate: () => void;
+  closeEmailGate: () => void;
   
   // Downloads
   downloadThumbnail: (thumbnailId: string, sourceUrl?: string) => Promise<void>;
@@ -285,6 +292,18 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
   // Email capture state
   const [needsEmailCapture, setNeedsEmailCapture] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // Freemium email-gate state (Phase D)
+  const [showEmailGate, setShowEmailGate] = useState(false);
+  const openEmailGate = useCallback((): void => {
+    setShowEmailGate(true);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tool:email-gate:open'));
+    }
+  }, []);
+  const closeEmailGate = useCallback((): void => {
+    setShowEmailGate(false);
+  }, []);
   
   // Gallery state
   const [gallery, setGallery] = useState<GalleryThumbnail[]>([]);
@@ -524,10 +543,17 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
             : quotaInfo;
 
         if (!currentQuota || currentQuota.remaining <= 0) {
-          setError(currentQuota?.message || 'Daily quota exceeded. Please try again tomorrow or upgrade your account.');
           if (currentQuota) {
             setQuotaInfo(currentQuota);
           }
+          // Anonymous user out of free previews → open the freemium email gate
+          // instead of dead-ending on an error. Authenticated users still see
+          // the upgrade message.
+          if (!isAuthenticated) {
+            openEmailGate();
+            return;
+          }
+          setError(currentQuota?.message || 'Daily quota exceeded. Please try again tomorrow or upgrade your account.');
           return;
         }
       }
@@ -823,6 +849,8 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
                 message: errorData.error.message,
               });
             }
+            // Server-enforced anon quota exhaustion → open the email gate.
+            openEmailGate();
             throw new Error(errorData.error?.message || 'Daily quota exceeded.');
           }
           
@@ -895,6 +923,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     fetchUsageAccess,
     getGenerationCreditCost,
     isAuthenticated,
+    openEmailGate,
     pollJobStatus,
     pricing,
     quotaInfo,
@@ -1221,7 +1250,12 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     // Email capture
     needsEmailCapture,
     submitEmailForDownload,
-    
+
+    // Freemium email gate (Phase D)
+    showEmailGate,
+    openEmailGate,
+    closeEmailGate,
+
     // Downloads
     downloadThumbnail,
     forceDownload,

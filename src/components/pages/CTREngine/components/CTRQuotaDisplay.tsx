@@ -1,12 +1,13 @@
 // src/components/pages/CTREngine/components/CTRQuotaDisplay.tsx
 // Access status display component
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Coins, Zap, BarChart2, TrendingUp, Clock, Crown } from 'lucide-react';
 import { CTRUsageAccess, QuotaInfo } from '../../../../types/ctr';
 import { formatQuotaLimit } from '../../../../api/ctr';
 import { formatCreditCost } from '../../../../utils/usageAccess';
+import { BuyCreditsModal } from './BuyCreditsModal';
 
 interface CTRQuotaDisplayProps {
   usageAccess: CTRUsageAccess;
@@ -64,6 +65,8 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
   variant = 'compact',
   className = '',
 }) => {
+  const [isBuyOpen, setIsBuyOpen] = useState(false);
+
   if (usageAccess.mode === 'credits') {
     if (variant === 'compact') {
       return (
@@ -126,25 +129,31 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
 
         <div className="space-y-3 text-sm">
           <div className="flex items-center justify-between text-gray-400">
-            <span className="flex items-center gap-2"><BarChart2 className="w-4 h-4" /> CTR audit</span>
+            <span className="flex items-center gap-2"><BarChart2 className="w-4 h-4" /> Thumbnail review</span>
             <span className="text-white">{formatCreditCost(usageAccess.pricing?.ctr.audit ?? 0)}</span>
           </div>
           <div className="flex items-center justify-between text-gray-400">
-            <span className="flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Audit with personas</span>
+            <span className="flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Review with personas</span>
             <span className="text-white">{formatCreditCost(usageAccess.pricing?.ctr.auditWithPersonas ?? 0)}</span>
           </div>
           <div className="flex items-center justify-between text-gray-400">
-            <span className="flex items-center gap-2"><Zap className="w-4 h-4" /> CTR concept generation</span>
+            <span className="flex items-center gap-2"><Zap className="w-4 h-4" /> Concept generation</span>
             <span className="text-white">{formatCreditCost(usageAccess.pricing?.ctr.generatePerConcept ?? 0)}</span>
           </div>
         </div>
 
         <div className="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
           <span className="text-xs text-gray-500">Signed-in work now uses credits instead of daily quota.</span>
-          <a href="/pricing" className="text-xs font-medium text-[#fa7517] hover:text-orange-400 transition-colors">
-            Buy credits soon
-          </a>
+          <button
+            type="button"
+            onClick={() => setIsBuyOpen(true)}
+            className="text-xs font-medium text-[#fa7517] hover:text-orange-400 transition-colors"
+          >
+            Buy credits
+          </button>
         </div>
+
+        <BuyCreditsModal isOpen={isBuyOpen} onClose={() => setIsBuyOpen(false)} />
       </motion.div>
     );
   }
