@@ -16,6 +16,8 @@ import {
   OptimizePromptRequest,
   OptimizePromptResponse,
   OptimizedPrompt,
+  OverlayTextPlan,
+  ApplyOverlayResponse,
   AuditHistoryResponse,
   AuditHistoryItem,
   AuditStats,
@@ -236,6 +238,35 @@ export const ctrApi = {
     }
     
     return (response.data as CTRGenerationResponse).data;
+  },
+
+  // ============================================================================
+  // BRAND OVERLAY (headline placement)
+  // ============================================================================
+
+  /**
+   * Composite a real headline (+ optional subhead) onto an already generated
+   * base image, in one of the five negative-space zones, using the user's Brand
+   * Kit. FREE for now (no credit metering). Requires authentication.
+   *
+   * @param baseImageUrl - The generated concept's image URL (http/https)
+   * @param textPlan - Headline, optional subhead, zone, optional emphasis word
+   * @returns The signed URL of the composited thumbnail
+   */
+  applyOverlay: async (
+    baseImageUrl: string,
+    textPlan: OverlayTextPlan
+  ): Promise<ApplyOverlayResponse['data']> => {
+    const response = await api.post<ApplyOverlayResponse | CTRErrorResponse>(
+      `${CTR_BASE_PATH}/overlay`,
+      { baseImageUrl, textPlan }
+    );
+
+    if (!response.data.success) {
+      throw new Error((response.data as CTRErrorResponse).error.message);
+    }
+
+    return (response.data as ApplyOverlayResponse).data;
   },
 
   // ============================================================================

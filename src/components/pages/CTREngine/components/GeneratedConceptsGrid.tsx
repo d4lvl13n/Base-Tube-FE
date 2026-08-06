@@ -3,12 +3,39 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, ExternalLink, RefreshCw, Sparkles, BarChart2, Clock } from 'lucide-react';
-import { GeneratedConcept } from '../../../../types/ctr';
+import { Download, ExternalLink, RefreshCw, Sparkles, BarChart2, Clock, Type } from 'lucide-react';
+import { GeneratedConcept, OverlayTextZone } from '../../../../types/ctr';
 import type { ThumbnailConversationState, ThumbnailOutputFormat } from '../../../../types/thumbnail';
 import { thumbnailApi } from '../../../../api/thumbnail';
+import { ctrApi } from '../../../../api/ctr';
 import { ScoreBadge } from './ScoreGauge';
 import { NicheBadge } from './NicheSelector';
+
+// The five negative-space zones the overlay engine supports, laid out on a 3x3
+// grid so the picker visually mirrors WHERE the headline lands on the thumbnail.
+// Empty strings are inert corner spacers (the active zones form a plus shape).
+const ZONE_GRID: (OverlayTextZone | '')[] = [
+  '', 'top', '',
+  'left', 'center', 'right',
+  '', 'bottom', '',
+];
+
+const ZONE_LABEL: Record<OverlayTextZone, string> = {
+  top: 'Top',
+  left: 'Left',
+  center: 'Center',
+  right: 'Right',
+  bottom: 'Bottom',
+};
+
+// Absolute-position classes so the live hint sits in the chosen zone over the image.
+const ZONE_HINT_POSITION: Record<OverlayTextZone, string> = {
+  top: 'inset-x-0 top-0 items-start justify-center pt-2',
+  bottom: 'inset-x-0 bottom-0 items-end justify-center pb-2',
+  left: 'inset-y-0 left-0 items-center justify-start pl-2 w-1/2',
+  right: 'inset-y-0 right-0 items-center justify-end pr-2 w-1/2',
+  center: 'inset-0 items-center justify-center',
+};
 
 interface GeneratedConceptsGridProps {
   concepts: GeneratedConcept[];
@@ -33,6 +60,48 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat 
   const [isRefining, setIsRefining] = useState(false);
   const [refineError, setRefineError] = useState<string | null>(null);
   const imageAspectClass = outputFormat === 'short' ? 'aspect-[9/16]' : 'aspect-video';
+
+  // ── Brand overlay (headline placement) ────────────────────────────────────
+  const [headline, setHeadline] = useState('');
+  const [subhead, setSubhead] = useState('');
+  const [zone, setZone] = useState<OverlayTextZone>('bottom');
+  const [isApplyingOverlay, setIsApplyingOverlay] = useState(false);
+  const [overlayError, setOverlayError] = useState<string | null>(null);
+
+  const handleApplyOverlay = async () => {
+    const trimmedHeadline = headline.trim();
+    if (!trimmedHeadline) {
+      setOverlayError('Type a headline first.');
+      return;
+    }
+
+    setIsApplyingOverlay(true);
+    setOverlayError(null);
+
+    try {
+      const result = await ctrApi.applyOverlay(currentThumbnailUrl, {
+        headline: trimmedHeadline,
+        subhead: subhead.trim() || undefined,
+        zone,
+      });
+
+      if (!result?.thumbnailUrl) {
+        throw new Error('The overlay response was missing the composited image.');
+      }
+
+      // Replace the preview with the composited result.
+      setCurrentThumbnailUrl(result.thumbnailUrl);
+    } catch (error: any) {
+      setOverlayError(
+        error.response?.data?.error?.message ||
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to place the headline.'
+      );
+    } finally {
+      setIsApplyingOverlay(false);
+    }
+  };
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -108,7 +177,23 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat 
         
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-        
+
+        {/* Live headline-placement hint — a subtle preview of WHERE the text lands */}
+        {headline.trim() && (
+          <div className={`pointer-events-none absolute z-10 flex px-3 ${ZONE_HINT_POSITION[zone]}`}>
+            <div className="max-w-full rounded-md bg-black/45 px-2 py-1 text-center backdrop-blur-[2px] ring-1 ring-[#fa7517]/50">
+              <span className="line-clamp-2 text-sm font-extrabold uppercase leading-tight tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                {headline.trim()}
+              </span>
+              {subhead.trim() && (
+                <span className="mt-0.5 line-clamp-1 block text-[10px] font-semibold uppercase tracking-wide text-white/80">
+                  {subhead.trim()}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Overlay on Hover */}
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-3">
           <motion.button
@@ -216,6 +301,91 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat 
               <>
                 <Sparkles className="w-3.5 h-3.5" />
                 Apply refinement
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Headline placement (brand overlay) */}
+        <div className="mt-3 rounded-xl border border-white/10 bg-black/25 p-3">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <p className="text-xs font-semibold text-white flex items-center gap-1.5">
+              <Type className="w-3.5 h-3.5 text-[#fa7517]" />
+              Add headline
+            </p>
+          </div>
+
+          <input
+            type="text"
+            value={headline}
+            onChange={(e) => setHeadline(e.target.value)}
+            maxLength={90}
+            placeholder="YOUR HEADLINE"
+            className="w-full rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-xs font-semibold uppercase tracking-tight text-white placeholder:text-gray-600 outline-none focus:border-[#fa7517]/50"
+          />
+          <input
+            type="text"
+            value={subhead}
+            onChange={(e) => setSubhead(e.target.value)}
+            maxLength={120}
+            placeholder="Optional subhead"
+            className="mt-2 w-full rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-xs text-white placeholder:text-gray-600 outline-none focus:border-[#fa7517]/50"
+          />
+
+          {/* 5-position picker — a 3x3 grid; active cells form a plus shape */}
+          <div className="mt-3">
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              Position
+            </p>
+            <div className="grid grid-cols-3 grid-rows-3 gap-1.5 w-[132px]">
+              {ZONE_GRID.map((cell, i) => {
+                if (!cell) {
+                  return <div key={`spacer-${i}`} className="h-9 w-9" aria-hidden="true" />;
+                }
+                const isActive = zone === cell;
+                return (
+                  <button
+                    key={cell}
+                    type="button"
+                    onClick={() => setZone(cell)}
+                    aria-pressed={isActive}
+                    title={ZONE_LABEL[cell]}
+                    className={`h-9 w-9 rounded-md border text-[9px] font-semibold uppercase tracking-tight transition-all flex items-center justify-center ${
+                      isActive
+                        ? 'border-[#fa7517] bg-[#fa7517]/20 text-[#fa7517] shadow-[0_0_0_1px_rgba(250,117,23,0.4)]'
+                        : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/25 hover:text-white'
+                    }`}
+                  >
+                    {ZONE_LABEL[cell].slice(0, 3)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {overlayError && (
+            <p className="mt-2 text-xs text-red-300">{overlayError}</p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleApplyOverlay}
+            disabled={isApplyingOverlay || !headline.trim()}
+            className={`mt-3 w-full rounded-lg px-3 py-2 text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
+              isApplyingOverlay || !headline.trim()
+                ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                : 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25 hover:from-[#fa7517]/90 hover:to-orange-500/90'
+            }`}
+          >
+            {isApplyingOverlay ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                Placing headline
+              </>
+            ) : (
+              <>
+                <Type className="w-3.5 h-3.5" />
+                Apply headline
               </>
             )}
           </button>

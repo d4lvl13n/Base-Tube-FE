@@ -308,6 +308,27 @@ export interface GeneratedConcept {
   estimatedCTRScore: number;
 }
 
+// ============================================================================
+// BRAND OVERLAY (headline placement) TYPES
+// ============================================================================
+
+/** The five negative-space zones the overlay engine can place the headline in. */
+export type OverlayTextZone = 'left' | 'right' | 'top' | 'bottom' | 'center';
+
+export interface OverlayTextPlan {
+  headline: string;
+  subhead?: string;
+  zone: OverlayTextZone;
+  emphasisWord?: string;
+}
+
+export interface ApplyOverlayResponse {
+  success: boolean;
+  data: {
+    thumbnailUrl: string;
+  };
+}
+
 export interface GenerateRequest {
   title: string;
   description?: string;
