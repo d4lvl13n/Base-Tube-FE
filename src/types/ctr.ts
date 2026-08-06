@@ -306,6 +306,13 @@ export interface GeneratedConcept {
   conceptName: string;
   conceptDescription: string;
   estimatedCTRScore: number;
+  /**
+   * The anti-clickbait art-direction strategy that drove this concept's base
+   * prompt — key (e.g. 'neo_minimal') + human label (e.g. 'Neo-minimal — one
+   * focal point'). Present when concepts come from the "Optimized" strategy
+   * engine; optional so older responses stay valid.
+   */
+  strategy?: { key: string; label: string };
 }
 
 // ============================================================================

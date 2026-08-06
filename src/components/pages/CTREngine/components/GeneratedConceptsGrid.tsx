@@ -52,6 +52,15 @@ interface ConceptCardProps {
   outputFormat: ThumbnailOutputFormat;
 }
 
+/**
+ * Condense a full strategy label ("Neo-minimal — one focal point") into a short
+ * badge label ("Neo-minimal"). Falls back to the full label if there is no dash.
+ */
+const shortStrategyLabel = (label: string): string => {
+  const [head] = label.split(/\s*[—–-]\s*/);
+  return (head || label).trim();
+};
+
 const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [currentThumbnailUrl, setCurrentThumbnailUrl] = useState(concept.thumbnailUrl);
@@ -231,6 +240,15 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat 
 
       {/* Card Content */}
       <div className="p-5">
+        {concept.strategy && (
+          <span
+            title={concept.strategy.label}
+            className="inline-flex items-center gap-1 mb-2 px-2 py-0.5 rounded-full bg-[#fa7517]/10 border border-[#fa7517]/30 text-[#fa7517] text-[11px] font-semibold uppercase tracking-wide"
+          >
+            <Sparkles className="w-3 h-3" />
+            {shortStrategyLabel(concept.strategy.label)}
+          </span>
+        )}
         <h3 className="font-semibold text-white text-lg mb-1">{concept.conceptName}</h3>
         <p className="text-sm text-gray-400 line-clamp-2 mb-4">
           {concept.conceptDescription}

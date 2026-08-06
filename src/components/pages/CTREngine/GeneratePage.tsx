@@ -594,6 +594,16 @@ const GeneratePage: React.FC = () => {
                   </motion.div>
                 )}
 
+                {/* New-approach explainer: concepts now use modern, anti-clickbait strategies */}
+                <div className="mb-5 p-3 rounded-xl bg-[#fa7517]/5 border border-[#fa7517]/20 flex items-start gap-2.5">
+                  <Sparkles className="w-4 h-4 text-[#fa7517] flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    Concepts use modern, high-contrast, anti-clickbait styles — one clear focal point and clean
+                    negative space (neo-minimal, cinematic, object hero and more). Each concept is labelled with the
+                    strategy it used.
+                  </p>
+                </div>
+
                 {/* Title Input */}
                 <div className="mb-5">
                   <label className="block text-sm font-semibold text-white mb-2 flex items-center gap-2">
