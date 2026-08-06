@@ -2,6 +2,7 @@
 // CTR Engine exports
 
 export { default as AuditPage } from './AuditPage';
+export { default as ChannelAuditPage } from './ChannelAuditPage';
 export { default as GeneratePage } from './GeneratePage';
 export { default as SettingsPage } from './SettingsPage';
 export { default as GalleryPage } from './GalleryPage';

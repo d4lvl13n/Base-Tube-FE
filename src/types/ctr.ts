@@ -454,6 +454,110 @@ export interface AuditProgress {
 }
 
 // ============================================================================
+// CHANNEL PACKAGING AUDIT TYPES
+// Mirrors the backend `ChannelPackagingAudit` contract
+// (docs/specs/channel-packaging-audit-spec.md §5) returned by
+// POST /api/v1/ctr/channel-audit. No CTR is part of this contract — the
+// benchmark signal is views-relative-to-subscribers only.
+// ============================================================================
+
+/** A single over/under-performing video vs the channel median (views / channelMedian). */
+export interface PackagingOutlier {
+  videoId?: string;
+  title: string;
+  views: number;
+  ratio: number;
+}
+
+/** A title/format cluster correlated with performance (e.g. "listicle" vs "raw match clip"). */
+export interface PackagingFormatCluster {
+  label: string;
+  avgViews: number;
+  videoCount: number;
+  sampleTitles?: string[];
+}
+
+/** Title-hygiene stats across the analyzed set. */
+export interface PackagingTitleStats {
+  avgWordCount: number;
+  overLong?: boolean;
+  note?: string;
+}
+
+/** Cheap text-only pattern pass over all analyzed videos (spec §2). */
+export interface PackagingPattern {
+  median: number;
+  outliers: PackagingOutlier[];
+  formatClusters: PackagingFormatCluster[];
+  titleStats: PackagingTitleStats;
+  verdict: string;
+}
+
+/** A size-band peer used as a "channels your size winning" example (spec §4). */
+export interface NicheBenchmarkPeer {
+  title: string;
+  subscribers: number;
+  views: number;
+  thumbnailUrl: string;
+  whyItWorks: string;
+}
+
+/** Niche benchmark — "winners your size do X, you do Y" (spec §5). */
+export interface ChannelNicheBenchmark {
+  band: { min: number; max: number };
+  winningPatterns: string[];
+  examplePeers: NicheBenchmarkPeer[];
+  yourGap: string[];
+}
+
+/** Per-video packaging critique in the sampled set; each links into the fix flow. */
+export interface ChannelAuditPerVideo {
+  videoId: string;
+  title: string;
+  views: number;
+  thumbnailUrl: string;
+  issues: string[];
+  fix: string;
+  score: number;
+}
+
+export type FixImpact = 'high' | 'medium' | 'low';
+
+export interface ChannelPrioritizedFix {
+  title: string;
+  detail: string;
+  impact: FixImpact;
+}
+
+/** The hero-feature response contract (spec §5). */
+export interface ChannelPackagingAudit {
+  channel: {
+    title: string;
+    subscribers: number;
+    niche: string;
+    videosAnalyzed: number;
+  };
+  headline: string;
+  performancePattern: PackagingPattern;
+  nicheBenchmark: ChannelNicheBenchmark;
+  perVideo: ChannelAuditPerVideo[];
+  prioritizedFixes: ChannelPrioritizedFix[];
+  /** Present but de-emphasized in the UI (spec §5). */
+  score?: number;
+}
+
+/** POST /api/v1/ctr/channel-audit request body. */
+export interface ChannelAuditRequest {
+  channelUrl: string;
+}
+
+/** POST /api/v1/ctr/channel-audit success envelope. */
+export interface ChannelAuditResponse {
+  success: true;
+  data: ChannelPackagingAudit;
+}
+
+// ============================================================================
 // UTILITY TYPES
 // ============================================================================
 

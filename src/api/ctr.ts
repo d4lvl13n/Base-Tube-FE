@@ -24,6 +24,9 @@ import {
   ThumbnailAudit,
   AuditContext,
   CTRUsageAccess,
+  ChannelPackagingAudit,
+  ChannelAuditRequest,
+  ChannelAuditResponse,
 } from '../types/ctr';
 import { normalizeUsageAccessResponse } from '../utils/usageAccess';
 
@@ -111,6 +114,37 @@ export const ctrApi = {
     }
     
     return (response.data as YouTubeAuditResponse).data;
+  },
+
+  // ============================================================================
+  // CHANNEL PACKAGING AUDIT (the hero feature)
+  // ============================================================================
+
+  /**
+   * Run a full channel packaging audit.
+   *
+   * Paste a channel URL / @handle → the backend fetches the last ~15-20 videos,
+   * runs a per-video packaging critique, detects channel-wide patterns, and
+   * benchmarks against channels in the same niche + subscriber band. Returns a
+   * `ChannelPackagingAudit` (spec §5). No CTR is involved — the benchmark is
+   * views-relative-to-subscribers only.
+   *
+   * Auth optional: 1 free audit, then credit-costed (`channel.audit`).
+   *
+   * @param channelUrl - Channel URL, @handle, or channel id
+   * @returns The full packaging audit report
+   */
+  auditChannel: async (channelUrl: string): Promise<ChannelPackagingAudit> => {
+    const response = await api.post<ChannelAuditResponse | CTRErrorResponse>(
+      `${CTR_BASE_PATH}/channel-audit`,
+      { channelUrl } as ChannelAuditRequest
+    );
+
+    if (!response.data.success) {
+      throw new Error((response.data as CTRErrorResponse).error.message);
+    }
+
+    return (response.data as ChannelAuditResponse).data;
   },
 
   // ============================================================================

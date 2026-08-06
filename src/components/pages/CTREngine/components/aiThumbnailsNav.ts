@@ -1,6 +1,6 @@
 // src/components/pages/CTREngine/components/aiThumbnailsNav.ts
 import type { LucideIcon } from 'lucide-react';
-import { Sparkles, BarChart2, History, Images, Settings } from 'lucide-react';
+import { Sparkles, BarChart2, History, Images, Settings, ScanSearch } from 'lucide-react';
 
 export interface AIThumbnailsNavItem {
   path: string;
@@ -23,6 +23,13 @@ export const AI_THUMBNAILS_NAV_ITEMS: AIThumbnailsNavItem[] = [
     label: 'Audit',
     icon: BarChart2,
     description: 'Analyze thumbnails',
+    requiresAuth: false,
+  },
+  {
+    path: '/ai-thumbnails/channel-audit',
+    label: 'Channel Audit',
+    icon: ScanSearch,
+    description: 'Why nobody clicks',
     requiresAuth: false,
   },
   {
