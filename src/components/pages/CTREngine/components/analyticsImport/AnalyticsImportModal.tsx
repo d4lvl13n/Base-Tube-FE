@@ -87,7 +87,16 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
+  /**
+   * Generation token for in-flight requests. `reset()` bumps it, and every
+   * async handler re-checks it after each await: a close that raced an
+   * analyze/confirm/commit therefore makes the late resolution a no-op instead
+   * of letting its setState calls resurrect the flow post-reset.
+   */
+  const generationRef = React.useRef(0);
+
   const reset = useCallback(() => {
+    generationRef.current += 1;
     setStep('guide');
     setAnalysis(null);
     setAssignments({});
@@ -129,11 +138,13 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
   }, [isOpen, handleClose]);
 
   const handleFile = async (file: File) => {
+    const gen = generationRef.current;
     setError(null);
     setUnavailable(false);
     setIsAnalyzing(true);
     try {
       const parsed = await ctrApi.analyzeAnalyticsImport(file);
+      if (generationRef.current !== gen) return; // closed while in flight
       setAnalysis(parsed);
 
       if (parsed.status === 'rejected') {
@@ -181,13 +192,14 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
 
       setStep(parsed.needsMapping ? 'mapping' : 'coverage');
     } catch (err: any) {
+      if (generationRef.current !== gen) return;
       if (err?.message === ANALYTICS_IMPORT_UNAVAILABLE) {
         setUnavailable(true);
       } else {
         setError(err?.message || 'Could not read that export. Please try again.');
       }
     } finally {
-      setIsAnalyzing(false);
+      if (generationRef.current === gen) setIsAnalyzing(false);
     }
   };
 
@@ -201,6 +213,7 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
     const coverage = coverageFromForm(coverageKind, startDate, endDate);
     if (!coverage || !locale) return;
 
+    const gen = generationRef.current;
     setError(null);
     setIsConfirming(true);
     try {
@@ -213,6 +226,7 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
         coverage,
         locale,
       });
+      if (generationRef.current !== gen) return; // closed while in flight
       setResult(confirmed);
 
       if (confirmed.status === 'rejected') {
@@ -224,13 +238,14 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
       }
       setStep('review');
     } catch (err: any) {
+      if (generationRef.current !== gen) return;
       if (err?.message === ANALYTICS_IMPORT_UNAVAILABLE) {
         setUnavailable(true);
       } else {
         setError(err?.message || 'Could not check that import. Please try again.');
       }
     } finally {
-      setIsConfirming(false);
+      if (generationRef.current === gen) setIsConfirming(false);
     }
   };
 
@@ -242,6 +257,7 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
       return;
     }
 
+    const gen = generationRef.current;
     setError(null);
     setIsCommitting(true);
     try {
@@ -249,17 +265,22 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
         analysis.importId,
         result.validationToken
       );
+      // Even here we only drop the UI update: the commit itself already
+      // happened server-side, and reopening shows it via the latest-import
+      // summary rather than a resurrected success screen.
+      if (generationRef.current !== gen) return;
       setResult(committed);
       setAccepted(true);
       setStep('done');
     } catch (err: any) {
+      if (generationRef.current !== gen) return;
       if (err?.message === ANALYTICS_IMPORT_UNAVAILABLE) {
         setUnavailable(true);
       } else {
         setError(err?.message || 'Could not save that import. Please try again.');
       }
     } finally {
-      setIsCommitting(false);
+      if (generationRef.current === gen) setIsCommitting(false);
     }
   };
 

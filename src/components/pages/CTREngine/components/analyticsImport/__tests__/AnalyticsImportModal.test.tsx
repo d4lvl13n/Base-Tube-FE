@@ -10,7 +10,7 @@
  *    on the next open.
  */
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AnalyticsImportModal } from '../AnalyticsImportModal';
 import ctrApi from '../../../../../../api/ctr';
 
@@ -126,6 +126,36 @@ describe('AnalyticsImportModal — every close path resets', () => {
     rerender(<AnalyticsImportModal isOpen onClose={onClose} onImported={jest.fn()} />);
 
     // Back at the guide step: no resurrected coverage step, no checked locale.
+    expect(screen.getByText('mock-upload')).toBeInTheDocument();
+    expect(
+      screen.queryByText('How are numbers written in this file?')
+    ).not.toBeInTheDocument();
+  });
+
+  it('a close that races an in-flight analyze cannot resurrect the flow', async () => {
+    // The analyze promise stays pending until WE resolve it — after the close.
+    let resolveAnalyze: (value: unknown) => void = () => undefined;
+    (mockedApi.analyzeAnalyticsImport as jest.Mock).mockImplementation(
+      () => new Promise((resolve) => { resolveAnalyze = resolve; })
+    );
+
+    const onClose = jest.fn();
+    const { rerender } = render(
+      <AnalyticsImportModal isOpen onClose={onClose} onImported={jest.fn()} />
+    );
+    fireEvent.click(screen.getByText('mock-upload'));
+
+    // Close while the request is still in flight, then let it resolve late.
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalled();
+    await act(async () => {
+      resolveAnalyze(analysisFixture('fr'));
+    });
+
+    rerender(<AnalyticsImportModal isOpen={false} onClose={onClose} onImported={jest.fn()} />);
+    rerender(<AnalyticsImportModal isOpen onClose={onClose} onImported={jest.fn()} />);
+
+    // The late resolution must have been dropped: still the guide, no coverage.
     expect(screen.getByText('mock-upload')).toBeInTheDocument();
     expect(
       screen.queryByText('How are numbers written in this file?')
