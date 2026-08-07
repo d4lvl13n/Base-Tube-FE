@@ -56,6 +56,10 @@ const YT_ERROR_MESSAGES: Record<string, string> = {
     'This YouTube channel is already linked to another BaseTube account. Disconnect it there first, or connect a different channel.',
   callbackFailed:
     'YouTube could not complete the connection. Nothing was changed — please try again.',
+  // The Google account has no YouTube channel (or the grant lacked the YouTube
+  // scope) — nothing was linked or persisted.
+  noChannel:
+    "That Google account doesn't have a YouTube channel to connect. Nothing was changed — try a Google account that owns your channel.",
 };
 
 const ytErrorMessage = (code: string): string =>

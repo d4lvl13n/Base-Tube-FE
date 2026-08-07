@@ -181,7 +181,10 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, o
     analyticsStatus === 'reauth_required' || connectionStatus === 'reauth_required';
   // The ask: a preview report is missing the creator's own numbers. Also shown
   // for a live report whose grant died — that one degrades to public data too.
-  const showConnectBanner = (isPreview && !isSyncing) || needsReauth;
+  // MISMATCHED is excluded (spec): the user is auditing a channel that isn't the
+  // one they connected — connecting again won't help; the notice below explains.
+  const showConnectBanner =
+    connectionStatus !== 'mismatched' && ((isPreview && !isSyncing) || needsReauth);
 
   const orderedExperiments = [...experiments].sort((a, b) => a.priority - b.priority);
   const experimentById = new Map<string, ChannelAuditV2Experiment>(
