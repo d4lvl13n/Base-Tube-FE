@@ -31,6 +31,9 @@ import {
   ChannelAuditResponse,
   AnalyticsImportAnalysis,
   AnalyticsImportConfirmRequest,
+  AnalyticsImportCoverage,
+  AnalyticsImportField,
+  AnalyticsImportMapping,
   AnalyticsImportResult,
   AnalyticsImportSummary,
 } from '../types/ctr';
@@ -417,7 +420,7 @@ export const ctrApi = {
 
     try {
       const response = await api.post<
-        { success: true; data: AnalyticsImportAnalysis } | CTRErrorResponse
+        { success: true; data: BackendAnalyzeResponse } | CTRErrorResponse
       >(`${CTR_BASE_PATH}/analytics-import/analyze`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -426,7 +429,11 @@ export const ctrApi = {
         throw new Error((response.data as CTRErrorResponse).error.message);
       }
 
-      return (response.data as { success: true; data: AnalyticsImportAnalysis }).data;
+      // ADAPTER: the backend speaks snake_case fields + column INDICES; the FE
+      // model speaks camelCase fields + header STRINGS. Translate at the boundary
+      // and remember the header order per importId so /confirm can translate back.
+      const raw = (response.data as { success: true; data: BackendAnalyzeResponse }).data;
+      return adaptAnalyzeResponse(raw);
     } catch (error: any) {
       if (error?.response?.status === 404) {
         throw new Error(ANALYTICS_IMPORT_UNAVAILABLE);
@@ -449,17 +456,18 @@ export const ctrApi = {
   ): Promise<AnalyticsImportResult> => {
     try {
       const response = await api.post<
-        { success: true; data: AnalyticsImportResult } | CTRErrorResponse
+        { success: true; data: BackendConfirmResponse } | CTRErrorResponse
       >(
         `${CTR_BASE_PATH}/analytics-import/${encodeURIComponent(importId)}/confirm`,
-        payload
+        adaptConfirmRequest(importId, payload)
       );
 
       if (!response.data.success) {
         throw new Error((response.data as CTRErrorResponse).error.message);
       }
 
-      return (response.data as { success: true; data: AnalyticsImportResult }).data;
+      const raw = (response.data as { success: true; data: BackendConfirmResponse }).data;
+      return adaptConfirmResponse(raw);
     } catch (error: any) {
       if (error?.response?.status === 404) {
         throw new Error(ANALYTICS_IMPORT_UNAVAILABLE);
@@ -484,16 +492,16 @@ export const ctrApi = {
   ): Promise<AnalyticsImportSummary | null> => {
     try {
       const response = await api.get<
-        { success: true; data: AnalyticsImportSummary | null } | CTRErrorResponse
+        { success: true; data: BackendLatestSummary | null } | CTRErrorResponse
       >(`${CTR_BASE_PATH}/analytics-import/latest`, {
         params: channelId ? { channelId } : undefined,
       });
 
       if (!response.data.success) return null;
 
-      return (
-        (response.data as { success: true; data: AnalyticsImportSummary | null }).data ?? null
-      );
+      const raw =
+        (response.data as { success: true; data: BackendLatestSummary | null }).data ?? null;
+      return raw ? adaptLatestSummary(raw) : null;
     } catch (error: any) {
       // 404 = no import for this channel, or the route does not exist yet.
       // Either way there is nothing to show.
@@ -502,6 +510,189 @@ export const ctrApi = {
     }
   },
 };
+
+// ============================================================================
+// STUDIO IMPORT — BACKEND↔FE CONTRACT ADAPTER
+//
+// The backend (M2) speaks snake_case canonical fields and maps columns by
+// INDEX; the FE model (M3) speaks camelCase fields and maps by HEADER string.
+// Everything is translated here, at the API boundary, so neither side leaks
+// into the other. The header order for each analyzed import is remembered in a
+// module-scoped map (session-lived — a stepper flow never outlives the page).
+// ============================================================================
+
+const FIELD_TO_BACKEND: Record<AnalyticsImportField, string> = {
+  videoId: 'video_id',
+  impressions: 'impressions',
+  ctrPercent: 'ctr_percent',
+  views: 'views',
+  averageViewDurationSeconds: 'average_view_duration_seconds',
+  averageViewPercentage: 'average_view_percentage',
+  subscribersGained: 'subscribers_gained',
+};
+const FIELD_FROM_BACKEND: Record<string, AnalyticsImportField> = Object.fromEntries(
+  Object.entries(FIELD_TO_BACKEND).map(([fe, be]) => [be, fe as AnalyticsImportField])
+);
+
+/** Backend /analyze payload (M2's AnalyzeUploadResult). */
+interface BackendAnalyzeResponse {
+  importId: number;
+  status: string; // 'pending_mapping' | 'pending_confirmation'
+  needsMapping: boolean;
+  detectedMapping: Record<string, number>; // snake field → column index
+  mappingSource?: string;
+  headers: string[];
+  ambiguousColumns?: { index: number; header: string; candidates?: string[] }[];
+  unmappedColumns?: { index: number; header: string }[];
+  recognizedButUnused?: { index: number; header: string }[];
+  detectedLocale?: string | null;
+  totalDataRows: number;
+  sampleRows?: { videoId: string | null; title: string | null; values: Record<string, string> }[];
+  draftExpiresInSeconds?: number;
+}
+
+interface BackendConfirmResponse {
+  importId: number;
+  status: string; // 'imported'
+  datasetId?: string;
+  youtubeChannelId?: string | null;
+  coverage: AnalyticsImportCoverage;
+  locale?: string;
+  matchedRows: number;
+  rejectedRows: number;
+  footerRowsIgnored?: number;
+  providedMetrics?: string[];
+  rejectionBreakdown?: Record<string, number>;
+}
+
+interface BackendLatestSummary {
+  importId: number;
+  datasetId?: string;
+  youtubeChannelId?: string | null;
+  coverage: AnalyticsImportCoverage;
+  locale?: string;
+  matchedRows: number;
+  rejectedRows: number;
+  importedAt: string;
+  stale?: boolean;
+  staleReason?: string | null;
+}
+
+/** headers + locale remembered per analyzed import, to translate /confirm. */
+const importTranslationCtx = new Map<string, { headers: string[]; locale: string | null }>();
+
+/** 'fr-FR' / 'fr' / anything → the backend's 'en' | 'fr' | 'de' | 'es' (default en). */
+const toBackendLocale = (locale: string | null | undefined): string => {
+  const two = String(locale || '').slice(0, 2).toLowerCase();
+  return ['en', 'fr', 'de', 'es'].includes(two) ? two : 'en';
+};
+
+function adaptAnalyzeResponse(raw: BackendAnalyzeResponse): AnalyticsImportAnalysis {
+  const importId = String(raw.importId);
+  importTranslationCtx.set(importId, {
+    headers: raw.headers || [],
+    locale: raw.detectedLocale ?? null,
+  });
+
+  // field → header (FE model), from the backend's field → index.
+  const suggestedMapping: AnalyticsImportMapping = {};
+  for (const [beField, idx] of Object.entries(raw.detectedMapping || {})) {
+    const feField = FIELD_FROM_BACKEND[beField];
+    const header = raw.headers?.[idx];
+    if (feField && typeof header === 'string') suggestedMapping[feField] = header;
+  }
+
+  const indexToSuggested: Record<number, AnalyticsImportField | null> = {};
+  for (const [beField, idx] of Object.entries(raw.detectedMapping || {})) {
+    indexToSuggested[idx] = FIELD_FROM_BACKEND[beField] ?? null;
+  }
+
+  const detectedColumns = (raw.headers || []).map((header, index) => ({
+    header,
+    index,
+    sampleValues: (raw.sampleRows || [])
+      .map((r) => r.values?.[header])
+      .filter((v): v is string => typeof v === 'string')
+      .slice(0, 3),
+    suggestedField: indexToSuggested[index] ?? null,
+  }));
+
+  const warnings: string[] = [];
+  if (raw.recognizedButUnused?.length) {
+    warnings.push(
+      `Ignored (not imported): ${raw.recognizedButUnused.map((c) => c.header).join(', ')}`
+    );
+  }
+  if (raw.unmappedColumns?.length) {
+    warnings.push(`Unrecognized columns: ${raw.unmappedColumns.map((c) => c.header).join(', ')}`);
+  }
+
+  return {
+    importId,
+    status: 'needs_confirmation', // both backend draft states require the stepper
+    needsMapping: raw.needsMapping,
+    detectedColumns,
+    suggestedMapping,
+    // The backend never guesses a range — confirmation is mandatory by contract.
+    detectedCoverage: { kind: 'unknown' },
+    detectedLocale: raw.detectedLocale ?? null,
+    rowCount: raw.totalDataRows,
+    warnings: warnings.length ? warnings : undefined,
+  };
+}
+
+function adaptConfirmRequest(
+  importId: string,
+  payload: AnalyticsImportConfirmRequest
+): Record<string, unknown> {
+  const ctx = importTranslationCtx.get(importId);
+  // field → header (FE) becomes snake field → column index (backend).
+  const mapping: Record<string, number> = {};
+  for (const [feField, header] of Object.entries(payload.mapping || {})) {
+    const beField = FIELD_TO_BACKEND[feField as AnalyticsImportField];
+    const idx = ctx ? ctx.headers.indexOf(String(header)) : -1;
+    if (beField && idx >= 0) mapping[beField] = idx;
+  }
+  return {
+    mapping: Object.keys(mapping).length ? mapping : undefined,
+    coverage: payload.coverage,
+    locale: toBackendLocale(payload.locale ?? ctx?.locale),
+  };
+}
+
+function adaptConfirmResponse(raw: BackendConfirmResponse): AnalyticsImportResult {
+  const rejectionSamples = Object.entries(raw.rejectionBreakdown || {})
+    .filter(([, n]) => n > 0)
+    .map(([reason, n]) => `${n} row${n === 1 ? '' : 's'}: ${reason.replace(/_/g, ' ')}`);
+  return {
+    importId: String(raw.importId),
+    status: 'ready',
+    matchedRows: raw.matchedRows,
+    rejectedRows: raw.rejectedRows,
+    coverage: raw.coverage,
+    importedAt: new Date().toISOString(),
+    units: {
+      ctrPercent: 'percentage_points',
+      averageViewDurationSeconds: 'seconds',
+      averageViewPercentage: 'percentage_points',
+    },
+    rejectionSamples: rejectionSamples.length ? rejectionSamples : undefined,
+  };
+}
+
+function adaptLatestSummary(raw: BackendLatestSummary): AnalyticsImportSummary {
+  return {
+    importId: String(raw.importId),
+    status: 'ready',
+    matchedRows: raw.matchedRows,
+    rejectedRows: raw.rejectedRows,
+    coverage: raw.coverage,
+    importedAt: raw.importedAt,
+    youtubeChannelId: raw.youtubeChannelId ?? null,
+    isStale: raw.stale,
+    staleReason: raw.staleReason ?? null,
+  } as AnalyticsImportSummary;
+}
 
 // ============================================================================
 // UTILITY FUNCTIONS
