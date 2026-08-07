@@ -1,7 +1,17 @@
 // src/components/pages/CTREngine/components/ChannelAuditReport.tsx
-// Renders a ChannelPackagingAudit result (spec §5).
-// NOTE: No CTR is shown anywhere — the benchmark signal is
-// views-relative-to-subscribers only.
+// Renders the v2 channel packaging audit (frozen contract:
+// base-be docs/specs/moat-phase-0-1-spec.md — "THE v2 AUDIT CONTRACT").
+//
+// Section order is part of the product, not decoration:
+//   1. Positioning     — what this channel is, before any judgment
+//   2. Evidence board  — observed facts + a HEDGED hypothesis per video
+//   3. Experiments     — priority-ordered, falsifiable, with a variant brief
+//   4. Swipe file      — references, honestly labelled by size match
+//   5. Review queue    — descriptive view spread, age caveat mandatory
+//
+// Deliberately absent: scores, "why winners win", impact labels, predicted lift,
+// any causal claim about a thumbnail. Observations are facts; everything else is
+// a hypothesis to TEST. v1 rows render through ChannelAuditLegacyReport.
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -12,25 +22,31 @@ import {
   Wand2,
   Users,
   Eye,
-  TrendingUp,
-  TrendingDown,
-  Layers,
-  Type,
-  Target,
-  AlertTriangle,
-  CheckCircle2,
-  Trophy,
+  Compass,
+  ClipboardList,
+  FlaskConical,
+  BookMarked,
   ListChecks,
   ExternalLink,
+  HelpCircle,
+  Search,
+  Info,
+  Clock,
+  MousePointerClick,
+  Sparkles,
 } from 'lucide-react';
-import type {
-  ChannelPackagingAudit,
-  ChannelAuditPerVideo,
-  FixImpact,
+import {
+  isChannelAuditV2,
+  type ChannelAuditResult,
+  type ChannelPackagingAuditV2,
+  type ChannelAuditV2PerVideo,
+  type ChannelAuditV2Experiment,
+  type ChannelAuditV2VideoMetrics,
 } from '../../../../types/ctr';
+import ChannelAuditLegacyReport from './ChannelAuditLegacyReport';
 
 interface ChannelAuditReportProps {
-  audit: ChannelPackagingAudit;
+  audit: ChannelAuditResult;
   onReset: () => void;
 }
 
@@ -42,48 +58,137 @@ const formatCount = (value: number | undefined | null): string => {
   return String(n);
 };
 
-const impactStyles: Record<FixImpact, string> = {
-  high: 'bg-red-500/10 text-red-400 border-red-500/20',
-  medium: 'bg-[#fa7517]/10 text-[#fa7517] border-[#fa7517]/20',
-  low: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+// seconds -> "6:42"
+const formatDuration = (seconds: number | null | undefined): string => {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds)) return '—';
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
 };
 
-const scoreColor = (score: number): string => {
-  if (score >= 8) return 'text-green-400';
-  if (score >= 6) return 'text-yellow-400';
-  if (score >= 4) return 'text-orange-400';
-  return 'text-red-400';
+const videoAnchorId = (videoId: string) => `audit-video-${videoId}`;
+const experimentAnchorId = (experimentId: string) => `audit-experiment-${experimentId}`;
+
+const scrollToAnchor = (anchorId: string) => {
+  const el = document.getElementById(anchorId);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
-  audit,
-  onReset,
-}) => {
+// ---------------------------------------------------------------------------
+// Evidence-strength chip (connected mode only)
+// 'insufficient' is intentionally grey and worded as an absence of data, never
+// as a weak signal — below ~1k impressions there is nothing to read.
+// ---------------------------------------------------------------------------
+const EVIDENCE_CHIP: Record<
+  ChannelAuditV2VideoMetrics['evidenceStrength'],
+  { label: string; className: string; title: string }
+> = {
+  insufficient: {
+    label: 'not enough data',
+    className: 'bg-white/5 text-gray-400 border-white/10',
+    title: 'Too few impressions to read anything into this video’s CTR.',
+  },
+  directional: {
+    label: 'directional',
+    className: 'bg-[#fa7517]/10 text-[#fa7517] border-[#fa7517]/25',
+    title: 'Enough impressions to point somewhere — not enough to conclude.',
+  },
+  observational: {
+    label: 'observational',
+    className: 'bg-blue-500/10 text-blue-300 border-blue-500/25',
+    title: 'Enough impressions to describe what happened. Still not a cause.',
+  },
+};
+
+const MetricsRow: React.FC<{ metrics: ChannelAuditV2VideoMetrics }> = ({ metrics }) => {
+  const chip = EVIDENCE_CHIP[metrics.evidenceStrength] ?? EVIDENCE_CHIP.insufficient;
+  const muted = metrics.evidenceStrength === 'insufficient';
+
+  return (
+    <div className="mt-4 p-3 bg-black/40 border border-gray-800/50 rounded-xl">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <span className="flex items-center gap-1.5 text-sm text-gray-300">
+          <Eye className="w-3.5 h-3.5 text-gray-500" />
+          {metrics.impressions !== null ? formatCount(metrics.impressions) : '—'}
+          <span className="text-gray-500 text-xs">impressions</span>
+        </span>
+        <span
+          className={`flex items-center gap-1.5 text-sm ${muted ? 'text-gray-500' : 'text-gray-300'}`}
+        >
+          <MousePointerClick className="w-3.5 h-3.5 text-gray-500" />
+          {metrics.ctr !== null ? `${metrics.ctr.toFixed(1)}%` : '—'}
+          <span className="text-gray-500 text-xs">CTR</span>
+        </span>
+        {metrics.averageViewDuration !== null && (
+          <span className="flex items-center gap-1.5 text-sm text-gray-300">
+            <Clock className="w-3.5 h-3.5 text-gray-500" />
+            {formatDuration(metrics.averageViewDuration)}
+            <span className="text-gray-500 text-xs">avg view</span>
+          </span>
+        )}
+        <span
+          title={chip.title}
+          className={`px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded border ${chip.className}`}
+        >
+          {chip.label}
+        </span>
+      </div>
+
+      {metrics.dominantTrafficSource && (
+        <p className="text-xs text-gray-500 mt-2">
+          Mostly seen via <span className="text-gray-400">{metrics.dominantTrafficSource}</span>
+        </p>
+      )}
+      {metrics.baselineDelta && (
+        <p className="text-xs text-gray-400 mt-1">{metrics.baselineDelta}</p>
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+
+export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, onReset }) => {
   const navigate = useNavigate();
 
+  // v1 rows are never cast into the v2 shape — they get their own thin view.
+  if (!isChannelAuditV2(audit)) {
+    return <ChannelAuditLegacyReport audit={audit} onReset={onReset} />;
+  }
+
+  const v2: ChannelPackagingAuditV2 = audit;
   const {
     channel,
+    positioning,
     headline,
-    performancePattern,
-    nicheBenchmark,
     perVideo = [],
-    prioritizedFixes = [],
-  } = audit;
+    experiments = [],
+    swipeFile,
+    reviewQueue,
+    mode,
+    analyticsStatus,
+  } = v2;
 
-  // "fix this →" — route into the concept-board / optimized generator,
-  // prefilled with the weak video's title (the generator reads mode=ctr + prompt).
-  const handleFixVideo = (video: ChannelAuditPerVideo) => {
-    const params = new URLSearchParams({ mode: 'ctr', prompt: video.title });
+  const orderedExperiments = [...experiments].sort((a, b) => a.priority - b.priority);
+  const experimentById = new Map<string, ChannelAuditV2Experiment>(
+    experiments.map((exp) => [exp.id, exp])
+  );
+  const videoTitleById = new Map<string, string>(perVideo.map((v) => [v.videoId, v.title]));
+
+  // Channel-level counts: strictly counts of what the audit itself contains.
+  const observationCount = perVideo.reduce((sum, v) => sum + (v.observed?.length ?? 0), 0);
+
+  // "Generate this variant →" — hand the variant brief to the existing generator.
+  const handleGenerateVariant = (experiment: ChannelAuditV2Experiment) => {
+    const params = new URLSearchParams({
+      mode: 'ctr',
+      prompt: experiment.variantBrief.thumbnail,
+    });
     navigate(`/ai-thumbnails/generate?${params.toString()}`);
   };
 
-  const outliers = performancePattern?.outliers ?? [];
-  const overperformers = outliers.filter((o) => (o.ratio ?? 0) >= 1);
-  const underperformers = outliers.filter((o) => (o.ratio ?? 0) < 1);
-  const formatClusters = performancePattern?.formatClusters ?? [];
-  const examplePeers = nicheBenchmark?.examplePeers ?? [];
-  const winningPatterns = nicheBenchmark?.winningPatterns ?? [];
-  const yourGap = nicheBenchmark?.yourGap ?? [];
+  const swipeIsAspirational = swipeFile?.size?.match === 'aspirational';
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -98,13 +203,15 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
         </button>
       </div>
 
-      {/* Headline / diagnosis */}
-      <motion.div
+      {/* ------------------------------------------------------------------ */}
+      {/* 1. POSITIONING — what this channel is, first and prominently        */}
+      {/* ------------------------------------------------------------------ */}
+      <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="bg-gradient-to-br from-[#fa7517]/10 to-orange-500/5 border border-[#fa7517]/20 rounded-2xl p-6 sm:p-8 backdrop-blur-sm mb-6"
       >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-400 mb-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-400 mb-4">
           <span className="text-white font-semibold text-base">{channel?.title}</span>
           <span className="flex items-center gap-1.5">
             <Users className="w-4 h-4 text-[#fa7517]" />
@@ -116,40 +223,304 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
             </span>
           )}
           <span>{channel?.videosAnalyzed ?? perVideo.length} videos analyzed</span>
+          {mode === 'connected' && (
+            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 border border-blue-500/25 text-[10px] font-semibold uppercase tracking-wide rounded">
+              connected
+            </span>
+          )}
         </div>
-        <h1 className="text-xl sm:text-2xl font-bold text-white leading-snug">
-          {headline}
-        </h1>
-      </motion.div>
 
-      {/* Prioritized fixes (surfaced first — fixes over score, per spec) */}
-      {prioritizedFixes.length > 0 && (
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#fa7517] mb-2">
+          <Compass className="w-4 h-4" />
+          Positioning
+        </p>
+        <p className="text-lg sm:text-xl text-white font-semibold leading-snug">{positioning}</p>
+
+        {headline && (
+          <p className="mt-5 pt-5 border-t border-white/10 text-sm sm:text-base text-gray-300 leading-relaxed">
+            {headline}
+          </p>
+        )}
+      </motion.section>
+
+      {/* Analytics status (connected mode) */}
+      {analyticsStatus === 'syncing' && (
+        <div className="mb-6 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl flex items-start gap-3">
+          <Info className="w-4 h-4 text-blue-300 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-100/80">
+            YouTube Analytics is connected and syncing — first metrics can take up to 48h. The
+            evidence and experiments below don’t wait on it.
+          </p>
+        </div>
+      )}
+      {analyticsStatus === 'reauth_required' && (
+        <div className="mb-6 p-4 bg-red-500/5 border border-red-500/20 rounded-xl flex items-start gap-3">
+          <Info className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-200/80">
+            Your YouTube connection needs to be re-authorised — this report is running on public
+            data only until it is.
+          </p>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* 2. EVIDENCE BOARD                                                   */}
+      {/* ------------------------------------------------------------------ */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="mb-8"
+      >
+        <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+          <ClipboardList className="w-5 h-5 text-[#fa7517]" />
+          Evidence board
+        </h2>
+        <p className="text-sm text-gray-500 mb-4">
+          What is literally observable in your packaging. Facts first — every reading of them is
+          marked as a hypothesis.
+        </p>
+
+        {/* Channel-level counts (counts of this audit's own contents) */}
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="p-4 bg-black/40 border border-gray-800/50 rounded-xl text-center">
+            <p className="text-xl font-bold text-white">{perVideo.length}</p>
+            <p className="text-xs text-gray-500 mt-1">videos examined</p>
+          </div>
+          <div className="p-4 bg-black/40 border border-gray-800/50 rounded-xl text-center">
+            <p className="text-xl font-bold text-white">{observationCount}</p>
+            <p className="text-xs text-gray-500 mt-1">observations recorded</p>
+          </div>
+          <div className="p-4 bg-black/40 border border-gray-800/50 rounded-xl text-center">
+            <p className="text-xl font-bold text-white">{experiments.length}</p>
+            <p className="text-xs text-gray-500 mt-1">experiments proposed</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {perVideo.map((video: ChannelAuditV2PerVideo, index: number) => {
+            const experiment = video.experimentId
+              ? experimentById.get(video.experimentId)
+              : undefined;
+
+            return (
+              <motion.div
+                key={video.videoId || index}
+                id={videoAnchorId(video.videoId)}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.03 * index }}
+                className="scroll-mt-24 bg-black/50 border border-gray-800/30 rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#fa7517]/30 transition-colors"
+              >
+                {/* `flex-wrap` rather than `flex-col sm:flex-row`: this app emits
+                    `.flex-col` AFTER `.sm:flex-row`, so the responsive variant
+                    loses. Wrapping on a full-width thumbnail gives the same
+                    stack-then-row behaviour without the specificity fight. */}
+                <div className="flex flex-wrap">
+                  {/* Thumbnail — capped at 280px so a 320–480px YouTube thumb
+                      never renders above its native resolution. The 16:9 box is
+                      inline because this app's tailwind build has no
+                      `aspect-video` (the aspect-ratio plugin replaces it). */}
+                  <a
+                    href={video.videoUrl || undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ aspectRatio: '16 / 9' }}
+                    className={`group/thumb relative self-start w-[280px] max-w-full flex-shrink-0 bg-black/40 overflow-hidden block ${
+                      video.videoUrl ? 'cursor-pointer' : 'pointer-events-none'
+                    }`}
+                  >
+                    {video.thumbnailUrl && (
+                      <img
+                        src={video.thumbnailUrl}
+                        alt={video.title}
+                        loading="lazy"
+                        className="w-full h-full object-cover transition-transform group-hover/thumb:scale-105"
+                      />
+                    )}
+                    <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-0.5 bg-black/70 rounded text-xs text-white">
+                      <Eye className="w-3 h-3" />
+                      {formatCount(video.views)}
+                    </div>
+                    {video.videoUrl && (
+                      <span className="absolute bottom-2 right-2 flex items-center gap-1 text-[11px] font-medium text-white bg-black/70 px-2 py-1 rounded opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+                        <ExternalLink className="w-3 h-3" /> Open
+                      </span>
+                    )}
+                  </a>
+
+                  {/* Body */}
+                  <div className="flex-1 p-4 sm:p-5 min-w-0 basis-[280px]">
+                    <a
+                      href={video.videoUrl || undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`text-sm font-semibold text-white line-clamp-2 ${
+                        video.videoUrl ? 'hover:text-[#fa7517]' : 'pointer-events-none'
+                      }`}
+                    >
+                      {video.title}
+                    </a>
+
+                    {/* Observed — countable facts */}
+                    {video.observed && video.observed.length > 0 && (
+                      <>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mt-4 mb-2">
+                          Observed
+                        </p>
+                        <ul className="space-y-1.5">
+                          {video.observed.map((fact, i) => (
+                            <li
+                              key={i}
+                              className="flex items-start gap-2 text-sm text-gray-300"
+                            >
+                              <span className="text-gray-600 mt-1.5 w-1 h-1 rounded-full bg-gray-600 flex-shrink-0" />
+                              {fact}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+
+                    {/* Hypothesis — visually hedged: dashed border, muted, labelled */}
+                    {video.hypothesis && (
+                      <div className="mt-4 p-3 bg-white/[0.02] border border-dashed border-gray-700 rounded-xl">
+                        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          Hypothesis
+                          <span className="normal-case font-normal tracking-normal text-gray-600">
+                            — unproven until tested
+                          </span>
+                        </p>
+                        <p className="text-sm text-gray-400 italic leading-relaxed">
+                          {video.hypothesis}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Connected-mode metrics */}
+                    {video.metrics && <MetricsRow metrics={video.metrics} />}
+
+                    {/* Link to the experiment that covers this video */}
+                    {experiment && (
+                      <button
+                        onClick={() => scrollToAnchor(experimentAnchorId(experiment.id))}
+                        className="mt-4 inline-flex items-center gap-2 px-3 py-2 bg-[#fa7517]/10 hover:bg-[#fa7517]/20 border border-[#fa7517]/25 rounded-lg text-xs font-semibold text-[#fa7517] transition-colors"
+                      >
+                        <FlaskConical className="w-3.5 h-3.5" />
+                        Experiment {experiment.priority}: {experiment.title}
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* 3. EXPERIMENTS TO RUN                                               */}
+      {/* ------------------------------------------------------------------ */}
+      {orderedExperiments.length > 0 && (
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="bg-black/50 border border-gray-800/30 rounded-2xl p-5 sm:p-6 backdrop-blur-sm mb-6"
+          transition={{ delay: 0.1 }}
+          className="mb-8"
         >
-          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <ListChecks className="w-5 h-5 text-[#fa7517]" />
-            Do these first
+          <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+            <FlaskConical className="w-5 h-5 text-[#fa7517]" />
+            Experiments to run
           </h2>
-          <div className="space-y-3">
-            {prioritizedFixes.map((fix, i) => (
+          <p className="text-sm text-gray-500 mb-4">
+            In order. Each one is a single change you can actually prove or disprove.
+          </p>
+
+          <div className="space-y-4">
+            {orderedExperiments.map((experiment) => (
               <div
-                key={i}
-                className="flex items-start gap-3 p-4 bg-black/40 border border-gray-800/50 rounded-xl"
+                key={experiment.id}
+                id={experimentAnchorId(experiment.id)}
+                className="scroll-mt-24 bg-black/50 border border-gray-800/30 rounded-2xl p-5 sm:p-6 backdrop-blur-sm"
               >
-                <span
-                  className={`mt-0.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded border ${
-                    impactStyles[fix.impact] ?? impactStyles.medium
-                  }`}
-                >
-                  {fix.impact}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white">{fix.title}</p>
-                  <p className="text-sm text-gray-400 mt-1">{fix.detail}</p>
+                <div className="flex items-start gap-4">
+                  <span className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-[#fa7517]/25 to-orange-500/10 border border-[#fa7517]/30 flex items-center justify-center text-sm font-bold text-[#fa7517]">
+                    {experiment.priority}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-bold text-white leading-snug">
+                      {experiment.title}
+                    </h3>
+
+                    {experiment.hypothesis && (
+                      <div className="mt-3 p-3 bg-white/[0.02] border border-dashed border-gray-700 rounded-xl">
+                        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                          Hypothesis
+                        </p>
+                        <p className="text-sm text-gray-400 italic leading-relaxed">
+                          {experiment.hypothesis}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Variant brief */}
+                    <div className="mt-3 p-4 bg-[#fa7517]/5 border border-[#fa7517]/15 rounded-xl">
+                      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#fa7517] mb-2">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Variant brief
+                      </p>
+                      <p className="text-sm text-gray-300 leading-relaxed">
+                        <span className="text-gray-500">Thumbnail — </span>
+                        {experiment.variantBrief.thumbnail}
+                      </p>
+                      {experiment.variantBrief.title && (
+                        <p className="text-sm text-gray-300 leading-relaxed mt-2">
+                          <span className="text-gray-500">Title — </span>
+                          {experiment.variantBrief.title}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Method */}
+                    {experiment.method && (
+                      <p className="mt-3 text-sm text-gray-400">
+                        <span className="text-gray-500 font-medium">How to measure: </span>
+                        {experiment.method}
+                      </p>
+                    )}
+
+                    {/* Affected videos — link back to their evidence cards */}
+                    {experiment.videoIds && experiment.videoIds.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                          Affected videos
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {experiment.videoIds.map((videoId) => (
+                            <button
+                              key={videoId}
+                              onClick={() => scrollToAnchor(videoAnchorId(videoId))}
+                              className="max-w-full px-2.5 py-1.5 bg-black/40 hover:bg-white/5 border border-gray-800/60 hover:border-[#fa7517]/30 rounded-lg text-xs text-gray-400 hover:text-white transition-colors truncate"
+                            >
+                              {videoTitleById.get(videoId) ?? videoId}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => handleGenerateVariant(experiment)}
+                      className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 text-white text-sm font-semibold rounded-xl shadow-lg shadow-[#fa7517]/25 transition-all min-h-[44px]"
+                    >
+                      <Wand2 className="w-4 h-4" />
+                      Generate this variant
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -157,370 +528,207 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
         </motion.section>
       )}
 
-      {/* Niche benchmark — "channels your size winning do X, you do Y" */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-black/50 border border-gray-800/30 rounded-2xl p-5 sm:p-6 backdrop-blur-sm mb-6"
-      >
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-[#fa7517]" />
-            Channels your size that are winning
+      {/* ------------------------------------------------------------------ */}
+      {/* 4. SWIPE FILE                                                       */}
+      {/* ------------------------------------------------------------------ */}
+      {swipeFile && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-black/50 border border-gray-800/30 rounded-2xl p-5 sm:p-6 backdrop-blur-sm mb-8"
+        >
+          <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+            <BookMarked className="w-5 h-5 text-[#fa7517]" />
+            Swipe file
           </h2>
-          {nicheBenchmark?.band && (
-            <span className="text-xs text-gray-500">
-              peer band: {formatCount(nicheBenchmark.band.min)}–{formatCount(nicheBenchmark.band.max)} subs
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-gray-500 mb-5">
-          Benchmarked on views relative to subscriber count — not a copy of mega-channels.
-        </p>
-
-        <div className="grid md:grid-cols-2 gap-5 mb-5">
-          {/* Winners do X */}
-          <div className="p-4 bg-green-500/5 border border-green-500/15 rounded-xl">
-            <p className="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4" />
-              Winners do this
-            </p>
-            {winningPatterns.length > 0 ? (
-              <ul className="space-y-2">
-                {winningPatterns.map((p, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                    <span className="text-green-400 mt-0.5">•</span>
-                    {p}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">No winning patterns detected.</p>
-            )}
-          </div>
-
-          {/* You do Y */}
-          <div className="p-4 bg-red-500/5 border border-red-500/15 rounded-xl">
-            <p className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" />
-              You do this
-            </p>
-            {yourGap.length > 0 ? (
-              <ul className="space-y-2">
-                {yourGap.map((g, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                    <span className="text-red-400 mt-0.5">•</span>
-                    {g}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">No major gaps detected.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Example peers */}
-        {examplePeers.length > 0 && (
-          <div>
-            <p className="text-sm font-medium text-gray-400 mb-3">Real peer examples</p>
-            {/* Fixed-width cards so a thumbnail never renders far above its native
-                resolution (YouTube thumbs are 320–480px wide → no upscale blur). */}
-            <div className="flex flex-wrap gap-4">
-              {examplePeers.map((peer, i) => (
-                <div
-                  key={i}
-                  className="bg-black/40 border border-gray-800/50 rounded-xl overflow-hidden group w-full sm:w-[280px]"
-                >
-                  <a
-                    href={peer.videoUrl || undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`relative block aspect-video bg-black/40 overflow-hidden ${peer.videoUrl ? 'cursor-pointer' : 'pointer-events-none'}`}
-                  >
-                    {peer.thumbnailUrl && (
-                      <img
-                        src={peer.thumbnailUrl}
-                        alt={peer.title}
-                        loading="lazy"
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      />
-                    )}
-                    {peer.videoUrl && (
-                      <span className="absolute bottom-2 right-2 flex items-center gap-1 text-[11px] font-medium text-white bg-black/70 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                        <ExternalLink className="w-3 h-3" /> Watch
-                      </span>
-                    )}
-                  </a>
-                  <div className="p-3">
-                    <a
-                      href={peer.videoUrl || undefined}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`text-sm text-white font-medium line-clamp-2 ${peer.videoUrl ? 'hover:text-[#fa7517]' : ''}`}
-                    >
-                      {peer.title}
-                    </a>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {formatCount(peer.subscribers)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Eye className="w-3 h-3" />
-                        {formatCount(peer.views)}
-                      </span>
-                    </div>
-                    {peer.whyItWorks && (
-                      <p className="text-xs text-gray-400 mt-2 italic">{peer.whyItWorks}</p>
-                    )}
-                    {peer.channelUrl && (
-                      <a
-                        href={peer.channelUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-white mt-2"
-                      >
-                        View channel <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </motion.section>
-
-      {/* Performance pattern */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="bg-black/50 border border-gray-800/30 rounded-2xl p-5 sm:p-6 backdrop-blur-sm mb-6"
-      >
-        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-[#fa7517]" />
-          Your performance pattern
-        </h2>
-
-        {performancePattern?.verdict && (
-          <p className="text-sm text-gray-300 bg-black/40 border border-gray-800/50 rounded-xl p-4 mb-5">
-            {performancePattern.verdict}
+          <p className="text-sm text-gray-500 mb-3">
+            Packaging worth studying in your niche. Reference material — not a scoreboard.
           </p>
-        )}
 
-        <div className="grid sm:grid-cols-3 gap-3 mb-5">
-          <div className="p-4 bg-black/40 border border-gray-800/50 rounded-xl text-center">
-            <p className="text-xs text-gray-500 mb-1">Median views</p>
-            <p className="text-xl font-bold text-white">{formatCount(performancePattern?.median)}</p>
-          </div>
-          <div className="p-4 bg-black/40 border border-gray-800/50 rounded-xl text-center">
-            <p className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
-              <Type className="w-3 h-3" /> Avg title length
-            </p>
-            <p className="text-xl font-bold text-white">
-              {performancePattern?.titleStats?.avgWordCount ?? '—'}
-              <span className="text-sm text-gray-500 font-normal"> words</span>
-            </p>
-            {performancePattern?.titleStats?.overLong && (
-              <p className="text-[11px] text-orange-400 mt-1">titles run long</p>
+          {/* Size honesty: aspirational must be unmissable */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {swipeIsAspirational ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs font-semibold text-amber-300">
+                <Info className="w-3.5 h-3.5" />
+                larger channels — for inspiration, not comparison
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-medium text-gray-400">
+                <Users className="w-3.5 h-3.5" />
+                {swipeFile.size?.match === 'mixed'
+                  ? 'mixed sizes — check the subscriber count on each'
+                  : 'similar-sized channels'}
+              </span>
+            )}
+            {swipeFile.size?.label && (
+              <span className="text-xs text-gray-500">{swipeFile.size.label}</span>
             )}
           </div>
-          <div className="p-4 bg-black/40 border border-gray-800/50 rounded-xl text-center">
-            <p className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
-              <Layers className="w-3 h-3" /> Formats found
-            </p>
-            <p className="text-xl font-bold text-white">{formatClusters.length}</p>
-          </div>
-        </div>
 
-        {/* Format clusters — only meaningful when there's more than one type to compare */}
-        {formatClusters.length >= 2 && (
-          <div className="mb-5">
-            <p className="text-sm font-medium text-gray-400 mb-2">
-              How your content types perform{' '}
-              <span className="text-gray-600">— median views per format, best first</span>
-            </p>
-            <div className="space-y-2">
-              {formatClusters.map((cluster, i) => (
-                <div
+          {/* Search queries used to build it */}
+          {swipeFile.searchQueries && swipeFile.searchQueries.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-5">
+              <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Search className="w-3.5 h-3.5" />
+                Found via:
+              </span>
+              {swipeFile.searchQueries.map((query, i) => (
+                <span
                   key={i}
-                  className="flex items-center justify-between gap-3 p-3 bg-black/40 border border-gray-800/50 rounded-xl"
+                  className="px-2.5 py-1 bg-black/40 border border-gray-800/60 rounded-lg text-xs text-gray-400"
                 >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-white truncate flex items-center gap-2">
-                      {i === 0 && formatClusters.length > 1 && (
-                        <span className="text-[10px] font-semibold text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded">
-                          BEST
-                        </span>
-                      )}
-                      {cluster.label}
-                    </p>
-                    {cluster.sampleTitles && cluster.sampleTitles.length > 0 && (
-                      <p className="text-xs text-gray-500 truncate">
-                        e.g. {cluster.sampleTitles[0]}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-semibold text-white">
-                      {formatCount(cluster.medianViews)}
-                    </p>
-                    <p className="text-[11px] text-gray-500">
-                      median · {cluster.videoCount} video{cluster.videoCount === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                </div>
+                  {query}
+                </span>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Outliers */}
-        {(overperformers.length > 0 || underperformers.length > 0) && (
-          <div className="grid sm:grid-cols-2 gap-4">
-            {overperformers.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-green-400 mb-2 flex items-center gap-1.5">
-                  <TrendingUp className="w-4 h-4" /> Overperformers
-                </p>
-                <div className="space-y-1.5">
-                  {overperformers.map((o, i) => (
-                    <div key={i} className="flex items-center justify-between gap-2 text-sm">
-                      <span className="text-gray-300 truncate">{o.title}</span>
-                      <span className="text-green-400 font-medium flex-shrink-0">
-                        {o.ratio.toFixed(1)}×
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {underperformers.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-red-400 mb-2 flex items-center gap-1.5">
-                  <TrendingDown className="w-4 h-4" /> Underperformers
-                </p>
-                <div className="space-y-1.5">
-                  {underperformers.map((o, i) => (
-                    <div key={i} className="flex items-center justify-between gap-2 text-sm">
-                      <span className="text-gray-300 truncate">{o.title}</span>
-                      <span className="text-red-400 font-medium flex-shrink-0">
-                        {o.ratio.toFixed(2)}×
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </motion.section>
-
-      {/* Per-video critique + fix CTA */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-          <Target className="w-5 h-5 text-[#fa7517]" />
-          Video-by-video packaging read
-        </h2>
-
-        <div className="space-y-4">
-          {perVideo.map((video, index) => (
-            <motion.div
-              key={video.videoId || index}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 * index }}
-              className="bg-black/50 border border-gray-800/30 rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#fa7517]/30 transition-colors"
-            >
-              <div className="flex flex-col sm:flex-row">
-                {/* Thumbnail */}
+          {/* Examples — fixed 280px cards, no upscale blur */}
+          <div className="flex flex-wrap gap-4">
+            {(swipeFile.examples ?? []).map((example, i) => (
+              <div
+                key={i}
+                className="bg-black/40 border border-gray-800/50 rounded-xl overflow-hidden group w-[280px] max-w-full"
+              >
                 <a
-                  href={video.videoUrl || undefined}
+                  href={example.videoUrl || undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`group/thumb relative w-full sm:w-64 flex-shrink-0 aspect-video bg-black/40 overflow-hidden block ${video.videoUrl ? 'cursor-pointer' : 'pointer-events-none'}`}
+                  style={{ aspectRatio: '16 / 9' }}
+                  className={`relative block bg-black/40 overflow-hidden ${
+                    example.videoUrl ? 'cursor-pointer' : 'pointer-events-none'
+                  }`}
                 >
-                  {video.thumbnailUrl && (
+                  {example.thumbnailUrl && (
                     <img
-                      src={video.thumbnailUrl}
-                      alt={video.title}
+                      src={example.thumbnailUrl}
+                      alt={example.title}
                       loading="lazy"
-                      className="w-full h-full object-cover transition-transform group-hover/thumb:scale-105"
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
                     />
                   )}
-                  <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-0.5 bg-black/70 rounded text-xs text-white">
-                    <Eye className="w-3 h-3" />
-                    {formatCount(video.views)}
-                  </div>
-                  {video.videoUrl && (
-                    <span className="absolute bottom-2 right-2 flex items-center gap-1 text-[11px] font-medium text-white bg-black/70 px-2 py-1 rounded opacity-0 group-hover/thumb:opacity-100 transition-opacity">
-                      <ExternalLink className="w-3 h-3" /> Open
+                  {example.videoUrl && (
+                    <span className="absolute bottom-2 right-2 flex items-center gap-1 text-[11px] font-medium text-white bg-black/70 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ExternalLink className="w-3 h-3" /> Watch on YouTube
                     </span>
                   )}
                 </a>
-
-                {/* Body */}
-                <div className="flex-1 p-4 sm:p-5 min-w-0">
-                  <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="p-3">
+                  <a
+                    href={example.videoUrl || undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`text-sm text-white font-medium line-clamp-2 ${
+                      example.videoUrl ? 'hover:text-[#fa7517]' : 'pointer-events-none'
+                    }`}
+                  >
+                    {example.title}
+                  </a>
+                  <p className="text-xs text-gray-400 mt-1 truncate">{example.channelTitle}</p>
+                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {formatCount(example.subscribers)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Eye className="w-3 h-3" />
+                      {formatCount(example.views)}
+                    </span>
+                  </div>
+                  {example.whyInteresting && (
+                    <p className="text-xs text-gray-400 mt-2">{example.whyInteresting}</p>
+                  )}
+                  {example.channelUrl && (
                     <a
-                      href={video.videoUrl || undefined}
+                      href={example.channelUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`text-sm font-semibold text-white line-clamp-2 ${video.videoUrl ? 'hover:text-[#fa7517]' : ''}`}
+                      className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-white mt-2"
                     >
-                      {video.title}
+                      View channel <ExternalLink className="w-3 h-3" />
                     </a>
-                    {typeof video.score === 'number' && (
-                      <span
-                        className={`text-sm font-bold flex-shrink-0 ${scoreColor(video.score)}`}
-                        title="Packaging score"
-                      >
-                        {video.score}/10
-                      </span>
-                    )}
-                  </div>
-
-                  {video.issues && video.issues.length > 0 && (
-                    <ul className="space-y-1.5 mb-4">
-                      {video.issues.map((issue, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-gray-400">
-                          <AlertTriangle className="w-3.5 h-3.5 text-orange-400 flex-shrink-0 mt-0.5" />
-                          {issue}
-                        </li>
-                      ))}
-                    </ul>
                   )}
-
-                  {video.fix && (
-                    <div className="p-3 bg-[#fa7517]/5 border border-[#fa7517]/15 rounded-xl mb-4">
-                      <p className="text-sm text-gray-300">
-                        <span className="text-[#fa7517] font-semibold">Fix: </span>
-                        {video.fix}
-                      </p>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => handleFixVideo(video)}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 text-white text-sm font-semibold rounded-xl shadow-lg shadow-[#fa7517]/25 transition-all min-h-[44px]"
-                  >
-                    <Wand2 className="w-4 h-4" />
-                    Fix this
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
-            </motion.div>
-          ))}
-        </div>
-      </motion.section>
+            ))}
+          </div>
+        </motion.section>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* 5. REVIEW QUEUE                                                     */}
+      {/* ------------------------------------------------------------------ */}
+      {reviewQueue && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-black/50 border border-gray-800/30 rounded-2xl p-5 sm:p-6 backdrop-blur-sm mb-6"
+        >
+          <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+            <ListChecks className="w-5 h-5 text-[#fa7517]" />
+            Review queue
+          </h2>
+          <p className="text-sm text-gray-500 mb-3">
+            Where this sample sits around its own median of{' '}
+            <span className="text-gray-300">{formatCount(reviewQueue.medianViews)}</span> views.
+            Descriptive only — a starting point for what to look at next.
+          </p>
+
+          {/* MANDATORY caveat */}
+          <p className="inline-flex items-center gap-1.5 px-3 py-1.5 mb-5 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-400">
+            <Info className="w-3.5 h-3.5 flex-shrink-0" />
+            views not adjusted for upload age
+          </p>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm font-medium text-gray-300 mb-2">Far above the median</p>
+              <div className="space-y-1.5">
+                {reviewQueue.high.length > 0 ? (
+                  reviewQueue.high.map((item, i) => (
+                    <button
+                      key={item.videoId || i}
+                      onClick={() => scrollToAnchor(videoAnchorId(item.videoId))}
+                      className="w-full flex items-center justify-between gap-2 text-left text-sm px-3 py-2 bg-black/40 border border-gray-800/60 hover:border-[#fa7517]/30 rounded-lg transition-colors"
+                    >
+                      <span className="text-gray-300 truncate">{item.title}</span>
+                      <span className="text-gray-400 tabular-nums flex-shrink-0">
+                        {formatCount(item.views)}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">None in this sample.</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-gray-300 mb-2">Far below the median</p>
+              <div className="space-y-1.5">
+                {reviewQueue.low.length > 0 ? (
+                  reviewQueue.low.map((item, i) => (
+                    <button
+                      key={item.videoId || i}
+                      onClick={() => scrollToAnchor(videoAnchorId(item.videoId))}
+                      className="w-full flex items-center justify-between gap-2 text-left text-sm px-3 py-2 bg-black/40 border border-gray-800/60 hover:border-[#fa7517]/30 rounded-lg transition-colors"
+                    >
+                      <span className="text-gray-300 truncate">{item.title}</span>
+                      <span className="text-gray-400 tabular-nums flex-shrink-0">
+                        {formatCount(item.views)}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">None in this sample.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.section>
+      )}
     </div>
   );
 };

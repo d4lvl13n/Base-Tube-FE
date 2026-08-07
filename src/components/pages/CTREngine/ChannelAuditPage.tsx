@@ -1,9 +1,10 @@
 // src/components/pages/CTREngine/ChannelAuditPage.tsx
 // Channel Packaging Audit — the hero feature.
-// Paste a channel URL → POST /api/v1/ctr/channel-audit → render the
-// ChannelPackagingAudit report (per-video critique, channel patterns, and a
-// "channels your size winning do X — you do Y" niche benchmark).
-// No CTR is shown — the benchmark is views-relative-to-subscribers only.
+// Paste a channel URL → POST /api/v1/ctr/channel-audit → render the v2 report:
+// positioning, an evidence board of observed facts + hedged hypotheses, the
+// experiments to run, a swipe file, and a descriptive review queue.
+// It does NOT claim to know why a video wasn't clicked — it says what is there
+// and what to test. Legacy v1 rows render through the minimal legacy view.
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,14 +14,14 @@ import {
   X,
   RefreshCw,
   Link2,
-  Users,
-  Trophy,
-  Target,
+  ClipboardList,
+  BookMarked,
+  FlaskConical,
 } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import useCTREngine from '../../../hooks/useCTREngine';
 import ctrApi from '../../../api/ctr';
-import type { ChannelPackagingAudit } from '../../../types/ctr';
+import type { ChannelAuditResult } from '../../../types/ctr';
 import { ChannelAuditReport } from './components/ChannelAuditReport';
 import ChannelAuditProgress from './components/ChannelAuditProgress';
 
@@ -35,9 +36,29 @@ const ChannelAuditPage: React.FC = () => {
   const { usageAccess, isLoadingQuota } = useCTREngine();
 
   const [channelUrl, setChannelUrl] = useState('');
-  const [audit, setAudit] = useState<ChannelPackagingAudit | null>(null);
+  const [audit, setAudit] = useState<ChannelAuditResult | null>(null);
   const [isAuditing, setIsAuditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // DEV ONLY — render the frozen-contract fixture without a backend:
+  //   /ai-thumbnails/channel-audit?fixture=v2 | preview | syncing | v1
+  // Lazy import so the fixture never reaches a production bundle.
+  React.useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    const which = new URLSearchParams(window.location.search).get('fixture');
+    if (!which) return;
+    let cancelled = false;
+    import('../../../mocks/channelAuditV2.fixture').then((m) => {
+      if (cancelled) return;
+      if (which === 'v1') setAudit(m.channelAuditV1LegacyFixture);
+      else if (which === 'preview') setAudit(m.channelAuditV2PreviewFixture);
+      else if (which === 'syncing') setAudit(m.channelAuditV2SyncingFixture);
+      else setAudit(m.channelAuditV2Fixture);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,9 +133,9 @@ const ChannelAuditPage: React.FC = () => {
                 Channel Packaging Audit
               </h1>
               <p className="text-gray-400 max-w-xl mx-auto">
-                Paste a channel and find out why your last videos don't get clicked —
-                per video, in your niche, benchmarked against channels your size that
-                are winning.
+                See what a strategist would change — and how to prove it. Paste a channel
+                and get what's actually observable in your packaging, plus the experiments
+                that would settle it.
               </p>
             </div>
 
@@ -195,19 +216,19 @@ const ChannelAuditPage: React.FC = () => {
             >
               {[
                 {
-                  icon: Target,
-                  title: 'Per-video read',
-                  desc: 'Why each weak video fails — title + thumbnail.',
+                  icon: ClipboardList,
+                  title: 'Evidence',
+                  desc: 'What is literally there in each thumbnail and title — counted, not guessed.',
                 },
                 {
-                  icon: Trophy,
-                  title: 'Size-band benchmark',
-                  desc: 'What channels your size winning do differently.',
+                  icon: FlaskConical,
+                  title: 'Experiments',
+                  desc: 'Ordered, falsifiable tests with a variant brief and how to measure it.',
                 },
                 {
-                  icon: Users,
-                  title: 'Fix it in one click',
-                  desc: 'Send any weak video into the concept generator.',
+                  icon: BookMarked,
+                  title: 'Swipe file',
+                  desc: 'Packaging worth studying in your niche, honestly labelled by size.',
                 },
               ].map((feature) => (
                 <div

@@ -26,7 +26,7 @@ import {
   ThumbnailAudit,
   AuditContext,
   CTRUsageAccess,
-  ChannelPackagingAudit,
+  ChannelAuditResult,
   ChannelAuditRequest,
   ChannelAuditResponse,
 } from '../types/ctr';
@@ -125,18 +125,20 @@ export const ctrApi = {
   /**
    * Run a full channel packaging audit.
    *
-   * Paste a channel URL / @handle → the backend fetches the last ~15-20 videos,
-   * runs a per-video packaging critique, detects channel-wide patterns, and
-   * benchmarks against channels in the same niche + subscriber band. Returns a
-   * `ChannelPackagingAudit` (spec §5). No CTR is involved — the benchmark is
-   * views-relative-to-subscribers only.
+   * Paste a channel URL / @handle → the backend observes the last ~15-20
+   * thumbnails + titles, records what is literally there, and returns hedged
+   * hypotheses plus falsifiable experiments (`ChannelPackagingAuditV2`).
+   *
+   * The response is a UNION: freshly-run audits are v2 (`schemaVersion: 2`);
+   * audits persisted before the v2 contract come back as legacy v1 rows.
+   * Callers MUST narrow with `isChannelAuditV2()` — never cast.
    *
    * Auth optional: 1 free audit, then credit-costed (`channel.audit`).
    *
    * @param channelUrl - Channel URL, @handle, or channel id
-   * @returns The full packaging audit report
+   * @returns The full packaging audit report (v2, or a legacy v1 row)
    */
-  auditChannel: async (channelUrl: string): Promise<ChannelPackagingAudit> => {
+  auditChannel: async (channelUrl: string): Promise<ChannelAuditResult> => {
     const response = await api.post<ChannelAuditResponse | CTRErrorResponse>(
       `${CTR_BASE_PATH}/channel-audit`,
       { channelUrl } as ChannelAuditRequest

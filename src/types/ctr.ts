@@ -482,11 +482,10 @@ export interface AuditProgress {
 }
 
 // ============================================================================
-// CHANNEL PACKAGING AUDIT TYPES
-// Mirrors the backend `ChannelPackagingAudit` contract
-// (docs/specs/channel-packaging-audit-spec.md §5) returned by
-// POST /api/v1/ctr/channel-audit. No CTR is part of this contract — the
-// benchmark signal is views-relative-to-subscribers only.
+// CHANNEL PACKAGING AUDIT TYPES — V1 (LEGACY)
+// Persisted v1 audits (rows written before schemaVersion: 2) still come back
+// from GET /ctr/audits/:id tagged `schemaVersion: 1`. They render through a
+// minimal legacy view — never crash on them, never silently cast them to v2.
 // ============================================================================
 
 /** A single over/under-performing video vs the channel median (views / channelMedian). */
@@ -563,8 +562,14 @@ export interface ChannelPrioritizedFix {
   impact: FixImpact;
 }
 
-/** The hero-feature response contract (spec §5). */
+/**
+ * LEGACY (v1) channel audit. Kept so persisted rows still render.
+ * Everything below `headline` is optional in practice on old rows — the legacy
+ * view only leans on `headline` + `perVideo[].issues/fix`.
+ */
 export interface ChannelPackagingAudit {
+  /** Absent on the original rows; the backend stamps `1` when it serves them. */
+  schemaVersion?: 1;
   channel: {
     title: string;
     subscribers: number;
@@ -572,12 +577,135 @@ export interface ChannelPackagingAudit {
     videosAnalyzed: number;
   };
   headline: string;
-  performancePattern: PackagingPattern;
-  nicheBenchmark: ChannelNicheBenchmark;
+  performancePattern?: PackagingPattern;
+  nicheBenchmark?: ChannelNicheBenchmark;
   perVideo: ChannelAuditPerVideo[];
-  prioritizedFixes: ChannelPrioritizedFix[];
+  prioritizedFixes?: ChannelPrioritizedFix[];
   /** Present but de-emphasized in the UI (spec §5). */
   score?: number;
+}
+
+// ============================================================================
+// CHANNEL PACKAGING AUDIT TYPES — V2 (FROZEN CONTRACT)
+// Mirrors the frozen `ChannelPackagingAuditV2` interface in
+// base-be docs/specs/moat-phase-0-1-spec.md ("THE v2 AUDIT CONTRACT").
+// Product shape: observed evidence + hedged hypotheses + falsifiable
+// experiments. NOT scores, NOT causal claims, NOT winners-vs-you benchmarks.
+// Do not add fields here that the backend does not send.
+// ============================================================================
+
+/** Connected-mode only. Real numbers from the YouTube Analytics/Reporting APIs. */
+export interface ChannelAuditV2VideoMetrics {
+  impressions: number | null;
+  /** Impression-weighted click-through rate, as a percentage (e.g. 4.2). */
+  ctr: number | null;
+  averageViewDuration: number | null;
+  /** Impression-volume tier — gates how strongly anything may be read into CTR. */
+  evidenceStrength: 'insufficient' | 'directional' | 'observational';
+  dominantTrafficSource: string | null;
+  /** e.g. "below your browse-matched baseline"; null when no valid cohort. */
+  baselineDelta: string | null;
+}
+
+/** One audited video: what is literally observable + one hedged hypothesis. */
+export interface ChannelAuditV2PerVideo {
+  videoId: string;
+  title: string;
+  views: number;
+  thumbnailUrl: string;
+  videoUrl: string;
+  /** Literally visible/countable facts only — no interpretation. */
+  observed: string[];
+  /** Hedged, never causal ("may", "could"). */
+  hypothesis: string;
+  /** References `experiments[].id`; null when no experiment covers this video. */
+  experimentId: string | null;
+  metrics?: ChannelAuditV2VideoMetrics;
+}
+
+/** A falsifiable test the creator can actually run. */
+export interface ChannelAuditV2Experiment {
+  id: string;
+  title: string;
+  hypothesis: string;
+  variantBrief: { thumbnail: string; title?: string };
+  /** e.g. "YouTube Test & Compare, 2 variants, ≥X impressions". */
+  method: string;
+  /** 1 = run this first. Never high/medium/low. */
+  priority: number;
+  videoIds: string[];
+}
+
+/** How the swipe-file sample relates to the audited channel's size. */
+export interface ChannelAuditV2SwipeSize {
+  match: 'size_matched' | 'aspirational' | 'mixed';
+  minSubscribers: number;
+  maxSubscribers: number;
+  /** Human string derived from the structured fields. */
+  label: string;
+}
+
+export interface ChannelAuditV2SwipeExample {
+  title: string;
+  channelTitle: string;
+  subscribers: number;
+  views: number;
+  thumbnailUrl: string;
+  videoUrl: string;
+  channelUrl: string;
+  whyInteresting: string;
+}
+
+export interface ChannelAuditV2SwipeFile {
+  searchQueries: string[];
+  size: ChannelAuditV2SwipeSize;
+  examples: ChannelAuditV2SwipeExample[];
+}
+
+export interface ChannelAuditV2ReviewQueueItem {
+  videoId: string;
+  title: string;
+  views: number;
+}
+
+/** Descriptive only — the "upload age not adjusted" caveat is mandatory in the FE. */
+export interface ChannelAuditV2ReviewQueue {
+  medianViews: number;
+  high: ChannelAuditV2ReviewQueueItem[];
+  low: ChannelAuditV2ReviewQueueItem[];
+}
+
+/** The frozen v2 audit contract. */
+export interface ChannelPackagingAuditV2 {
+  schemaVersion: 2;
+  mode: 'preview' | 'connected';
+  id?: number;
+  channel: {
+    title: string;
+    subscribers: number;
+    niche: string;
+    videosAnalyzed: number;
+  };
+  /** Analyst-inferred read of what the channel is — rendered first. */
+  positioning: string;
+  /** Sharp but NON-CAUSAL diagnosis. */
+  headline: string;
+  perVideo: ChannelAuditV2PerVideo[];
+  experiments: ChannelAuditV2Experiment[];
+  swipeFile: ChannelAuditV2SwipeFile;
+  reviewQueue: ChannelAuditV2ReviewQueue;
+  /** Connected mode only. */
+  analyticsStatus?: 'syncing' | 'ready' | 'reauth_required';
+}
+
+/** What the audit endpoints can hand back today: the new report, or a legacy row. */
+export type ChannelAuditResult = ChannelPackagingAuditV2 | ChannelPackagingAudit;
+
+/** Narrowing guard — the ONLY sanctioned way to tell the two apart. */
+export function isChannelAuditV2(
+  audit: ChannelAuditResult | null | undefined
+): audit is ChannelPackagingAuditV2 {
+  return !!audit && (audit as ChannelPackagingAuditV2).schemaVersion === 2;
 }
 
 /** POST /api/v1/ctr/channel-audit request body. */
@@ -588,7 +716,7 @@ export interface ChannelAuditRequest {
 /** POST /api/v1/ctr/channel-audit success envelope. */
 export interface ChannelAuditResponse {
   success: true;
-  data: ChannelPackagingAudit;
+  data: ChannelAuditResult;
 }
 
 // ============================================================================

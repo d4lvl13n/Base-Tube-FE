@@ -13,9 +13,9 @@ import { Link2, ListVideo, Users, ScanSearch, FileText, Check } from 'lucide-rea
 const STAGES = [
   { label: 'Resolving the channel', icon: Link2, secs: 4 },
   { label: 'Pulling your last videos', icon: ListVideo, secs: 5 },
-  { label: 'Finding channels your size', icon: Users, secs: 9 },
-  { label: 'Analyzing your thumbnails', icon: ScanSearch, secs: 38, hint: 'the deep part' },
-  { label: 'Writing your report', icon: FileText, secs: 8 },
+  { label: 'Building your swipe file', icon: Users, secs: 9 },
+  { label: 'Observing your thumbnails', icon: ScanSearch, secs: 38, hint: 'the deep part' },
+  { label: 'Writing up the experiments', icon: FileText, secs: 8 },
 ];
 const TOTAL = STAGES.reduce((a, s) => a + s.secs, 0); // ~64s of estimated headroom
 
