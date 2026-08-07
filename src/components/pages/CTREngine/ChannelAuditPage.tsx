@@ -160,25 +160,40 @@ const ChannelAuditPage: React.FC = () => {
   const [isRestoring, setIsRestoring] = useState(true);
   const [openingAuditId, setOpeningAuditId] = useState<number | null>(null);
 
+  /**
+   * Operation generation: every user intent (fresh audit, opening a history
+   * row) bumps it; the mount-time restore runs as generation 0. Each async
+   * flow re-checks its captured generation before committing, so ONLY the
+   * latest intent may write `audit` — a slow historical GET can never
+   * overwrite a fresh report that finished after it started.
+   */
+  const opRef = React.useRef(0);
+
   /** Open a persisted audit. Also primes the URL field so "re-run" works. */
   const openAudit = async (summary: ChannelAuditSummary) => {
     if (openingAuditId !== null || isAuditing) return;
+    const op = ++opRef.current;
     setError(null);
     setOpeningAuditId(summary.id);
     try {
       const stored = await ctrApi.getChannelAudit(summary.id);
+      if (opRef.current !== op) return;
       setAudit(stored);
       if (summary.channelRef) setChannelUrl(summary.channelRef);
     } catch (err: any) {
+      if (opRef.current !== op) return;
       setError(err?.message || 'Could not open that audit. Please try again.');
     } finally {
-      setOpeningAuditId(null);
+      if (opRef.current === op) setOpeningAuditId(null);
     }
   };
 
   // On load: fetch the history and auto-restore the latest audit. Skipped when
   // a dev fixture is driving the page. Any failure degrades to the empty form —
-  // restoring is a convenience, never a gate.
+  // restoring is a convenience, never a gate: the "Looking for your last
+  // audit…" beat is BOUNDED (the form appears after a short grace period even
+  // if the network stalls), and any user action supersedes the restore via the
+  // generation check.
   React.useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       const which = new URLSearchParams(window.location.search).get('fixture');
@@ -187,16 +202,21 @@ const ChannelAuditPage: React.FC = () => {
         return;
       }
     }
+    const op = opRef.current; // generation 0 — any user action invalidates it
     let cancelled = false;
+    // The shared API client tolerates very slow calls (long audit POSTs) — the
+    // restore must not inherit that patience. Unblock the form regardless; if
+    // the restore still completes later (and nothing else happened), it lands.
+    const graceTimer = window.setTimeout(() => setIsRestoring(false), 4000);
     (async () => {
       try {
         const summaries = await ctrApi.listChannelAudits();
-        if (cancelled) return;
+        if (cancelled || opRef.current !== op) return;
         setHistory(summaries);
         const latest = summaries[0];
         if (!latest) return;
         const stored = await ctrApi.getChannelAudit(latest.id);
-        if (cancelled) return;
+        if (cancelled || opRef.current !== op) return;
         setAudit((current) => current ?? stored);
         if (latest.channelRef) {
           setChannelUrl((current) => current || latest.channelRef);
@@ -204,11 +224,13 @@ const ChannelAuditPage: React.FC = () => {
       } catch {
         /* history is best-effort — the form is always available */
       } finally {
+        window.clearTimeout(graceTimer);
         if (!cancelled) setIsRestoring(false);
       }
     })();
     return () => {
       cancelled = true;
+      window.clearTimeout(graceTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -250,7 +272,8 @@ const ChannelAuditPage: React.FC = () => {
 
   const runAudit = async (rawUrl: string) => {
     const trimmed = rawUrl.trim();
-    if (!trimmed || isAuditing) return;
+    if (!trimmed || isAuditing || openingAuditId !== null) return;
+    const op = ++opRef.current;
 
     // Remembered so a creator who leaves for the Google consent screen can come
     // back and re-run the same audit without retyping it.
@@ -264,14 +287,18 @@ const ChannelAuditPage: React.FC = () => {
     setIsAuditing(true);
     try {
       const result = await ctrApi.auditChannel(trimmed);
+      if (opRef.current !== op) return;
       setAudit(result);
       // The fresh audit is now the newest history row — refresh the list so
       // "New audit" shows it without a page reload. Fire-and-forget.
-      void ctrApi.listChannelAudits().then(setHistory);
+      void ctrApi.listChannelAudits().then((summaries) => {
+        if (opRef.current === op) setHistory(summaries);
+      });
     } catch (err: any) {
+      if (opRef.current !== op) return;
       setError(err?.message || 'Failed to audit channel. Please try again.');
     } finally {
-      setIsAuditing(false);
+      if (opRef.current === op) setIsAuditing(false);
     }
   };
 
@@ -323,7 +350,7 @@ const ChannelAuditPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => runAudit(channelUrl)}
-                      disabled={isAuditing}
+                      disabled={isAuditing || isRestoring || openingAuditId !== null}
                       className="mt-3 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white
                                  bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90
                                  shadow-lg shadow-[#fa7517]/25 transition-all min-h-[44px]
@@ -454,7 +481,7 @@ const ChannelAuditPage: React.FC = () => {
                 />
                 <motion.button
                   type="submit"
-                  disabled={isAuditing || !channelUrl.trim()}
+                  disabled={isAuditing || openingAuditId !== null || !channelUrl.trim()}
                   whileHover={{ scale: !isAuditing && channelUrl.trim() ? 1.02 : 1 }}
                   whileTap={{ scale: !isAuditing && channelUrl.trim() ? 0.98 : 1 }}
                   className={`px-6 py-3.5 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2 min-h-[52px]
@@ -517,7 +544,7 @@ const ChannelAuditPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => openAudit(summary)}
-                        disabled={openingAuditId !== null}
+                        disabled={openingAuditId !== null || isAuditing}
                         className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-800/50 bg-black/40
                                    hover:border-[#fa7517]/30 transition-colors text-left min-h-[44px]
                                    disabled:opacity-60 disabled:cursor-not-allowed"

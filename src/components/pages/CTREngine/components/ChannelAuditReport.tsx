@@ -233,7 +233,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
 
   // v1 rows are never cast into the v2 shape — they get their own thin view.
   if (!isChannelAuditV2(audit)) {
-    return <ChannelAuditLegacyReport audit={audit} onReset={onReset} />;
+    return <ChannelAuditLegacyReport audit={audit} onReset={onReset} onRerun={onRerunAudit} />;
   }
 
   const v2: ChannelPackagingAuditV2 = audit;

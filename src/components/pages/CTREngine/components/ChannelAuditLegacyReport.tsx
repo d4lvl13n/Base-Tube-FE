@@ -12,6 +12,12 @@ import type { ChannelPackagingAudit } from '../../../../types/ctr';
 interface ChannelAuditLegacyReportProps {
   audit: ChannelPackagingAudit;
   onReset: () => void;
+  /**
+   * Re-runs the SAME channel directly. Distinct from onReset on purpose: reset
+   * clears the URL field, so routing the re-run CTA through it would open an
+   * empty form and lose the channel the creator is looking at.
+   */
+  onRerun?: () => void;
 }
 
 const formatCount = (value: number | undefined | null): string => {
@@ -24,6 +30,7 @@ const formatCount = (value: number | undefined | null): string => {
 export const ChannelAuditLegacyReport: React.FC<ChannelAuditLegacyReportProps> = ({
   audit,
   onReset,
+  onRerun,
 }) => {
   const { channel, headline, perVideo = [] } = audit;
 
@@ -112,7 +119,7 @@ export const ChannelAuditLegacyReport: React.FC<ChannelAuditLegacyReportProps> =
           each thumbnail, what to test next, and a swipe file to work from.
         </p>
         <button
-          onClick={onReset}
+          onClick={onRerun ?? onReset}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 text-white text-sm font-semibold rounded-xl shadow-lg shadow-[#fa7517]/25 transition-all min-h-[44px]"
         >
           <RefreshCw className="w-4 h-4" />
