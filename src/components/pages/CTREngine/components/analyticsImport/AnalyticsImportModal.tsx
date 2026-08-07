@@ -105,16 +105,28 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
     setUnavailable(false);
   }, []);
 
+  /**
+   * EVERY close path goes through here (Escape, backdrop, the X, re-run).
+   * The parent keeps this component mounted, so a close that skipped `reset`
+   * would resurrect the whole flow — including a checked number format — on
+   * the next open. Nothing is lost by resetting: the commit is explicit, so a
+   * closed modal has, by construction, imported nothing.
+   */
+  const handleClose = useCallback(() => {
+    reset();
+    onClose();
+  }, [reset, onClose]);
+
   // Close on Escape — a modal that traps a creator mid-upload is worse than one
   // they can leave and come back to.
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') handleClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
 
   const handleFile = async (file: File) => {
     setError(null);
@@ -262,7 +274,7 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center"
-      onClick={onClose}
+      onClick={handleClose}
       role="presentation"
     >
       <motion.div
@@ -288,7 +300,7 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close"
             className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
           >
@@ -369,8 +381,7 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
                 onStartOver={reset}
                 onRerunAudit={() => {
                   onImported(result);
-                  onClose();
-                  reset();
+                  handleClose();
                 }}
               />
             )}
