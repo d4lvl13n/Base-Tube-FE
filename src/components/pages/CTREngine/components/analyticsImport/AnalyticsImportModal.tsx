@@ -5,15 +5,16 @@
 //
 //   guide     export instructions + file drop  → POST /analytics-import/analyze
 //   mapping   ONLY when the parser says needsMapping
-//   coverage  MANDATORY date-range confirmation → POST /:id/confirm
-//   review    validation preview (matched / skipped / units) → Confirm
+//   coverage  MANDATORY date-range + number-format confirmation → POST /:id/confirm (DRY RUN)
+//   review    validation preview (matched / skipped / units) → POST /:id/commit
 //   done      success + "re-run the audit"
 //
-// Note on where the commit happens: `/confirm` is what produces the matched /
-// rejected / units figures, so it runs at the end of the COVERAGE step and the
-// review screen shows its result. "Confirm import" is therefore the user
-// accepting that result — and "Use a different file" walks back to the start
-// rather than editing a committed import.
+// Note on where the commit happens: `/confirm` is a DRY RUN — it produces the
+// matched / rejected / units figures plus a single-use validationToken, but
+// writes NOTHING. Only "Confirm import" on the review screen calls `/commit`
+// with that token. Closing the modal at the review step therefore imports
+// nothing, and "Use a different file" walks back to the start with zero rows
+// to undo.
 //
 // The endpoints are backend M2. Until they exist the analyze call 404s, which
 // `ctrApi` reports as ANALYTICS_IMPORT_UNAVAILABLE — rendered here as a plain
@@ -25,14 +26,16 @@ import { X, Upload, Clock } from 'lucide-react';
 import ctrApi, { ANALYTICS_IMPORT_UNAVAILABLE } from '../../../../../api/ctr';
 import type {
   AnalyticsImportAnalysis,
-  AnalyticsImportMapping,
+  AnalyticsImportField,
+  AnalyticsImportLocale,
   AnalyticsImportResult,
 } from '../../../../../types/ctr';
 import ImportGuideStep from './ImportGuideStep';
 import ImportMappingStep, {
   IMPORT_FIELDS,
   mappingIsUsable,
-  type HeaderAssignments,
+  toImportMapping,
+  type ColumnAssignments,
 } from './ImportMappingStep';
 import ImportCoverageStep, { coverageFromForm } from './ImportCoverageStep';
 import ImportReviewStep from './ImportReviewStep';
@@ -67,15 +70,18 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
 }) => {
   const [step, setStep] = useState<Step>('guide');
   const [analysis, setAnalysis] = useState<AnalyticsImportAnalysis | null>(null);
-  const [assignments, setAssignments] = useState<HeaderAssignments>({});
+  const [assignments, setAssignments] = useState<ColumnAssignments>({});
   const [coverageKind, setCoverageKind] = useState<'date_range' | 'lifetime' | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [locale, setLocale] = useState<AnalyticsImportLocale | null>(null);
+  const [localeWasDetected, setLocaleWasDetected] = useState(false);
   const [result, setResult] = useState<AnalyticsImportResult | null>(null);
   const [accepted, setAccepted] = useState(false);
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
@@ -86,10 +92,13 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
     setCoverageKind(null);
     setStartDate('');
     setEndDate('');
+    setLocale(null);
+    setLocaleWasDetected(false);
     setResult(null);
     setAccepted(false);
     setIsAnalyzing(false);
     setIsConfirming(false);
+    setIsCommitting(false);
     setError(null);
     setUnavailable(false);
   }, []);
@@ -121,14 +130,24 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
         return;
       }
 
-      // Seed the mapping form from the parser's suggestions (header → field).
-      const seeded: HeaderAssignments = {};
-      Object.entries(parsed.suggestedMapping ?? {}).forEach(([field, header]) => {
-        if (header) seeded[header] = field as keyof AnalyticsImportMapping;
+      // Seed the mapping form from the parser's suggestions (field → column
+      // INDEX — the index is the identity, duplicate headers are legal).
+      const seeded: ColumnAssignments = {};
+      const claimed = new Set<AnalyticsImportField>();
+      Object.entries(parsed.suggestedMapping ?? {}).forEach(([field, index]) => {
+        if (typeof index === 'number') {
+          seeded[index] = field as AnalyticsImportField;
+          claimed.add(field as AnalyticsImportField);
+        }
       });
       parsed.detectedColumns?.forEach((column) => {
-        if (!(column.header in seeded) && column.suggestedField) {
-          seeded[column.header] = column.suggestedField;
+        if (
+          seeded[column.index] === undefined &&
+          column.suggestedField &&
+          !claimed.has(column.suggestedField)
+        ) {
+          seeded[column.index] = column.suggestedField;
+          claimed.add(column.suggestedField);
         }
       });
       setAssignments(seeded);
@@ -138,6 +157,15 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
       const detected = parsed.detectedCoverage;
       if (detected?.startDate) setStartDate(detected.startDate.slice(0, 10));
       if (detected?.endDate) setEndDate(detected.endDate.slice(0, 10));
+
+      // Same rule for the number format: detection PREFILLS the selector on the
+      // coverage step, the user still confirms it. Anything we don't support
+      // stays unselected — there is no silent 'en' fallback anywhere.
+      const detectedLocale = parsed.detectedLocale;
+      const supported: AnalyticsImportLocale[] = ['en', 'fr', 'de', 'es'];
+      const prefill = supported.find((code) => code === detectedLocale) ?? null;
+      setLocale(prefill);
+      setLocaleWasDetected(prefill !== null);
 
       setStep(parsed.needsMapping ? 'mapping' : 'coverage');
     } catch (err: any) {
@@ -151,33 +179,27 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
     }
   };
 
-  /** Invert header → field back into the contract's field → header mapping. */
-  const buildMapping = (): AnalyticsImportMapping => {
-    const mapping: AnalyticsImportMapping = {};
-    Object.entries(assignments).forEach(([header, field]) => {
-      if (field) mapping[field] = header;
-    });
-    return mapping;
-  };
-
+  /**
+   * The DRY RUN. Validates mapping + coverage + locale server-side and comes
+   * back with the matched/skipped/units preview and a validationToken. Nothing
+   * is written yet.
+   */
   const handleConfirm = async () => {
     if (!analysis) return;
     const coverage = coverageFromForm(coverageKind, startDate, endDate);
-    if (!coverage) return;
-
-    const mapping = buildMapping();
-    // When the parser was confident we may have no assignments at all — send its
-    // suggestion through unchanged rather than an empty object.
-    const payloadMapping =
-      Object.keys(mapping).length > 0 ? mapping : analysis.suggestedMapping ?? {};
+    if (!coverage || !locale) return;
 
     setError(null);
     setIsConfirming(true);
     try {
       const confirmed = await ctrApi.confirmAnalyticsImport(analysis.importId, {
-        mapping: payloadMapping,
+        // Full mapping, one entry per canonical field: the column index, or an
+        // explicit null so an un-assigned suggestion can never silently survive.
+        // (Assignments were seeded from the parser's suggestion, so a confident
+        // parse with no mapping step still sends the right indices.)
+        mapping: toImportMapping(assignments),
         coverage,
-        locale: analysis.detectedLocale || undefined,
+        locale,
       });
       setResult(confirmed);
 
@@ -193,10 +215,39 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
       if (err?.message === ANALYTICS_IMPORT_UNAVAILABLE) {
         setUnavailable(true);
       } else {
-        setError(err?.message || 'Could not save that import. Please try again.');
+        setError(err?.message || 'Could not check that import. Please try again.');
       }
     } finally {
       setIsConfirming(false);
+    }
+  };
+
+  /** The WRITE. Spends the dry run's single-use token — this is the only call
+   *  that persists rows. */
+  const handleCommit = async () => {
+    if (!analysis || !result?.validationToken) {
+      setError('This preview has expired. Please upload the file again.');
+      return;
+    }
+
+    setError(null);
+    setIsCommitting(true);
+    try {
+      const committed = await ctrApi.commitAnalyticsImport(
+        analysis.importId,
+        result.validationToken
+      );
+      setResult(committed);
+      setAccepted(true);
+      setStep('done');
+    } catch (err: any) {
+      if (err?.message === ANALYTICS_IMPORT_UNAVAILABLE) {
+        setUnavailable(true);
+      } else {
+        setError(err?.message || 'Could not save that import. Please try again.');
+      }
+    } finally {
+      setIsCommitting(false);
     }
   };
 
@@ -294,6 +345,9 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
                 kind={coverageKind}
                 startDate={startDate}
                 endDate={endDate}
+                locale={locale}
+                localeWasDetected={localeWasDetected}
+                onLocaleChange={setLocale}
                 onChange={(next) => {
                   setCoverageKind(next.kind);
                   setStartDate(next.startDate);
@@ -309,10 +363,9 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
               <ImportReviewStep
                 result={result}
                 accepted={accepted}
-                onAccept={() => {
-                  setAccepted(true);
-                  setStep('done');
-                }}
+                onAccept={handleCommit}
+                isCommitting={isCommitting}
+                error={step === 'review' ? error : null}
                 onStartOver={reset}
                 onRerunAudit={() => {
                   onImported(result);

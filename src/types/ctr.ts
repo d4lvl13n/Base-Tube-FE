@@ -890,8 +890,17 @@ export interface AnalyticsImportDetectedColumn {
   suggestedField?: AnalyticsImportField | null;
 }
 
-/** header → our field. Headers absent from the record are simply not imported. */
-export type AnalyticsImportMapping = Partial<Record<AnalyticsImportField, string>>;
+/**
+ * our field → COLUMN INDEX (zero-based). Index — not header text — is the
+ * identity: two identical "Views" headers stay distinguishable. An explicit
+ * `null` CLEARS an auto-detected column ("don't import this"); a field simply
+ * absent inherits the backend's detection, so every rendered field must be
+ * submitted (index or null) for the user's screen to be authoritative.
+ */
+export type AnalyticsImportMapping = Partial<Record<AnalyticsImportField, number | null>>;
+
+/** The backend's supported number-format locales. NO silent default — the user confirms. */
+export type AnalyticsImportLocale = 'en' | 'fr' | 'de' | 'es';
 
 /**
  * The window the numbers describe. MANDATORY user confirmation — an unlabeled
@@ -929,24 +938,36 @@ export interface AnalyticsImportAnalysis {
   rejectionReason?: string | null;
 }
 
-/** POST /:id/confirm — the user's confirmed mapping + range. */
+/**
+ * POST /:id/confirm — the user's confirmed mapping + range + NUMBER FORMAT.
+ * `/confirm` is a DRY RUN: it validates, returns the review numbers and a
+ * single-use `validationToken`, and writes NOTHING. POST /:id/commit with that
+ * token performs the actual import.
+ */
 export interface AnalyticsImportConfirmRequest {
   mapping: AnalyticsImportMapping;
   coverage: AnalyticsImportCoverage;
-  /** Confirmed decimal handling, e.g. "en-US". */
-  locale?: string;
+  /** REQUIRED, user-confirmed. There is no silent default — 4,3 vs 4.3 is 1000×. */
+  locale: AnalyticsImportLocale;
 }
 
-/** What actually landed. `units` is how the FE knows a % is % points. */
+/**
+ * Returned by BOTH /confirm (dry run, `committed: false`, importedAt null) and
+ * /commit (`committed: true`). `units` come from the backend — never derived.
+ */
 export interface AnalyticsImportResult {
   importId: string;
-  status: 'ready' | 'rejected';
+  status: 'pending' | 'ready' | 'rejected';
+  /** false = dry run (nothing written); true = the rows are in. */
+  committed: boolean;
+  /** Present on the dry run only — hand it back to commitAnalyticsImport. */
+  validationToken?: string;
   matchedRows: number;
   rejectedRows: number;
   coverage: AnalyticsImportCoverage;
-  /** ISO timestamp — drives the "Uploaded <date>" freshness chip. */
-  importedAt: string;
-  /** e.g. { ctrPercent: 'percentage_points', averageViewDurationSeconds: 'seconds' } */
+  /** ISO timestamp of the WRITE. Null on the dry run — nothing was written. */
+  importedAt: string | null;
+  /** Authoritative from the backend, e.g. { ctrPercent: 'percentage_points' }. */
   units?: Partial<Record<AnalyticsImportField, string>>;
   /** Per-row problems worth showing, e.g. "3 rows had no resolvable video ID". */
   rejectionSamples?: string[];

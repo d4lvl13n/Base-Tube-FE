@@ -481,6 +481,40 @@ export const ctrApi = {
   },
 
   /**
+   * COMMIT an import the dry run validated. This is the only call that writes:
+   * it requires the single-use `validationToken` from confirmAnalyticsImport.
+   * Closing the modal without calling this leaves ZERO imported rows.
+   */
+  commitAnalyticsImport: async (
+    importId: string,
+    validationToken: string
+  ): Promise<AnalyticsImportResult> => {
+    try {
+      const response = await api.post<
+        { success: true; data: BackendConfirmResponse } | CTRErrorResponse
+      >(`${CTR_BASE_PATH}/analytics-import/${encodeURIComponent(importId)}/commit`, {
+        validationToken,
+      });
+
+      if (!response.data.success) {
+        throw new Error((response.data as CTRErrorResponse).error.message);
+      }
+
+      const raw = (response.data as { success: true; data: BackendConfirmResponse }).data;
+      return adaptConfirmResponse(raw);
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        throw new Error(ANALYTICS_IMPORT_UNAVAILABLE);
+      }
+      throw new Error(
+        error?.response?.data?.error?.message ||
+          error?.message ||
+          'Could not finish that import. Please review it again.'
+      );
+    }
+  },
+
+  /**
    * The import currently backing a channel's audit, if any. Used for the
    * staleness / re-upload prompt.
    *
@@ -553,7 +587,9 @@ interface BackendAnalyzeResponse {
 
 interface BackendConfirmResponse {
   importId: number;
-  status: string; // 'imported'
+  status: string; // 'pending' (dry run) | 'imported' (commit)
+  committed: boolean;
+  validationToken?: string;
   datasetId?: string;
   youtubeChannelId?: string | null;
   coverage: AnalyticsImportCoverage;
@@ -562,6 +598,10 @@ interface BackendConfirmResponse {
   rejectedRows: number;
   footerRowsIgnored?: number;
   providedMetrics?: string[];
+  units?: Record<string, string>;
+  effectiveMapping?: Record<string, number>;
+  importedAt?: string | null;
+  validatedAt?: string;
   rejectionBreakdown?: Record<string, number>;
 }
 
@@ -578,13 +618,20 @@ interface BackendLatestSummary {
   staleReason?: string | null;
 }
 
-/** headers + locale remembered per analyzed import, to translate /confirm. */
+/** headers + locale remembered per analyzed import (analyze-time context). */
 const importTranslationCtx = new Map<string, { headers: string[]; locale: string | null }>();
 
-/** 'fr-FR' / 'fr' / anything → the backend's 'en' | 'fr' | 'de' | 'es' (default en). */
+/**
+ * Strict locale narrowing — review HIGH-4: there is NO silent 'en' fallback. A
+ * wrong number format corrupts counts by 1000×, so an unsupported/absent locale
+ * throws and the UI must make the user pick.
+ */
 const toBackendLocale = (locale: string | null | undefined): string => {
   const two = String(locale || '').slice(0, 2).toLowerCase();
-  return ['en', 'fr', 'de', 'es'].includes(two) ? two : 'en';
+  if (!['en', 'fr', 'de', 'es'].includes(two)) {
+    throw new Error('Confirm the number format of the export before importing.');
+  }
+  return two;
 };
 
 function adaptAnalyzeResponse(raw: BackendAnalyzeResponse): AnalyticsImportAnalysis {
@@ -594,12 +641,11 @@ function adaptAnalyzeResponse(raw: BackendAnalyzeResponse): AnalyticsImportAnaly
     locale: raw.detectedLocale ?? null,
   });
 
-  // field → header (FE model), from the backend's field → index.
+  // field → COLUMN INDEX (the FE model's identity — header text is display-only).
   const suggestedMapping: AnalyticsImportMapping = {};
   for (const [beField, idx] of Object.entries(raw.detectedMapping || {})) {
     const feField = FIELD_FROM_BACKEND[beField];
-    const header = raw.headers?.[idx];
-    if (feField && typeof header === 'string') suggestedMapping[feField] = header;
+    if (feField && Number.isInteger(idx)) suggestedMapping[feField] = idx;
   }
 
   const indexToSuggested: Record<number, AnalyticsImportField | null> = {};
@@ -642,22 +688,38 @@ function adaptAnalyzeResponse(raw: BackendAnalyzeResponse): AnalyticsImportAnaly
 }
 
 function adaptConfirmRequest(
-  importId: string,
+  _importId: string,
   payload: AnalyticsImportConfirmRequest
 ): Record<string, unknown> {
-  const ctx = importTranslationCtx.get(importId);
-  // field → header (FE) becomes snake field → column index (backend).
-  const mapping: Record<string, number> = {};
-  for (const [feField, header] of Object.entries(payload.mapping || {})) {
+  // Review MED (duplicate headers) + HIGH-6 (explicit clears): the FE model now
+  // speaks COLUMN INDICES directly — no header→index lookup, so two identical
+  // headers stay distinguishable — and every rendered field is submitted, with
+  // `null` as an explicit clear the backend honors.
+  const mapping: Record<string, number | null> = {};
+  for (const [feField, idx] of Object.entries(payload.mapping || {})) {
     const beField = FIELD_TO_BACKEND[feField as AnalyticsImportField];
-    const idx = ctx ? ctx.headers.indexOf(String(header)) : -1;
-    if (beField && idx >= 0) mapping[beField] = idx;
+    if (!beField) continue;
+    mapping[beField] = idx === null ? null : Number(idx);
   }
   return {
     mapping: Object.keys(mapping).length ? mapping : undefined,
     coverage: payload.coverage,
-    locale: toBackendLocale(payload.locale ?? ctx?.locale),
+    // Strict: throws on unsupported/absent — the UI requires an explicit pick.
+    locale: toBackendLocale(payload.locale),
   };
+}
+
+/** Backend snake_case units → FE camelCase fields. Authoritative — never derived. */
+function adaptUnits(
+  raw: Record<string, string> | undefined
+): Partial<Record<AnalyticsImportField, string>> | undefined {
+  if (!raw) return undefined;
+  const units: Partial<Record<AnalyticsImportField, string>> = {};
+  for (const [beField, unit] of Object.entries(raw)) {
+    const feField = FIELD_FROM_BACKEND[beField];
+    if (feField) units[feField] = unit;
+  }
+  return Object.keys(units).length ? units : undefined;
 }
 
 function adaptConfirmResponse(raw: BackendConfirmResponse): AnalyticsImportResult {
@@ -666,16 +728,15 @@ function adaptConfirmResponse(raw: BackendConfirmResponse): AnalyticsImportResul
     .map(([reason, n]) => `${n} row${n === 1 ? '' : 's'}: ${reason.replace(/_/g, ' ')}`);
   return {
     importId: String(raw.importId),
-    status: 'ready',
+    status: raw.committed ? 'ready' : 'pending',
+    committed: !!raw.committed,
+    validationToken: raw.validationToken,
     matchedRows: raw.matchedRows,
     rejectedRows: raw.rejectedRows,
     coverage: raw.coverage,
-    importedAt: new Date().toISOString(),
-    units: {
-      ctrPercent: 'percentage_points',
-      averageViewDurationSeconds: 'seconds',
-      averageViewPercentage: 'percentage_points',
-    },
+    // Authoritative server time — null on the dry run (nothing was written).
+    importedAt: raw.importedAt ?? null,
+    units: adaptUnits(raw.units),
     rejectionSamples: rejectionSamples.length ? rejectionSamples : undefined,
   };
 }
@@ -684,6 +745,7 @@ function adaptLatestSummary(raw: BackendLatestSummary): AnalyticsImportSummary {
   return {
     importId: String(raw.importId),
     status: 'ready',
+    committed: true,
     matchedRows: raw.matchedRows,
     rejectedRows: raw.rejectedRows,
     coverage: raw.coverage,

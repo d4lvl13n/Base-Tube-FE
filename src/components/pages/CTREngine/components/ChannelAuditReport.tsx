@@ -275,9 +275,14 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
 
   // v2.1: the two equal ways to add private analytics. Shown when the report has
   // none (preview) or lost access to them (reauth) — never for `mismatched`,
-  // where neither CTA would fix anything.
+  // where neither CTA would fix anything, and never while `syncing`: a healthy
+  // connection whose first reports haven't landed is an operational wait, and
+  // asking the creator to connect/upload again would read as "it didn't work".
   const showSourceCTAs =
-    hasDataMode && connectionStatus !== 'mismatched' && (dataMode === 'preview' || needsReauth);
+    hasDataMode &&
+    connectionStatus !== 'mismatched' &&
+    !isSyncing &&
+    (dataMode === 'preview' || needsReauth);
 
   const uploadedDatasets = collectUploadedDatasets(perVideo);
   const staleUpload = uploadedDatasets.find(isDatasetStale);

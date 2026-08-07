@@ -45,9 +45,15 @@ const UNIT_LABELS: Record<string, string> = {
 
 interface ImportReviewStepProps {
   result: AnalyticsImportResult;
-  /** True once the user has accepted the preview. */
+  /** True once the user has accepted the preview AND the commit landed. */
   accepted: boolean;
+  /**
+   * Accepting is a WRITE: the preview came from a dry run, and this fires the
+   * actual commit call. Until then, closing the modal imports nothing.
+   */
   onAccept: () => void;
+  isCommitting: boolean;
+  error: string | null;
   onStartOver: () => void;
   onRerunAudit: () => void;
 }
@@ -56,6 +62,8 @@ export const ImportReviewStep: React.FC<ImportReviewStepProps> = ({
   result,
   accepted,
   onAccept,
+  isCommitting,
+  error,
   onStartOver,
   onRerunAudit,
 }) => {
@@ -89,8 +97,8 @@ export const ImportReviewStep: React.FC<ImportReviewStepProps> = ({
   return (
     <div>
       <p className="text-sm leading-relaxed text-gray-300">
-        Here is what we read out of your export. Nothing is shown on the report until you accept
-        it.
+        Here is what we read out of your export. Nothing is saved until you confirm — closing
+        this window now imports nothing.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-3">
@@ -157,20 +165,28 @@ export const ImportReviewStep: React.FC<ImportReviewStepProps> = ({
         </div>
       )}
 
+      {error && (
+        <p className="mt-4 flex items-start gap-2 text-sm text-red-400">
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          {error}
+        </p>
+      )}
+
       <div className="mt-5 flex flex-wrap gap-3">
         <button
           type="button"
           onClick={onAccept}
-          disabled={matched === 0}
+          disabled={matched === 0 || isCommitting}
           className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-gradient-to-r from-[#fa7517] to-orange-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#fa7517]/25 transition-all hover:from-[#fa7517]/90 hover:to-orange-500/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <CheckCircle2 className="h-4 w-4" />
-          Confirm import
+          {isCommitting ? 'Saving your import…' : 'Confirm import'}
         </button>
         <button
           type="button"
           onClick={onStartOver}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-gray-300 transition-colors hover:text-white"
+          disabled={isCommitting}
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-gray-300 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           Use a different file
         </button>

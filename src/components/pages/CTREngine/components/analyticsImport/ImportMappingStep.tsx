@@ -10,7 +10,11 @@
 
 import React from 'react';
 import { ArrowRight, AlertCircle, Columns3 } from 'lucide-react';
-import type { AnalyticsImportDetectedColumn, AnalyticsImportField } from '../../../../../types/ctr';
+import type {
+  AnalyticsImportDetectedColumn,
+  AnalyticsImportField,
+  AnalyticsImportMapping,
+} from '../../../../../types/ctr';
 
 /** Our canonical fields, in the order a creator thinks about them. */
 export const IMPORT_FIELDS: {
@@ -47,20 +51,41 @@ export const IMPORT_FIELDS: {
 
 const METRIC_FIELDS = IMPORT_FIELDS.filter((f) => !f.required).map((f) => f.field);
 
-/** header → our field. `undefined` = do not import this column. */
-export type HeaderAssignments = Record<string, AnalyticsImportField | undefined>;
+/**
+ * COLUMN INDEX → our field. `undefined` = do not import this column.
+ *
+ * The index is the identity, never the header text: duplicate headers are legal
+ * in a Studio export, and a header-keyed map would silently collapse them.
+ */
+export type ColumnAssignments = Record<number, AnalyticsImportField | undefined>;
 
-export const mappingIsUsable = (assignments: HeaderAssignments): boolean => {
+export const mappingIsUsable = (assignments: ColumnAssignments): boolean => {
   const assigned = Object.values(assignments).filter(Boolean) as AnalyticsImportField[];
   const hasVideoId = assigned.includes('videoId');
   const hasMetric = assigned.some((field) => METRIC_FIELDS.includes(field));
   return hasVideoId && hasMetric;
 };
 
+/**
+ * The wire mapping: EVERY canonical field, either its column index or an
+ * explicit `null`. The null is a deliberate "clear" — a suggested field the
+ * user un-assigned must not silently survive on the backend.
+ */
+export const toImportMapping = (assignments: ColumnAssignments): AnalyticsImportMapping => {
+  const mapping: AnalyticsImportMapping = {};
+  IMPORT_FIELDS.forEach(({ field }) => {
+    mapping[field] = null;
+  });
+  Object.entries(assignments).forEach(([index, field]) => {
+    if (field) mapping[field] = Number(index);
+  });
+  return mapping;
+};
+
 interface ImportMappingStepProps {
   columns: AnalyticsImportDetectedColumn[];
-  assignments: HeaderAssignments;
-  onChange: (assignments: HeaderAssignments) => void;
+  assignments: ColumnAssignments;
+  onChange: (assignments: ColumnAssignments) => void;
   onContinue: () => void;
   warnings?: string[];
 }
@@ -74,15 +99,15 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({
 }) => {
   const usable = mappingIsUsable(assignments);
 
-  const assign = (header: string, field: AnalyticsImportField | undefined) => {
-    const next: HeaderAssignments = { ...assignments };
+  const assign = (index: number, field: AnalyticsImportField | undefined) => {
+    const next: ColumnAssignments = { ...assignments };
     // One field, one column: taking a field frees it everywhere else.
     if (field) {
       Object.keys(next).forEach((key) => {
-        if (next[key] === field) next[key] = undefined;
+        if (next[Number(key)] === field) next[Number(key)] = undefined;
       });
     }
-    next[header] = field;
+    next[index] = field;
     onChange(next);
   };
 
@@ -126,10 +151,10 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({
 
             {/* RIGHT: what we should call it */}
             <select
-              value={assignments[column.header] ?? ''}
+              value={assignments[column.index] ?? ''}
               onChange={(e) =>
                 assign(
-                  column.header,
+                  column.index,
                   e.target.value ? (e.target.value as AnalyticsImportField) : undefined
                 )
               }

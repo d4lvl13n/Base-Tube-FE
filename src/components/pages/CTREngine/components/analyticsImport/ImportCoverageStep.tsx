@@ -8,17 +8,41 @@
 // Detection only PREFILLS the inputs. The user still has to pick.
 
 import React from 'react';
-import { ArrowRight, CalendarRange, Infinity as InfinityIcon, AlertCircle } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarRange,
+  Infinity as InfinityIcon,
+  AlertCircle,
+  Hash,
+} from 'lucide-react';
 import type {
   AnalyticsImportCoverage,
   AnalyticsImportDetectedCoverage,
+  AnalyticsImportLocale,
 } from '../../../../../types/ctr';
+
+/**
+ * Number-format choices, shown BY EXAMPLE — a creator knows what their numbers
+ * look like, not what a locale code is. Reading "1.234,5" with the wrong format
+ * multiplies values by 1000, so this is a confirmation, never a silent default.
+ */
+export const LOCALE_OPTIONS: { value: AnalyticsImportLocale; label: string }[] = [
+  { value: 'en', label: '1,234.56 — comma for thousands, point for decimals' },
+  { value: 'fr', label: '1 234,56 — space for thousands, comma for decimals' },
+  { value: 'de', label: '1.234,56 — point for thousands, comma for decimals' },
+  { value: 'es', label: '1.234,56 — Spanish (point for thousands, comma for decimals)' },
+];
 
 interface ImportCoverageStepProps {
   detected: AnalyticsImportDetectedCoverage | undefined;
   kind: 'date_range' | 'lifetime' | null;
   startDate: string;
   endDate: string;
+  /** The number format the file was exported in. null = not confirmed yet. */
+  locale: AnalyticsImportLocale | null;
+  /** True when the parser detected the format — the prefill still needs a look. */
+  localeWasDetected: boolean;
+  onLocaleChange: (locale: AnalyticsImportLocale | null) => void;
   onChange: (next: {
     kind: 'date_range' | 'lifetime' | null;
     startDate: string;
@@ -46,6 +70,9 @@ export const ImportCoverageStep: React.FC<ImportCoverageStepProps> = ({
   kind,
   startDate,
   endDate,
+  locale,
+  localeWasDetected,
+  onLocaleChange,
   onChange,
   onContinue,
   isSubmitting,
@@ -156,6 +183,35 @@ export const ImportCoverageStep: React.FC<ImportCoverageStepProps> = ({
           The start date has to come before the end date.
         </p>
       )}
+
+      {/* Number format — as mandatory as the range: misreading "1.234,5" as
+          English silently multiplies every value by 1000. */}
+      <div className="mt-4 rounded-xl border border-gray-800/60 bg-black/40 p-4">
+        <p className="flex items-center gap-2 text-sm font-semibold text-white">
+          <Hash className="h-4 w-4 text-[#fa7517]" />
+          How are numbers written in this file?
+        </p>
+        <p className="mt-1 text-xs text-gray-500">
+          {localeWasDetected
+            ? 'Detected from your file — please check it matches what you see in the export.'
+            : 'We could not tell from the file — pick the format your numbers use.'}
+        </p>
+        <select
+          value={locale ?? ''}
+          onChange={(e) =>
+            onLocaleChange(e.target.value ? (e.target.value as AnalyticsImportLocale) : null)
+          }
+          className="mt-3 min-h-[44px] w-full rounded-lg border border-white/10 bg-black/60 px-3 py-2 text-sm text-white focus:border-[#fa7517]/50 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/40"
+        >
+          <option value="">Choose a number format…</option>
+          {LOCALE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {error && (
         <p className="mt-3 flex items-start gap-2 text-sm text-red-400">
           <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -166,7 +222,7 @@ export const ImportCoverageStep: React.FC<ImportCoverageStepProps> = ({
       <button
         type="button"
         onClick={onContinue}
-        disabled={!coverage || isSubmitting}
+        disabled={!coverage || !locale || isSubmitting}
         className="mt-5 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-gradient-to-r from-[#fa7517] to-orange-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#fa7517]/25 transition-all hover:from-[#fa7517]/90 hover:to-orange-500/90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isSubmitting ? 'Checking your rows…' : 'Confirm range'}
