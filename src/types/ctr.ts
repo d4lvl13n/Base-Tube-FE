@@ -850,6 +850,25 @@ export interface ChannelAuditResponse {
   data: ChannelAuditResult;
 }
 
+/**
+ * One line of the audit history (GET /api/v1/ctr/channel-audit) — light on
+ * purpose: enough to render a list row and re-open the audit, never the report.
+ */
+export interface ChannelAuditSummary {
+  id: number;
+  /** What the user originally pasted — reused verbatim for a re-run. */
+  channelRef: string;
+  channelId: string;
+  channelTitle: string | null;
+  subscribers: number | null;
+  videosAnalyzed: number | null;
+  niche: string;
+  schemaVersion: 1 | 2;
+  mode: string | null;
+  dataMode: AuditDataMode | null;
+  createdAt: string | null;
+}
+
 // ============================================================================
 // STUDIO ANALYTICS IMPORT (MOAT v2.1, M2)
 //

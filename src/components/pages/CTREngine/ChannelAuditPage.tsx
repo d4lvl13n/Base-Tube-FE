@@ -18,11 +18,13 @@ import {
   BookMarked,
   FlaskConical,
   CheckCircle2,
+  History,
+  ChevronRight,
 } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import useCTREngine from '../../../hooks/useCTREngine';
 import ctrApi from '../../../api/ctr';
-import type { ChannelAuditResult } from '../../../types/ctr';
+import type { ChannelAuditResult, ChannelAuditSummary } from '../../../types/ctr';
 import { ChannelAuditReport } from './components/ChannelAuditReport';
 import ChannelAuditProgress from './components/ChannelAuditProgress';
 
@@ -105,6 +107,36 @@ const readLastAuditUrl = (): string => {
   }
 };
 
+/** "1.2M subscribers" — compact, list-row scale. */
+const formatSubscribers = (subs: number | null): string => {
+  if (subs === null) return '';
+  if (subs >= 1_000_000) return `${(subs / 1_000_000).toFixed(1).replace(/\.0$/, '')}M subs`;
+  if (subs >= 1_000) return `${(subs / 1_000).toFixed(1).replace(/\.0$/, '')}K subs`;
+  return `${subs} subs`;
+};
+
+const formatAuditDate = (iso: string | null): string => {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
+};
+
+/** Honest one-word label per data source mode — mirrors the report's badge. */
+const DATA_MODE_LABELS: Record<string, string> = {
+  preview: 'Public data',
+  uploaded: 'Self-reported',
+  connected_partial: 'Connected',
+  connected_full: 'Connected',
+  hybrid: 'Connected + upload',
+};
+
 const ChannelAuditPage: React.FC = () => {
   // Reuse the CTR engine for the quota/credit sidebar in the shared layout.
   const { usageAccess, isLoadingQuota } = useCTREngine();
@@ -118,6 +150,68 @@ const ChannelAuditPage: React.FC = () => {
   const [audit, setAudit] = useState<ChannelAuditResult | null>(null);
   const [isAuditing, setIsAuditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Persistence, SURFACED: past audits live in the backend — this page now
+  // restores the most recent one on load (instead of greeting a returning
+  // creator with an empty form) and lists the rest for one-click re-opening.
+  // Re-opening is FREE and refreshing: GET /:id overlays current metrics onto
+  // the frozen analysis, so a two-day-old report comes back with today's data.
+  const [history, setHistory] = useState<ChannelAuditSummary[]>([]);
+  const [isRestoring, setIsRestoring] = useState(true);
+  const [openingAuditId, setOpeningAuditId] = useState<number | null>(null);
+
+  /** Open a persisted audit. Also primes the URL field so "re-run" works. */
+  const openAudit = async (summary: ChannelAuditSummary) => {
+    if (openingAuditId !== null || isAuditing) return;
+    setError(null);
+    setOpeningAuditId(summary.id);
+    try {
+      const stored = await ctrApi.getChannelAudit(summary.id);
+      setAudit(stored);
+      if (summary.channelRef) setChannelUrl(summary.channelRef);
+    } catch (err: any) {
+      setError(err?.message || 'Could not open that audit. Please try again.');
+    } finally {
+      setOpeningAuditId(null);
+    }
+  };
+
+  // On load: fetch the history and auto-restore the latest audit. Skipped when
+  // a dev fixture is driving the page. Any failure degrades to the empty form —
+  // restoring is a convenience, never a gate.
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const which = new URLSearchParams(window.location.search).get('fixture');
+      if (which) {
+        setIsRestoring(false);
+        return;
+      }
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const summaries = await ctrApi.listChannelAudits();
+        if (cancelled) return;
+        setHistory(summaries);
+        const latest = summaries[0];
+        if (!latest) return;
+        const stored = await ctrApi.getChannelAudit(latest.id);
+        if (cancelled) return;
+        setAudit((current) => current ?? stored);
+        if (latest.channelRef) {
+          setChannelUrl((current) => current || latest.channelRef);
+        }
+      } catch {
+        /* history is best-effort — the form is always available */
+      } finally {
+        if (!cancelled) setIsRestoring(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // The banner now owns the OAuth result — get it out of the URL so a refresh
   // (or a shared link) does not replay it.
@@ -171,6 +265,9 @@ const ChannelAuditPage: React.FC = () => {
     try {
       const result = await ctrApi.auditChannel(trimmed);
       setAudit(result);
+      // The fresh audit is now the newest history row — refresh the list so
+      // "New audit" shows it without a page reload. Fire-and-forget.
+      void ctrApi.listChannelAudits().then(setHistory);
     } catch (err: any) {
       setError(err?.message || 'Failed to audit channel. Please try again.');
     } finally {
@@ -280,7 +377,20 @@ const ChannelAuditPage: React.FC = () => {
       </AnimatePresence>
 
       <AnimatePresence mode="wait">
-        {audit ? (
+        {!audit && isRestoring ? (
+          // Checking for a previous audit — a quiet beat instead of flashing the
+          // empty form at a creator whose report is about to reappear.
+          <motion.div
+            key="restoring"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="max-w-3xl mx-auto py-24 flex flex-col items-center gap-3 text-gray-400"
+          >
+            <RefreshCw className="w-6 h-6 animate-spin text-[#fa7517]" />
+            <p className="text-sm">Looking for your last audit…</p>
+          </motion.div>
+        ) : audit ? (
           <motion.div
             key="report"
             initial={{ opacity: 0, y: 20 }}
@@ -387,6 +497,61 @@ const ChannelAuditPage: React.FC = () => {
 
             {/* Auditing progress */}
             <AnimatePresence>{isAuditing && <ChannelAuditProgress />}</AnimatePresence>
+
+            {/* Previous audits — persistence, finally visible. One click
+                re-opens a report (with metrics refreshed at read time). */}
+            {history.length > 0 && !isAuditing && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="mb-6 bg-black/50 border border-gray-800/30 rounded-2xl p-4 sm:p-5 backdrop-blur-sm"
+              >
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-white mb-3">
+                  <History className="w-4 h-4 text-[#fa7517]" />
+                  Your previous audits
+                </h2>
+                <ul className="space-y-2">
+                  {history.map((summary) => (
+                    <li key={summary.id}>
+                      <button
+                        type="button"
+                        onClick={() => openAudit(summary)}
+                        disabled={openingAuditId !== null}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-800/50 bg-black/40
+                                   hover:border-[#fa7517]/30 transition-colors text-left min-h-[44px]
+                                   disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">
+                            {summary.channelTitle || summary.channelRef}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {[
+                              formatSubscribers(summary.subscribers),
+                              summary.niche,
+                              formatAuditDate(summary.createdAt),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+                        </div>
+                        {summary.dataMode && DATA_MODE_LABELS[summary.dataMode] && (
+                          <span className="flex-shrink-0 px-2 py-0.5 rounded-md border border-gray-700/60 bg-white/5 text-[10px] font-semibold text-gray-400">
+                            {DATA_MODE_LABELS[summary.dataMode]}
+                          </span>
+                        )}
+                        {openingAuditId === summary.id ? (
+                          <RefreshCw className="w-4 h-4 flex-shrink-0 animate-spin text-[#fa7517]" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 flex-shrink-0 text-gray-600" />
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            )}
 
             {/* What you'll get */}
             <motion.div

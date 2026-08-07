@@ -29,6 +29,7 @@ import {
   ChannelAuditResult,
   ChannelAuditRequest,
   ChannelAuditResponse,
+  ChannelAuditSummary,
   AnalyticsImportAnalysis,
   AnalyticsImportConfirmRequest,
   AnalyticsImportCoverage,
@@ -161,6 +162,40 @@ export const ctrApi = {
       throw new Error((response.data as CTRErrorResponse).error.message);
     }
 
+    return (response.data as ChannelAuditResponse).data;
+  },
+
+  /**
+   * The caller's channel-audit history (light rows, newest first, capped at 20
+   * server-side). Returns [] on ANY failure — history is a convenience, and a
+   * broken list must never block running a fresh audit.
+   */
+  listChannelAudits: async (): Promise<ChannelAuditSummary[]> => {
+    try {
+      const response = await api.get<
+        { success: true; data: { audits: ChannelAuditSummary[] } } | CTRErrorResponse
+      >(`${CTR_BASE_PATH}/channel-audit`);
+      if (!response.data.success) return [];
+      const audits = (response.data as { success: true; data: { audits: ChannelAuditSummary[] } })
+        .data?.audits;
+      return Array.isArray(audits) ? audits : [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Re-open a persisted audit. The backend refreshes metrics / dataMode /
+   * connection statuses at read time (GET overlay), so a report re-opened two
+   * days later shows CURRENT numbers around the frozen analysis text.
+   */
+  getChannelAudit: async (id: number): Promise<ChannelAuditResult> => {
+    const response = await api.get<ChannelAuditResponse | CTRErrorResponse>(
+      `${CTR_BASE_PATH}/channel-audit/${id}`
+    );
+    if (!response.data.success) {
+      throw new Error((response.data as CTRErrorResponse).error.message);
+    }
     return (response.data as ChannelAuditResponse).data;
   },
 
