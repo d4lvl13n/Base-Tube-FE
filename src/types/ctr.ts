@@ -607,6 +607,110 @@ export interface ChannelAuditV2VideoMetrics {
   baselineDelta: string | null;
 }
 
+// ----------------------------------------------------------------------------
+// v2.1 — MULTI-SOURCE ANALYTICS (FROZEN ADDITIONS)
+// Mirrors "ADDENDUM v2.1 — Multi-source Analytics" in
+// base-be docs/specs/moat-phase-0-1-spec.md. ADDITIVE to the v2 contract:
+// every v2.1 field is absent on a v2 backend, and the report must degrade to
+// the v2 rendering rather than assume them.
+//
+// Two orthogonal axes the FE must NEVER collapse into one:
+//   evidenceStrength — how much CTR evidence exists (impression volume only)
+//   trust            — where the number came from (verified vs self-reported)
+// A metric can be "observational" AND "self-reported" — render BOTH labels.
+// ----------------------------------------------------------------------------
+
+/**
+ * How much private analytics this audit actually has. The FE drives depth,
+ * badges and CTAs from THIS — not from the legacy `mode`.
+ *
+ *   preview           — no private analytics at all (craft audit only)
+ *   uploaded          — Studio CSV only; every metric self-reported + ranged
+ *   connected_partial — OAuth live; impressions/CTR still syncing
+ *   connected_full    — verified reporting coverage complete and fresh
+ *   hybrid            — some metrics verified, some supplied by an upload
+ */
+export type AuditDataMode =
+  | 'preview'
+  | 'uploaded'
+  | 'connected_partial'
+  | 'connected_full'
+  | 'hybrid';
+
+/** Every metric the audit can carry — availability is tracked per key. */
+export type AuditMetricKey =
+  | 'impressions'
+  | 'ctr'
+  | 'analyticsViews'
+  | 'averageViewDuration'
+  | 'averageViewPercentage'
+  | 'subscribersGained'
+  | 'subscribersGainedPerThousandViews'
+  | 'traffic'
+  | 'baselineDelta';
+
+/**
+ * WHY a metric is (or is not) there. Absence is always explained — the FE never
+ * zero-fills and never renders `0` for a metric that is merely absent.
+ */
+export type MetricAvailability =
+  | { state: 'ready'; datasetId: string }
+  | { state: 'syncing' }
+  | { state: 'not_provided' }
+  | {
+      state: 'suppressed';
+      datasetId: string;
+      reason: 'low_impressions' | 'no_valid_cohort' | 'coverage_mismatch';
+    }
+  | {
+      state: 'unavailable';
+      reason: 'query_failed' | 'unsupported' | 'invalid_source_data';
+    };
+
+/** Provenance of one batch of numbers. Cited by `MetricAvailability.datasetId`. */
+export interface MetricDataset {
+  id: string;
+  source: 'connected' | 'uploaded';
+  transport: 'reports_query' | 'reporting_api' | 'studio_csv';
+  /** Orthogonal to evidenceStrength — never merged with it. */
+  trust: 'verified' | 'self_reported';
+  coverage:
+    | { kind: 'date_range'; startDate: string; endDate: string } // YYYY-MM-DD
+    | { kind: 'lifetime'; startDate: null; endDate: string | null };
+  /** ISO timestamp: when this dataset was produced / ingested. */
+  asOf: string;
+}
+
+/** Per-video metrics, v2.1: the v2 fields plus the multi-source additions. */
+export interface PerVideoMetricsV21 extends ChannelAuditV2VideoMetrics {
+  /** Views INSIDE the dataset window — never lifetime. Always label the window. */
+  analyticsViews: number | null;
+  /** Percentage points (e.g. 41.8). */
+  averageViewPercentage: number | null;
+  subscribersGained: number | null;
+  subscribersGainedPerThousandViews: number | null;
+  traffic: {
+    dominant: string;
+    sharePercent: number;
+    basis: 'views' | 'impressions';
+  } | null;
+  datasets: MetricDataset[];
+  availability: Record<AuditMetricKey, MetricAvailability>;
+}
+
+/** What `perVideo[].metrics` can be: the v2 shape, or the v2.1 superset. */
+export type ChannelAuditVideoMetrics =
+  | ChannelAuditV2VideoMetrics
+  | PerVideoMetricsV21;
+
+/** Narrowing guard — the ONLY sanctioned way to tell v2.1 metrics apart. */
+export function isPerVideoMetricsV21(
+  metrics: ChannelAuditVideoMetrics | null | undefined
+): metrics is PerVideoMetricsV21 {
+  const candidate = metrics as PerVideoMetricsV21 | null | undefined;
+  return !!candidate && Array.isArray(candidate.datasets) && !!candidate.availability;
+}
+
 /** One audited video: what is literally observable + one hedged hypothesis. */
 export interface ChannelAuditV2PerVideo {
   videoId: string;
@@ -620,7 +724,8 @@ export interface ChannelAuditV2PerVideo {
   hypothesis: string;
   /** References `experiments[].id`; null when no experiment covers this video. */
   experimentId: string | null;
-  metrics?: ChannelAuditV2VideoMetrics;
+  /** v2 shape on a v2 backend; the v2.1 superset once multi-source lands. */
+  metrics?: ChannelAuditVideoMetrics;
 }
 
 /** A falsifiable test the creator can actually run. */
@@ -680,12 +785,15 @@ export interface ChannelAuditV2ReviewQueue {
  * backend only starts sending with MOAT D2. It may be absent on every response
  * until then, so absence must degrade to the plain "connect your channel" CTA.
  *
+ *   connected       — a live grant for the audited channel (frozen contract; the
+ *                     FE only started seeing it with v2.1's connected modes)
  *   unconnected     — no YouTube grant for this user / channel
  *   mismatched      — a channel IS connected, but a different one was audited
  *   reauth_required — the grant was revoked or expired
  *   syncing         — connected; the first Reporting CSVs have not landed yet
  */
 export type ChannelAuditConnectionStatus =
+  | 'connected'
   | 'unconnected'
   | 'mismatched'
   | 'reauth_required'
@@ -714,6 +822,11 @@ export interface ChannelPackagingAuditV2 {
   analyticsStatus?: 'syncing' | 'ready' | 'reauth_required';
   /** Additive (MOAT D2). Absent on older backends — never rely on it existing. */
   connectionStatus?: ChannelAuditConnectionStatus;
+  /**
+   * Additive (MOAT v2.1). When present it — not `mode` — drives report depth,
+   * badges and CTAs. Absent = a pre-v2.1 backend: fall back to `mode`.
+   */
+  dataMode?: AuditDataMode;
 }
 
 /** What the audit endpoints can hand back today: the new report, or a legacy row. */
@@ -735,6 +848,116 @@ export interface ChannelAuditRequest {
 export interface ChannelAuditResponse {
   success: true;
   data: ChannelAuditResult;
+}
+
+// ============================================================================
+// STUDIO ANALYTICS IMPORT (MOAT v2.1, M2)
+//
+// PROVISIONAL SHAPES. The v2.1 addendum freezes the STORAGE model
+// (`yt_studio_imports` / `yt_studio_import_rows`) and the parser rules, but it
+// does not spell out the HTTP request/response bodies. These types are derived
+// from those two, one-for-one, and are the FE's read of the contract:
+//
+//   POST /api/v1/ctr/analytics-import/analyze        (multipart: file)
+//   POST /api/v1/ctr/analytics-import/:id/confirm    (mapping + coverage + locale)
+//   GET  /api/v1/ctr/analytics-import/latest         (?channelId=)
+//
+// The endpoints may not exist yet — every caller degrades on 404.
+// ============================================================================
+
+/** Our canonical column names — mirrors the `yt_studio_import_rows` columns. */
+export type AnalyticsImportField =
+  | 'videoId'
+  | 'impressions'
+  | 'ctrPercent'
+  | 'views'
+  | 'averageViewDurationSeconds'
+  | 'averageViewPercentage'
+  | 'subscribersGained';
+
+/** A column the parser found in the uploaded CSV. */
+export interface AnalyticsImportDetectedColumn {
+  /** The header exactly as it appears in the file. */
+  header: string;
+  /** Zero-based position in the header row. */
+  index: number;
+  /** A couple of values, so the user can recognise the column. */
+  sampleValues?: string[];
+  /**
+   * What the alias registry matched, if anything. `null` = no confident match;
+   * the user has to map it (or leave it unmapped).
+   */
+  suggestedField?: AnalyticsImportField | null;
+}
+
+/** header → our field. Headers absent from the record are simply not imported. */
+export type AnalyticsImportMapping = Partial<Record<AnalyticsImportField, string>>;
+
+/**
+ * The window the numbers describe. MANDATORY user confirmation — an unlabeled
+ * range is never accepted (v2.1 CSV parser rules, LOCKED).
+ */
+export type AnalyticsImportCoverage =
+  | { kind: 'date_range'; startDate: string; endDate: string } // YYYY-MM-DD
+  | { kind: 'lifetime' };
+
+/** What the parser thinks the range is — a PREFILL, never an assumption. */
+export interface AnalyticsImportDetectedCoverage {
+  kind: 'date_range' | 'lifetime' | 'unknown';
+  startDate?: string | null;
+  endDate?: string | null;
+  /** Where the guess came from, e.g. "filename", "date column", "export header". */
+  source?: string | null;
+}
+
+/** POST /analyze — what the parser made of the file. Nothing is committed yet. */
+export interface AnalyticsImportAnalysis {
+  importId: string;
+  status: 'needs_confirmation' | 'ready' | 'rejected';
+  /** True when at least one required column could not be matched confidently. */
+  needsMapping: boolean;
+  detectedColumns: AnalyticsImportDetectedColumn[];
+  /** Best-effort mapping from the alias registry — the user confirms or edits it. */
+  suggestedMapping: AnalyticsImportMapping;
+  detectedCoverage: AnalyticsImportDetectedCoverage;
+  /** Detected decimal/locale convention, e.g. "en-US" / "fr-FR". */
+  detectedLocale?: string | null;
+  rowCount: number;
+  /** Non-fatal notes: ignored footer rows, unknown columns, etc. */
+  warnings?: string[];
+  /** Present when `status === 'rejected'` (duplicate video IDs, bad quoting…). */
+  rejectionReason?: string | null;
+}
+
+/** POST /:id/confirm — the user's confirmed mapping + range. */
+export interface AnalyticsImportConfirmRequest {
+  mapping: AnalyticsImportMapping;
+  coverage: AnalyticsImportCoverage;
+  /** Confirmed decimal handling, e.g. "en-US". */
+  locale?: string;
+}
+
+/** What actually landed. `units` is how the FE knows a % is % points. */
+export interface AnalyticsImportResult {
+  importId: string;
+  status: 'ready' | 'rejected';
+  matchedRows: number;
+  rejectedRows: number;
+  coverage: AnalyticsImportCoverage;
+  /** ISO timestamp — drives the "Uploaded <date>" freshness chip. */
+  importedAt: string;
+  /** e.g. { ctrPercent: 'percentage_points', averageViewDurationSeconds: 'seconds' } */
+  units?: Partial<Record<AnalyticsImportField, string>>;
+  /** Per-row problems worth showing, e.g. "3 rows had no resolvable video ID". */
+  rejectionSamples?: string[];
+  rejectionReason?: string | null;
+}
+
+/** GET /latest — the import currently backing this channel's audit, if any. */
+export interface AnalyticsImportSummary extends AnalyticsImportResult {
+  youtubeChannelId?: string | null;
+  /** Backend-computed staleness, when it offers one. The FE can also derive it. */
+  isStale?: boolean;
 }
 
 // ============================================================================

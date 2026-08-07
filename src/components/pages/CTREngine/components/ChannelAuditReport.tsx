@@ -34,21 +34,32 @@ import {
   Clock,
   MousePointerClick,
   Sparkles,
+  Upload,
 } from 'lucide-react';
 import {
   isChannelAuditV2,
+  isPerVideoMetricsV21,
   type ChannelAuditResult,
   type ChannelPackagingAuditV2,
   type ChannelAuditV2PerVideo,
   type ChannelAuditV2Experiment,
   type ChannelAuditV2VideoMetrics,
+  type MetricDataset,
 } from '../../../../types/ctr';
 import ChannelAuditLegacyReport from './ChannelAuditLegacyReport';
 import ChannelAuditConnectBanner from './ChannelAuditConnectBanner';
+import VideoMetricCards from './VideoMetricCards';
+import AnalyticsSourceCTAs from './AnalyticsSourceCTAs';
+import AnalyticsImportModal from './analyticsImport/AnalyticsImportModal';
 
 interface ChannelAuditReportProps {
   audit: ChannelAuditResult;
   onReset: () => void;
+  /**
+   * Re-run the same audit. The persisted audit is a frozen ANALYSIS snapshot,
+   * so a fresh Studio import only shows up on a re-run.
+   */
+  onRerunAudit?: () => void;
 }
 
 // Compact number formatter: 8100 -> "8.1K", 1200000 -> "1.2M"
@@ -149,9 +160,76 @@ const MetricsRow: React.FC<{ metrics: ChannelAuditV2VideoMetrics }> = ({ metrics
 };
 
 // ---------------------------------------------------------------------------
+// v2.1 — dataMode
+//
+// `dataMode` (when present) is what decides report depth, badges and CTAs.
+// `mode` stays the fallback for pre-v2.1 backends, which is why every branch
+// below is guarded on `dataMode` existing rather than on it having a value.
+// ---------------------------------------------------------------------------
 
-export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, onReset }) => {
+const DATA_MODE_BADGE: Record<
+  NonNullable<ChannelPackagingAuditV2['dataMode']>,
+  { label: string; className: string } | null
+> = {
+  preview: null,
+  uploaded: {
+    label: 'self-reported',
+    className: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+  },
+  connected_partial: {
+    label: 'connected — syncing',
+    className: 'bg-blue-500/10 text-blue-300 border-blue-500/25',
+  },
+  connected_full: {
+    label: 'verified',
+    className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25',
+  },
+  hybrid: {
+    label: 'mixed sources',
+    className: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+  },
+};
+
+/**
+ * An upload goes stale 30 days after the window it covers ends (for lifetime
+ * exports, 30 days after the import itself) — spec: "coverage end >30d
+ * (lifetime: 30d after import) → re-upload CTA".
+ */
+const STALE_AFTER_MS = 30 * 86_400_000;
+
+const isDatasetStale = (dataset: MetricDataset): boolean => {
+  const reference =
+    dataset.coverage.kind === 'lifetime'
+      ? dataset.asOf
+      : `${dataset.coverage.endDate}T00:00:00.000Z`;
+  const timestamp = Date.parse(reference);
+  if (!Number.isFinite(timestamp)) return false;
+  return Date.now() - timestamp > STALE_AFTER_MS;
+};
+
+/** Every self-reported dataset backing this report, de-duplicated by id. */
+const collectUploadedDatasets = (perVideo: ChannelAuditV2PerVideo[]): MetricDataset[] => {
+  const byId = new Map<string, MetricDataset>();
+  perVideo.forEach((video) => {
+    if (!isPerVideoMetricsV21(video.metrics)) return;
+    video.metrics.datasets.forEach((dataset) => {
+      if (dataset.trust === 'self_reported' && !byId.has(dataset.id)) {
+        byId.set(dataset.id, dataset);
+      }
+    });
+  });
+  return Array.from(byId.values());
+};
+
+// ---------------------------------------------------------------------------
+
+export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
+  audit,
+  onReset,
+  onRerunAudit,
+}) => {
   const navigate = useNavigate();
+  const [isImportOpen, setIsImportOpen] = React.useState(false);
 
   // v1 rows are never cast into the v2 shape — they get their own thin view.
   if (!isChannelAuditV2(audit)) {
@@ -170,6 +248,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, o
     mode,
     analyticsStatus,
     connectionStatus,
+    dataMode,
   } = v2;
 
   // Connection state, resolved defensively. `connectionStatus` is ADDITIVE
@@ -179,12 +258,30 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, o
   const isSyncing = analyticsStatus === 'syncing' || connectionStatus === 'syncing';
   const needsReauth =
     analyticsStatus === 'reauth_required' || connectionStatus === 'reauth_required';
+
+  // v2.1: when `dataMode` is present it OWNS the CTA decision — the two equal
+  // source CTAs replace the single connect banner. When it is absent we are
+  // talking to a pre-v2.1 backend and the v2 behaviour stays exactly as it was.
+  const hasDataMode = !!dataMode;
+
   // The ask: a preview report is missing the creator's own numbers. Also shown
   // for a live report whose grant died — that one degrades to public data too.
   // MISMATCHED is excluded (spec): the user is auditing a channel that isn't the
   // one they connected — connecting again won't help; the notice below explains.
   const showConnectBanner =
-    connectionStatus !== 'mismatched' && ((isPreview && !isSyncing) || needsReauth);
+    !hasDataMode &&
+    connectionStatus !== 'mismatched' &&
+    ((isPreview && !isSyncing) || needsReauth);
+
+  // v2.1: the two equal ways to add private analytics. Shown when the report has
+  // none (preview) or lost access to them (reauth) — never for `mismatched`,
+  // where neither CTA would fix anything.
+  const showSourceCTAs =
+    hasDataMode && connectionStatus !== 'mismatched' && (dataMode === 'preview' || needsReauth);
+
+  const uploadedDatasets = collectUploadedDatasets(perVideo);
+  const staleUpload = uploadedDatasets.find(isDatasetStale);
+  const dataModeBadge = dataMode ? DATA_MODE_BADGE[dataMode] : null;
 
   const orderedExperiments = [...experiments].sort((a, b) => a.priority - b.priority);
   const experimentById = new Map<string, ChannelAuditV2Experiment>(
@@ -239,11 +336,20 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, o
             </span>
           )}
           <span>{channel?.videosAnalyzed ?? perVideo.length} videos analyzed</span>
-          {mode === 'connected' && (
-            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 border border-blue-500/25 text-[10px] font-semibold uppercase tracking-wide rounded">
-              connected
-            </span>
-          )}
+          {/* v2.1 drives this badge from dataMode; pre-v2.1 rows keep the old one. */}
+          {hasDataMode
+            ? dataModeBadge && (
+                <span
+                  className={`px-2 py-0.5 border text-[10px] font-semibold uppercase tracking-wide rounded ${dataModeBadge.className}`}
+                >
+                  {dataModeBadge.label}
+                </span>
+              )
+            : mode === 'connected' && (
+                <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 border border-blue-500/25 text-[10px] font-semibold uppercase tracking-wide rounded">
+                  connected
+                </span>
+              )}
         </div>
 
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#fa7517] mb-2">
@@ -264,8 +370,65 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, o
           first thing after "here is what your channel is". */}
       {showConnectBanner && <ChannelAuditConnectBanner connectionStatus={connectionStatus} />}
 
-      {/* Analytics status (connected mode) */}
-      {isSyncing && (
+      {/* v2.1 — the two EQUAL ways to add private analytics. */}
+      {showSourceCTAs && (
+        <AnalyticsSourceCTAs
+          onUpload={() => setIsImportOpen(true)}
+          variant={needsReauth ? 'reauth' : 'no_analytics'}
+        />
+      )}
+
+      {/* v2.1 — what this report's numbers are, in one line, per data mode. */}
+      {dataMode === 'connected_partial' && (
+        <div className="mb-6 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl flex items-start gap-3">
+          <Info className="w-4 h-4 text-blue-300 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-100/80">
+            Connected. Watch time, subscribers and traffic are already live below — impressions
+            and click-through rate are still syncing, usually 24-48h. Nothing else waits on them.
+          </p>
+        </div>
+      )}
+      {dataMode === 'uploaded' && (
+        <div className="mb-6 p-4 bg-amber-500/[0.06] border border-amber-500/25 rounded-xl flex items-start gap-3">
+          <Info className="w-4 h-4 text-amber-300 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-sm text-amber-100/90">
+              These numbers come from the Studio export you uploaded, so every metric below is
+              labelled <span className="font-semibold">self-reported</span> and carries the range
+              it covers. We have not checked them against YouTube.
+            </p>
+            {staleUpload && (
+              <div className="mt-3">
+                <p className="text-sm text-amber-100/90">
+                  That export is more than 30 days old — the report is describing a window that
+                  has passed.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsImportOpen(true)}
+                  className="mt-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/90 hover:bg-amber-500 text-white text-sm font-semibold transition-colors min-h-[44px]"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload a fresh export
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {dataMode === 'hybrid' && (
+        <div className="mb-6 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl flex items-start gap-3">
+          <Info className="w-4 h-4 text-blue-300 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-100/80">
+            Two sources are in play: your connected Analytics where it has landed, and your
+            uploaded export where it has not. Every card says which one it is reading — verified
+            numbers take over automatically as the same window completes.
+          </p>
+        </div>
+      )}
+
+      {/* Analytics status (connected mode) — v2-era notice; v2.1 says it above. */}
+      {!hasDataMode && isSyncing && (
         <div className="mb-6 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl flex items-start gap-3">
           <Info className="w-4 h-4 text-blue-300 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-blue-100/80">
@@ -419,8 +582,14 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, o
                       </div>
                     )}
 
-                    {/* Connected-mode metrics */}
-                    {video.metrics && <MetricsRow metrics={video.metrics} />}
+                    {/* Metrics. v2.1 rows get the three cards (Reach / Hold /
+                        Conversion) with per-metric provenance; v2 rows keep the
+                        flat row they were built for. */}
+                    {isPerVideoMetricsV21(video.metrics) ? (
+                      <VideoMetricCards metrics={video.metrics} />
+                    ) : (
+                      video.metrics && <MetricsRow metrics={video.metrics} />
+                    )}
 
                     {/* Link to the experiment that covers this video */}
                     {experiment && (
@@ -750,6 +919,14 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, o
           </div>
         </motion.section>
       )}
+
+      {/* Studio export stepper. Mounted once for the whole report — both the
+          preview CTA and the staleness prompt open this same flow. */}
+      <AnalyticsImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImported={() => onRerunAudit?.()}
+      />
     </div>
   );
 };

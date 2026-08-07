@@ -29,10 +29,20 @@ import {
   ChannelAuditResult,
   ChannelAuditRequest,
   ChannelAuditResponse,
+  AnalyticsImportAnalysis,
+  AnalyticsImportConfirmRequest,
+  AnalyticsImportResult,
+  AnalyticsImportSummary,
 } from '../types/ctr';
 import { normalizeUsageAccessResponse } from '../utils/usageAccess';
 
 const CTR_BASE_PATH = '/api/v1/ctr';
+
+/**
+ * Thrown (as an Error message) when a Studio-import endpoint answers 404 — i.e.
+ * backend M2 is not deployed. Callers show "not available yet", never an error.
+ */
+export const ANALYTICS_IMPORT_UNAVAILABLE = 'ANALYTICS_IMPORT_UNAVAILABLE';
 
 /**
  * CTR Thumbnail Engine API Service
@@ -375,9 +385,120 @@ export const ctrApi = {
     const response = await api.delete<{ success: boolean } | CTRErrorResponse>(
       `${CTR_BASE_PATH}/face-reference`
     );
-    
+
     if (!response.data.success) {
       throw new Error((response.data as CTRErrorResponse).error.message);
+    }
+  },
+
+  // ============================================================================
+  // STUDIO ANALYTICS IMPORT (MOAT v2.1, M2)
+  //
+  // The self-reported half of the two-source story: a creator who does not want
+  // to connect OAuth exports their Studio CSV instead and gets the same report
+  // depth, labelled self-reported and bounded by a range THEY confirm.
+  //
+  // These endpoints ship with backend M2. Until they are deployed the calls 404
+  // — every method below turns that into a benign "not available yet" instead of
+  // an error banner, so the upload CTA can be shipped independently.
+  // ============================================================================
+
+  /**
+   * Upload a YouTube Studio CSV export for parsing. NOTHING is committed here:
+   * the response describes what the parser saw so the user can confirm the
+   * column mapping and — mandatory — the date range.
+   *
+   * @throws Error('ANALYTICS_IMPORT_UNAVAILABLE') when the backend has no such
+   *         route yet (404), so the caller can show "not available yet".
+   */
+  analyzeAnalyticsImport: async (file: File): Promise<AnalyticsImportAnalysis> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await api.post<
+        { success: true; data: AnalyticsImportAnalysis } | CTRErrorResponse
+      >(`${CTR_BASE_PATH}/analytics-import/analyze`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (!response.data.success) {
+        throw new Error((response.data as CTRErrorResponse).error.message);
+      }
+
+      return (response.data as { success: true; data: AnalyticsImportAnalysis }).data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        throw new Error(ANALYTICS_IMPORT_UNAVAILABLE);
+      }
+      throw new Error(
+        error?.response?.data?.error?.message ||
+          error?.message ||
+          'Could not read that export. Please try again.'
+      );
+    }
+  },
+
+  /**
+   * Commit an analysed import with the user's CONFIRMED mapping and coverage.
+   * `coverage` is mandatory by contract — an unlabeled range is never stored.
+   */
+  confirmAnalyticsImport: async (
+    importId: string,
+    payload: AnalyticsImportConfirmRequest
+  ): Promise<AnalyticsImportResult> => {
+    try {
+      const response = await api.post<
+        { success: true; data: AnalyticsImportResult } | CTRErrorResponse
+      >(
+        `${CTR_BASE_PATH}/analytics-import/${encodeURIComponent(importId)}/confirm`,
+        payload
+      );
+
+      if (!response.data.success) {
+        throw new Error((response.data as CTRErrorResponse).error.message);
+      }
+
+      return (response.data as { success: true; data: AnalyticsImportResult }).data;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        throw new Error(ANALYTICS_IMPORT_UNAVAILABLE);
+      }
+      throw new Error(
+        error?.response?.data?.error?.message ||
+          error?.message ||
+          'Could not save that import. Please try again.'
+      );
+    }
+  },
+
+  /**
+   * The import currently backing a channel's audit, if any. Used for the
+   * staleness / re-upload prompt.
+   *
+   * Returns null for BOTH "no import yet" and "endpoint not deployed" — the
+   * caller only ever needs to know whether there is something to show.
+   */
+  latestAnalyticsImport: async (
+    channelId?: string
+  ): Promise<AnalyticsImportSummary | null> => {
+    try {
+      const response = await api.get<
+        { success: true; data: AnalyticsImportSummary | null } | CTRErrorResponse
+      >(`${CTR_BASE_PATH}/analytics-import/latest`, {
+        params: channelId ? { channelId } : undefined,
+      });
+
+      if (!response.data.success) return null;
+
+      return (
+        (response.data as { success: true; data: AnalyticsImportSummary | null }).data ?? null
+      );
+    } catch (error: any) {
+      // 404 = no import for this channel, or the route does not exist yet.
+      // Either way there is nothing to show.
+      if (error?.response?.status === 404) return null;
+      throw error;
     }
   },
 };

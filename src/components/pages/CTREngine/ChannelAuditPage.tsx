@@ -123,10 +123,10 @@ const ChannelAuditPage: React.FC = () => {
   // (or a shared link) does not replay it.
   React.useEffect(stripOAuthParams, []);
 
-  // DEV ONLY — render the frozen-contract fixture without a backend:
-  //   /ai-thumbnails/channel-audit?fixture=v2 | preview | syncing | mismatched
-  //                                          | reauth | v1
-  // Lazy import so the fixture never reaches a production bundle.
+  // DEV ONLY — render the frozen-contract fixtures without a backend:
+  //   v2   ?fixture=v2 | preview | syncing | mismatched | reauth | v1
+  //   v2.1 ?fixture=v21preview | partial | full | uploaded | stale | hybrid
+  // Lazy import so the fixtures never reach a production bundle.
   React.useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
     const which = new URLSearchParams(window.location.search).get('fixture');
@@ -134,11 +134,19 @@ const ChannelAuditPage: React.FC = () => {
     let cancelled = false;
     import('../../../mocks/channelAuditV2.fixture').then((m) => {
       if (cancelled) return;
+      // v2 (pre-dataMode) — these must keep rendering exactly as they did.
       if (which === 'v1') setAudit(m.channelAuditV1LegacyFixture);
       else if (which === 'preview') setAudit(m.channelAuditV2PreviewFixture);
       else if (which === 'syncing') setAudit(m.channelAuditV2SyncingFixture);
       else if (which === 'mismatched') setAudit(m.channelAuditV2MismatchedFixture);
       else if (which === 'reauth') setAudit(m.channelAuditV2ReauthFixture);
+      // v2.1 — one fixture per dataMode.
+      else if (which === 'v21preview') setAudit(m.channelAuditV21PreviewFixture);
+      else if (which === 'partial') setAudit(m.channelAuditV21ConnectedPartialFixture);
+      else if (which === 'full') setAudit(m.channelAuditV21ConnectedFullFixture);
+      else if (which === 'uploaded') setAudit(m.channelAuditV21UploadedFixture);
+      else if (which === 'stale') setAudit(m.channelAuditV21UploadedStaleFixture);
+      else if (which === 'hybrid') setAudit(m.channelAuditV21HybridFixture);
       else setAudit(m.channelAuditV2Fixture);
     });
     return () => {
@@ -279,7 +287,15 @@ const ChannelAuditPage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
           >
-            <ChannelAuditReport audit={audit} onReset={handleReset} />
+            <ChannelAuditReport
+              audit={audit}
+              onReset={handleReset}
+              // A Studio import lands outside the audit snapshot, so the report
+              // offers a re-run rather than pretending it refreshed itself.
+              onRerunAudit={
+                channelUrl.trim() ? () => runAudit(channelUrl) : undefined
+              }
+            />
           </motion.div>
         ) : (
           <motion.div

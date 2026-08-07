@@ -8,7 +8,14 @@
 // product rules: `observed` = countable facts only, `hypothesis` = hedged and
 // non-causal, experiments are falsifiable and priority-ordered from 1.
 
-import type { ChannelPackagingAudit, ChannelPackagingAuditV2 } from '../types/ctr';
+import type {
+  ChannelAuditV2VideoMetrics,
+  ChannelPackagingAudit,
+  ChannelPackagingAuditV2,
+  MetricAvailability,
+  MetricDataset,
+  PerVideoMetricsV21,
+} from '../types/ctr';
 
 export const channelAuditV2Fixture: ChannelPackagingAuditV2 = {
   schemaVersion: 2,
@@ -420,6 +427,451 @@ export const channelAuditV1LegacyFixture: ChannelPackagingAudit = {
       score: 4,
     },
   ],
+};
+
+// ============================================================================
+// v2.1 — MULTI-SOURCE ANALYTICS FIXTURES
+//
+// One audit body, four data modes. The point of these is the AVAILABILITY
+// records: every metric either has a value and a dataset behind it, or a stated
+// reason why it is absent. Nothing is ever zero-filled.
+//
+// Window used throughout: 2026-07-09 → 2026-08-05 (28 days inclusive).
+// The stale upload deliberately sits on an old window (2026-05-05 → 2026-06-01)
+// so the re-upload prompt has something to fire on.
+// ============================================================================
+
+const WINDOW_START = '2026-07-09';
+const WINDOW_END = '2026-08-05';
+
+/** Verified daily facts from the Reporting API — the "connected_full" source. */
+const VERIFIED_REPORTING_DATASET: MetricDataset = {
+  id: 'ds-reporting-28d',
+  source: 'connected',
+  transport: 'reporting_api',
+  trust: 'verified',
+  coverage: { kind: 'date_range', startDate: WINDOW_START, endDate: WINDOW_END },
+  asOf: '2026-08-07T05:20:00.000Z',
+};
+
+/**
+ * Live `reports.query` — available the moment OAuth completes, which is why
+ * connected_partial can already show retention, subs and traffic while the
+ * impression/CTR backfill is still landing.
+ */
+const VERIFIED_LIVE_DATASET: MetricDataset = {
+  id: 'ds-reports-query-28d',
+  source: 'connected',
+  transport: 'reports_query',
+  trust: 'verified',
+  coverage: { kind: 'date_range', startDate: WINDOW_START, endDate: WINDOW_END },
+  asOf: '2026-08-07T09:02:00.000Z',
+};
+
+/** A Studio CSV the creator exported and confirmed for the same window. */
+const UPLOADED_DATASET: MetricDataset = {
+  id: 'ds-studio-import-91',
+  source: 'uploaded',
+  transport: 'studio_csv',
+  trust: 'self_reported',
+  coverage: { kind: 'date_range', startDate: WINDOW_START, endDate: WINDOW_END },
+  asOf: '2026-08-06T18:41:00.000Z',
+};
+
+/** The same export, two months old — the staleness / re-upload case. */
+const STALE_UPLOADED_DATASET: MetricDataset = {
+  id: 'ds-studio-import-64',
+  source: 'uploaded',
+  transport: 'studio_csv',
+  trust: 'self_reported',
+  coverage: { kind: 'date_range', startDate: '2026-05-05', endDate: '2026-06-01' },
+  asOf: '2026-06-02T08:15:00.000Z',
+};
+
+/**
+ * Per-video numbers the v2.1 modes share. Kept coherent on purpose:
+ * analyticsViews ≈ impressions × ctr (plus a little non-impression traffic) and
+ * always below the lifetime `views` on the audit row.
+ */
+interface MetricSeed {
+  videoId: string;
+  impressions: number;
+  ctr: number | null;
+  analyticsViews: number;
+  averageViewDuration: number;
+  averageViewPercentage: number;
+  subscribersGained: number;
+  subscribersGainedPerThousandViews: number;
+  evidenceStrength: ChannelAuditV2VideoMetrics['evidenceStrength'];
+  traffic: NonNullable<PerVideoMetricsV21['traffic']>;
+  /** null = no valid cohort, which the availability record has to explain. */
+  verifiedBaselineDelta: string | null;
+}
+
+const METRIC_SEEDS: MetricSeed[] = [
+  {
+    videoId: 'k3JmQ1rTt0A',
+    impressions: 612000,
+    ctr: 5.1,
+    analyticsViews: 30800,
+    averageViewDuration: 402,
+    averageViewPercentage: 38.4,
+    subscribersGained: 412,
+    subscribersGainedPerThousandViews: 13.4,
+    evidenceStrength: 'observational',
+    traffic: { dominant: 'Browse features', sharePercent: 61, basis: 'impressions' },
+    verifiedBaselineDelta: 'above your browse-matched baseline',
+  },
+  {
+    videoId: 'p8Vw2LnQdZk',
+    impressions: 88000,
+    ctr: 2.4,
+    analyticsViews: 2100,
+    averageViewDuration: 191,
+    averageViewPercentage: 21.7,
+    subscribersGained: 9,
+    subscribersGainedPerThousandViews: 4.3,
+    evidenceStrength: 'directional',
+    traffic: { dominant: 'Browse features', sharePercent: 44, basis: 'impressions' },
+    verifiedBaselineDelta: 'below your browse-matched baseline',
+  },
+  {
+    videoId: 'r2Xy9BbNq4E',
+    impressions: 143000,
+    ctr: 3.3,
+    analyticsViews: 4600,
+    averageViewDuration: 288,
+    averageViewPercentage: 29.5,
+    subscribersGained: 31,
+    subscribersGainedPerThousandViews: 6.7,
+    evidenceStrength: 'directional',
+    traffic: { dominant: 'YouTube search', sharePercent: 52, basis: 'impressions' },
+    verifiedBaselineDelta: null,
+  },
+  {
+    videoId: 'w7Kd4MsPl1U',
+    impressions: 96000,
+    ctr: 2.9,
+    analyticsViews: 2700,
+    averageViewDuration: 246,
+    averageViewPercentage: 24.1,
+    subscribersGained: 12,
+    subscribersGainedPerThousandViews: 4.4,
+    evidenceStrength: 'directional',
+    traffic: { dominant: 'Suggested videos', sharePercent: 39, basis: 'impressions' },
+    verifiedBaselineDelta: 'below your browse-matched baseline',
+  },
+  {
+    videoId: 'y5Tn8ZqRc6M',
+    impressions: 388000,
+    ctr: 4.6,
+    analyticsViews: 17400,
+    averageViewDuration: 371,
+    averageViewPercentage: 35.2,
+    subscribersGained: 238,
+    subscribersGainedPerThousandViews: 13.7,
+    evidenceStrength: 'observational',
+    traffic: { dominant: 'Browse features', sharePercent: 58, basis: 'impressions' },
+    verifiedBaselineDelta: 'above your browse-matched baseline',
+  },
+  {
+    // Under 1k impressions in the window: CTR is SUPPRESSED, not shown as a
+    // small number, and the baseline comparison goes with it.
+    videoId: 'g4Hb6VcXe9S',
+    impressions: 820,
+    ctr: null,
+    analyticsViews: 210,
+    averageViewDuration: 168,
+    averageViewPercentage: 18.9,
+    subscribersGained: 1,
+    subscribersGainedPerThousandViews: 4.8,
+    evidenceStrength: 'insufficient',
+    traffic: { dominant: 'YouTube search', sharePercent: 47, basis: 'views' },
+    verifiedBaselineDelta: null,
+  },
+  {
+    videoId: 'n9Fq3WdKu2P',
+    impressions: 74000,
+    ctr: 2.6,
+    analyticsViews: 1900,
+    averageViewDuration: 205,
+    averageViewPercentage: 22.8,
+    subscribersGained: 7,
+    subscribersGainedPerThousandViews: 3.7,
+    evidenceStrength: 'directional',
+    traffic: { dominant: 'YouTube search', sharePercent: 55, basis: 'impressions' },
+    verifiedBaselineDelta: 'below your browse-matched baseline',
+  },
+  {
+    videoId: 'c1Ls7RtYo3D',
+    impressions: 421000,
+    ctr: 5.4,
+    analyticsViews: 22300,
+    averageViewDuration: 388,
+    averageViewPercentage: 37.1,
+    subscribersGained: 301,
+    subscribersGainedPerThousandViews: 13.5,
+    evidenceStrength: 'observational',
+    traffic: { dominant: 'Browse features', sharePercent: 63, basis: 'impressions' },
+    verifiedBaselineDelta: 'above your browse-matched baseline',
+  },
+];
+
+const seedFor = (videoId: string): MetricSeed =>
+  METRIC_SEEDS.find((seed) => seed.videoId === videoId) ?? METRIC_SEEDS[0];
+
+const ready = (datasetId: string): MetricAvailability => ({ state: 'ready', datasetId });
+
+/** Everything the audit can measure, all coming from the same verified source. */
+const connectedFullMetrics = (seed: MetricSeed): PerVideoMetricsV21 => {
+  const ctrSuppressed = seed.ctr === null;
+  const ds = VERIFIED_REPORTING_DATASET.id;
+
+  return {
+    impressions: seed.impressions,
+    ctr: seed.ctr,
+    averageViewDuration: seed.averageViewDuration,
+    evidenceStrength: seed.evidenceStrength,
+    dominantTrafficSource: seed.traffic.dominant,
+    baselineDelta: seed.verifiedBaselineDelta,
+    analyticsViews: seed.analyticsViews,
+    averageViewPercentage: seed.averageViewPercentage,
+    subscribersGained: seed.subscribersGained,
+    subscribersGainedPerThousandViews: seed.subscribersGainedPerThousandViews,
+    traffic: seed.traffic,
+    datasets: [VERIFIED_REPORTING_DATASET],
+    availability: {
+      impressions: ready(ds),
+      ctr: ctrSuppressed
+        ? { state: 'suppressed', datasetId: ds, reason: 'low_impressions' }
+        : ready(ds),
+      analyticsViews: ready(ds),
+      averageViewDuration: ready(ds),
+      averageViewPercentage: ready(ds),
+      subscribersGained: ready(ds),
+      subscribersGainedPerThousandViews: ready(ds),
+      traffic: ready(ds),
+      baselineDelta:
+        seed.verifiedBaselineDelta === null
+          ? {
+              state: 'suppressed',
+              datasetId: ds,
+              reason: ctrSuppressed ? 'low_impressions' : 'no_valid_cohort',
+            }
+          : ready(ds),
+    },
+  };
+};
+
+/**
+ * OAuth just completed. `reports.query` already answers for views, retention,
+ * subs and traffic; the impression/CTR backfill has not landed, so those three
+ * keys are SYNCING — null values, never zeros.
+ */
+const connectedPartialMetrics = (seed: MetricSeed): PerVideoMetricsV21 => {
+  const ds = VERIFIED_LIVE_DATASET.id;
+
+  return {
+    impressions: null,
+    ctr: null,
+    averageViewDuration: seed.averageViewDuration,
+    evidenceStrength: 'insufficient',
+    dominantTrafficSource: seed.traffic.dominant,
+    baselineDelta: null,
+    analyticsViews: seed.analyticsViews,
+    averageViewPercentage: seed.averageViewPercentage,
+    subscribersGained: seed.subscribersGained,
+    subscribersGainedPerThousandViews: seed.subscribersGainedPerThousandViews,
+    traffic: seed.traffic,
+    datasets: [VERIFIED_LIVE_DATASET],
+    availability: {
+      impressions: { state: 'syncing' },
+      ctr: { state: 'syncing' },
+      analyticsViews: ready(ds),
+      averageViewDuration: ready(ds),
+      averageViewPercentage: ready(ds),
+      subscribersGained: ready(ds),
+      subscribersGainedPerThousandViews: ready(ds),
+      traffic: ready(ds),
+      baselineDelta: { state: 'syncing' },
+    },
+  };
+};
+
+/**
+ * A Studio CSV and nothing else. The export carries impressions, CTR, views,
+ * duration, % viewed and subscribers — but NOT traffic sources, so that key is
+ * `not_provided` and renders as "Not included in export".
+ */
+const uploadedMetrics = (
+  seed: MetricSeed,
+  dataset: MetricDataset = UPLOADED_DATASET
+): PerVideoMetricsV21 => {
+  const ctrSuppressed = seed.ctr === null;
+  const ds = dataset.id;
+  // Uploads get an overall-channel baseline, never a traffic-matched one, and
+  // the label has to say so.
+  const baselineDelta =
+    ctrSuppressed || seed.verifiedBaselineDelta === null
+      ? null
+      : `${seed.verifiedBaselineDelta.startsWith('above') ? 'above' : 'below'} your overall channel baseline — traffic mix not matched`;
+
+  return {
+    impressions: seed.impressions,
+    ctr: seed.ctr,
+    averageViewDuration: seed.averageViewDuration,
+    evidenceStrength: seed.evidenceStrength,
+    dominantTrafficSource: null,
+    baselineDelta,
+    analyticsViews: seed.analyticsViews,
+    averageViewPercentage: seed.averageViewPercentage,
+    subscribersGained: seed.subscribersGained,
+    subscribersGainedPerThousandViews: seed.subscribersGainedPerThousandViews,
+    traffic: null,
+    datasets: [dataset],
+    availability: {
+      impressions: ready(ds),
+      ctr: ctrSuppressed
+        ? { state: 'suppressed', datasetId: ds, reason: 'low_impressions' }
+        : ready(ds),
+      analyticsViews: ready(ds),
+      averageViewDuration: ready(ds),
+      averageViewPercentage: ready(ds),
+      subscribersGained: ready(ds),
+      subscribersGainedPerThousandViews: ready(ds),
+      traffic: { state: 'not_provided' },
+      baselineDelta:
+        baselineDelta === null
+          ? {
+              state: 'suppressed',
+              datasetId: ds,
+              reason: ctrSuppressed ? 'low_impressions' : 'no_valid_cohort',
+            }
+          : ready(ds),
+    },
+  };
+};
+
+/**
+ * Both sources, per metric. The upload temporarily supplies impressions/CTR
+ * while Reporting is incomplete; everything else is already verified — so the
+ * SAME video carries a self-reported Reach card and a verified Hold card.
+ */
+const hybridMetrics = (seed: MetricSeed): PerVideoMetricsV21 => {
+  const uploaded = UPLOADED_DATASET.id;
+  const live = VERIFIED_LIVE_DATASET.id;
+  const ctrSuppressed = seed.ctr === null;
+
+  return {
+    impressions: seed.impressions,
+    ctr: seed.ctr,
+    averageViewDuration: seed.averageViewDuration,
+    evidenceStrength: seed.evidenceStrength,
+    dominantTrafficSource: seed.traffic.dominant,
+    baselineDelta:
+      ctrSuppressed || seed.verifiedBaselineDelta === null
+        ? null
+        : `${seed.verifiedBaselineDelta.startsWith('above') ? 'above' : 'below'} your overall channel baseline — traffic mix not matched`,
+    analyticsViews: seed.analyticsViews,
+    averageViewPercentage: seed.averageViewPercentage,
+    subscribersGained: seed.subscribersGained,
+    subscribersGainedPerThousandViews: seed.subscribersGainedPerThousandViews,
+    traffic: seed.traffic,
+    datasets: [VERIFIED_LIVE_DATASET, UPLOADED_DATASET],
+    availability: {
+      impressions: ready(uploaded),
+      ctr: ctrSuppressed
+        ? { state: 'suppressed', datasetId: uploaded, reason: 'low_impressions' }
+        : ready(uploaded),
+      analyticsViews: ready(live),
+      averageViewDuration: ready(live),
+      averageViewPercentage: ready(live),
+      subscribersGained: ready(live),
+      subscribersGainedPerThousandViews: ready(live),
+      traffic: ready(live),
+      baselineDelta:
+        ctrSuppressed || seed.verifiedBaselineDelta === null
+          ? {
+              state: 'suppressed',
+              datasetId: uploaded,
+              reason: ctrSuppressed ? 'low_impressions' : 'no_valid_cohort',
+            }
+          : ready(uploaded),
+    },
+  };
+};
+
+const withMetrics = (
+  build: (seed: MetricSeed) => PerVideoMetricsV21
+): ChannelPackagingAuditV2['perVideo'] =>
+  channelAuditV2Fixture.perVideo.map((video) => ({
+    ...video,
+    metrics: build(seedFor(video.videoId)),
+  }));
+
+/**
+ * v2.1 PREVIEW — signed in, nothing connected, nothing uploaded. Craft audit
+ * only; the report offers the two equal ways to add private analytics.
+ */
+export const channelAuditV21PreviewFixture: ChannelPackagingAuditV2 = {
+  ...channelAuditV2Fixture,
+  mode: 'preview',
+  dataMode: 'preview',
+  connectionStatus: 'unconnected',
+  analyticsStatus: undefined,
+  channel: { ...channelAuditV2Fixture.channel, videosAnalyzed: 4 },
+  perVideo: channelAuditV2Fixture.perVideo
+    .slice(0, 4)
+    .map(({ metrics, ...rest }) => rest),
+};
+
+/** v2.1 CONNECTED_PARTIAL — full depth immediately; Reach still syncing. */
+export const channelAuditV21ConnectedPartialFixture: ChannelPackagingAuditV2 = {
+  ...channelAuditV2Fixture,
+  mode: 'connected',
+  dataMode: 'connected_partial',
+  connectionStatus: 'connected',
+  analyticsStatus: 'syncing',
+  perVideo: withMetrics(connectedPartialMetrics),
+};
+
+/** v2.1 CONNECTED_FULL — verified coverage complete and fresh. */
+export const channelAuditV21ConnectedFullFixture: ChannelPackagingAuditV2 = {
+  ...channelAuditV2Fixture,
+  mode: 'connected',
+  dataMode: 'connected_full',
+  connectionStatus: 'connected',
+  analyticsStatus: 'ready',
+  perVideo: withMetrics(connectedFullMetrics),
+};
+
+/** v2.1 UPLOADED — Studio CSV only. Everything self-reported and ranged. */
+export const channelAuditV21UploadedFixture: ChannelPackagingAuditV2 = {
+  ...channelAuditV2Fixture,
+  mode: 'preview',
+  dataMode: 'uploaded',
+  connectionStatus: 'unconnected',
+  analyticsStatus: undefined,
+  perVideo: withMetrics((seed) => uploadedMetrics(seed)),
+};
+
+/**
+ * v2.1 UPLOADED, but the export's window ended more than 30 days ago — the
+ * re-upload prompt fires off the dataset coverage, not off a special flag.
+ */
+export const channelAuditV21UploadedStaleFixture: ChannelPackagingAuditV2 = {
+  ...channelAuditV21UploadedFixture,
+  perVideo: withMetrics((seed) => uploadedMetrics(seed, STALE_UPLOADED_DATASET)),
+};
+
+/** v2.1 HYBRID — upload fills the Reach gap while the rest is already verified. */
+export const channelAuditV21HybridFixture: ChannelPackagingAuditV2 = {
+  ...channelAuditV2Fixture,
+  mode: 'connected',
+  dataMode: 'hybrid',
+  connectionStatus: 'connected',
+  analyticsStatus: 'syncing',
+  perVideo: withMetrics(hybridMetrics),
 };
 
 export default channelAuditV2Fixture;
