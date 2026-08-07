@@ -1,6 +1,15 @@
 import api from './index';
 
 /**
+ * Allowlisted post-OAuth return destinations. These are KEYS, not URLs — the
+ * backend signs them into the OAuth state and maps each to a fixed path in its
+ * callback (`create` → /create-channel, `dashboard` → /dashboard/creator,
+ * `audit` → /ai-thumbnails/channel-audit). Sending anything else silently
+ * collapses to `dashboard`.
+ */
+export type YouTubeOAuthReturnTo = 'create' | 'dashboard' | 'audit';
+
+/**
  * Response shape for GET /api/integrations/youtube/status
  */
 export interface YouTubeVerificationStatus {
@@ -43,7 +52,7 @@ export const youtubeAuthApi = {
    * Start the YouTube OAuth flow.
    * The backend returns an object containing the Google consent URL.
    */
-  startOAuth: async (returnTo?: 'create' | 'dashboard'): Promise<string> => {
+  startOAuth: async (returnTo?: YouTubeOAuthReturnTo): Promise<string> => {
     try {
       console.log('Starting YouTube OAuth flow...');
       // Backend must generate the URL with correct redirect_uri pointing to its own /callback.

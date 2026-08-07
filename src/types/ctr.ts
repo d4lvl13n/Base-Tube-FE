@@ -675,6 +675,22 @@ export interface ChannelAuditV2ReviewQueue {
   low: ChannelAuditV2ReviewQueueItem[];
 }
 
+/**
+ * Why this audit is (or is not) in connected mode — an ADDITIVE field the
+ * backend only starts sending with MOAT D2. It may be absent on every response
+ * until then, so absence must degrade to the plain "connect your channel" CTA.
+ *
+ *   unconnected     — no YouTube grant for this user / channel
+ *   mismatched      — a channel IS connected, but a different one was audited
+ *   reauth_required — the grant was revoked or expired
+ *   syncing         — connected; the first Reporting CSVs have not landed yet
+ */
+export type ChannelAuditConnectionStatus =
+  | 'unconnected'
+  | 'mismatched'
+  | 'reauth_required'
+  | 'syncing';
+
 /** The frozen v2 audit contract. */
 export interface ChannelPackagingAuditV2 {
   schemaVersion: 2;
@@ -696,6 +712,8 @@ export interface ChannelPackagingAuditV2 {
   reviewQueue: ChannelAuditV2ReviewQueue;
   /** Connected mode only. */
   analyticsStatus?: 'syncing' | 'ready' | 'reauth_required';
+  /** Additive (MOAT D2). Absent on older backends — never rely on it existing. */
+  connectionStatus?: ChannelAuditConnectionStatus;
 }
 
 /** What the audit endpoints can hand back today: the new report, or a legacy row. */

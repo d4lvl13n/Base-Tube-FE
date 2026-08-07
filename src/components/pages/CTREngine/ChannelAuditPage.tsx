@@ -17,6 +17,7 @@ import {
   ClipboardList,
   BookMarked,
   FlaskConical,
+  CheckCircle2,
 } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import useCTREngine from '../../../hooks/useCTREngine';
@@ -31,17 +32,96 @@ const EXAMPLE_CHANNELS = [
   'youtube.com/@veritasium',
 ];
 
+// ---------------------------------------------------------------------------
+// OAuth landing
+//
+// The report's connect CTA starts the YouTube flow with `returnTo=audit`, so the
+// backend callback lands the creator back HERE with either `?ytLinked=1` or
+// `?ytError=<code>`. The audit itself is not re-run automatically: it costs a
+// generation, and a creator who just connected may want to audit a different
+// channel. We remember what they audited and offer to run it again.
+// ---------------------------------------------------------------------------
+
+const LAST_AUDIT_URL_KEY = 'bt.channelAudit.lastUrl';
+
+/** One message per backend error code. Unknown codes still say something useful. */
+const YT_ERROR_MESSAGES: Record<string, string> = {
+  // Signed OAuth state failed verification: expired, tampered, or issued before
+  // the signing rollout. Nothing was linked.
+  state:
+    'That connection link could not be verified — it may simply have expired. Nothing was changed. Please start the connection again.',
+  // The YouTube channel is already owned by a different BaseTube account, so the
+  // callback refused to move it.
+  channel_owned:
+    'This YouTube channel is already linked to another BaseTube account. Disconnect it there first, or connect a different channel.',
+  callbackFailed:
+    'YouTube could not complete the connection. Nothing was changed — please try again.',
+};
+
+const ytErrorMessage = (code: string): string =>
+  YT_ERROR_MESSAGES[code] ||
+  'The YouTube connection did not complete. Nothing was changed — please try again.';
+
+type OAuthNotice =
+  | { kind: 'linked' }
+  | { kind: 'error'; code: string };
+
+/**
+ * Read the OAuth result params. PURE on purpose — it runs in a `useState`
+ * initializer, which React 18 StrictMode invokes twice in development; stripping
+ * the params here would make the second pass return nothing. The strip happens
+ * in an effect instead (idempotent).
+ */
+const readOAuthNotice = (): OAuthNotice | null => {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const error = params.get('ytError');
+  if (error) return { kind: 'error', code: error };
+  return params.get('ytLinked') ? { kind: 'linked' } : null;
+};
+
+/** Take the OAuth params out of the address bar once the banner owns them. */
+const stripOAuthParams = (): void => {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('ytLinked') && !url.searchParams.has('ytError')) return;
+    url.searchParams.delete('ytLinked');
+    url.searchParams.delete('ytError');
+    window.history.replaceState({}, document.title, url.toString());
+  } catch {
+    /* URL cleanup is cosmetic — never let it break the landing. */
+  }
+};
+
+const readLastAuditUrl = (): string => {
+  try {
+    return window.sessionStorage.getItem(LAST_AUDIT_URL_KEY) || '';
+  } catch {
+    return '';
+  }
+};
+
 const ChannelAuditPage: React.FC = () => {
   // Reuse the CTR engine for the quota/credit sidebar in the shared layout.
   const { usageAccess, isLoadingQuota } = useCTREngine();
 
-  const [channelUrl, setChannelUrl] = useState('');
+  // Returning from the OAuth callback? Prefill with whatever they audited before
+  // connecting so "run it again" is one click.
+  const [oauthNotice, setOauthNotice] = useState<OAuthNotice | null>(readOAuthNotice);
+  const [channelUrl, setChannelUrl] = useState(() =>
+    oauthNotice ? readLastAuditUrl() : ''
+  );
   const [audit, setAudit] = useState<ChannelAuditResult | null>(null);
   const [isAuditing, setIsAuditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The banner now owns the OAuth result — get it out of the URL so a refresh
+  // (or a shared link) does not replay it.
+  React.useEffect(stripOAuthParams, []);
+
   // DEV ONLY — render the frozen-contract fixture without a backend:
-  //   /ai-thumbnails/channel-audit?fixture=v2 | preview | syncing | v1
+  //   /ai-thumbnails/channel-audit?fixture=v2 | preview | syncing | mismatched
+  //                                          | reauth | v1
   // Lazy import so the fixture never reaches a production bundle.
   React.useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
@@ -53,6 +133,8 @@ const ChannelAuditPage: React.FC = () => {
       if (which === 'v1') setAudit(m.channelAuditV1LegacyFixture);
       else if (which === 'preview') setAudit(m.channelAuditV2PreviewFixture);
       else if (which === 'syncing') setAudit(m.channelAuditV2SyncingFixture);
+      else if (which === 'mismatched') setAudit(m.channelAuditV2MismatchedFixture);
+      else if (which === 'reauth') setAudit(m.channelAuditV2ReauthFixture);
       else setAudit(m.channelAuditV2Fixture);
     });
     return () => {
@@ -60,10 +142,17 @@ const ChannelAuditPage: React.FC = () => {
     };
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = channelUrl.trim();
+  const runAudit = async (rawUrl: string) => {
+    const trimmed = rawUrl.trim();
     if (!trimmed || isAuditing) return;
+
+    // Remembered so a creator who leaves for the Google consent screen can come
+    // back and re-run the same audit without retyping it.
+    try {
+      window.sessionStorage.setItem(LAST_AUDIT_URL_KEY, trimmed);
+    } catch {
+      /* private mode / storage disabled — the flow just loses the prefill. */
+    }
 
     setError(null);
     setIsAuditing(true);
@@ -77,6 +166,11 @@ const ChannelAuditPage: React.FC = () => {
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runAudit(channelUrl);
+  };
+
   const handleReset = () => {
     setAudit(null);
     setError(null);
@@ -85,6 +179,73 @@ const ChannelAuditPage: React.FC = () => {
 
   return (
     <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
+      {/* OAuth landing — the result of the report's "Connect YouTube" CTA */}
+      <AnimatePresence>
+        {oauthNotice && (
+          <motion.div
+            key="oauth-notice"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`max-w-3xl mx-auto mb-6 p-4 rounded-xl flex items-start gap-3 backdrop-blur-sm border ${
+              oauthNotice.kind === 'linked'
+                ? 'bg-[#fa7517]/10 border-[#fa7517]/30'
+                : 'bg-red-500/10 border-red-500/20'
+            }`}
+          >
+            {oauthNotice.kind === 'linked' ? (
+              <CheckCircle2 className="w-5 h-5 text-[#fa7517] flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            )}
+
+            <div className="flex-1 min-w-0">
+              {oauthNotice.kind === 'linked' ? (
+                <>
+                  <p className="text-white font-semibold">
+                    Connected — metrics start syncing now.
+                  </p>
+                  <p className="text-sm text-gray-300 mt-1">
+                    YouTube backfills impressions and CTR asynchronously, so the first data can
+                    take up to 48h to appear. Re-run the audit any time — the evidence and
+                    experiments don’t wait on it.
+                  </p>
+                  {channelUrl.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => runAudit(channelUrl)}
+                      disabled={isAuditing}
+                      className="mt-3 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white
+                                 bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90
+                                 shadow-lg shadow-[#fa7517]/25 transition-all min-h-[44px]
+                                 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isAuditing ? 'animate-spin' : ''}`} />
+                      Re-run the audit for {channelUrl.trim()}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-white font-semibold">YouTube wasn’t connected</p>
+                  <p className="text-sm text-red-200/90 mt-1">
+                    {ytErrorMessage(oauthNotice.code)}
+                  </p>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={() => setOauthNotice(null)}
+              aria-label="Dismiss"
+              className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Error */}
       <AnimatePresence>
         {error && (

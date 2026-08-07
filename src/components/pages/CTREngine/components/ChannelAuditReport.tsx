@@ -44,6 +44,7 @@ import {
   type ChannelAuditV2VideoMetrics,
 } from '../../../../types/ctr';
 import ChannelAuditLegacyReport from './ChannelAuditLegacyReport';
+import ChannelAuditConnectBanner from './ChannelAuditConnectBanner';
 
 interface ChannelAuditReportProps {
   audit: ChannelAuditResult;
@@ -168,7 +169,19 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, o
     reviewQueue,
     mode,
     analyticsStatus,
+    connectionStatus,
   } = v2;
+
+  // Connection state, resolved defensively. `connectionStatus` is ADDITIVE
+  // (MOAT D2) and absent on older backends, so `mode` remains the source of
+  // truth for "is this preview?" and the status only refines WHY.
+  const isPreview = mode === 'preview';
+  const isSyncing = analyticsStatus === 'syncing' || connectionStatus === 'syncing';
+  const needsReauth =
+    analyticsStatus === 'reauth_required' || connectionStatus === 'reauth_required';
+  // The ask: a preview report is missing the creator's own numbers. Also shown
+  // for a live report whose grant died — that one degrades to public data too.
+  const showConnectBanner = (isPreview && !isSyncing) || needsReauth;
 
   const orderedExperiments = [...experiments].sort((a, b) => a.priority - b.priority);
   const experimentById = new Map<string, ChannelAuditV2Experiment>(
@@ -243,8 +256,13 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, o
         )}
       </motion.section>
 
+      {/* Connect / reconnect / wrong-channel — the report's main ask when it has
+          no real numbers to show. Placed straight under Positioning so it is the
+          first thing after "here is what your channel is". */}
+      {showConnectBanner && <ChannelAuditConnectBanner connectionStatus={connectionStatus} />}
+
       {/* Analytics status (connected mode) */}
-      {analyticsStatus === 'syncing' && (
+      {isSyncing && (
         <div className="mb-6 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl flex items-start gap-3">
           <Info className="w-4 h-4 text-blue-300 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-blue-100/80">
@@ -253,12 +271,12 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({ audit, o
           </p>
         </div>
       )}
-      {analyticsStatus === 'reauth_required' && (
-        <div className="mb-6 p-4 bg-red-500/5 border border-red-500/20 rounded-xl flex items-start gap-3">
-          <Info className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-200/80">
-            Your YouTube connection needs to be re-authorised — this report is running on public
-            data only until it is.
+      {connectionStatus === 'mismatched' && (
+        <div className="mb-6 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl flex items-start gap-3">
+          <Info className="w-4 h-4 text-blue-300 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-blue-100/80">
+            Connected metrics only exist for the channel you linked — this audit is for another
+            one, so everything below is read from public data.
           </p>
         </div>
       )}

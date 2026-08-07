@@ -368,6 +368,23 @@ export const channelAuditV2SyncingFixture: ChannelPackagingAuditV2 = {
 };
 
 /**
+ * Preview because the creator audited a channel that is NOT the one they linked.
+ * (`connectionStatus` is ADDITIVE — it can be absent entirely, which is exactly
+ * what `channelAuditV2PreviewFixture` above covers.)
+ */
+export const channelAuditV2MismatchedFixture: ChannelPackagingAuditV2 = {
+  ...channelAuditV2PreviewFixture,
+  connectionStatus: 'mismatched',
+};
+
+/** Connected, then the grant died — the report degrades to public data. */
+export const channelAuditV2ReauthFixture: ChannelPackagingAuditV2 = {
+  ...channelAuditV2PreviewFixture,
+  connectionStatus: 'reauth_required',
+  analyticsStatus: 'reauth_required',
+};
+
+/**
  * A LEGACY (v1) row as the backend now serves it (`schemaVersion: 1`), used to
  * verify the minimal legacy view. Shape is deliberately partial — old rows do
  * not all carry every v1 block.

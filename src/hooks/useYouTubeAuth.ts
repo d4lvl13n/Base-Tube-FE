@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
-import { youtubeAuthApi, YouTubeVerificationStatus } from '../api/youtubeAuth';
+import { youtubeAuthApi, YouTubeVerificationStatus, YouTubeOAuthReturnTo } from '../api/youtubeAuth';
 
 export type YouTubeLinkStatus = 'unknown' | 'linked' | 'unlinked' | 'loading';
 
@@ -18,9 +18,10 @@ export interface UseYouTubeAuthReturn {
   /**
    * Opens the Google consent screen.
    * @param returnTo where the backend returns the user afterwards
-   *   ('create' = back to the channel-creation success view).
+   *   ('create' = back to the channel-creation success view,
+   *    'audit'  = back to the channel packaging audit).
    */
-  startOAuth: (returnTo?: 'create' | 'dashboard') => Promise<void>;
+  startOAuth: (returnTo?: YouTubeOAuthReturnTo) => Promise<void>;
   /** Re-fetch the link status (e.g. after redirect) */
   refetch: () => Promise<void>;
   /** Disconnect the linked channel */
@@ -73,7 +74,7 @@ export function useYouTubeAuth(): UseYouTubeAuthReturn {
   }, [isLoaded, getToken]);
 
   /** Initiates OAuth flow */
-  const startOAuth = useCallback(async (returnTo?: 'create' | 'dashboard') => {
+  const startOAuth = useCallback(async (returnTo?: YouTubeOAuthReturnTo) => {
     try {
       const token = await getToken();
       if (!token) {
