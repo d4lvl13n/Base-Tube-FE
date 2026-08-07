@@ -74,8 +74,10 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
   const [coverageKind, setCoverageKind] = useState<'date_range' | 'lifetime' | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // The number format the USER picked. Detection never writes this — it only
+  // badges an option on the coverage step (the click IS the confirmation).
   const [locale, setLocale] = useState<AnalyticsImportLocale | null>(null);
-  const [localeWasDetected, setLocaleWasDetected] = useState(false);
+  const [detectedLocale, setDetectedLocale] = useState<AnalyticsImportLocale | null>(null);
   const [result, setResult] = useState<AnalyticsImportResult | null>(null);
   const [accepted, setAccepted] = useState(false);
 
@@ -93,7 +95,7 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
     setStartDate('');
     setEndDate('');
     setLocale(null);
-    setLocaleWasDetected(false);
+    setDetectedLocale(null);
     setResult(null);
     setAccepted(false);
     setIsAnalyzing(false);
@@ -158,14 +160,12 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
       if (detected?.startDate) setStartDate(detected.startDate.slice(0, 10));
       if (detected?.endDate) setEndDate(detected.endDate.slice(0, 10));
 
-      // Same rule for the number format: detection PREFILLS the selector on the
-      // coverage step, the user still confirms it. Anything we don't support
-      // stays unselected — there is no silent 'en' fallback anywhere.
-      const detectedLocale = parsed.detectedLocale;
+      // The number format is NEVER pre-selected: detection only badges an
+      // option ("Looks like your file") and the user has to click one. A
+      // detection the backend could not make (null) simply shows no badge.
       const supported: AnalyticsImportLocale[] = ['en', 'fr', 'de', 'es'];
-      const prefill = supported.find((code) => code === detectedLocale) ?? null;
-      setLocale(prefill);
-      setLocaleWasDetected(prefill !== null);
+      setLocale(null);
+      setDetectedLocale(supported.find((code) => code === parsed.detectedLocale) ?? null);
 
       setStep(parsed.needsMapping ? 'mapping' : 'coverage');
     } catch (err: any) {
@@ -346,7 +346,7 @@ export const AnalyticsImportModal: React.FC<AnalyticsImportModalProps> = ({
                 startDate={startDate}
                 endDate={endDate}
                 locale={locale}
-                localeWasDetected={localeWasDetected}
+                detectedLocale={detectedLocale}
                 onLocaleChange={setLocale}
                 onChange={(next) => {
                   setCoverageKind(next.kind);

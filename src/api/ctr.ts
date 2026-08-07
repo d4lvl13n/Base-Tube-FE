@@ -649,17 +649,31 @@ function adaptAnalyzeResponse(raw: BackendAnalyzeResponse): AnalyticsImportAnaly
   }
 
   const indexToSuggested: Record<number, AnalyticsImportField | null> = {};
+  const indexToBackendField: Record<number, string> = {};
   for (const [beField, idx] of Object.entries(raw.detectedMapping || {})) {
     indexToSuggested[idx] = FIELD_FROM_BACKEND[beField] ?? null;
+    indexToBackendField[idx] = beField;
   }
+
+  // Sample values are keyed by BACKEND FIELD (metric values), with videoId and
+  // title carried separately — never by header text, which may be duplicated.
+  const samplesForIndex = (index: number): string[] => {
+    const beField = indexToBackendField[index];
+    if (!beField) return [];
+    return (raw.sampleRows || [])
+      .map((r) => {
+        if (beField === 'video_id') return r.videoId;
+        if (beField === 'video_title') return r.title;
+        return r.values?.[beField];
+      })
+      .filter((v): v is string => typeof v === 'string' && v.length > 0)
+      .slice(0, 3);
+  };
 
   const detectedColumns = (raw.headers || []).map((header, index) => ({
     header,
     index,
-    sampleValues: (raw.sampleRows || [])
-      .map((r) => r.values?.[header])
-      .filter((v): v is string => typeof v === 'string')
-      .slice(0, 3),
+    sampleValues: samplesForIndex(index),
     suggestedField: indexToSuggested[index] ?? null,
   }));
 

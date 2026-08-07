@@ -26,11 +26,11 @@ import type {
  * look like, not what a locale code is. Reading "1.234,5" with the wrong format
  * multiplies values by 1000, so this is a confirmation, never a silent default.
  */
-export const LOCALE_OPTIONS: { value: AnalyticsImportLocale; label: string }[] = [
-  { value: 'en', label: '1,234.56 — comma for thousands, point for decimals' },
-  { value: 'fr', label: '1 234,56 — space for thousands, comma for decimals' },
-  { value: 'de', label: '1.234,56 — point for thousands, comma for decimals' },
-  { value: 'es', label: '1.234,56 — Spanish (point for thousands, comma for decimals)' },
+export const LOCALE_OPTIONS: { value: AnalyticsImportLocale; sample: string; label: string }[] = [
+  { value: 'en', sample: '1,234.56', label: 'comma for thousands, point for decimals' },
+  { value: 'fr', sample: '1 234,56', label: 'space for thousands, comma for decimals' },
+  { value: 'de', sample: '1.234,56', label: 'point for thousands, comma for decimals (German)' },
+  { value: 'es', sample: '1.234,56', label: 'point for thousands, comma for decimals (Spanish)' },
 ];
 
 interface ImportCoverageStepProps {
@@ -38,11 +38,15 @@ interface ImportCoverageStepProps {
   kind: 'date_range' | 'lifetime' | null;
   startDate: string;
   endDate: string;
-  /** The number format the file was exported in. null = not confirmed yet. */
+  /**
+   * The number format the file was exported in. null until the USER picks one —
+   * detection never fills this in, it only badges an option below. That click
+   * is the confirmation the parser rules demand.
+   */
   locale: AnalyticsImportLocale | null;
-  /** True when the parser detected the format — the prefill still needs a look. */
-  localeWasDetected: boolean;
-  onLocaleChange: (locale: AnalyticsImportLocale | null) => void;
+  /** What the parser THINKS the format is — a badge, never a selection. */
+  detectedLocale: AnalyticsImportLocale | null;
+  onLocaleChange: (locale: AnalyticsImportLocale) => void;
   onChange: (next: {
     kind: 'date_range' | 'lifetime' | null;
     startDate: string;
@@ -71,7 +75,7 @@ export const ImportCoverageStep: React.FC<ImportCoverageStepProps> = ({
   startDate,
   endDate,
   locale,
-  localeWasDetected,
+  detectedLocale,
   onLocaleChange,
   onChange,
   onContinue,
@@ -185,31 +189,45 @@ export const ImportCoverageStep: React.FC<ImportCoverageStepProps> = ({
       )}
 
       {/* Number format — as mandatory as the range: misreading "1.234,5" as
-          English silently multiplies every value by 1000. */}
+          English silently multiplies every value by 1000. Detection only BADGES
+          an option; nothing is selected until the user clicks. */}
       <div className="mt-4 rounded-xl border border-gray-800/60 bg-black/40 p-4">
         <p className="flex items-center gap-2 text-sm font-semibold text-white">
           <Hash className="h-4 w-4 text-[#fa7517]" />
           How are numbers written in this file?
         </p>
         <p className="mt-1 text-xs text-gray-500">
-          {localeWasDetected
-            ? 'Detected from your file — please check it matches what you see in the export.'
+          {detectedLocale
+            ? 'The headers suggest one of these — confirm it against a number you can see in the export.'
             : 'We could not tell from the file — pick the format your numbers use.'}
         </p>
-        <select
-          value={locale ?? ''}
-          onChange={(e) =>
-            onLocaleChange(e.target.value ? (e.target.value as AnalyticsImportLocale) : null)
-          }
-          className="mt-3 min-h-[44px] w-full rounded-lg border border-white/10 bg-black/60 px-3 py-2 text-sm text-white focus:border-[#fa7517]/50 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/40"
-        >
-          <option value="">Choose a number format…</option>
+        <div className="mt-3 space-y-2" role="radiogroup" aria-label="Number format">
           {LOCALE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
+            <label
+              key={option.value}
+              className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors ${
+                locale === option.value
+                  ? 'border-[#fa7517]/40 bg-[#fa7517]/5'
+                  : 'border-white/10 bg-black/60 hover:border-gray-700'
+              }`}
+            >
+              <input
+                type="radio"
+                name="number-format"
+                checked={locale === option.value}
+                onChange={() => onLocaleChange(option.value)}
+                className="h-4 w-4 accent-[#fa7517]"
+              />
+              <span className="font-mono text-sm text-white">{option.sample}</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-gray-500">{option.label}</span>
+              {detectedLocale === option.value && (
+                <span className="flex-shrink-0 rounded-md border border-[#fa7517]/30 bg-[#fa7517]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#fa7517]">
+                  Looks like your file
+                </span>
+              )}
+            </label>
           ))}
-        </select>
+        </div>
       </div>
 
       {error && (
