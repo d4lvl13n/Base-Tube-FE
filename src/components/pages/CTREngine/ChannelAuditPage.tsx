@@ -159,6 +159,13 @@ const ChannelAuditPage: React.FC = () => {
   const [history, setHistory] = useState<ChannelAuditSummary[]>([]);
   const [isRestoring, setIsRestoring] = useState(true);
   const [openingAuditId, setOpeningAuditId] = useState<number | null>(null);
+  /**
+   * The channel reference of the REPORT ON SCREEN — set only when a report
+   * commits, never by typing. The report's "re-run" always uses this, so a
+   * half-typed draft in the form (or a late restore landing under it) can
+   * never make re-run audit a different channel than the one displayed.
+   */
+  const [reportChannelRef, setReportChannelRef] = useState('');
 
   /**
    * Operation generation: every user intent (fresh audit, opening a history
@@ -179,6 +186,7 @@ const ChannelAuditPage: React.FC = () => {
       const stored = await ctrApi.getChannelAudit(summary.id);
       if (opRef.current !== op) return;
       setAudit(stored);
+      setReportChannelRef(summary.channelRef || '');
       if (summary.channelRef) setChannelUrl(summary.channelRef);
     } catch (err: any) {
       if (opRef.current !== op) return;
@@ -217,7 +225,10 @@ const ChannelAuditPage: React.FC = () => {
         if (!latest) return;
         const stored = await ctrApi.getChannelAudit(latest.id);
         if (cancelled || opRef.current !== op) return;
+        // Generation 0 still current ⇒ no user action happened ⇒ the audit
+        // slot is empty; the restored report (and ITS channel ref) land as one.
         setAudit((current) => current ?? stored);
+        setReportChannelRef(latest.channelRef || '');
         if (latest.channelRef) {
           setChannelUrl((current) => current || latest.channelRef);
         }
@@ -289,6 +300,7 @@ const ChannelAuditPage: React.FC = () => {
       const result = await ctrApi.auditChannel(trimmed);
       if (opRef.current !== op) return;
       setAudit(result);
+      setReportChannelRef(trimmed);
       // The fresh audit is now the newest history row — refresh the list so
       // "New audit" shows it without a page reload. Fire-and-forget.
       void ctrApi.listChannelAudits().then((summaries) => {
@@ -308,9 +320,17 @@ const ChannelAuditPage: React.FC = () => {
   };
 
   const handleReset = () => {
+    // Reset is a user intent like any other: it supersedes whatever is in
+    // flight (a pending re-run would otherwise complete later and resurrect
+    // the report it just cleared). The superseded flow's guarded finally will
+    // not touch the spinners, so they are cleared here.
+    opRef.current += 1;
     setAudit(null);
     setError(null);
     setChannelUrl('');
+    setReportChannelRef('');
+    setIsAuditing(false);
+    setOpeningAuditId(null);
   };
 
   return (
@@ -429,8 +449,10 @@ const ChannelAuditPage: React.FC = () => {
               onReset={handleReset}
               // A Studio import lands outside the audit snapshot, so the report
               // offers a re-run rather than pretending it refreshed itself.
+              // Re-run targets the DISPLAYED report's channel — never the form
+              // draft, which the user may have edited under this report.
               onRerunAudit={
-                channelUrl.trim() ? () => runAudit(channelUrl) : undefined
+                reportChannelRef ? () => runAudit(reportChannelRef) : undefined
               }
             />
           </motion.div>
