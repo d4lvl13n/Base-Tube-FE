@@ -47,7 +47,7 @@ const ChannelAuditProgress: React.FC = () => {
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="bg-black/50 border border-[#fa7517]/20 rounded-2xl p-5 sm:p-6 mb-6 backdrop-blur-sm"
+      className="mx-auto mb-6 max-w-lg border-t border-[#fa7517]/25 py-7"
     >
       <div className="flex items-center justify-between mb-1">
         <p className="text-sm font-semibold text-white">Auditing your channel…</p>
@@ -55,9 +55,9 @@ const ChannelAuditProgress: React.FC = () => {
       </div>
 
       {/* Progress bar */}
-      <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden mb-5">
+      <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden mb-6">
         <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-[#fa7517] to-orange-500"
+          className="h-full rounded-full bg-[#f97316]"
           animate={{ width: `${pct}%` }}
           transition={{ ease: 'easeOut', duration: 0.4 }}
         />

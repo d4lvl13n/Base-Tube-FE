@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Base.Tube — Channel Audit Prototype</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  body { background: #0A0A0B; }
+  .score-arc { transition: stroke-dashoffset 1.2s cubic-bezier(0.22,1,0.36,1); }
+  .fade-up { transition: opacity .7s ease, transform .7s ease; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #27272A; border-radius: 4px; }
+</style>
+</head>
+<body class="text-zinc-100 antialiased">
+
+<div class="min-h-screen flex">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="w-56 shrink-0 border-r border-zinc-800/60 bg-[#0D0D0F] flex flex-col py-5 px-3 sticky top-0 h-screen">
+    <div class="flex items-center gap-2 px-2 mb-8">
+      <div class="w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
+        <i data-lucide="scan-search" class="w-4 h-4 text-orange-500"></i>
+      </div>
+      <span class="font-semibold tracking-tight">Base.Tube</span>
+    </div>
+    <nav class="space-y-1 text-sm">
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 cursor-default">
+        <i data-lucide="sparkles" class="w-4 h-4"></i><span class="flex-1">Create</span>
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 cursor-default">
+        <i data-lucide="bar-chart-3" class="w-4 h-4"></i><span class="flex-1">Audit</span>
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-orange-500/10 text-orange-400 border-l-2 border-orange-500 cursor-default">
+        <i data-lucide="scan-search" class="w-4 h-4"></i><span class="flex-1">Channel Audit</span>
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 cursor-default">
+        <i data-lucide="history" class="w-4 h-4"></i><span class="flex-1">History</span><i data-lucide="lock" class="w-3 h-3 text-zinc-700"></i>
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 cursor-default">
+        <i data-lucide="image" class="w-4 h-4"></i><span class="flex-1">My Gallery</span><i data-lucide="lock" class="w-3 h-3 text-zinc-700"></i>
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 cursor-default">
+        <i data-lucide="settings" class="w-4 h-4"></i><span class="flex-1">Settings</span><i data-lucide="lock" class="w-3 h-3 text-zinc-700"></i>
+      </div>
+    </nav>
+    <div class="mt-auto px-3 text-[11px] text-zinc-600">Today's Progress · Audits 1/3</div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 overflow-y-auto">
+
+    <!-- ======== SCREEN 1 : LANDING ======== -->
+    <section id="screen-landing" class="min-h-screen flex flex-col items-center justify-center px-6 py-16">
+      <div class="w-full max-w-xl text-center">
+        <h1 class="text-4xl font-bold tracking-tight leading-tight">
+          Find out why your videos<br/>aren't getting clicked.
+        </h1>
+        <p class="mt-4 text-zinc-400 text-lg">
+          Free audit of your thumbnails, titles &amp; cadence — benchmarked against your niche.
+        </p>
+
+        <button onclick="startScan()" class="mt-10 w-full flex items-center justify-center gap-3 bg-orange-500 hover:bg-orange-400 active:scale-[0.99] transition text-white font-semibold text-lg rounded-xl py-4 shadow-[0_0_40px_-8px_rgba(249,115,22,0.5)]">
+          <i data-lucide="youtube" class="w-5 h-5"></i>
+          Connect with YouTube
+        </button>
+
+        <button class="mt-3 text-sm text-zinc-500 hover:text-zinc-300 transition underline underline-offset-4 decoration-zinc-700">
+          or paste a channel URL →
+        </button>
+
+        <div class="mt-6 flex items-center justify-center gap-5 text-xs text-zinc-500">
+          <span class="flex items-center gap-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i>Read-only access</span>
+          <span class="flex items-center gap-1.5"><i data-lucide="clock" class="w-3.5 h-3.5 text-emerald-500"></i>30 seconds</span>
+          <span class="flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-500"></i>No posting</span>
+        </div>
+
+        <div class="mt-14">
+          <div class="text-[11px] uppercase tracking-widest text-zinc-600 mb-3">Recent audits</div>
+          <div class="flex justify-center gap-3 flex-wrap">
+            <div class="flex items-center gap-2.5 bg-zinc-900/60 border border-zinc-800 rounded-full pl-1.5 pr-3.5 py-1.5">
+              <div class="w-6 h-6 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-800"></div>
+              <span class="text-xs text-zinc-400">@buildinpublic</span>
+              <span class="text-xs font-semibold text-emerald-400">78 ↑</span>
+            </div>
+            <div class="flex items-center gap-2.5 bg-zinc-900/60 border border-zinc-800 rounded-full pl-1.5 pr-3.5 py-1.5">
+              <div class="w-6 h-6 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-800"></div>
+              <span class="text-xs text-zinc-400">@devtoolsdaily</span>
+              <span class="text-xs font-semibold text-emerald-400">64 ↑</span>
+            </div>
+            <div class="flex items-center gap-2.5 bg-zinc-900/60 border border-zinc-800 rounded-full pl-1.5 pr-3.5 py-1.5">
+              <div class="w-6 h-6 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-800"></div>
+              <span class="text-xs text-zinc-400">@web3simplified</span>
+              <span class="text-xs font-semibold text-emerald-400">71 ↑</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== SCREEN 2 : SCANNING ======== -->
+    <section id="screen-scanning" class="hidden min-h-screen flex items-center justify-center px-6">
+      <div class="w-full max-w-lg">
+        <div class="flex items-center gap-3 mb-6">
+          <i data-lucide="loader-2" class="w-5 h-5 text-orange-500 animate-spin"></i>
+          <h2 class="text-xl font-semibold">Auditing @yourchannel…</h2>
+        </div>
+
+        <div class="h-2 rounded-full bg-zinc-800 overflow-hidden">
+          <div id="scan-bar" class="h-full bg-orange-500 rounded-full" style="width:0%; transition: width .15s linear;"></div>
+        </div>
+        <div class="mt-2 text-right text-xs text-zinc-500 tabular-nums"><span id="scan-pct">0</span>%</div>
+
+        <ul class="mt-8 space-y-3.5" id="scan-steps">
+          <li class="flex items-center gap-3 text-sm" data-step="0"></li>
+          <li class="flex items-center gap-3 text-sm" data-step="1"></li>
+          <li class="flex items-center gap-3 text-sm" data-step="2"></li>
+          <li class="flex items-center gap-3 text-sm" data-step="3"></li>
+        </ul>
+
+        <div id="scan-teaser" class="fade-up mt-10 bg-zinc-900/70 border border-zinc-800 rounded-xl p-5 opacity-0 translate-y-3">
+          <div class="flex items-start gap-3">
+            <i data-lucide="eye" class="w-4.5 h-4.5 text-orange-400 mt-0.5 shrink-0"></i>
+            <div>
+              <div class="text-xs uppercase tracking-widest text-zinc-500 mb-1.5">First finding</div>
+              <p class="text-sm text-zinc-200 leading-relaxed">
+                Your average title is <span class="font-semibold text-zinc-50">11 words</span>. Channels
+                growing fastest in your niche use <span class="font-semibold text-emerald-400">5–7</span>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== SCREEN 3 : REPORT ======== -->
+    <section id="screen-report" class="hidden">
+      <div class="sticky top-0 z-10 bg-[#0A0A0B]/90 backdrop-blur border-b border-zinc-800/60 px-6 py-2.5 flex justify-end">
+        <button onclick="restart()" class="text-xs text-zinc-500 hover:text-orange-400 transition">← restart demo</button>
+      </div>
+
+      <div class="max-w-2xl mx-auto px-6 py-10 pb-24">
+
+        <!-- header -->
+        <div class="flex items-center justify-between mb-10">
+          <div class="text-sm text-zinc-500"><span class="text-zinc-200 font-medium">@yourchannel</span> · audited Aug 13</div>
+          <div class="flex gap-2">
+            <button class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 transition">
+              <i data-lucide="share-2" class="w-3.5 h-3.5"></i>Share
+            </button>
+            <button class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 transition">
+              <i data-lucide="file-down" class="w-3.5 h-3.5"></i>PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- 1 — verdict -->
+        <section class="flex items-center gap-8 flex-wrap">
+          <div class="relative" style="width:148px;height:148px;">
+            <svg width="148" height="148" class="-rotate-90">
+              <circle cx="74" cy="74" r="69" fill="none" stroke="#27272A" stroke-width="10"/>
+              <circle id="score-arc" class="score-arc" cx="74" cy="74" r="69" fill="none" stroke="#F97316" stroke-width="10" stroke-linecap="round"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="score-num" class="text-4xl font-bold text-zinc-100 tabular-nums">0</span>
+              <span class="text-xs text-zinc-500">/100</span>
+            </div>
+          </div>
+          <div class="flex-1 min-w-[240px]">
+            <div class="text-[11px] uppercase tracking-widest text-zinc-500 mb-2">The verdict</div>
+            <h2 class="text-2xl font-bold leading-snug">Your packaging is costing you clicks.</h2>
+            <p class="mt-2 text-sm text-zinc-400 leading-relaxed">
+              Top <span class="text-zinc-200 font-semibold">35%</span> of tech channels (10K–100K subs).
+              Strongest: <span class="text-emerald-400">consistency</span>. Weakest:
+              <span class="text-red-400">thumbnail contrast</span>.
+            </p>
+          </div>
+        </section>
+
+        <!-- 2 — top fixes -->
+        <section class="mt-14">
+          <div class="flex items-center gap-2 mb-4">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-orange-400"></i>
+            <h3 class="text-lg font-semibold">Fix these 3 things first</h3>
+          </div>
+          <div class="space-y-3" id="fixes"></div>
+        </section>
+
+        <!-- 3 — breakdown -->
+        <section class="mt-14">
+          <div class="flex items-center gap-2 mb-4">
+            <i data-lucide="bar-chart-3" class="w-4 h-4 text-zinc-400"></i>
+            <h3 class="text-lg font-semibold">Full breakdown</h3>
+          </div>
+          <div class="space-y-2.5" id="breakdown"></div>
+        </section>
+
+        <!-- 4 — drill-down -->
+        <section class="mt-14">
+          <div class="flex items-center gap-2 mb-1">
+            <i data-lucide="trending-up" class="w-4 h-4 text-zinc-400"></i>
+            <h3 class="text-lg font-semibold">Video drill-down</h3>
+          </div>
+          <p class="text-xs text-zinc-500 mb-4">Thumbnails rendered at real mobile feed size — how viewers actually see them.</p>
+          <div class="space-y-3" id="videos"></div>
+        </section>
+
+        <!-- CTA footer -->
+        <section class="mt-14 bg-gradient-to-br from-orange-500/15 to-transparent border border-orange-500/30 rounded-2xl p-6 text-center">
+          <h4 class="text-lg font-semibold">Ready to fix #1?</h4>
+          <p class="text-sm text-zinc-400 mt-1">Rebuild your weakest thumbnail with the Create tool.</p>
+          <button class="mt-4 inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-400 transition text-white font-semibold rounded-xl px-6 py-3">
+            Open Create <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </section>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* ---------------- data ---------------- */
+const SCAN_STEPS = [
+  "Fetched last 50 uploads",
+  "Analyzed 50 thumbnails",
+  "Scoring titles & hooks...",
+  "Benchmarking against 1,240 tech channels",
+];
+
+const FIXES = [
+  { rank:1, title:"Thumbnails unreadable at small size", detail:"14 of 50 videos", impact:"+20–35% CTR",
+    why:"Text under 40px at feed size disappears on mobile, where 70% of your impressions happen." },
+  { rank:2, title:"Titles bury the keyword", detail:"9 of 50 videos", impact:"+10% search reach",
+    why:"Your main keyword appears after word 6. Search truncates at ~60 chars — the keyword never surfaces." },
+  { rank:3, title:"Upload gap killed momentum", detail:"Jun 2 – Jul 8", impact:"Recover browse traffic",
+    why:"36 days without an upload. Returning viewers dropped 41% in the two weeks after the gap." },
+];
+
+const BREAKDOWN = [
+  { label:"Packaging", score:58, note:"Contrast & text size below niche median" },
+  { label:"Titles", score:64, note:"Good length, weak keyword placement" },
+  { label:"Cadence", score:71, note:"Solid rhythm, one damaging gap" },
+  { label:"Engagement", score:66, note:"Strong likes/view, weak comment rate" },
+];
+
+const VIDEOS = [
+  { title:"I Tested Every AI Coding Tool So You Don't Have To",
+    thumb:"I TESTED ALL AI TOOLS SO YOU DON'T HAVE TO WATCH",
+    gradient:"from-indigo-600 via-purple-700 to-zinc-900", ctr:4.1, niche:5.8,
+    suggestion:"I Tested 7 AI Coding Tools (One Was Useless)" },
+  { title:"Web3 Gaming Is Dead. Here's What Replaces It.",
+    thumb:"WEB3 GAMING IS DEAD",
+    gradient:"from-orange-600 via-red-700 to-zinc-900", ctr:6.9, niche:5.8, suggestion:null },
+  { title:"The Truth About Building a Startup in Europe That Nobody Talks About",
+    thumb:"THE TRUTH ABOUT EU STARTUPS NOBODY TALKS ABOUT",
+    gradient:"from-teal-600 via-emerald-800 to-zinc-900", ctr:3.2, niche:5.8,
+    suggestion:"Nobody Talks About Building Startups in Europe" },
+];
+
+/* ---------------- helpers ---------------- */
+const $ = (id) => document.getElementById(id);
+const ICONS = {
+  done: '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/></svg>',
+  active: '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>',
+  pending: '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3F3F46" stroke-width="2" class="shrink-0"><circle cx="12" cy="12" r="10"/></svg>',
+  chevron: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chev transition-transform"><path d="m6 9 6 6 6-6"/></svg>',
+  wand: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>',
+};
+
+function show(id) {
+  ["screen-landing","screen-scanning","screen-report"].forEach(s => $(s).classList.add("hidden"));
+  $(id).classList.remove("hidden");
+  window.scrollTo(0,0);
+}
+
+/* ---------------- screen flow ---------------- */
+function startScan() {
+  show("screen-scanning");
+  const bar = $("scan-bar"), pct = $("scan-pct"), teaser = $("scan-teaser");
+  const steps = [...document.querySelectorAll("#scan-steps li")];
+  const DURATION = 6500, start = Date.now();
+
+  const tick = setInterval(() => {
+    const p = Math.min(100, (Date.now() - start) / DURATION * 100);
+    bar.style.width = p + "%";
+    pct.textContent = Math.round(p);
+    const stepIdx = Math.min(SCAN_STEPS.length - 1, Math.floor(p / 100 * SCAN_STEPS.length));
+
+    steps.forEach((li, i) => {
+      const done = i < stepIdx || p >= 100, active = i === stepIdx && p < 100;
+      const icon = done ? ICONS.done : active ? ICONS.active : ICONS.pending;
+      const color = done ? "text-zinc-300" : active ? "text-zinc-100" : "text-zinc-600";
+      li.innerHTML = icon + '<span class="' + color + '">' + SCAN_STEPS[i] + "</span>";
+    });
+
+    if (p > 40) teaser.classList.remove("opacity-0","translate-y-3");
+
+    if (p >= 100) { clearInterval(tick); setTimeout(showReport, 600); }
+  }, 80);
+}
+
+function showReport() {
+  show("screen-report");
+  renderFixes(); renderBreakdown(); renderVideos();
+  lucide.createIcons();
+  animateScore(62);
+}
+
+function restart() { show("screen-landing"); }
+
+/* ---------------- score ring ---------------- */
+function animateScore(target) {
+  const arc = $("score-arc"), num = $("score-num");
+  const c = 2 * Math.PI * 69;
+  arc.style.strokeDasharray = c;
+  arc.style.strokeDashoffset = c;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    arc.style.strokeDashoffset = c - (target / 100) * c;
+  }));
+  const start = Date.now(), D = 1200;
+  const count = setInterval(() => {
+    const t = Math.min(1, (Date.now() - start) / D);
+    const ease = 1 - Math.pow(1 - t, 3);
+    num.textContent = Math.round(ease * target);
+    if (t >= 1) clearInterval(count);
+  }, 30);
+}
+
+/* ---------------- report sections ---------------- */
+function renderFixes() {
+  $("fixes").innerHTML = FIXES.map((f, i) => `
+    <div class="bg-zinc-900/70 border border-zinc-800 rounded-xl overflow-hidden">
+      <button onclick="toggleFix(${i})" class="w-full flex items-center gap-4 p-4 text-left hover:bg-zinc-900 transition">
+        <span class="w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/30 text-orange-400 text-sm font-bold flex items-center justify-center shrink-0">${f.rank}</span>
+        <div class="flex-1 min-w-0">
+          <div class="font-medium text-zinc-100 truncate">${f.title}</div>
+          <div class="text-xs text-zinc-500 mt-0.5">${f.detail} · est. <span class="text-emerald-400 font-medium">${f.impact}</span></div>
+        </div>
+        ${ICONS.chevron.replace('class="chev', 'id="chev-fix-' + i + '" class="chev')}
+      </button>
+      <div id="fix-body-${i}" class="hidden px-4 pb-4 pt-1 border-t border-zinc-800/60">
+        <p class="text-sm text-zinc-400 leading-relaxed">${f.why}</p>
+        <div class="mt-3 flex gap-2">
+          <button class="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 transition">See examples</button>
+          <button class="text-xs px-3 py-1.5 rounded-lg bg-orange-500/15 border border-orange-500/40 text-orange-400 hover:bg-orange-500/25 transition flex items-center gap-1.5">${ICONS.wand} Fix in Create</button>
+        </div>
+      </div>
+    </div>`).join("");
+}
+
+function toggleFix(i) {
+  $("fix-body-" + i).classList.toggle("hidden");
+  $("chev-fix-" + i).classList.toggle("rotate-180");
+}
+
+function renderBreakdown() {
+  $("breakdown").innerHTML = BREAKDOWN.map((b, i) => {
+    const color = b.score >= 70 ? "bg-emerald-500" : b.score >= 60 ? "bg-amber-500" : "bg-red-500";
+    return `
+    <div class="border border-zinc-800 rounded-xl bg-zinc-900/50">
+      <button onclick="toggleBreak(${i})" class="w-full flex items-center gap-4 px-4 py-3.5 text-left">
+        <span class="w-24 text-sm text-zinc-300">${b.label}</span>
+        <div class="flex-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+          <div class="h-full rounded-full ${color}" style="width:${b.score}%"></div>
+        </div>
+        <span class="text-sm font-semibold tabular-nums text-zinc-200 w-8 text-right">${b.score}</span>
+        ${ICONS.chevron.replace('class="chev', 'id="chev-break-' + i + '" class="chev')}
+      </button>
+      <div id="break-body-${i}" class="hidden px-4 pb-3.5 text-sm text-zinc-500">${b.note}</div>
+    </div>`;
+  }).join("");
+}
+
+function toggleBreak(i) {
+  $("break-body-" + i).classList.toggle("hidden");
+  $("chev-break-" + i).classList.toggle("rotate-180");
+}
+
+function renderVideos() {
+  $("videos").innerHTML = VIDEOS.map(v => {
+    const good = v.ctr >= v.niche;
+    return `
+    <div class="flex gap-4 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex-wrap sm:flex-nowrap">
+      <div>
+        <div class="relative w-[168px] aspect-video rounded-md overflow-hidden bg-gradient-to-br ${v.gradient} shrink-0 border border-zinc-800">
+          <div class="absolute inset-0 flex items-center justify-center p-1.5">
+            <span class="text-[9px] font-black text-white/90 text-center leading-tight tracking-tight uppercase drop-shadow">${v.thumb}</span>
+          </div>
+        </div>
+        <div class="mt-1.5 text-[10px] text-zinc-600 text-center">shown at real feed size</div>
+      </div>
+      <div class="flex-1 min-w-[220px]">
+        <div class="text-sm font-medium text-zinc-100 leading-snug">${v.title}</div>
+        <div class="mt-3 space-y-1.5">
+          <div class="flex items-center gap-2 text-xs">
+            <span class="w-16 text-zinc-500">Your CTR</span>
+            <div class="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div class="h-full rounded-full ${good ? "bg-emerald-500" : "bg-red-500"}" style="width:${v.ctr * 10}%"></div>
+            </div>
+            <span class="tabular-nums font-medium ${good ? "text-emerald-400" : "text-red-400"}">${v.ctr}%</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="w-16 text-zinc-500">Niche med.</span>
+            <div class="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div class="h-full rounded-full bg-zinc-600" style="width:${v.niche * 10}%"></div>
+            </div>
+            <span class="tabular-nums text-zinc-400">${v.niche}%</span>
+          </div>
+        </div>
+        ${v.suggestion ? `
+        <div class="mt-3 flex items-start gap-2 text-xs bg-orange-500/5 border border-orange-500/20 rounded-lg px-3 py-2">
+          <span class="text-orange-400 mt-0.5 shrink-0">${ICONS.wand}</span>
+          <span class="text-zinc-300">Suggested: <span class="text-orange-300 font-medium">"${v.suggestion}"</span></span>
+        </div>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+lucide.createIcons();
+</script>
+</body>
+</html>

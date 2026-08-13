@@ -227,6 +227,7 @@ const GeneratePage: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            className="ai-results-page max-w-4xl mx-auto"
           >
             {/* Back Button */}
             <div className="mb-6">
@@ -262,7 +263,7 @@ const GeneratePage: React.FC = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="max-w-4xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3 backdrop-blur-sm"
+            className="max-w-2xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3"
           >
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -288,51 +289,57 @@ const GeneratePage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div className="max-w-4xl mx-auto w-full">
+      <div className="ai-create-page max-w-2xl mx-auto w-full">
         {/* Mode Toggle */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4 sm:mb-6"
+          className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between"
         >
-          <div className="flex gap-1.5 sm:gap-2 p-1 sm:p-1.5 bg-black/50 rounded-xl border border-gray-800/30 backdrop-blur-sm w-full sm:w-fit">
+          <div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#fa7517]">
+              AI Thumbnail Studio
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-zinc-100">
+              {mode === 'creative' ? 'New thumbnail' : 'Optimized thumbnail'}
+            </h1>
+            <p className="mt-2 max-w-md text-sm text-zinc-500">
+              {mode === 'creative'
+                ? 'Describe the visual. Keep full control of the creative direction.'
+                : 'Start with your video title and build focused thumbnail concepts.'}
+            </p>
+          </div>
+          <div className="ai-create-mode-switch flex w-full gap-1 rounded-xl border border-white/[0.08] bg-[#111113] p-1 sm:w-auto">
             <button
               onClick={() => setMode('creative')}
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 flex-1 sm:flex-none px-3 sm:px-5 py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 min-h-[44px] sm:min-h-0
-                ${mode === 'creative'
-                  ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
+              className={`flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors sm:flex-none ${
+                mode === 'creative'
+                  ? 'bg-[#fa7517]/15 text-[#fb923c]'
+                  : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200'
+              }`}
             >
-              <Palette className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">Free-form</span>
-              <span className="xs:hidden">Free</span>
+              <Palette className="h-3.5 w-3.5" />
+              Free-form
             </button>
             <button
               onClick={() => setMode('ctr')}
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 flex-1 sm:flex-none px-3 sm:px-5 py-3 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 min-h-[44px] sm:min-h-0
-                ${mode === 'ctr'
-                  ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
+              className={`flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors sm:flex-none ${
+                mode === 'ctr'
+                  ? 'bg-[#fa7517]/15 text-[#fb923c]'
+                  : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200'
+              }`}
             >
-              <Target className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden xs:inline">Optimized</span>
-              <span className="xs:hidden">Auto</span>
+              <Target className="h-3.5 w-3.5" />
+              Optimized
             </button>
           </div>
-          <p className="mt-2 text-xs text-gray-500 px-1">
-            {mode === 'creative' 
-              ? 'Describe your thumbnail with a creative prompt'
-              : 'Enter your video title for AI-optimized thumbnail concepts'}
-          </p>
         </motion.div>
 
         {/* Main Form Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-black/50 border border-gray-800/30 rounded-2xl p-4 sm:p-6 backdrop-blur-sm mb-6 sm:mb-8"
+          className="ai-create-card mb-8"
         >
           <AnimatePresence mode="wait">
             {mode === 'creative' ? (
@@ -345,6 +352,7 @@ const GeneratePage: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
                 onSubmit={handleCreativeGenerate}
+                className="ai-create-form"
               >
                 {/* Prompt Input */}
                 <div className="mb-4 sm:mb-6">
@@ -576,6 +584,7 @@ const GeneratePage: React.FC = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 onSubmit={handleCTRGenerate}
+                className="ai-create-form"
               >
                 {/* Optimized prompt banner if from URL */}
                 {urlPrompt && urlMode === 'ctr' && (
@@ -943,7 +952,7 @@ const GeneratePage: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-black/50 border border-gray-800/30 rounded-2xl p-5 backdrop-blur-sm"
+          className="ai-create-tips border-t border-white/[0.08] py-6"
         >
           <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#fa7517]" />

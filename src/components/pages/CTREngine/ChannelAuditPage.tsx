@@ -343,7 +343,7 @@ const ChannelAuditPage: React.FC = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className={`max-w-3xl mx-auto mb-6 p-4 rounded-xl flex items-start gap-3 backdrop-blur-sm border ${
+            className={`max-w-2xl mx-auto mb-6 p-4 rounded-xl flex items-start gap-3 border ${
               oauthNotice.kind === 'linked'
                 ? 'bg-[#fa7517]/10 border-[#fa7517]/30'
                 : 'bg-red-500/10 border-red-500/20'
@@ -409,7 +409,7 @@ const ChannelAuditPage: React.FC = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="max-w-3xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3 backdrop-blur-sm"
+            className="max-w-2xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3"
           >
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
             <p className="flex-1 text-red-400">{error}</p>
@@ -432,7 +432,7 @@ const ChannelAuditPage: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="max-w-3xl mx-auto py-24 flex flex-col items-center gap-3 text-gray-400"
+            className="max-w-lg mx-auto min-h-[70vh] flex flex-col items-center justify-center gap-3 text-gray-400"
           >
             <RefreshCw className="w-6 h-6 animate-spin text-[#fa7517]" />
             <p className="text-sm">Looking for your last audit…</p>
@@ -462,17 +462,20 @@ const ChannelAuditPage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="max-w-3xl mx-auto"
+            className="ai-audit-landing max-w-xl mx-auto min-h-[calc(100vh-6rem)] flex flex-col justify-center py-8"
           >
             {/* Intro */}
-            <div className="text-center mb-8">
-              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#fa7517]/20 to-orange-500/10 flex items-center justify-center border border-[#fa7517]/20">
-                <ScanSearch className="w-7 h-7 text-[#fa7517]" />
+            <div className="text-center mb-9">
+              <div className="w-10 h-10 mx-auto mb-5 rounded-xl bg-[#fa7517]/10 flex items-center justify-center border border-[#fa7517]/25">
+                <ScanSearch className="w-5 h-5 text-[#fa7517]" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#fa7517]">
+                Evidence before advice
+              </p>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
                 Channel Packaging Audit
               </h1>
-              <p className="text-gray-400 max-w-xl mx-auto">
+              <p className="text-base sm:text-lg leading-relaxed text-zinc-400 max-w-xl mx-auto">
                 See what a strategist would change — and how to prove it. Paste a channel
                 and get what's actually observable in your packaging, plus the experiments
                 that would settle it.
@@ -484,13 +487,13 @@ const ChannelAuditPage: React.FC = () => {
               onSubmit={handleSubmit}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-black/50 border border-gray-800/30 rounded-2xl p-4 sm:p-6 backdrop-blur-sm mb-6"
+              className="ai-audit-form mb-7"
             >
               <label className="block text-sm font-semibold text-white mb-3 flex items-center gap-2">
                 <Link2 className="w-4 h-4 text-[#fa7517]" />
                 Channel URL or @handle
               </label>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-3">
                 <input
                   type="text"
                   value={channelUrl}
@@ -506,10 +509,10 @@ const ChannelAuditPage: React.FC = () => {
                   disabled={isAuditing || openingAuditId !== null || !channelUrl.trim()}
                   whileHover={{ scale: !isAuditing && channelUrl.trim() ? 1.02 : 1 }}
                   whileTap={{ scale: !isAuditing && channelUrl.trim() ? 0.98 : 1 }}
-                  className={`px-6 py-3.5 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2 min-h-[52px]
+                  className={`w-full px-6 py-3.5 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2 min-h-[54px]
                              ${
                                !isAuditing && channelUrl.trim()
-                                 ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 shadow-lg shadow-[#fa7517]/25'
+                                 ? 'bg-[#f97316] hover:bg-[#fb923c] shadow-[0_18px_45px_-20px_rgba(249,115,22,0.7)]'
                                  : 'bg-white/10 cursor-not-allowed text-gray-400'
                              }`}
                 >
@@ -528,7 +531,7 @@ const ChannelAuditPage: React.FC = () => {
               </div>
 
               {/* Examples */}
-              <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                 <span className="text-xs text-gray-500">Try:</span>
                 {EXAMPLE_CHANNELS.map((example) => (
                   <button
@@ -554,7 +557,7 @@ const ChannelAuditPage: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="mb-6 bg-black/50 border border-gray-800/30 rounded-2xl p-4 sm:p-5 backdrop-blur-sm"
+                className="ai-audit-history mb-8 border-t border-white/[0.08] pt-6"
               >
                 <h2 className="flex items-center gap-2 text-sm font-semibold text-white mb-3">
                   <History className="w-4 h-4 text-[#fa7517]" />
@@ -607,7 +610,7 @@ const ChannelAuditPage: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className={`grid sm:grid-cols-3 gap-4 ${isAuditing ? 'hidden' : ''}`}
+                className={`ai-audit-benefits grid sm:grid-cols-3 gap-4 border-t border-white/[0.08] pt-7 ${isAuditing ? 'hidden' : ''}`}
             >
               {[
                 {
@@ -628,9 +631,9 @@ const ChannelAuditPage: React.FC = () => {
               ].map((feature) => (
                 <div
                   key={feature.title}
-                  className="p-4 bg-black/50 border border-gray-800/30 rounded-xl backdrop-blur-sm text-center group hover:border-[#fa7517]/30 transition-colors"
+                  className="p-3 text-center group"
                 >
-                  <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#fa7517]/20 to-orange-500/10 flex items-center justify-center border border-[#fa7517]/20 group-hover:border-[#fa7517]/40 transition-colors">
+                  <div className="w-9 h-9 mx-auto mb-3 rounded-lg bg-[#fa7517]/10 flex items-center justify-center border border-[#fa7517]/20 group-hover:border-[#fa7517]/40 transition-colors">
                     <feature.icon className="w-5 h-5 text-[#fa7517]" />
                   </div>
                   <h3 className="text-white font-semibold text-sm mb-1">{feature.title}</h3>

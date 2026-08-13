@@ -57,21 +57,33 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
   return (
     <motion.aside
       initial={false}
-      animate={{ width: isCollapsed ? 80 : 256 }}
-      className={`h-screen flex flex-col bg-black/50 border-r border-gray-800/30 backdrop-blur-sm overflow-hidden flex-shrink-0 ${className}`}
+      animate={{ width: isCollapsed ? 72 : 224 }}
+      className={`ai-studio-sidebar h-screen flex flex-col bg-[#0d0d0f] border-r border-white/[0.08] overflow-hidden flex-shrink-0 ${className}`}
       style={{
-        boxShadow: `
-          0 0 20px 5px rgba(250, 117, 23, 0.1),
-          0 0 40px 10px rgba(250, 117, 23, 0.05),
-          inset 0 0 60px 15px rgba(250, 117, 23, 0.03)
-        `,
         position: 'sticky',
         top: 0,
         zIndex: 40
       }}
     >
+      <Link
+        to="/"
+        onClick={onLinkClick}
+        className={`flex h-[68px] flex-shrink-0 items-center border-b border-white/[0.06] ${
+          isCollapsed ? 'justify-center px-3' : 'gap-2.5 px-5'
+        }`}
+      >
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-[#fa7517]/30 bg-[#fa7517]/10">
+          <img src="/assets/basetubelogo.png" alt="" className="h-6 w-6" />
+        </span>
+        {!isCollapsed && (
+          <span className="whitespace-nowrap text-[15px] font-semibold tracking-tight text-zinc-100">
+            Base.Tube
+          </span>
+        )}
+      </Link>
+
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
+      <nav className={`flex-1 space-y-1 overflow-y-auto custom-scrollbar ${isCollapsed ? 'p-3' : 'px-3 py-5'}`}>
         {items.map((item) => {
           const isActive = location.pathname === item.path;
           const isDisabled = item.requiresAuth && !isSignedInAny;
@@ -80,10 +92,10 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
           return (
             <motion.div
               key={item.path}
-              whileHover={{ x: 4 }}
+              whileHover={{ x: isDisabled ? 0 : 2 }}
               className={`
                 relative group cursor-pointer
-                ${isActive ? 'bg-[#fa7517]/10' : 'hover:bg-gray-800/30'}
+                ${isActive ? 'bg-[#fa7517]/10' : 'hover:bg-white/[0.04]'}
                 rounded-lg transition-colors
                 ${isDisabled ? 'opacity-40 cursor-not-allowed' : ''}
               `}
@@ -99,11 +111,12 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
                   }
                 }}
                 className={`
-                  flex items-center px-4 py-2.5
-                  ${isActive ? 'text-[#fa7517]' : 'text-gray-400 hover:text-white'}
+                  flex items-center py-2.5 text-sm
+                  ${isCollapsed ? 'justify-center px-2' : 'px-3'}
+                  ${isActive ? 'text-[#fb923c]' : 'text-zinc-500 hover:text-zinc-200'}
                 `}
               >
-                <Icon className="w-5 h-5 min-w-[20px]" />
+                <Icon className="w-4 h-4 min-w-[16px]" />
               <AnimatePresence>
                 {!isCollapsed && (
                   <motion.div
@@ -126,7 +139,7 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
             {isActive && (
               <motion.div
                 layoutId="activeIndicator"
-                className="absolute left-0 top-0 w-1 h-full bg-[#fa7517] rounded-r"
+                className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#fa7517] rounded-r"
               />
             )}
 
@@ -151,7 +164,7 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
 
       {/* Quota Section */}
       {!isLoadingQuota && usageAccess && (
-        <div className={`px-4 pb-4 border-t border-gray-800/30 ${isCollapsed ? 'px-2' : ''}`}>
+        <div className={`mx-3 px-1 py-4 border-t border-white/[0.07] ${isCollapsed ? 'px-0' : ''}`}>
           {usageAccess.mode === 'credits' ? (
             isCollapsed ? (
               <div className="flex flex-col gap-2 items-center">
@@ -255,7 +268,8 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
       {onToggle && (
         <button
           onClick={onToggle}
-          className="p-3 border-t border-gray-800/30 text-gray-500 hover:text-white hover:bg-gray-800/30 transition-colors flex items-center justify-center"
+          className="p-3 border-t border-white/[0.07] text-zinc-600 hover:text-zinc-200 hover:bg-white/[0.03] transition-colors flex items-center justify-center"
+          aria-label={isCollapsed ? 'Expand navigation' : 'Collapse navigation'}
         >
           {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </button>

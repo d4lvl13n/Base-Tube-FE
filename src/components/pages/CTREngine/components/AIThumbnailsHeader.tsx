@@ -2,11 +2,11 @@
 // Header for AI Thumbnails - Identical to Header.tsx but without search bar
 
 import React, { useState } from 'react';
-import { Layout, LayoutDashboard, UserCircle, LogIn, Wallet, Palette, Shield, Menu, X } from 'lucide-react';
+import { UserCircle, LogIn, Wallet, Palette, Shield, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../../../common/Button';
 import { Link } from 'react-router-dom';
-import { useUser, SignInButton, UserButton } from '@clerk/clerk-react';
+import { useUser } from '@clerk/clerk-react';
 import { useAuth } from '../../../../contexts/AuthContext';
 
 interface AIThumbnailsHeaderProps {
@@ -21,8 +21,6 @@ const AIThumbnailsHeader: React.FC<AIThumbnailsHeaderProps> = ({
   className = '',
   isMobileMenuOpen = false,
   onToggleMobileMenu,
-  isNavOpen = true,
-  onNavToggle,
 }) => {
   const { isSignedIn, user: clerkUser } = useUser();
   const { isAuthenticated, user: web3User } = useAuth();
@@ -174,10 +172,10 @@ const AIThumbnailsHeader: React.FC<AIThumbnailsHeaderProps> = ({
   };
 
   return (
-    <div className={`max-w-[1920px] mx-auto ${className}`}>
-      <div className="flex items-center justify-between h-16 relative">
+    <div className={className}>
+      <div className="flex items-center justify-between h-16 md:h-[60px] relative md:justify-end">
         {/* Left Section */}
-        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+        <div className="ai-studio-mobile-brand flex items-center gap-2 sm:gap-4 shrink-0 md:hidden">
           {/* Mobile Hamburger Menu Button */}
           {onToggleMobileMenu && (
             <Button
@@ -195,22 +193,6 @@ const AIThumbnailsHeader: React.FC<AIThumbnailsHeaderProps> = ({
             </Button>
           )}
 
-          {/* Desktop Sidebar Toggle Button */}
-          {onNavToggle && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onNavToggle}
-              className="hidden md:flex hover:rotate-180 transition-transform duration-300 text-white/80 hover:text-white hover:bg-white/5"
-            >
-              {isNavOpen ? (
-                <LayoutDashboard className="w-5 h-5" />
-              ) : (
-                <Layout className="w-5 h-5" />
-              )}
-            </Button>
-          )}
-
           <Link to="/" className="flex items-center gap-2 group">
             <motion.div
               whileHover={{ scale: 1.01 }}
@@ -221,20 +203,20 @@ const AIThumbnailsHeader: React.FC<AIThumbnailsHeaderProps> = ({
               <img 
                 src="/assets/basetubelogo.png" 
                 alt="Base.Tube Logo" 
-                className="relative w-10 h-10 md:w-12 md:h-12"
+                className="relative w-9 h-9"
               />
             </motion.div>
-            <span className="block text-2xl font-bold bg-gradient-to-r from-[#fa7517] via-[#fa7517] to-white bg-clip-text text-transparent">
+            <span className="block text-lg font-semibold tracking-tight text-zinc-100">
               Base.Tube
             </span>
           </Link>
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-[#0d0d0f]/90 px-1.5 py-1 shadow-xl shadow-black/20 md:mr-2 md:mt-2">
           <Link
             to="/creator-hub"
-            className="relative text-white/80 hover:text-white hover:bg-white/5"
+            className="ai-studio-creator-link relative text-white/80 hover:text-white hover:bg-white/5"
           >
             <motion.div
               whileHover={{ scale: 1.01 }}

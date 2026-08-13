@@ -309,9 +309,9 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
   const swipeIsAspirational = swipeFile?.size?.match === 'aspirational';
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="ai-audit-report max-w-3xl mx-auto pb-16">
       {/* Back */}
-      <div className="mb-6">
+      <div className="mb-8">
         <button
           onClick={onReset}
           className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium"
@@ -327,7 +327,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-[#fa7517]/10 to-orange-500/5 border border-[#fa7517]/20 rounded-2xl p-6 sm:p-8 backdrop-blur-sm mb-6"
+        className="ai-audit-positioning border-b border-white/[0.09] pb-8 mb-8"
       >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-400 mb-4">
           <span className="text-white font-semibold text-base">{channel?.title}</span>
@@ -459,7 +459,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="mb-8"
+        className="ai-report-section mb-12"
       >
         <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
           <ClipboardList className="w-5 h-5 text-[#fa7517]" />
@@ -471,7 +471,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
         </p>
 
         {/* Channel-level counts (counts of this audit's own contents) */}
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="ai-audit-counts grid grid-cols-3 gap-3 mb-5">
           <div className="p-4 bg-black/40 border border-gray-800/50 rounded-xl text-center">
             <p className="text-xl font-bold text-white">{perVideo.length}</p>
             <p className="text-xs text-gray-500 mt-1">videos examined</p>
@@ -499,7 +499,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.03 * index }}
-                className="scroll-mt-24 bg-black/50 border border-gray-800/30 rounded-2xl overflow-hidden backdrop-blur-sm hover:border-[#fa7517]/30 transition-colors"
+                className="ai-evidence-card scroll-mt-24 bg-[#111113] border border-white/[0.09] rounded-2xl overflow-hidden hover:border-[#fa7517]/30 transition-colors"
               >
                 {/* `flex-wrap` rather than `flex-col sm:flex-row`: this app emits
                     `.flex-col` AFTER `.sm:flex-row`, so the responsive variant
@@ -623,7 +623,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mb-8"
+          className="ai-report-section mb-12 border-t border-white/[0.08] pt-10"
         >
           <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
             <FlaskConical className="w-5 h-5 text-[#fa7517]" />
@@ -638,7 +638,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
               <div
                 key={experiment.id}
                 id={experimentAnchorId(experiment.id)}
-                className="scroll-mt-24 bg-black/50 border border-gray-800/30 rounded-2xl p-5 sm:p-6 backdrop-blur-sm"
+                className="ai-experiment-card scroll-mt-24 bg-[#111113] border border-white/[0.09] rounded-2xl p-5 sm:p-6"
               >
                 <div className="flex items-start gap-4">
                   <span className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-[#fa7517]/25 to-orange-500/10 border border-[#fa7517]/30 flex items-center justify-center text-sm font-bold text-[#fa7517]">
@@ -709,7 +709,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
 
                     <button
                       onClick={() => handleGenerateVariant(experiment)}
-                      className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 text-white text-sm font-semibold rounded-xl shadow-lg shadow-[#fa7517]/25 transition-all min-h-[44px]"
+                      className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 bg-[#f97316] hover:bg-[#fb923c] text-white text-sm font-semibold rounded-xl transition-colors min-h-[44px]"
                     >
                       <Wand2 className="w-4 h-4" />
                       Generate this variant
@@ -731,7 +731,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-black/50 border border-gray-800/30 rounded-2xl p-5 sm:p-6 backdrop-blur-sm mb-8"
+          className="ai-report-section border-t border-white/[0.08] pt-10 mb-12"
         >
           <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
             <BookMarked className="w-5 h-5 text-[#fa7517]" />
@@ -859,7 +859,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-black/50 border border-gray-800/30 rounded-2xl p-5 sm:p-6 backdrop-blur-sm mb-6"
+          className="ai-report-section border-t border-white/[0.08] pt-10 mb-6"
         >
           <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
             <ListChecks className="w-5 h-5 text-[#fa7517]" />

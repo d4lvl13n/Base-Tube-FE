@@ -8,6 +8,7 @@ import AIThumbnailsSidebar from './components/AIThumbnailsSidebar';
 import AIThumbnailsHeader from './components/AIThumbnailsHeader';
 import HelpCard from './components/HelpCard';
 import EmailGateModal from './components/EmailGateModal';
+import './styles/aiStudio.css';
 
 // Hook for responsive sidebar visibility
 const useIsDesktop = () => {
@@ -40,11 +41,11 @@ export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
   const isDesktop = useIsDesktop();
 
   return (
-    <div className="min-h-screen bg-[#09090B]">
-      {/* Header - sticky at top */}
-      <header className="fixed top-0 left-0 right-0 z-50 w-full">
-        <div className="bg-gradient-to-b from-black via-black/95 to-black/80 backdrop-blur-md border-b border-white/5">
-          <div className="max-w-[1920px] mx-auto px-3 sm:px-4">
+    <div className="ai-studio-shell min-h-screen bg-[#09090B]">
+      {/* Mobile app bar / desktop utility bar. The studio brand lives in the rail. */}
+      <header className="ai-studio-header fixed top-0 left-0 right-0 z-50 w-full md:left-auto md:w-auto">
+        <div className="ai-studio-header-surface bg-black/95 backdrop-blur-md border-b border-white/5 md:bg-transparent md:border-0">
+          <div className="px-3 sm:px-4">
             <AIThumbnailsHeader 
               isMobileMenuOpen={mobileMenuOpen}
               onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}
@@ -56,7 +57,7 @@ export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
       </header>
 
       {/* Sidebar and Main Content */}
-      <div className="flex pt-16">
+      <div className="ai-studio-body flex pt-16 md:pt-0">
         {/* Sidebar - visible on desktop only */}
         {isDesktop && (
           <AIThumbnailsSidebar 
@@ -85,8 +86,7 @@ export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
                 animate={{ x: 0 }}
                 exit={{ x: -300 }}
                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                className="md:hidden fixed left-0 top-16 bottom-0 w-[280px] sm:w-72 z-50 overflow-hidden"
-                style={{ boxShadow: '0 0 20px 5px rgba(250, 117, 23, 0.08)' }}
+                className="md:hidden fixed left-0 top-16 bottom-0 w-[280px] sm:w-72 z-50 overflow-hidden border-r border-white/[0.08]"
               >
                 <AIThumbnailsSidebar 
                   usageAccess={usageAccess} 
@@ -101,10 +101,10 @@ export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
         </AnimatePresence>
 
           {/* Content Area - Main + Help Card */}
-          <div className="flex-1 flex flex-col xl:flex-row gap-4 xl:gap-6 px-4 sm:px-6 py-4 sm:py-6 lg:py-8 overflow-x-hidden">
+          <div className="ai-studio-workspace flex-1 flex flex-col px-4 sm:px-6 py-7 sm:py-10 lg:px-10 lg:py-12 overflow-x-hidden">
             {/* Main Content - closer to sidebar */}
             <main className="flex-1 min-w-0 w-full">
-              <div className="max-w-5xl mx-auto">
+              <div className="ai-studio-content max-w-5xl mx-auto">
                 {children}
               </div>
             </main>

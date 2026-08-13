@@ -174,7 +174,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat 
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay: index * 0.1, type: 'spring', stiffness: 100 }}
-      className="group bg-white/5 rounded-2xl overflow-hidden border border-white/10 hover:border-[#fa7517]/30 transition-all duration-300 backdrop-blur-sm"
+      className="ai-concept-card group bg-[#111113] rounded-2xl overflow-hidden border border-white/[0.09] hover:border-[#fa7517]/30 transition-colors duration-300"
     >
       {/* Thumbnail Image */}
       <div className={`relative ${imageAspectClass} bg-black/40 overflow-hidden`}>
@@ -261,7 +261,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat 
             whileTap={{ scale: 0.98 }}
             onClick={handleDownload}
             disabled={isDownloading}
-            className="flex-1 py-2.5 px-4 bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-[#fa7517]/25 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 px-4 bg-[#f97316] hover:bg-[#fb923c] text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Download className="w-4 h-4" />
             Download
@@ -425,7 +425,7 @@ export const GeneratedConceptsGrid: React.FC<GeneratedConceptsGridProps> = ({
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={className}
+      className={`ai-generated-concepts ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -453,7 +453,7 @@ export const GeneratedConceptsGrid: React.FC<GeneratedConceptsGridProps> = ({
       </div>
 
       {/* Grid */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 gap-4">
         {concepts.map((concept, index) => (
           <ConceptCard key={concept.id} concept={concept} index={index} outputFormat={outputFormat} />
         ))}

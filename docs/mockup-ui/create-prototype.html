@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Base.Tube — Create (Thumbnail Generator) Prototype</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  body { background: #0A0A0B; }
+  .fade-up { transition: opacity .5s ease, transform .5s ease; }
+  .skeleton { background: linear-gradient(100deg, #18181B 40%, #27272A 50%, #18181B 60%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .thumb-text { text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #27272A; border-radius: 4px; }
+</style>
+</head>
+<body class="text-zinc-100 antialiased">
+
+<div class="min-h-screen flex">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="w-56 shrink-0 border-r border-zinc-800/60 bg-[#0D0D0F] flex flex-col py-5 px-3 sticky top-0 h-screen">
+    <div class="flex items-center gap-2 px-2 mb-8">
+      <div class="w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
+        <i data-lucide="scan-search" class="w-4 h-4 text-orange-500"></i>
+      </div>
+      <span class="font-semibold tracking-tight">Base.Tube</span>
+    </div>
+    <nav class="space-y-1 text-sm">
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-orange-500/10 text-orange-400 border-l-2 border-orange-500 cursor-default">
+        <i data-lucide="sparkles" class="w-4 h-4"></i><span class="flex-1">Create</span>
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 cursor-default">
+        <i data-lucide="bar-chart-3" class="w-4 h-4"></i><span class="flex-1">Audit</span>
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 cursor-default">
+        <i data-lucide="scan-search" class="w-4 h-4"></i><span class="flex-1">Channel Audit</span>
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 cursor-default">
+        <i data-lucide="history" class="w-4 h-4"></i><span class="flex-1">History</span><i data-lucide="lock" class="w-3 h-3 text-zinc-700"></i>
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 cursor-default">
+        <i data-lucide="image" class="w-4 h-4"></i><span class="flex-1">My Gallery</span><i data-lucide="lock" class="w-3 h-3 text-zinc-700"></i>
+      </div>
+      <div class="flex items-center gap-3 px-3 py-2 rounded-lg text-zinc-500 hover:text-zinc-300 cursor-default">
+        <i data-lucide="settings" class="w-4 h-4"></i><span class="flex-1">Settings</span><i data-lucide="lock" class="w-3 h-3 text-zinc-700"></i>
+      </div>
+    </nav>
+    <div class="mt-auto px-3 text-[11px] text-zinc-600">Credits · 120 left</div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 overflow-y-auto">
+
+    <!-- ======== SCREEN 1 : BRIEF ======== -->
+    <section id="screen-brief" class="min-h-screen px-6 py-10">
+      <div class="max-w-2xl mx-auto">
+
+        <!-- audit handoff banner -->
+        <div class="mb-8 flex items-start gap-3 bg-orange-500/8 border border-orange-500/25 rounded-xl p-4">
+          <i data-lucide="scan-search" class="w-4 h-4 text-orange-400 mt-0.5 shrink-0"></i>
+          <div class="text-sm">
+            <span class="text-orange-300 font-medium">From your audit:</span>
+            <span class="text-zinc-400"> thumbnails unreadable at small size. We'll prioritize bold, high-contrast text and preview everything at real feed size.</span>
+          </div>
+        </div>
+
+        <h1 class="text-3xl font-bold tracking-tight">New thumbnail</h1>
+        <p class="mt-2 text-zinc-400">Start with the video. We'll handle the packaging.</p>
+
+        <!-- step 1: title -->
+        <div class="mt-10">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-6 h-6 rounded-md bg-orange-500/15 border border-orange-500/30 text-orange-400 text-xs font-bold flex items-center justify-center">1</span>
+            <label class="text-sm font-semibold">What's the video called?</label>
+          </div>
+          <input id="video-title" type="text" oninput="onTitleInput()"
+            placeholder="e.g. I Tested 7 AI Coding Tools (One Was Useless)"
+            class="w-full bg-zinc-900/70 border border-zinc-800 focus:border-orange-500/60 focus:outline-none rounded-xl px-4 py-3.5 text-sm placeholder:text-zinc-600 transition" />
+        </div>
+
+        <!-- step 2: thumbnail text -->
+        <div id="hook-section" class="mt-8 fade-up opacity-40 pointer-events-none">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-6 h-6 rounded-md bg-orange-500/15 border border-orange-500/30 text-orange-400 text-xs font-bold flex items-center justify-center">2</span>
+            <label class="text-sm font-semibold">Pick the on-thumbnail text</label>
+            <span class="text-[11px] text-zinc-500">— 3–5 words works best</span>
+          </div>
+          <div id="hook-options" class="space-y-2"></div>
+        </div>
+
+        <!-- step 3: direction -->
+        <div id="style-section" class="mt-8 fade-up opacity-40 pointer-events-none">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-6 h-6 rounded-md bg-orange-500/15 border border-orange-500/30 text-orange-400 text-xs font-bold flex items-center justify-center">3</span>
+            <label class="text-sm font-semibold">Visual direction</label>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="style-grid"></div>
+
+          <button onclick="toggleFace()" id="face-toggle"
+            class="mt-4 w-full flex items-center gap-3 border border-dashed border-zinc-700 hover:border-orange-500/50 rounded-xl px-4 py-3 text-sm text-zinc-400 hover:text-zinc-200 transition">
+            <i data-lucide="user-plus" class="w-4 h-4 text-zinc-500"></i>
+            <span id="face-label">Add your face for consistency</span>
+            <span class="ml-auto text-[11px] text-zinc-600">optional</span>
+          </button>
+
+          <details class="mt-4 group">
+            <summary class="text-xs text-zinc-500 hover:text-zinc-300 cursor-pointer list-none flex items-center gap-1.5 transition">
+              <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
+              Fine-tune the scene (optional prompt)
+              <i data-lucide="chevron-down" class="w-3 h-3 group-open:rotate-180 transition-transform"></i>
+            </summary>
+            <textarea rows="2" placeholder="e.g. dark studio, neon orange rim light, laptop glowing…"
+              class="mt-3 w-full bg-zinc-900/70 border border-zinc-800 focus:border-orange-500/60 focus:outline-none rounded-xl px-4 py-3 text-sm placeholder:text-zinc-600 transition"></textarea>
+          </details>
+        </div>
+
+        <!-- generate bar -->
+        <div class="mt-10 sticky bottom-6">
+          <div class="bg-zinc-900/90 backdrop-blur border border-zinc-800 rounded-2xl p-3 flex items-center gap-4 shadow-2xl">
+            <div class="pl-2 text-xs text-zinc-500">
+              <span class="text-zinc-300 font-semibold">4 variations</span> · <span class="text-orange-400 font-semibold">20 credits</span>
+            </div>
+            <button id="generate-btn" onclick="startGenerate()" disabled
+              class="ml-auto flex items-center gap-2 bg-orange-500 hover:bg-orange-400 disabled:bg-zinc-800 disabled:text-zinc-600 transition text-white font-semibold rounded-xl px-6 py-3 text-sm">
+              <i data-lucide="wand-2" class="w-4 h-4"></i> Generate
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== SCREEN 2 : GENERATING ======== -->
+    <section id="screen-generating" class="hidden min-h-screen px-6 py-10">
+      <div class="max-w-3xl mx-auto">
+        <div class="flex items-center gap-3 mb-8">
+          <i data-lucide="loader-2" class="w-5 h-5 text-orange-500 animate-spin"></i>
+          <h2 class="text-xl font-semibold">Generating 4 variations…</h2>
+          <span class="ml-auto text-xs text-zinc-500 tabular-nums"><span id="gen-pct">0</span>%</span>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="skeleton aspect-video rounded-xl"></div>
+          <div class="skeleton aspect-video rounded-xl" style="animation-delay:.15s"></div>
+          <div class="skeleton aspect-video rounded-xl" style="animation-delay:.3s"></div>
+          <div class="skeleton aspect-video rounded-xl" style="animation-delay:.45s"></div>
+        </div>
+        <div id="gen-tip" class="fade-up mt-8 bg-zinc-900/70 border border-zinc-800 rounded-xl p-5 opacity-0 translate-y-3">
+          <div class="flex items-start gap-3">
+            <i data-lucide="lightbulb" class="w-4 h-4 text-orange-400 mt-0.5 shrink-0"></i>
+            <p class="text-sm text-zinc-300 leading-relaxed">
+              While you wait — thumbnails with a <span class="font-semibold text-zinc-50">face + 4 words of text</span>
+              outperformed text-only by <span class="font-semibold text-emerald-400">38%</span> in tech niches last month.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== SCREEN 3 : RESULTS ======== -->
+    <section id="screen-results" class="hidden">
+      <div class="sticky top-0 z-10 bg-[#0A0A0B]/90 backdrop-blur border-b border-zinc-800/60 px-6 py-2.5 flex items-center justify-between">
+        <div class="text-sm text-zinc-500 truncate"><span class="text-zinc-200 font-medium" id="result-title"></span></div>
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- feed-size preview toggle -->
+          <div class="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 text-xs">
+            <button onclick="setPreview('full')" id="pv-full" class="px-3 py-1.5 rounded-md bg-orange-500/15 text-orange-400 font-medium transition">Full size</button>
+            <button onclick="setPreview('feed')" id="pv-feed" class="px-3 py-1.5 rounded-md text-zinc-500 hover:text-zinc-300 transition flex items-center gap-1.5">
+              <i data-lucide="smartphone" class="w-3 h-3"></i>Feed size
+            </button>
+          </div>
+          <button onclick="restart()" class="text-xs text-zinc-500 hover:text-orange-400 transition ml-2">← new</button>
+        </div>
+      </div>
+
+      <div class="max-w-3xl mx-auto px-6 py-8 pb-24">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-lg font-semibold">Pick a winner</h2>
+          <span class="text-xs text-zinc-500">20 credits used · regen text only: 2 credits</span>
+        </div>
+
+        <!-- variations grid -->
+        <div id="results-grid" class="grid grid-cols-2 gap-4"></div>
+
+        <!-- feed preview note -->
+        <div id="feed-note" class="hidden mt-6 flex items-start gap-3 bg-orange-500/8 border border-orange-500/25 rounded-xl p-4">
+          <i data-lucide="smartphone" class="w-4 h-4 text-orange-400 mt-0.5 shrink-0"></i>
+          <p class="text-sm text-zinc-400">This is <span class="text-zinc-200 font-medium">exactly how viewers see it</span> in the mobile feed (168px). If you can't read the text now, neither can they.</p>
+        </div>
+
+        <!-- selected actions -->
+        <div id="actions" class="hidden mt-8 bg-zinc-900/70 border border-zinc-800 rounded-2xl p-5">
+          <div class="flex items-center gap-2 mb-4">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i>
+            <span class="text-sm font-semibold">Variation <span id="sel-num"></span> selected</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <button class="flex items-center justify-center gap-2 text-xs font-medium px-3 py-2.5 rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 transition">
+              <i data-lucide="type" class="w-3.5 h-3.5"></i>Edit text · 2 cr
+            </button>
+            <button class="flex items-center justify-center gap-2 text-xs font-medium px-3 py-2.5 rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 transition">
+              <i data-lucide="refresh-ccw" class="w-3.5 h-3.5"></i>More like this · 5 cr
+            </button>
+            <button class="flex items-center justify-center gap-2 text-xs font-medium px-3 py-2.5 rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 transition">
+              <i data-lucide="scaling" class="w-3.5 h-3.5"></i>Upscale 4K · 3 cr
+            </button>
+            <button class="flex items-center justify-center gap-2 text-xs font-semibold px-3 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-400 text-white transition">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>Download
+            </button>
+          </div>
+          <button class="mt-3 w-full flex items-center justify-center gap-2 text-xs px-3 py-2.5 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-300 hover:bg-orange-500/20 transition">
+            <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i>
+            A/B test this against your current thumbnail — measure real CTR in 7 days
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* ---------------- data ---------------- */
+const HOOKS = [
+  { text: "ONE WAS USELESS", tag: "Curiosity gap", rec: true },
+  { text: "I TESTED THEM ALL", tag: "Authority" },
+  { text: "7 TOOLS. 1 WINNER.", tag: "Listicle" },
+];
+
+const STYLES = [
+  { id: "bold",     label: "Bold & Bright",   desc: "High contrast, saturated" },
+  { id: "cinematic",label: "Cinematic",        desc: "Moody, film-grade" },
+  { id: "minimal",  label: "Clean Minimal",    desc: "Space, one focal point" },
+  { id: "reaction", label: "Reaction Face",    desc: "Emotion-forward" },
+];
+
+const VARIANTS = [
+  { gradient: "from-orange-600 via-amber-700 to-zinc-900", textColor: "text-white" },
+  { gradient: "from-indigo-600 via-purple-700 to-zinc-900", textColor: "text-amber-300" },
+  { gradient: "from-zinc-800 via-zinc-900 to-black",       textColor: "text-orange-400" },
+  { gradient: "from-teal-600 via-emerald-800 to-zinc-900", textColor: "text-white" },
+];
+
+/* ---------------- state ---------------- */
+let selectedHook = null, selectedStyle = "bold", faceOn = false, feedMode = false, selectedVariant = null;
+const $ = (id) => document.getElementById(id);
+
+function show(id) {
+  ["screen-brief","screen-generating","screen-results"].forEach(s => $(s).classList.add("hidden"));
+  $(id).classList.remove("hidden");
+  window.scrollTo(0,0);
+}
+
+/* ---------------- brief screen ---------------- */
+function onTitleInput() {
+  const has = $("video-title").value.trim().length > 3;
+  $("hook-section").classList.toggle("opacity-40", !has);
+  $("hook-section").classList.toggle("pointer-events-none", !has);
+  $("style-section").classList.toggle("opacity-40", !has);
+  $("style-section").classList.toggle("pointer-events-none", !has);
+  if (has && !$("hook-options").hasChildNodes()) renderHooks();
+  updateGenerateBtn();
+}
+
+function renderHooks() {
+  $("hook-options").innerHTML = HOOKS.map((h, i) => `
+    <button onclick="pickHook(${i})" id="hook-${i}"
+      class="w-full flex items-center gap-3 border rounded-xl px-4 py-3 text-left transition
+        ${i === 0 ? "border-orange-500/50 bg-orange-500/8" : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-600"}">
+      <span class="font-black tracking-tight text-sm ${i === 0 ? "text-orange-300" : "text-zinc-200"}">"${h.text}"</span>
+      <span class="text-[11px] text-zinc-500">${h.tag}</span>
+      ${h.rec ? '<span class="ml-auto text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2 py-0.5">BEST FOR YOUR NICHE</span>' : ""}
+    </button>`).join("");
+  selectedHook = 0;
+  updateGenerateBtn();
+}
+
+function pickHook(i) {
+  selectedHook = i;
+  HOOKS.forEach((_, j) => {
+    const el = $("hook-" + j);
+    el.className = "w-full flex items-center gap-3 border rounded-xl px-4 py-3 text-left transition " +
+      (j === i ? "border-orange-500/50 bg-orange-500/8" : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-600");
+  });
+  updateGenerateBtn();
+}
+
+function renderStyles() {
+  $("style-grid").innerHTML = STYLES.map(s => `
+    <button onclick="pickStyle('${s.id}')" id="style-${s.id}"
+      class="border rounded-xl px-3 py-3 text-left transition
+        ${s.id === selectedStyle ? "border-orange-500/50 bg-orange-500/8" : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-600"}">
+      <div class="text-xs font-semibold ${s.id === selectedStyle ? "text-orange-300" : "text-zinc-200"}">${s.label}</div>
+      <div class="text-[10px] text-zinc-500 mt-0.5">${s.desc}</div>
+    </button>`).join("");
+}
+
+function pickStyle(id) { selectedStyle = id; renderStyles(); }
+
+function toggleFace() {
+  faceOn = !faceOn;
+  $("face-toggle").className = "mt-4 w-full flex items-center gap-3 border rounded-xl px-4 py-3 text-sm transition " +
+    (faceOn ? "border-orange-500/50 bg-orange-500/8 text-zinc-200" : "border-dashed border-zinc-700 hover:border-orange-500/50 text-zinc-400 hover:text-zinc-200");
+  $("face-label").textContent = faceOn ? "Face reference added — consistent look across thumbnails" : "Add your face for consistency";
+}
+
+function updateGenerateBtn() {
+  $("generate-btn").disabled = !(selectedHook !== null && $("video-title").value.trim().length > 3);
+}
+
+/* ---------------- generating ---------------- */
+function startGenerate() {
+  show("screen-generating");
+  const start = Date.now(), D = 5200;
+  const tick = setInterval(() => {
+    const p = Math.min(100, (Date.now() - start) / D * 100);
+    $("gen-pct").textContent = Math.round(p);
+    if (p > 30) $("gen-tip").classList.remove("opacity-0","translate-y-3");
+    if (p >= 100) { clearInterval(tick); setTimeout(showResults, 500); }
+  }, 80);
+}
+
+/* ---------------- results ---------------- */
+function thumbHTML(v, i, small) {
+  const hook = HOOKS[selectedHook].text;
+  return `
+  <button onclick="pickVariant(${i})" class="group relative text-left">
+    <div class="relative ${small ? "w-[168px]" : "w-full"} aspect-video rounded-xl overflow-hidden bg-gradient-to-br ${v.gradient} border-2 transition
+      ${selectedVariant === i ? "border-orange-500" : "border-zinc-800 group-hover:border-zinc-600"}">
+      <div class="absolute inset-0 flex items-center justify-center p-3">
+        <span class="thumb-text font-black ${v.textColor} text-center uppercase leading-none tracking-tight ${small ? "text-[11px]" : "text-2xl"}">${hook}</span>
+      </div>
+      <span class="absolute top-2 left-2 text-[10px] font-bold bg-black/50 backdrop-blur rounded px-1.5 py-0.5 text-zinc-300">${i+1}</span>
+      ${selectedVariant === i ? '<span class="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>' : ""}
+    </div>
+  </button>`;
+}
+
+function showResults() {
+  $("result-title").textContent = $("video-title").value;
+  show("screen-results");
+  feedMode = false; selectedVariant = null;
+  setPreview("full");
+  renderResults();
+  lucide.createIcons();
+}
+
+function renderResults() {
+  $("results-grid").className = feedMode ? "flex flex-wrap gap-6 justify-center" : "grid grid-cols-2 gap-4";
+  $("results-grid").innerHTML = VARIANTS.map((v, i) => thumbHTML(v, i, feedMode)).join("");
+  $("feed-note").classList.toggle("hidden", !feedMode);
+  $("actions").classList.toggle("hidden", selectedVariant === null);
+  if (selectedVariant !== null) $("sel-num").textContent = selectedVariant + 1;
+}
+
+function pickVariant(i) {
+  selectedVariant = i;
+  renderResults();
+}
+
+function setPreview(mode) {
+  feedMode = mode === "feed";
+  $("pv-full").className = "px-3 py-1.5 rounded-md transition " + (!feedMode ? "bg-orange-500/15 text-orange-400 font-medium" : "text-zinc-500 hover:text-zinc-300");
+  $("pv-feed").className = "px-3 py-1.5 rounded-md transition flex items-center gap-1.5 " + (feedMode ? "bg-orange-500/15 text-orange-400 font-medium" : "text-zinc-500 hover:text-zinc-300");
+  renderResults();
+}
+
+function restart() {
+  show("screen-brief");
+}
+
+renderStyles();
+lucide.createIcons();
+</script>
+</body>
+</html>
