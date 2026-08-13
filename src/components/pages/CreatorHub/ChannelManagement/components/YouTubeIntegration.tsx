@@ -15,8 +15,12 @@ const YouTubeIntegration: React.FC<YouTubeIntegrationProps> = ({ className }) =>
   const handleUnlink = async () => {
     try {
       setUnlinking(true);
-      await unlink();
-      toast.success('YouTube channel unlinked successfully');
+      const result = await unlink();
+      if (result.cleanupStatus === 'pending') {
+        toast.info('YouTube is disconnected. Private-data deletion is still being retried.');
+      } else {
+        toast.success('YouTube disconnected and private data deleted');
+      }
       setShowConfirm(false);
     } catch (error) {
       console.error('Failed to unlink YouTube channel:', error);
@@ -125,4 +129,4 @@ const YouTubeIntegration: React.FC<YouTubeIntegrationProps> = ({ className }) =>
   );
 };
 
-export default YouTubeIntegration; 
+export default YouTubeIntegration;

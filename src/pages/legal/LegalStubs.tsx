@@ -76,13 +76,13 @@ export const PrivacyPage: React.FC = () => (
         <li>Your YouTube Analytics for your own channel (via the <code>yt-analytics.readonly</code> scope) — metrics such as impressions, click-through rate, watch time, and traffic sources — used solely to produce your personalized packaging audit.</li>
       </ul>
       <p><strong>How we use it.</strong> This data is used only to generate the audit, insights, and fixes we show you. We do <strong>not</strong> sell it, use it for advertising, or share it with third parties except the sub-processors in Section 4 strictly to provide the Service.</p>
-      <p><strong>Retention &amp; deletion.</strong> We retain your connected-channel data only as long as needed to provide the Service and your audit history. You can request deletion at any time (Section 7).</p>
+      <p><strong>Retention &amp; deletion.</strong> We retain your connected-channel data only while your authorization is active and as needed to provide the Service and your audit history. Disconnecting starts deletion of data obtained through Google; account deletion removes the remaining audit/import data. Creator-uploaded CSV metrics are independent of the Google grant and remain until you delete your account or request their deletion.</p>
       <p>
         <strong>Revoking access.</strong> You can revoke BaseTube’s access to your Google data at any
         time via your{' '}
         <A href="https://myaccount.google.com/permissions">Google Account permissions</A> page
         (Security → Third-party apps &amp; services). Revoking access stops future data access; to
-        also delete data already stored, contact us at {CONTACT}.
+        also delete data already stored, disconnect YouTube inside BaseTube or contact us at {CONTACT}.
       </p>
     </Section>
 
@@ -100,7 +100,7 @@ export const PrivacyPage: React.FC = () => (
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Clerk</strong> — authentication.</li>
         <li><strong>Stripe</strong> — payments.</li>
-        <li><strong>OpenAI, xAI (Grok), and Google (Gemini)</strong> — AI analysis and image generation (we send thumbnails, titles, and prompts; we never send your Google credentials).</li>
+        <li><strong>OpenAI, xAI (Grok), and Google (Gemini)</strong> — AI analysis and image generation. Depending on the feature, prompts may include thumbnails, titles, and coarse relationships derived locally from your analytics. Channel Audit does not send your Google credentials or exact private analytics values to the synthesis model.</li>
         <li><strong>Third-party YouTube data providers</strong> — to fetch public channel/video information for niche examples.</li>
       </ul>
       <p>These providers act on our behalf and are bound to protect your data.</p>

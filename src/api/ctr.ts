@@ -147,15 +147,22 @@ export const ctrApi = {
    * audits persisted before the v2 contract come back as legacy v1 rows.
    * Callers MUST narrow with `isChannelAuditV2()` — never cast.
    *
-   * Auth optional: 1 free audit, then credit-costed (`channel.audit`).
+   * Auth required. The channel audit remains free during beta; the backend
+   * applies an in-flight lease and a daily provider-spend circuit breaker.
    *
    * @param channelUrl - Channel URL, @handle, or channel id
    * @returns The full packaging audit report (v2, or a legacy v1 row)
    */
   auditChannel: async (channelUrl: string): Promise<ChannelAuditResult> => {
+    // Stable for any transport-level retry of this request. The backend replays
+    // the settled row and atomically rejects same-account concurrent work.
+    const idempotencyKey =
+      globalThis.crypto?.randomUUID?.() ??
+      `audit-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const response = await api.post<ChannelAuditResponse | CTRErrorResponse>(
       `${CTR_BASE_PATH}/channel-audit`,
-      { channelUrl } as ChannelAuditRequest
+      { channelUrl } as ChannelAuditRequest,
+      { headers: { 'Idempotency-Key': idempotencyKey } }
     );
 
     if (!response.data.success) {

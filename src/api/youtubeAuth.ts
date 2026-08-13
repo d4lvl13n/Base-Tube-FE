@@ -27,6 +27,12 @@ export interface YouTubeVerificationStatus {
   };
 }
 
+export interface YouTubeUnlinkResult {
+  success: true;
+  cleanupStatus: 'complete' | 'pending';
+  message?: string;
+}
+
 export const youtubeAuthApi = {
   /**
    * Check whether the current user has linked & verified a YouTube channel
@@ -73,14 +79,15 @@ export const youtubeAuthApi = {
   /**
    * Disconnect the currently linked YouTube channel
    */
-  unlink: async (): Promise<void> => {
+  unlink: async (): Promise<YouTubeUnlinkResult> => {
     try {
       console.log('Unlinking YouTube channel...');
-      await api.delete('/api/integrations/youtube');
+      const res = await api.delete<YouTubeUnlinkResult>('/api/integrations/youtube');
       console.log('YouTube channel unlinked successfully');
+      return res.data;
     } catch (error) {
       console.error('Failed to unlink YouTube channel:', error);
       throw error;
     }
   }
-}; 
+};

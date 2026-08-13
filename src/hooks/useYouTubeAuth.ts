@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
-import { youtubeAuthApi, YouTubeVerificationStatus, YouTubeOAuthReturnTo } from '../api/youtubeAuth';
+import {
+  youtubeAuthApi,
+  YouTubeVerificationStatus,
+  YouTubeOAuthReturnTo,
+  YouTubeUnlinkResult,
+} from '../api/youtubeAuth';
 
 export type YouTubeLinkStatus = 'unknown' | 'linked' | 'unlinked' | 'loading';
 
@@ -25,7 +30,7 @@ export interface UseYouTubeAuthReturn {
   /** Re-fetch the link status (e.g. after redirect) */
   refetch: () => Promise<void>;
   /** Disconnect the linked channel */
-  unlink: () => Promise<void>;
+  unlink: () => Promise<YouTubeUnlinkResult>;
 }
 
 /**
@@ -92,10 +97,14 @@ export function useYouTubeAuth(): UseYouTubeAuthReturn {
   /** Disconnect the linked channel */
   const unlink = useCallback(async () => {
     try {
-      await youtubeAuthApi.unlink();
+      const result = await youtubeAuthApi.unlink();
       await fetchStatus(true);
+      return result;
     } catch (err) {
       console.error('Failed to unlink YouTube channel:', err);
+      // Callers own the success/error UI. Swallowing this exception made the
+      // integration card show a success toast after a failed privacy cleanup.
+      throw err;
     }
   }, [fetchStatus]);
 

@@ -63,9 +63,9 @@ export const ImportGuideStep: React.FC<ImportGuideStepProps> = ({
   return (
     <div>
       <p className="text-sm leading-relaxed text-gray-300">
-        Your export never leaves as a file: we read the columns you confirm, store the typed
-        numbers, and throw the CSV away. Titles are not kept, and self-reported data is never
-        used in anyone else's benchmarks.
+        We do not retain the original CSV file. Parsed rows are held temporarily for validation
+        for up to one hour; after you confirm, we store only the mapped numbers and video IDs.
+        Titles are not committed, and self-reported data is never used in anyone else's benchmarks.
       </p>
 
       <ol className="mt-4 space-y-2">

@@ -97,8 +97,9 @@ export const ImportReviewStep: React.FC<ImportReviewStepProps> = ({
   return (
     <div>
       <p className="text-sm leading-relaxed text-gray-300">
-        Here is what we read out of your export. Nothing is saved until you confirm — closing
-        this window now imports nothing.
+        Here is what we read out of your export. No analytics rows are committed until you
+        confirm. Closing now leaves only the temporary validation draft, which expires within
+        one hour.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-3">
