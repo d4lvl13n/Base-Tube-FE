@@ -6,8 +6,9 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Eye, ExternalLink, History, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Eye, ExternalLink, History } from 'lucide-react';
 import type { ChannelPackagingAudit } from '../../../../types/ctr';
+import ChannelAuditRefreshAction from './ChannelAuditRefreshAction';
 
 interface ChannelAuditLegacyReportProps {
   audit: ChannelPackagingAudit;
@@ -18,6 +19,7 @@ interface ChannelAuditLegacyReportProps {
    * empty form and lose the channel the creator is looking at.
    */
   onRerun?: () => void;
+  isRerunning?: boolean;
 }
 
 const formatCount = (value: number | undefined | null): string => {
@@ -31,6 +33,7 @@ export const ChannelAuditLegacyReport: React.FC<ChannelAuditLegacyReportProps> =
   audit,
   onReset,
   onRerun,
+  isRerunning = false,
 }) => {
   const { channel, headline, perVideo = [] } = audit;
 
@@ -39,7 +42,9 @@ export const ChannelAuditLegacyReport: React.FC<ChannelAuditLegacyReportProps> =
       <div className="mb-6">
         <button
           onClick={onReset}
-          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+          disabled={isRerunning}
+          className="flex min-h-[44px] items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium
+                     disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ArrowLeft className="w-4 h-4" />
           Audit another channel
@@ -118,13 +123,11 @@ export const ChannelAuditLegacyReport: React.FC<ChannelAuditLegacyReportProps> =
           The current audit reads the channel as evidence and experiments — what is observable in
           each thumbnail, what to test next, and a swipe file to work from.
         </p>
-        <button
-          onClick={onRerun ?? onReset}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 text-white text-sm font-semibold rounded-xl shadow-lg shadow-[#fa7517]/25 transition-all min-h-[44px]"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Re-run this audit
-        </button>
+        <ChannelAuditRefreshAction
+          onRun={onRerun}
+          isRunning={isRerunning}
+          className="sm:items-start"
+        />
       </div>
     </div>
   );

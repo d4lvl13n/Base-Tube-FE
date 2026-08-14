@@ -261,6 +261,10 @@ const ChannelAuditPage: React.FC = () => {
     let cancelled = false;
     import('../../../mocks/channelAuditV2.fixture').then((m) => {
       if (cancelled) return;
+      // Fixture reports should exercise the same header actions as a restored
+      // persisted report. This reference is development-only and is never sent
+      // unless a developer explicitly clicks the fresh-audit action.
+      setReportChannelRef('@fixture-channel');
       // v2 (pre-dataMode) — these must keep rendering exactly as they did.
       if (which === 'v1') setAudit(m.channelAuditV1LegacyFixture);
       else if (which === 'preview') setAudit(m.channelAuditV2PreviewFixture);
@@ -454,6 +458,7 @@ const ChannelAuditPage: React.FC = () => {
               onRerunAudit={
                 reportChannelRef ? () => runAudit(reportChannelRef) : undefined
               }
+              isRerunning={isAuditing}
             />
           </motion.div>
         ) : (

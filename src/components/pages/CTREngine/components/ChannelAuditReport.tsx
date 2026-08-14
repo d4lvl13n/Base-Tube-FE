@@ -51,6 +51,7 @@ import ChannelAuditConnectBanner from './ChannelAuditConnectBanner';
 import VideoMetricCards from './VideoMetricCards';
 import AnalyticsSourceCTAs from './AnalyticsSourceCTAs';
 import AnalyticsImportModal from './analyticsImport/AnalyticsImportModal';
+import ChannelAuditRefreshAction from './ChannelAuditRefreshAction';
 
 interface ChannelAuditReportProps {
   audit: ChannelAuditResult;
@@ -60,6 +61,8 @@ interface ChannelAuditReportProps {
    * so a fresh Studio import only shows up on a re-run.
    */
   onRerunAudit?: () => void;
+  /** True while the new historical audit is running. */
+  isRerunning?: boolean;
 }
 
 // Compact number formatter: 8100 -> "8.1K", 1200000 -> "1.2M"
@@ -227,13 +230,21 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
   audit,
   onReset,
   onRerunAudit,
+  isRerunning = false,
 }) => {
   const navigate = useNavigate();
   const [isImportOpen, setIsImportOpen] = React.useState(false);
 
   // v1 rows are never cast into the v2 shape — they get their own thin view.
   if (!isChannelAuditV2(audit)) {
-    return <ChannelAuditLegacyReport audit={audit} onReset={onReset} onRerun={onRerunAudit} />;
+    return (
+      <ChannelAuditLegacyReport
+        audit={audit}
+        onReset={onReset}
+        onRerun={onRerunAudit}
+        isRerunning={isRerunning}
+      />
+    );
   }
 
   const v2: ChannelPackagingAuditV2 = audit;
@@ -311,14 +322,17 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
   return (
     <div className="ai-audit-report max-w-3xl mx-auto pb-16">
       {/* Back */}
-      <div className="mb-8">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <button
           onClick={onReset}
-          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+          disabled={isRerunning}
+          className="flex min-h-[44px] items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium
+                     disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ArrowLeft className="w-4 h-4" />
           Audit another channel
         </button>
+        <ChannelAuditRefreshAction onRun={onRerunAudit} isRunning={isRerunning} />
       </div>
 
       {/* ------------------------------------------------------------------ */}
