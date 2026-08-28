@@ -1,5 +1,6 @@
 import {
   DEFAULT_FILTERS,
+  DURATION_BUCKETS,
   hasActiveFilters,
   readFilters,
   toSearchOptions,
@@ -80,16 +81,40 @@ describe('toSearchOptions', () => {
   it('turns a duration bucket into the min/max the API takes', () => {
     expect(toSearchOptions({ ...DEFAULT_FILTERS, duration: 'short' }, 1, 20)).toMatchObject({
       minDuration: undefined,
-      maxDuration: 240,
+      maxDuration: 239,
     });
     expect(toSearchOptions({ ...DEFAULT_FILTERS, duration: 'medium' }, 1, 20)).toMatchObject({
       minDuration: 240,
-      maxDuration: 1200,
+      maxDuration: 1199,
     });
     expect(toSearchOptions({ ...DEFAULT_FILTERS, duration: 'long' }, 1, 20)).toMatchObject({
       minDuration: 1200,
       maxDuration: undefined,
     });
+  });
+
+  // The server's bounds are inclusive, so a shared boundary would put one
+  // video in two buckets and inflate the counts.
+  it('leaves no second in two buckets and no second in none', () => {
+    const bounds = DURATION_BUCKETS.map((bucket) => ({
+      min: 'minDuration' in bucket ? bucket.minDuration : 0,
+      max: 'maxDuration' in bucket ? bucket.maxDuration : Number.POSITIVE_INFINITY,
+    }));
+
+    const covering = (seconds: number) =>
+      bounds.filter((bound) => seconds >= bound.min && seconds <= bound.max).length;
+
+    // Every boundary second, and one either side of it.
+    [0, 238, 239, 240, 241, 1198, 1199, 1200, 1201, 7200].forEach((seconds) => {
+      expect(covering(seconds)).toBe(1);
+    });
+  });
+
+  it('puts a four-minute video in the middle bucket, not the short one', () => {
+    const short = DURATION_BUCKETS.find((bucket) => bucket.id === 'short')!;
+    const medium = DURATION_BUCKETS.find((bucket) => bucket.id === 'medium')!;
+    expect(short.maxDuration).toBe(239);
+    expect(medium.minDuration).toBe(240);
   });
 
   it('passes the page, limit, sort and categories through', () => {

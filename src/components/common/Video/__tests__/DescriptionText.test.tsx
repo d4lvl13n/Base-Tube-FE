@@ -131,6 +131,66 @@ describe('DescriptionText truncation', () => {
     expect(screen.getByText('One line only')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
   });
+
+  // One unbroken paragraph is one line, so the line count alone never offered
+  // a way out of it and the description filled the dock.
+  it('offers Show more for a single very long line', () => {
+    const wall = 'mot '.repeat(200).trim();
+    renderDescription({ content: `<p>${wall}</p>`, collapsible: true });
+
+    expect(wall.length).toBeGreaterThan(600);
+    expect(screen.getByRole('button', { name: 'Show more' })).toBeInTheDocument();
+  });
+
+  it('clamps the collapsed block so the toggle changes something', () => {
+    const wall = 'mot '.repeat(200).trim();
+    const { container } = renderDescription({ content: `<p>${wall}</p>`, collapsible: true });
+
+    expect(container.querySelector('.line-clamp-4')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
+    expect(container.querySelector('.line-clamp-4')).toBeNull();
+  });
+
+  it('still leaves a short single line alone', () => {
+    renderDescription({ content: '<p>' + 'a'.repeat(400) + '</p>', collapsible: true });
+    expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+  });
+});
+
+describe('DescriptionText autolinking', () => {
+  it('links an explicit http and https URL', () => {
+    renderDescription({ content: '<p>See https://base.tube/a and http://example.com/b</p>' });
+
+    expect(screen.getByRole('link', { name: 'https://base.tube/a' })).toHaveAttribute(
+      'href',
+      'https://base.tube/a',
+    );
+    expect(screen.getByRole('link', { name: 'http://example.com/b' })).toHaveAttribute(
+      'href',
+      'http://example.com/b',
+    );
+  });
+
+  // A bare www. had to be given a scheme on the creator's behalf, and it
+  // caught things that were never links.
+  it('leaves a bare www. as text', () => {
+    renderDescription({ content: '<p>Visit www.base.tube for more</p>' });
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByText('Visit www.base.tube for more')).toBeInTheDocument();
+  });
+
+  it('does not autolink other schemes', () => {
+    renderDescription({ content: '<p>javascript:alert(1) and mailto:a@b.c and ftp://x.y</p>' });
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('keeps the sentence punctuation out of the href', () => {
+    renderDescription({ content: '<p>Go to https://base.tube/creators.</p>' });
+
+    const link = screen.getByRole('link', { name: 'https://base.tube/creators' });
+    expect(link).toHaveAttribute('href', 'https://base.tube/creators');
+  });
 });
 
 describe('descriptionToPreview', () => {

@@ -22,7 +22,15 @@ const BULLET_PATTERN = /^\s*[•·▪‣-]\s+/;
 /** A line that is nothing but hashtags — YouTube's trailing tag line. */
 const HASHTAG_LINE_PATTERN = /^#[\wÀ-ɏЀ-ӿ-]+(\s+#[\wÀ-ɏЀ-ӿ-]+)*$/;
 
-const URL_PATTERN = /(https?:\/\/[^\s<>]+|www\.[^\s<>]+)/gi;
+/**
+ * Only an explicit scheme is autolinked.
+ *
+ * A bare `www.` had to be given a scheme to be usable, which means guessing
+ * `https://` on the creator's behalf — and it also caught things that were
+ * never links, like `www.something` written mid-sentence. If a creator wants
+ * a link, they write the scheme.
+ */
+const URL_PATTERN = /https?:\/\/[^\s<>]+/gi;
 
 /** Punctuation a sentence puts after a URL that is not part of it. */
 const TRAILING_PUNCTUATION = /[.,;:!?)\]}'"»]+$/;
@@ -34,6 +42,14 @@ type Block =
 
 /** How much of a long description the collapsed dock shows. */
 const MAX_COLLAPSED_LINES = 4;
+
+/**
+ * The other half of "long".
+ *
+ * Line count alone misses the description written as one unbroken paragraph:
+ * it is one line, so it never offered a "Show more" and filled the dock.
+ */
+const MAX_COLLAPSED_CHARS = 600;
 
 /** Lines -> blocks. Blank lines end a block; bullet runs become one list. */
 export function parseDescriptionBlocks(plain: string): Block[] {
@@ -107,7 +123,7 @@ function linkify(text: string, keyPrefix: string): React.ReactNode[] {
     nodes.push(
       <a
         key={`${keyPrefix}-link-${start}`}
-        href={trimmed.startsWith('www.') ? `https://${trimmed}` : trimmed}
+        href={trimmed}
         target="_blank"
         rel="noopener noreferrer"
         className="text-[#fa7517] underline decoration-[#fa7517]/40 underline-offset-2 hover:decoration-[#fa7517] break-all"
@@ -157,11 +173,17 @@ const DescriptionText: React.FC<DescriptionTextProps> = ({
   }
 
   const totalLines = blocks.reduce((sum, block) => sum + blockLineCount(block), 0);
-  const truncatable = collapsible && !previewOnly && totalLines > MAX_COLLAPSED_LINES;
-  const visible = previewOnly || (truncatable && !expanded) ? blocks.slice(0, 1) : blocks;
+  const isLong = totalLines > MAX_COLLAPSED_LINES || plain.trim().length > MAX_COLLAPSED_CHARS;
+  const truncatable = collapsible && !previewOnly && isLong;
+  const collapsed = previewOnly || (truncatable && !expanded);
+  const visible = collapsed ? blocks.slice(0, 1) : blocks;
 
   return (
     <div className={className || undefined}>
+      {/* Slicing to the opening block is enough when there are several. When
+          the whole description is one long block, the slice shows all of it,
+          so the clamp is what makes "Show more" mean something. */}
+      <div className={collapsed ? 'line-clamp-4' : undefined}>
       {visible.map((block, index) => {
         if (block.kind === 'list') {
           return (
@@ -202,6 +224,7 @@ const DescriptionText: React.FC<DescriptionTextProps> = ({
           </p>
         );
       })}
+      </div>
 
       {truncatable && (
         <button

@@ -22,8 +22,14 @@ export function useVideoSearch(options: SearchVideosOptions) {
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
       searchApi.search({ ...filters, limit, page: pageParam as number }, { signal }),
-    getNextPageParam: (lastPage, _pages, lastPageParam) =>
-      lastPage.hasMore ? (lastPageParam as number) + 1 : undefined,
+    getNextPageParam: (lastPage, _pages, lastPageParam) => {
+      if (!lastPage.hasMore) return undefined;
+      // The server says which page it just answered. Counting locally instead
+      // would drift the moment a request is retried or answered out of order,
+      // and the next page would either repeat or skip a slice of results.
+      const answered = typeof lastPage.page === 'number' ? lastPage.page : (lastPageParam as number);
+      return answered + 1;
+    },
     gcTime: 5 * 60 * 1000,
     staleTime: 30 * 1000,
   });

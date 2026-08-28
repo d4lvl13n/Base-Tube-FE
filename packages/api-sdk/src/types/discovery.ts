@@ -52,8 +52,19 @@ export interface GetDiscoveryOptions {
  */
 export type SearchSort = 'relevance' | 'date' | 'views' | 'newest' | 'trending';
 
-/** Which backend answered. `mysql` means the LIKE fallback ran. */
+/** Which backend answered. `mysql` means the fallback ran. */
 export type SearchEngine = 'meilisearch' | 'mysql';
+
+/**
+ * What scale `SearchResult.relevance` is on. Read this before interpreting it.
+ *
+ * `ranking` is Meilisearch's normalised [0, 1] score: comparable between
+ * queries, safe to show as a percentage or threshold on. `fulltext` is MySQL's
+ * unbounded MATCH … AGAINST score, which only orders the hits inside one
+ * response — a percentage computed from it means nothing. A client that
+ * ignores this field must treat `relevance` as ordering-only.
+ */
+export type SearchScoreKind = 'ranking' | 'fulltext';
 
 /** The slice of a channel a search hit carries. */
 export interface SearchResultChannel {
@@ -75,6 +86,7 @@ export interface SearchResult {
   thumbnail_path?: string;
   duration: number;
   views_count: number;
+  /** Ordering-only unless the response says `score_kind: 'ranking'`. */
   relevance?: number;
   channel_id?: number;
   channel?: SearchResultChannel;
@@ -113,6 +125,8 @@ export interface SearchResponse {
   hasMore?: boolean;
   facets?: SearchFacets | null;
   engine?: SearchEngine;
+  /** The scale `relevance` is on. Absent on responses from before it existed. */
+  score_kind?: SearchScoreKind;
   /** Keyed by video id, as a string. */
   highlights?: Record<string, SearchHighlight>;
   processingTimeMs?: number;
@@ -135,7 +149,8 @@ export interface SearchVideosOptions {
 export interface SearchSuggestChannel {
   id: number;
   name: string;
-  handle: string;
+  /** Null when the indexed document has no handle; link by `id` in that case. */
+  handle: string | null;
 }
 
 export interface SearchSuggestions {

@@ -5,10 +5,15 @@ import type { SearchSort, SearchVideosOptions } from '@basetube/api';
  *
  * Three buckets, because the useful question is "a clip, an episode, or a
  * long one" — a slider would ask people to guess at a number they do not have.
+ *
+ * The server's bounds are inclusive on both ends, so the buckets stop one
+ * second short of the next one's floor. Sharing the boundary would put a
+ * 240-second video in two buckets at once and make the facet counts add up to
+ * more than the result set.
  */
 export const DURATION_BUCKETS = [
-  { id: 'short', label: 'Under 4 minutes', maxDuration: 240 },
-  { id: 'medium', label: '4 to 20 minutes', minDuration: 240, maxDuration: 1200 },
+  { id: 'short', label: 'Under 4 minutes', maxDuration: 239 },
+  { id: 'medium', label: '4 to 20 minutes', minDuration: 240, maxDuration: 1199 },
   { id: 'long', label: 'Over 20 minutes', minDuration: 1200 },
 ] as const;
 

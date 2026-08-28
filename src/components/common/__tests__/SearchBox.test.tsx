@@ -44,7 +44,11 @@ describe('<SearchBox />', () => {
       success: true,
       data: {
         titles: ['Marrakech en 4K', 'Marrakech street food'],
-        channels: [{ id: 66, name: 'tyest', handle: 'tyest.base' }],
+        channels: [
+          { id: 66, name: 'tyest', handle: 'tyest.base' },
+          // The index can hold a channel with no handle; the API types it null.
+          { id: 91, name: 'handleless', handle: null },
+        ],
       },
     });
   });
@@ -69,7 +73,7 @@ describe('<SearchBox />', () => {
     await type('marra');
 
     const options = await screen.findAllByRole('option');
-    expect(options).toHaveLength(3);
+    expect(options).toHaveLength(4);
     expect(screen.getByText('Marrakech en 4K')).toBeInTheDocument();
     expect(screen.getByText('@tyest.base')).toBeInTheDocument();
   });
@@ -104,7 +108,7 @@ describe('<SearchBox />', () => {
     await screen.findAllByRole('option');
 
     fireEvent.keyDown(box(), { key: 'ArrowUp' });
-    expect(screen.getAllByRole('option')[2]).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByRole('option')[3]).toHaveAttribute('aria-selected', 'true');
   });
 
   it('goes to the channel when a channel row is chosen', async () => {
@@ -141,5 +145,41 @@ describe('<SearchBox />', () => {
     fireEvent.keyDown(box(), { key: 'Enter' });
 
     expect(here()).toBe('/search?query=%23marrakech');
+  });
+
+  // /channel/:identifier takes a numeric id as well as a handle, so a channel
+  // without one is still reachable rather than linking to /channel/null.
+  it('falls back to the channel id when the channel has no handle', async () => {
+    renderBox();
+    await type('marra');
+    await screen.findAllByRole('option');
+
+    fireEvent.click(screen.getByText('handleless'));
+    expect(here()).toBe('/channel/91');
+  });
+
+  it('shows the handle only when there is one', async () => {
+    renderBox();
+    await type('marra');
+    await screen.findAllByRole('option');
+
+    expect(screen.getByText('@tyest.base')).toBeInTheDocument();
+    expect(screen.queryByText('@null')).not.toBeInTheDocument();
+    expect(screen.queryByText(/@undefined/)).not.toBeInTheDocument();
+  });
+
+  // A role="option" with a button inside is not announced as a choice: the
+  // combobox input owns focus and the keyboard, the row only owns the click.
+  it('puts no interactive element inside an option', async () => {
+    renderBox();
+    await type('marra');
+    const options = await screen.findAllByRole('option');
+
+    options.forEach((option) => {
+      expect(option.querySelector('button')).toBeNull();
+      expect(option.querySelector('a')).toBeNull();
+      expect(option.querySelector('[tabindex]')).toBeNull();
+    });
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });

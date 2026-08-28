@@ -25,6 +25,7 @@ const response = (overrides: Partial<SearchResponse> = {}): SearchResponse => ({
       thumbnail_url: 'https://cdn.example/poster.jpg',
       duration: 17,
       views_count: 1200,
+      relevance: 0.663059163059163,
       channel: { id: 66, name: 'tyest', handle: 'tyest.base' },
     },
   ],
@@ -35,6 +36,7 @@ const response = (overrides: Partial<SearchResponse> = {}): SearchResponse => ({
   hasMore: false,
   facets: { categories: { Gaming: 9, 'Travel and events': 2 }, channel_id: { '66': 1 } },
   engine: 'meilisearch',
+  score_kind: 'ranking',
   highlights: { '1078': { title: '<mark>Marra</mark>kech en 4K' } },
   processingTimeMs: 12,
   ...overrides,
@@ -101,7 +103,7 @@ describe('SearchPage', () => {
   });
 
   it('warns that search is degraded when the MySQL fallback answered', async () => {
-    search.mockResolvedValue(response({ engine: 'mysql', facets: null }));
+    search.mockResolvedValue(response({ engine: 'mysql', score_kind: 'fulltext', facets: null }));
     renderPage();
     expect(await screen.findByText(/search degraded/)).toBeInTheDocument();
   });
@@ -133,7 +135,7 @@ describe('SearchPage', () => {
     expect(url()).toBe('?query=marrakech&duration=medium');
     await waitFor(() =>
       expect(search).toHaveBeenLastCalledWith(
-        expect.objectContaining({ minDuration: 240, maxDuration: 1200 }),
+        expect.objectContaining({ minDuration: 240, maxDuration: 1199 }),
         expect.anything()
       )
     );
@@ -202,5 +204,88 @@ describe('SearchPage', () => {
     expect(await screen.findByText('Second page hit')).toBeInTheDocument();
     expect(screen.getByText('Marra')).toBeInTheDocument();
     expect(search.mock.calls[1][0]).toMatchObject({ page: 2 });
+  });
+
+  // The page number comes from the server, not from a counter on this side:
+  // if a response says it answered page 4, the next request asks for 5.
+  it('asks for the page after the one the server says it answered', async () => {
+    search.mockResolvedValueOnce(response({ page: 4, hasMore: true }));
+    search.mockResolvedValueOnce(response({ page: 5, hasMore: false, highlights: {} }));
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Load more' }));
+
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
+    expect(search.mock.calls[1][0]).toMatchObject({ page: 5 });
+  });
+
+  // `relevance` is a [0, 1] ranking score on Meilisearch and an unbounded
+  // MySQL MATCH score on the fallback, on the same field. Rendering either as
+  // a percentage would be a number the reader cannot act on, so the page shows
+  // the ordering and not the score.
+  it('never puts the relevance score on screen, on either scale', async () => {
+    const { container, unmount } = renderPage();
+    await screen.findByText(/1 result/);
+    expect(container.textContent).not.toMatch(/66s?%|0.66/);
+    unmount();
+
+    search.mockResolvedValue(
+      response({
+        engine: 'mysql',
+        score_kind: 'fulltext',
+        facets: null,
+        data: [
+          {
+            id: 1078,
+            title: 'Marrakech en 4K',
+            thumbnail_url: '',
+            duration: 17,
+            views_count: 1200,
+            // Unbounded on this scale — well above 1.
+            relevance: 8.42,
+          },
+        ],
+      })
+    );
+
+    const fallback = renderPage();
+    await screen.findByText(/search degraded/);
+    expect(fallback.container.textContent).not.toMatch(/842s?%|8.42/);
+  });
+
+  // A video uploaded mid-session shifts the newest-first list down by one, so
+  // the same hit can arrive on two pages. It must render once, not twice.
+  it('shows a hit that arrives on two pages only once', async () => {
+    search.mockResolvedValueOnce(response({ hasMore: true }));
+    search.mockResolvedValueOnce(
+      response({
+        data: [
+          {
+            id: 1078,
+            title: 'Marrakech en 4K',
+            thumbnail_url: '',
+            duration: 17,
+            views_count: 1200,
+          },
+          {
+            id: 2000,
+            title: 'Second page hit',
+            thumbnail_url: '',
+            duration: 60,
+            views_count: 3,
+          },
+        ],
+        hasMore: false,
+        highlights: {},
+      })
+    );
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Load more' }));
+
+    expect(await screen.findByText('Second page hit')).toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    // The first copy wins, so it keeps the highlight page 1 came with.
+    expect(screen.getAllByText('Marra')).toHaveLength(1);
   });
 });

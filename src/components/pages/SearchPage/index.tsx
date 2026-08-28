@@ -51,7 +51,20 @@ const SearchPage: React.FC = () => {
   } = useVideoSearch(searchOptions);
 
   const pages = useMemo(() => data?.pages ?? [], [data]);
-  const results = useMemo(() => pages.flatMap((page) => page.data ?? []), [pages]);
+  // Newest-first sorting means a video uploaded mid-session shifts every
+  // later result down by one, and page 2 then repeats the last hit of page 1.
+  // First occurrence wins, so the list never shows the same video twice — or
+  // hands React two children with the same key.
+  const results = useMemo(() => {
+    const seen = new Set<number>();
+    return pages
+      .flatMap((page) => page.data ?? [])
+      .filter((hit) => {
+        if (seen.has(hit.id)) return false;
+        seen.add(hit.id);
+        return true;
+      });
+  }, [pages]);
   const highlights = useMemo(
     () =>
       pages.reduce<Record<string, SearchHighlight>>(
@@ -65,6 +78,14 @@ const SearchPage: React.FC = () => {
   const total = first?.total ?? results.length;
   const engine = first?.engine;
   const processingTimeMs = first?.processingTimeMs;
+
+  // `relevance` is deliberately not shown. It is only a normalised [0, 1]
+  // score when the response says `score_kind: 'ranking'`; on the MySQL
+  // fallback it is an unbounded MATCH … AGAINST value that orders this one
+  // response and nothing more, so a percentage built from it would be a
+  // number the reader could not act on. The ordering of the rows is the
+  // relevance. Anything that does surface a score has to gate it on
+  // `first?.score_kind === 'ranking'` first.
 
   const isEmpty = !isLoading && !isError && results.length === 0;
   // Only worth a suggestion when the query found nothing.

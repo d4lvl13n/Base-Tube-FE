@@ -6,7 +6,7 @@ import { useSearchSuggest, SUGGEST_MIN_CHARS } from '../../hooks/useSearchSugges
 /** A row in the dropdown. Titles run a search; channels go to the channel. */
 type Suggestion =
   | { kind: 'title'; label: string }
-  | { kind: 'channel'; label: string; handle: string; id: number };
+  | { kind: 'channel'; label: string; handle: string | null; id: number };
 
 export const SEARCH_PLACEHOLDER = 'Search videos and creators';
 
@@ -80,7 +80,9 @@ const SearchBox: React.FC<SearchBoxProps> = ({ className = '' }) => {
       setIsOpen(false);
       setActiveIndex(-1);
       inputRef.current?.blur();
-      navigate(`/channel/${option.handle}`);
+      // /channel/:identifier takes either; useChannelData sends a numeric one
+      // to the by-id lookup. A channel with no handle is still reachable.
+      navigate(`/channel/${option.handle ?? option.id}`);
       return;
     }
     setValue(option.label);
@@ -163,30 +165,30 @@ const SearchBox: React.FC<SearchBoxProps> = ({ className = '' }) => {
           className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl
                      border border-white/10 bg-black/95 py-1 shadow-2xl backdrop-blur-xl"
         >
+          {/* An option owns no focus and no tab stop: the combobox input keeps
+              both, and a button in here would put an interactive element inside
+              a role="option", which screen readers refuse to announce as a
+              choice. Click still works — it is handled on the row. */}
           {options.map((option, index) => (
             <li
               key={`${option.kind}-${option.kind === 'channel' ? option.id : option.label}`}
               id={`search-suggestion-${index}`}
               role="option"
               aria-selected={index === activeIndex}
+              onClick={() => choose(option)}
+              onMouseEnter={() => setActiveIndex(index)}
+              className={`flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors
+                          ${index === activeIndex ? 'bg-white/10 text-white' : 'text-gray-300'}`}
             >
-              <button
-                type="button"
-                onClick={() => choose(option)}
-                onMouseEnter={() => setActiveIndex(index)}
-                className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-colors
-                            ${index === activeIndex ? 'bg-white/10 text-white' : 'text-gray-300'}`}
-              >
-                {option.kind === 'title' ? (
-                  <Search className="h-3.5 w-3.5 shrink-0 text-white/30" aria-hidden="true" />
-                ) : (
-                  <span className="shrink-0 text-xs text-gray-600">Channel</span>
-                )}
-                <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                {option.kind === 'channel' && (
-                  <span className="shrink-0 text-xs text-gray-600">@{option.handle}</span>
-                )}
-              </button>
+              {option.kind === 'title' ? (
+                <Search className="h-3.5 w-3.5 shrink-0 text-white/30" aria-hidden="true" />
+              ) : (
+                <span className="shrink-0 text-xs text-gray-600">Channel</span>
+              )}
+              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              {option.kind === 'channel' && option.handle && (
+                <span className="shrink-0 text-xs text-gray-600">@{option.handle}</span>
+              )}
             </li>
           ))}
         </ul>
