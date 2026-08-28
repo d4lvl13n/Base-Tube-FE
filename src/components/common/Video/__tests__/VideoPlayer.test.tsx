@@ -12,6 +12,9 @@ interface FakePlayer {
   pause: jest.Mock;
   on: jest.Mock;
   one: jest.Mock;
+  off: jest.Mock;
+  emit: (event: string) => void;
+  handlerCount: (event: string) => number;
   dispose: jest.Mock;
   error: jest.Mock;
   isFullscreen: jest.Mock;
@@ -30,6 +33,7 @@ interface FakePlayer {
  * player is rebuilt in `beforeEach` rather than declared once.
  */
 function createPlayer(): FakePlayer {
+  const handlers = new Map<string, Set<() => void>>();
   const player: FakePlayer = {
     time: 0,
     isPaused: true,
@@ -42,7 +46,22 @@ function createPlayer(): FakePlayer {
     play: jest.fn(() => Promise.resolve()),
     pause: jest.fn(),
     on: jest.fn(),
-    one: jest.fn(),
+    // `one`/`off` are modelled for real: the test needs to know which handlers
+    // are still armed, which is the whole subject of the cleanup case.
+    one: jest.fn((event: string, handler: () => void) => {
+      const armed = handlers.get(event) ?? new Set<() => void>();
+      armed.add(handler);
+      handlers.set(event, armed);
+    }),
+    off: jest.fn((event: string, handler: () => void) => {
+      handlers.get(event)?.delete(handler);
+    }),
+    emit: (event: string) => {
+      const armed = Array.from(handlers.get(event) ?? []);
+      handlers.get(event)?.clear();
+      armed.forEach((handler) => handler());
+    },
+    handlerCount: (event: string) => handlers.get(event)?.size ?? 0,
     dispose: jest.fn(),
     error: jest.fn(),
     isFullscreen: jest.fn(() => false),
@@ -79,6 +98,7 @@ function loadedMetadataHandler(): (() => void) | undefined {
 
 const ORIGINAL = 'https://cdn.example/original.mp4';
 const RENDITION = 'https://cdn.example/720p.mp4';
+const BEST = 'https://cdn.example/1080p.mp4';
 
 beforeEach(() => {
   mockPlayer = createPlayer();
@@ -120,11 +140,10 @@ describe('VideoPlayer source switching', () => {
     expect(mockVideojs).toHaveBeenCalledTimes(1);
     expect(mockPlayer.src).toHaveBeenCalledWith({ src: RENDITION, type: 'video/mp4' });
 
-    const onLoaded = loadedMetadataHandler();
-    expect(onLoaded).toBeDefined();
+    expect(loadedMetadataHandler()).toBeDefined();
     // The swap resets the playhead; the handler puts it back and resumes.
     mockPlayer.time = 0;
-    onLoaded!();
+    mockPlayer.emit('loadedmetadata');
     expect(mockPlayer.currentTime).toHaveBeenCalledWith(42);
     expect(mockPlayer.play).toHaveBeenCalled();
   });
@@ -147,8 +166,71 @@ describe('VideoPlayer source switching', () => {
       />,
     );
 
-    loadedMetadataHandler()!();
+    mockPlayer.emit('loadedmetadata');
     expect(mockPlayer.play).not.toHaveBeenCalled();
+  });
+
+  // Two swaps in quick succession used to leave two handlers armed, and the
+  // older one carried the older playhead — it would fire on the newer source
+  // and seek the viewer backwards.
+  it('runs only the latest handler when the source changes twice in a row', () => {
+    const { rerender } = render(
+      <VideoPlayer src={ORIGINAL} thumbnail_path="/poster.jpg" videoId="1" duration={120} />,
+    );
+
+    mockPlayer.time = 42;
+    mockPlayer.isPaused = false;
+    rerender(
+      <VideoPlayer
+        src={ORIGINAL}
+        video_urls={{ '720p': RENDITION }}
+        thumbnail_path="/poster.jpg"
+        videoId="1"
+        duration={120}
+      />,
+    );
+
+    // The 1080p arrives before the 720p ever finished loading.
+    mockPlayer.time = 7;
+    rerender(
+      <VideoPlayer
+        src={ORIGINAL}
+        video_urls={{ '720p': RENDITION, '1080p': BEST }}
+        thumbnail_path="/poster.jpg"
+        videoId="1"
+        duration={120}
+      />,
+    );
+
+    expect(mockPlayer.off).toHaveBeenCalled();
+    expect(mockPlayer.handlerCount('loadedmetadata')).toBe(1);
+
+    mockPlayer.currentTime.mockClear();
+    mockPlayer.emit('loadedmetadata');
+
+    expect(mockPlayer.currentTime).toHaveBeenCalledWith(7);
+    expect(mockPlayer.currentTime).not.toHaveBeenCalledWith(42);
+  });
+
+  it('disarms the pending handler when the player unmounts', () => {
+    const { rerender, unmount } = render(
+      <VideoPlayer src={ORIGINAL} thumbnail_path="/poster.jpg" videoId="1" duration={120} />,
+    );
+
+    mockPlayer.time = 42;
+    rerender(
+      <VideoPlayer
+        src={ORIGINAL}
+        video_urls={{ '720p': RENDITION }}
+        thumbnail_path="/poster.jpg"
+        videoId="1"
+        duration={120}
+      />,
+    );
+    expect(mockPlayer.handlerCount('loadedmetadata')).toBe(1);
+
+    unmount();
+    expect(mockPlayer.handlerCount('loadedmetadata')).toBe(0);
   });
 
   it('leaves the player alone when the selected source is unchanged', () => {

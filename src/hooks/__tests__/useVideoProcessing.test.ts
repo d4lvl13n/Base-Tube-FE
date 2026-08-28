@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useVideoProcessing } from '../useVideoProcessing';
 import { getVideoProgressBatch } from '../../api/video';
 
@@ -62,6 +62,45 @@ describe('useVideoProcessing', () => {
 
     await waitFor(() => expect(result.current.processingVideos[1]?.status).toBe('failed'));
     await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(mockedBatch).toHaveBeenCalledTimes(1);
+  });
+
+  // A retry reuses the video id, so the cached `failed` row would keep that id
+  // out of the poll set for good — the row stayed red however well it went.
+  it('polls a failed video again once `restart` forgets it', async () => {
+    mockedBatch.mockResolvedValue({
+      success: true,
+      data: { 1: { videoId: 1, status: 'failed', renditions: [] } },
+    });
+
+    const { result } = renderHook(() => useVideoProcessing([1]));
+
+    await waitFor(() => expect(result.current.processingVideos[1]?.status).toBe('failed'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mockedBatch).toHaveBeenCalledTimes(1);
+
+    mockedBatch.mockResolvedValue({
+      success: true,
+      data: { 1: { videoId: 1, status: 'processing', renditions: [] } },
+    });
+    act(() => {
+      result.current.restart([1]);
+    });
+
+    await waitFor(() => expect(mockedBatch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.processingVideos[1]?.status).toBe('processing'));
+  });
+
+  it('ignores a restart for ids it never tracked', async () => {
+    mockedBatch.mockResolvedValue({ success: true, data: {} });
+    const { result } = renderHook(() => useVideoProcessing([1]));
+    await waitFor(() => expect(mockedBatch).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      result.current.restart([]);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     expect(mockedBatch).toHaveBeenCalledTimes(1);
   });
 

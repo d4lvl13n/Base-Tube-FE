@@ -161,6 +161,11 @@ export function replaceQueueAttempt(
  * cost the server nothing new and finishing them frees admission capacity.
  * Fresh attempts are additionally capped by the number of unfinished server
  * attempts, so the client never trips the per-user in-flight cap (§7.2.4).
+ *
+ * `abortingIds` are excluded outright. A cancel is not instantaneous — the
+ * DELETE is in flight, and until it answers the entry still looks like an
+ * ordinary `queued`/`retry_wait` row. Starting it there restarts the very
+ * upload the creator asked to stop.
  */
 export function selectQueueCandidates(
   entries: readonly UploadQueueEntry[],
@@ -169,6 +174,7 @@ export function selectQueueCandidates(
   now: number,
   activeLimit = 4,
   admissionRetryAt: number | null = null,
+  abortingIds: ReadonlySet<string> = new Set<string>(),
 ): UploadQueueEntry[] {
   if (paused || (admissionRetryAt !== null && admissionRetryAt > now)) return [];
   const available = Math.max(0, activeLimit - activeIds.size);
@@ -177,6 +183,7 @@ export function selectQueueCandidates(
   const eligible = entries.filter(
     (entry) =>
       !activeIds.has(entry.localId) &&
+      !abortingIds.has(entry.localId) &&
       (entry.file !== null || (entry.status === 'uploaded' && entry.progress === 100)) &&
       (entry.status === 'queued' ||
         (entry.status === 'retry_wait' && (entry.retryAt ?? 0) <= now) ||

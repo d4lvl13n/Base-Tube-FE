@@ -144,6 +144,26 @@ describe('selectQueueCandidates', () => {
     expect(selectQueueCandidates(entries, new Set(), false, now + 20_000)).toHaveLength(1);
   });
 
+  // A cancel is a round-trip. Until the DELETE answers, the row still reads
+  // `queued`/`retry_wait`, and starting it there resumes the upload the
+  // creator just stopped.
+  it('never starts a row whose cancel is still in flight', () => {
+    const entries = [
+      queueEntry({ localId: 'cancelling', status: 'retry_wait', retryAt: now - 1, file }),
+      queueEntry({ localId: 'other', file }),
+    ];
+
+    expect(selectQueueCandidates(entries, new Set(), false, now).map((e) => e.localId)).toEqual([
+      'cancelling',
+      'other',
+    ]);
+    expect(
+      selectQueueCandidates(entries, new Set(), false, now, 4, null, new Set(['cancelling'])).map(
+        (e) => e.localId,
+      ),
+    ).toEqual(['other']);
+  });
+
   it('picks up completion-only rows that have no file', () => {
     const entries = [
       queueEntry({

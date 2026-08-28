@@ -96,6 +96,8 @@ export interface VideoProgressData {
   error?: {
     message: string;
     jobId?: string;
+    /** Present only when the worker names the failure; translated by `uploadCopy`. */
+    code?: string;
   };
 }
 

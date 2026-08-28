@@ -38,6 +38,8 @@ function nextDelay(startedAt: number): number {
  */
 export const useVideoProcessing = (videoIds: number[]) => {
   const [processingVideos, setProcessingVideos] = useState<Record<number, ProcessingVideo>>({});
+  /** Bumped by `restart`, so the poll effect re-arms after a terminal state. */
+  const [restartRevision, setRestartRevision] = useState(0);
   const isMountedRef = useRef(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startedAtRef = useRef(Date.now());
@@ -71,6 +73,29 @@ export const useVideoProcessing = (videoIds: number[]) => {
         .slice(0, MAX_IDS),
     [],
   );
+
+  /**
+   * Forget what we know about these videos and start polling them again.
+   *
+   * A retried transcode reuses the video id, so the cached `failed` row would
+   * otherwise keep the id out of `pendingIds` forever — the poll had stopped
+   * for good and the row stayed red however well the retry went.
+   */
+  const restart = useCallback((ids: readonly number[]) => {
+    if (ids.length === 0) return;
+    setProcessingVideos((previous) => {
+      const next = { ...previous };
+      let changed = false;
+      for (const id of ids) {
+        if (id in next) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : previous;
+    });
+    setRestartRevision((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -121,7 +146,7 @@ export const useVideoProcessing = (videoIds: number[]) => {
     };
     // `idsKey` is the stable identity of `videoIds`; the array itself is a new
     // reference on every render of the dashboard.
-  }, [idsKey, clearTimer, pendingIds]);
+  }, [idsKey, clearTimer, pendingIds, restartRevision]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -130,5 +155,5 @@ export const useVideoProcessing = (videoIds: number[]) => {
     };
   }, []);
 
-  return { processingVideos };
+  return { processingVideos, restart };
 };

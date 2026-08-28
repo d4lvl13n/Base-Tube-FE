@@ -67,7 +67,7 @@ const VideosManagement: React.FC = () => {
       .map(v => v.id);
   }, [videos]);
   
-  const { processingVideos } = useVideoProcessing(processingVideoIds);
+  const { processingVideos, restart: restartProcessingPoll } = useVideoProcessing(processingVideoIds);
 
   // ── `?highlight=` resolution ─────────────────────────────────────────────
   // The upload pages link here with whichever id they hold. A video id can be
@@ -76,23 +76,32 @@ const VideosManagement: React.FC = () => {
   const { entries: queueEntries } = useUploadQueueContext();
   const numericHighlight = highlightId !== null && isVideoId(highlightId);
   const [queueHighlightId, setQueueHighlightId] = useState<string | null>(null);
-  const highlightDeadlineRef = useRef(0);
+  const [highlightExpired, setHighlightExpired] = useState(false);
+  /** The video ids we have already refetched for, so one miss is one refetch. */
+  const refetchedForRef = useRef<string | null>(null);
 
+  // A real deadline, cleared on unmount: after a minute the creator is simply
+  // looking at their videos, and we stop waiting on an upload that never
+  // produced one.
   useEffect(() => {
     setQueueHighlightId(null);
-    highlightDeadlineRef.current = Date.now() + HIGHLIGHT_RESOLVE_MS;
-  }, [highlightId]);
+    setHighlightExpired(false);
+    refetchedForRef.current = null;
+    if (highlightId === null || numericHighlight) return;
+    const timer = setTimeout(() => setHighlightExpired(true), HIGHLIGHT_RESOLVE_MS);
+    return () => clearTimeout(timer);
+  }, [highlightId, numericHighlight]);
 
   // The queue re-renders on every one of its own polls, so this reads as a
-  // poll without owning a timer of its own.
+  // poll without owning a second timer.
   useEffect(() => {
-    if (highlightId === null || numericHighlight || queueHighlightId !== null) return;
-    if (Date.now() > highlightDeadlineRef.current) return;
+    if (highlightId === null || numericHighlight || highlightExpired) return;
+    if (queueHighlightId !== null) return;
     const match = queueEntries.find(
       (entry) => entry.uploadId === highlightId || entry.localId === highlightId,
     );
     if (match?.videoId != null) setQueueHighlightId(String(match.videoId));
-  }, [highlightId, numericHighlight, queueEntries, queueHighlightId]);
+  }, [highlightId, highlightExpired, numericHighlight, queueEntries, queueHighlightId]);
 
   const resolvedHighlightId = numericHighlight ? highlightId : queueHighlightId;
 
@@ -101,13 +110,24 @@ const VideosManagement: React.FC = () => {
     data,
     isLoading,
     isFetching,
-    error
+    error,
+    refetch
   } = useQuery<PaginatedResponse>({
     queryKey: ['channelVideos', selectedChannelId, page, filters],
     queryFn: () => getChannelVideos(selectedChannelId, page),
     enabled: !!selectedChannelId && !!selectedChannel && channels.length > 0 && !isChannelsLoading,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
+
+  // The list was fetched before the worker created this video, so the row to
+  // highlight is not in it. One refetch per resolved id — enough to bring the
+  // row in, and never a loop when the id genuinely is not ours.
+  useEffect(() => {
+    if (resolvedHighlightId === null || refetchedForRef.current === resolvedHighlightId) return;
+    if (videos.some((video) => String(video.id) === resolvedHighlightId)) return;
+    refetchedForRef.current = resolvedHighlightId;
+    void refetch();
+  }, [refetch, resolvedHighlightId, videos]);
 
   // Calculate hasMore outside of handleLoadMore
   const hasMore = data ? page < data.pagination.totalPages : false;
@@ -172,10 +192,18 @@ const VideosManagement: React.FC = () => {
   };
 
   // Handle a failed transcode. The backend owns the retry; this only asks.
+  //
+  // The retry reuses the video id, so both caches of "this one failed" have to
+  // be dropped — the list's own `status` and the poll's terminal row — or the
+  // row stays red and the poll never asks about it again.
   const handleRetryProcessing = useCallback(async (videoId: number) => {
     try {
       const result = await retryVideoProcessing(videoId);
       if (result.success) {
+        setVideos(prevVideos =>
+          prevVideos.map(v => (v.id === videoId ? { ...v, status: 'pending' } : v))
+        );
+        restartProcessingPoll([videoId]);
         toast.success('Processing restarted');
       } else {
         toast.error(result.message || 'Failed to restart processing');
@@ -184,7 +212,7 @@ const VideosManagement: React.FC = () => {
       const message = error instanceof Error ? error.message : 'Failed to restart processing';
       toast.error(message);
     }
-  }, []);
+  }, [restartProcessingPoll]);
 
   // Handle sort
   const handleSort = useCallback((field: SortField) => {

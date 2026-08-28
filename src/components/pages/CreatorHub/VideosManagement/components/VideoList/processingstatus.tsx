@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertCircle, Check, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ProcessingVideo } from '../../../../../../hooks/useVideoProcessing';
+import { describeUploadError, uploadCopy } from '../../../../../upload/uploadCopy';
 
 /**
  * The same three words Content Studio uses — Processing, Ready, Failed.
@@ -42,13 +43,27 @@ export function renditionDetail(row: ProcessingVideo): string {
   return 'queued for transcoding';
 }
 
+/**
+ * Why the transcode failed, in words a creator can act on.
+ *
+ * `video:<id>:error` holds whatever the worker threw — a stack frame, a JSON
+ * blob, an ffmpeg dump — so it goes through the same sanitizer the upload queue
+ * uses: a known code translates exactly, a readable sentence passes through,
+ * and anything else falls back to the processing copy.
+ */
+export function failureDetail(row: ProcessingVideo): string {
+  if (!row.error) return uploadCopy.processingFailed;
+  const described = describeUploadError(row.error.code, row.error.message);
+  return described === uploadCopy.unknownFailure ? uploadCopy.processingFailed : described;
+}
+
 /** The one line the row shows: `Label` or `Label · detail`. */
 export function phaseText(row: ProcessingVideo): string {
   switch (videoPhase(row)) {
     case 'ready':
       return 'Ready';
     case 'failed':
-      return `Failed · ${row.error?.message?.trim() || 'processing failed'}`;
+      return `Failed · ${failureDetail(row)}`;
     default:
       return `Processing · ${renditionDetail(row)}`;
   }

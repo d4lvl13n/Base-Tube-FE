@@ -686,6 +686,9 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       Date.now(),
       admissionProbe ? 1 : ACTIVE_FILE_LIMIT,
       admissionRetryAt,
+      // A cancel already asked for cannot be undone by the scheduler while the
+      // DELETE is still on the wire.
+      abortingIdsRef.current,
     );
     for (const entry of candidates) startEntry(entry);
   }, [admissionProbe, admissionRetryAt, entries, hydrated, paused, schedulerRevision, startEntry]);

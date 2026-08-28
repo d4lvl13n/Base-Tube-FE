@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { UploadQueueApi, UploadQueueViewEntry } from '../../../../../hooks/useUploadQueue';
@@ -7,6 +7,8 @@ import type { Video } from '../../../../../types/video';
 import VideosManagement from '../index';
 
 const mockGetChannelVideos = jest.fn();
+const mockRetryVideoProcessing = jest.fn();
+const mockRestart = jest.fn();
 const mockUseChannelSelection = jest.fn();
 const mockUseUploadQueueContext = jest.fn();
 const mockUseVideoProcessing = jest.fn();
@@ -18,7 +20,12 @@ jest.mock('../../../../../api/channel', () => ({
 jest.mock('../../../../../api/video', () => ({
   updateVideo: jest.fn(),
   deleteVideo: jest.fn(),
-  retryVideoProcessing: jest.fn().mockResolvedValue({ success: true }),
+  retryVideoProcessing: (...args: unknown[]) => mockRetryVideoProcessing(...args),
+}));
+
+// The list writes to a toast on every action; jsdom does not need the widget.
+jest.mock('react-toastify', () => ({
+  toast: { success: jest.fn(), error: jest.fn() },
 }));
 
 jest.mock('../../../../../contexts/ChannelSelectionContext', () => ({
@@ -88,17 +95,26 @@ function queueEntry(overrides: Partial<UploadQueueViewEntry> = {}): UploadQueueV
   } as UploadQueueViewEntry;
 }
 
+/**
+ * Rebuilds the tree on every call.
+ *
+ * A `rerender` with the identical element object is a React bail-out — the
+ * component would never read the queue mock's new answer.
+ */
+let currentTree: () => React.ReactElement = () => <div />;
+
 function renderManagement(search = '') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
-  return render(
+  currentTree = () => (
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[`/creator-hub/videos${search}`]}>
         <VideosManagement />
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  return render(currentTree());
 }
 
 /** The row the highlight lit up, if any. */
@@ -129,7 +145,8 @@ beforeEach(() => {
     isLoading: false,
   });
   mockUseUploadQueueContext.mockReturnValue({ entries: [] } as unknown as UploadQueueApi);
-  mockUseVideoProcessing.mockReturnValue({ processingVideos: {} });
+  mockUseVideoProcessing.mockReturnValue({ processingVideos: {}, restart: mockRestart });
+  mockRetryVideoProcessing.mockResolvedValue({ success: true });
   mockGetChannelVideos.mockResolvedValue({
     data: [video()],
     pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
@@ -182,6 +199,45 @@ describe('VideosManagement failed videos', () => {
   });
 });
 
+describe('VideosManagement retry', () => {
+  // The retry reuses the video id, so both caches of "this one failed" — the
+  // list's `status` and the poll's terminal row — have to be dropped, or the
+  // row stays red and nothing ever asks about it again.
+  it('clears the failed state and restarts the poll on a successful retry', async () => {
+    mockGetChannelVideos.mockResolvedValue({
+      data: [video({ id: 2, title: 'Broken clip', status: 'failed' })],
+      pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+    });
+
+    renderManagement();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry processing' }));
+
+    await waitFor(() => expect(mockRetryVideoProcessing).toHaveBeenCalledWith(2));
+    await waitFor(() => expect(mockRestart).toHaveBeenCalledWith([2]));
+    // The row is no longer telling the creator it failed…
+    await waitFor(() => expect(screen.queryByText(/^Failed ·/)).not.toBeInTheDocument());
+    // …and the id is back in the poll set as a pending video.
+    await waitFor(() => expect(mockUseVideoProcessing).toHaveBeenLastCalledWith([2]));
+  });
+
+  it('leaves the failed state alone when the retry is refused', async () => {
+    mockRetryVideoProcessing.mockResolvedValue({ success: false, message: 'nope' });
+    mockGetChannelVideos.mockResolvedValue({
+      data: [video({ id: 2, title: 'Broken clip', status: 'failed' })],
+      pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+    });
+
+    renderManagement();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry processing' }));
+
+    await waitFor(() => expect(mockRetryVideoProcessing).toHaveBeenCalledWith(2));
+    expect(mockRestart).not.toHaveBeenCalled();
+    expect(screen.getByText(/^Failed ·/)).toBeInTheDocument();
+  });
+});
+
 describe('VideosManagement ?highlight=', () => {
   it('lights the row whose video id is in the URL', async () => {
     mockGetChannelVideos.mockResolvedValue({
@@ -210,6 +266,37 @@ describe('VideosManagement ?highlight=', () => {
     renderManagement('?highlight=upload-1');
 
     await screen.findByText('The new one');
+    await waitFor(() => expect(highlightedRow()).toHaveTextContent('The new one'));
+  });
+
+  // The list was fetched before the worker created the video, so the row to
+  // highlight is simply not in it until we ask again.
+  it('refetches when the queue resolves a video the list has not seen', async () => {
+    mockGetChannelVideos
+      .mockResolvedValueOnce({
+        data: [video({ id: 1, title: 'Clip one' })],
+        pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+      })
+      .mockResolvedValue({
+        data: [video({ id: 1, title: 'Clip one' }), video({ id: 42, title: 'The new one' })],
+        pagination: { total: 2, page: 1, limit: 10, totalPages: 1 },
+      });
+    mockUseUploadQueueContext.mockReturnValue({
+      entries: [queueEntry({ uploadId: 'upload-1', videoId: null })],
+    } as unknown as UploadQueueApi);
+
+    const { rerender } = renderManagement('?highlight=upload-1');
+    await screen.findByText('Clip one');
+    expect(mockGetChannelVideos).toHaveBeenCalledTimes(1);
+
+    // The upload finishes: the queue now knows which video it became.
+    mockUseUploadQueueContext.mockReturnValue({
+      entries: [queueEntry({ uploadId: 'upload-1', videoId: 42 })],
+    } as unknown as UploadQueueApi);
+    rerender(currentTree());
+
+    await waitFor(() => expect(mockGetChannelVideos).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('The new one')).toBeInTheDocument();
     await waitFor(() => expect(highlightedRow()).toHaveTextContent('The new one'));
   });
 

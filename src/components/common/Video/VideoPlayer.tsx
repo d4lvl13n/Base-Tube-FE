@@ -36,6 +36,15 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
     const playerRef = useRef<Player | null>(null);
     /** The URL currently loaded into the player, so a prop change can be seen. */
     const loadedSourceRef = useRef<string>('');
+    /**
+     * The pending `loadedmetadata` handler, so a second source change can take
+     * the first one back off the player.
+     *
+     * Two swaps in quick succession used to leave two handlers armed, and the
+     * older one carried the older playhead — it would fire on the newer
+     * source's metadata and seek the viewer backwards.
+     */
+    const resumeHandlerRef = useRef<(() => void) | null>(null);
 
     // A rendition can arrive minutes after mount, when the transcoder finishes
     // and the parent refetches. Memoised so the switch effect below fires on a
@@ -224,8 +233,15 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       const resumeAt = player.currentTime() ?? 0;
       const wasPlaying = !player.paused();
       loadedSourceRef.current = playbackSource;
-      player.src({ src: playbackSource, type: 'video/mp4' });
-      player.one('loadedmetadata', () => {
+
+      // Whatever the previous swap armed is stale the moment this one starts.
+      if (resumeHandlerRef.current) {
+        player.off('loadedmetadata', resumeHandlerRef.current);
+        resumeHandlerRef.current = null;
+      }
+
+      const onLoadedMetadata = () => {
+        resumeHandlerRef.current = null;
         if (resumeAt > 0) player.currentTime(resumeAt);
         if (wasPlaying) {
           const resumed = player.play();
@@ -235,7 +251,17 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
             });
           }
         }
-      });
+      };
+      resumeHandlerRef.current = onLoadedMetadata;
+      player.src({ src: playbackSource, type: 'video/mp4' });
+      player.one('loadedmetadata', onLoadedMetadata);
+
+      return () => {
+        if (resumeHandlerRef.current === onLoadedMetadata) {
+          player.off('loadedmetadata', onLoadedMetadata);
+          resumeHandlerRef.current = null;
+        }
+      };
     }, [playbackSource]);
 
     return (

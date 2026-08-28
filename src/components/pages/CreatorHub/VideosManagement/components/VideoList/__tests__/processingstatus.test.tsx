@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ProcessingVideo } from '../../../../../../../hooks/useVideoProcessing';
+import { uploadCopy } from '../../../../../../upload/uploadCopy';
 import { ProcessingStatus, phaseText } from '../processingstatus';
 
 function row(overrides: Partial<ProcessingVideo> = {}): ProcessingVideo {
@@ -80,10 +81,41 @@ describe('ProcessingStatus', () => {
     await waitFor(() => expect(onRetry).toHaveBeenCalledTimes(1));
   });
 
-  it('falls back to a plain reason when the backend sent none', () => {
+  it('falls back to the processing copy when the backend sent no reason', () => {
     render(<ProcessingStatus videoId={42} processingStatus={row({ status: 'failed' })} />);
 
-    expect(screen.getByText('Failed · processing failed')).toBeInTheDocument();
+    expect(screen.getByText(`Failed · ${uploadCopy.processingFailed}`)).toBeInTheDocument();
+  });
+
+  // `video:<id>:error` holds whatever the worker threw, so the row is on the
+  // wrong side of the sanitizer unless it goes through `describeUploadError`.
+  it("never renders the worker's own debris", () => {
+    render(
+      <ProcessingStatus
+        videoId={42}
+        processingStatus={row({
+          status: 'failed',
+          error: { message: '{"err":"ffmpeg exited 1","stack":"at run (transcode.ts:88:5)"}' },
+        })}
+      />,
+    );
+
+    expect(screen.getByText(`Failed · ${uploadCopy.processingFailed}`)).toBeInTheDocument();
+    expect(screen.queryByText(/ffmpeg exited/)).not.toBeInTheDocument();
+  });
+
+  it('translates a coded failure exactly', () => {
+    render(
+      <ProcessingStatus
+        videoId={42}
+        processingStatus={row({
+          status: 'failed',
+          error: { code: 'MEDIA_VALIDATION_FAILED', message: 'probe failed' },
+        })}
+      />,
+    );
+
+    expect(screen.getByText(`Failed · ${uploadCopy.unplayableFile}`)).toBeInTheDocument();
   });
 
   it('renders nothing without a progress row', () => {
