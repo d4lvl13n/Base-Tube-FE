@@ -98,7 +98,10 @@ api.interceptors.response.use(
         const canRetry =
           !!config &&
           !config.__rateLimitRetried &&
-          !isRedeemRequest(config);
+          !isRedeemRequest(config) &&
+          // Never auto-replay a multipart body: the stream has already been
+          // consumed, so a retried upload would re-send gigabytes (or fail).
+          !(typeof FormData !== 'undefined' && config.data instanceof FormData);
 
         if (canRetry) {
           config.__rateLimitRetried = true;

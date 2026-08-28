@@ -1,6 +1,6 @@
 import api from './index';
 import { RecommendedVideo, PaginationResponse, TrendingVideoResponse, Video, RecommendedVideosResponse } from '../types/video';
-import { AxiosProgressEvent } from 'axios';
+import axios, { AxiosProgressEvent } from 'axios';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
@@ -153,6 +153,12 @@ export interface VideoProgressResponse {
   data: VideoProgressData;
 }
 
+/** `GET /api/v1/videos/progress?ids=` — keyed by video id. */
+export interface VideoProgressBatchResponse {
+  success: boolean;
+  data: Record<string, VideoProgressData>;
+}
+
 export const getAllVideos = (page: number = 1, limit: number = 10) =>
   api.get(`/api/v1/videos?page=${page}&limit=${limit}`).then((res) => res.data.data);
 
@@ -229,7 +235,8 @@ export const getVideos = (category: string, limit: number = 4) =>
 
 export const uploadVideo = async (
   formData: FormData,
-  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void,
+  signal?: AbortSignal
 ): Promise<VideoUploadResult> => {
   try {
     const response = await api.post<VideoUploadApiResponse>(
@@ -243,7 +250,10 @@ export const uploadVideo = async (
             onUploadProgress(progressEvent);
           }
         },
-        timeout: 300000,
+        // A 2 GB upload on a slow link takes far longer than any fixed
+        // timeout; cancellation is the caller's job via `signal`.
+        timeout: 0,
+        signal,
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
       }
@@ -258,6 +268,11 @@ export const uploadVideo = async (
     return normalizeVideoUploadResponse(body);
   } catch (error: unknown) {
     if (error instanceof VideoApiError) {
+      throw error;
+    }
+    // A caller-initiated abort is not an upload failure — let it through
+    // untouched so the UI can tell "cancelled" from "broken".
+    if (axios.isCancel(error) || (error as { name?: string })?.name === 'CanceledError') {
       throw error;
     }
     const parsed = getVideoErrorMessage(error);
@@ -477,6 +492,24 @@ export const generateVideoDescription = async (
 
 export const getVideoProgress = async (videoId: number): Promise<VideoProgressResponse> => {
   const response = await api.get(`/api/v1/videos/progress/${videoId}`);
+  return response.data;
+};
+
+/**
+ * Batch progress for the Videos Management dashboard (upload V2, contract 9).
+ * `GET /api/v1/videos/progress?ids=1,2,3` — at most 50 ids per call.
+ */
+export const getVideoProgressBatch = async (
+  videoIds: number[]
+): Promise<VideoProgressBatchResponse> => {
+  const ids = videoIds.slice(0, 50);
+  if (ids.length === 0) {
+    return { success: true, data: {} };
+  }
+  const response = await api.get<VideoProgressBatchResponse>(
+    `/api/v1/videos/progress`,
+    { params: { ids: ids.join(',') } }
+  );
   return response.data;
 };
 

@@ -1,189 +1,128 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { getVideoProgress, VideoProgressData } from '../api/video';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { getVideoProgressBatch, VideoProgressData } from '../api/video';
 
 export interface ProcessingVideo extends VideoProgressData {
   videoId: number;
 }
 
+/** Base poll interval; jitter is added so N dashboards do not sync up. */
+const BASE_INTERVAL_MS = 5_000;
+const JITTER_MS = 1_000;
+/** A hidden tab still polls, three times more slowly. */
+const HIDDEN_MULTIPLIER = 3;
+/** After this long a video is almost certainly queued behind others. */
+const BACKOFF_AFTER_MS = 10 * 60 * 1_000;
+const BACKOFF_INTERVAL_MS = 30_000;
+/** Contract 9: `GET /videos/progress?ids=` takes at most 50 ids. */
+const MAX_IDS = 50;
+
+const STILL_WORKING = new Set(['pending', 'processing']);
+
+function nextDelay(startedAt: number): number {
+  const base = Date.now() - startedAt > BACKOFF_AFTER_MS ? BACKOFF_INTERVAL_MS : BASE_INTERVAL_MS;
+  const jittered = base + (Math.random() * 2 - 1) * JITTER_MS;
+  return document.visibilityState === 'hidden' ? jittered * HIDDEN_MULTIPLIER : jittered;
+}
+
+/**
+ * Tracks transcoding progress for the videos on screen.
+ *
+ * One batched request per tick instead of one per video: a creator with thirty
+ * videos in flight used to fire thirty requests every five seconds.
+ */
 export const useVideoProcessing = (videoIds: number[]) => {
   const [processingVideos, setProcessingVideos] = useState<Record<number, ProcessingVideo>>({});
-  const [isPolling, setIsPolling] = useState(false);
-  const isMountedRef = useRef<boolean>(true);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Keep a mutable ref to always have the latest processingVideos inside callbacks without causing re-subscriptions
+  const isMountedRef = useRef(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startedAtRef = useRef(Date.now());
   const processingVideosRef = useRef(processingVideos);
+  const videoIdsRef = useRef(videoIds);
+  const idsKey = videoIds.join(',');
+
   useEffect(() => {
     processingVideosRef.current = processingVideos;
   }, [processingVideos]);
 
-  const clearPollingInterval = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+  useEffect(() => {
+    videoIdsRef.current = videoIds;
+  }, [videoIds]);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
   }, []);
 
-  const checkProgress = useCallback(async () => {
-    // MEMORY LEAK FIX: Don't proceed if component unmounted or tab hidden
-    if (!isMountedRef.current) {
-      console.log('[useVideoProcessing] Component unmounted, stopping progress check');
-      return;
-    }
-
-    if (document.visibilityState === 'hidden') {
-      console.log('[useVideoProcessing] Tab hidden, skipping progress check');
-      return;
-    }
-
-    try {
-      const incompleteVideos = videoIds.filter(id => {
-        const video = processingVideosRef.current[id];
-        return !video || video.status === 'pending' || video.status === 'processing';
-      });
-
-      if (incompleteVideos.length === 0) {
-        if (isMountedRef.current) {
-        setIsPolling(false);
-        }
-        return;
-      }
-
-      const updates = await Promise.all(
-        incompleteVideos.map(async (id) => {
-          try {
-            const response = await getVideoProgress(id);
-            return {
-              videoId: id,
-              ...response.data
-            } satisfies ProcessingVideo;
-          } catch (error) {
-            const status = (error as any)?.response?.status;
-            const message =
-              (error as any)?.response?.data?.message ||
-              (error as any)?.message ||
-              'Failed to fetch video progress';
-            console.error(`Error fetching progress for video ${id}:`, error);
-            return {
-              videoId: id,
-              status: status === 404 ? 'completed' : 'failed',
-              error: { message }
-            } satisfies ProcessingVideo;
-          }
+  /** Ids we have not yet seen reach a terminal state. */
+  const pendingIds = useCallback(
+    () =>
+      videoIdsRef.current
+        .filter((id) => {
+          const known = processingVideosRef.current[id];
+          return !known || STILL_WORKING.has(known.status);
         })
-      );
+        .slice(0, MAX_IDS),
+    [],
+  );
 
-      // MEMORY LEAK FIX: Only update state if component is still mounted
-      if (!isMountedRef.current) {
-        console.log('[useVideoProcessing] Component unmounted during API call, discarding results');
-        return;
-      }
-
-      const validUpdates = updates.filter((update): update is ProcessingVideo => update !== null);
-
-      if (validUpdates.length > 0) {
-        setProcessingVideos(prev => ({
-          ...prev,
-          ...Object.fromEntries(validUpdates.map(update => [update.videoId, update]))
-        }));
-      }
-
-      // Stop polling if no videos are still processing
-      if (!validUpdates.some(video => video.status === 'pending' || video.status === 'processing')) {
-        if (isMountedRef.current) {
-        setIsPolling(false);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking video progress:', error);
-      if (isMountedRef.current) {
-      setIsPolling(false);
-      }
-    }
-  }, [videoIds]);
-
-  // Start polling only when we have untracked videos
-  useEffect(() => {
-    if (!isMountedRef.current) return;
-    
-    const untrackedVideos = videoIds.filter(id => !processingVideosRef.current[id]);
-    if (untrackedVideos.length > 0) {
-      setIsPolling(true);
-    }
-  }, [videoIds]);
-
-  // Handle polling with visibility and mount checks
-  useEffect(() => {
-    if (!isPolling || !isMountedRef.current) {
-      clearPollingInterval();
-      return;
-    }
-
-    // MEMORY LEAK FIX: Don't start polling if tab is hidden
-    if (document.visibilityState === 'hidden') {
-      console.log('[useVideoProcessing] Tab hidden, deferring polling start');
-      clearPollingInterval();
-      return;
-    }
-
-    console.log('[useVideoProcessing] Starting polling interval');
-    checkProgress(); // Initial check
-    
-    intervalRef.current = setInterval(() => {
-      // Double-check visibility and mount status on each interval
-      if (isMountedRef.current && document.visibilityState === 'visible') {
-        checkProgress();
-      } else {
-        console.log('[useVideoProcessing] Skipping interval - component unmounted or tab hidden');
-      }
-    }, 5000);
-
-    return () => {
-      console.log('[useVideoProcessing] Cleaning up polling interval');
-      clearPollingInterval();
-    };
-  }, [isPolling, checkProgress, clearPollingInterval]);
-
-  // MEMORY LEAK FIX: Handle visibility changes
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!isMountedRef.current) return;
-
-      if (document.visibilityState === 'hidden') {
-        console.log('[useVideoProcessing] Tab hidden, stopping polling');
-        clearPollingInterval();
-      } else if (document.visibilityState === 'visible' && isPolling) {
-        console.log('[useVideoProcessing] Tab visible, resuming polling');
-        // Restart polling when tab becomes visible
-        checkProgress();
-        if (!intervalRef.current) {
-          intervalRef.current = setInterval(() => {
-            if (isMountedRef.current && document.visibilityState === 'visible') {
-              checkProgress();
-            }
-          }, 5000);
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isPolling, checkProgress, clearPollingInterval]);
-
-  // MEMORY LEAK FIX: Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true;
+    startedAtRef.current = Date.now();
+    let cancelled = false;
+
+    const schedule = () => {
+      if (cancelled) return;
+      timerRef.current = setTimeout(() => void tick(), nextDelay(startedAtRef.current));
+    };
+
+    const tick = async () => {
+      if (cancelled || !isMountedRef.current) return;
+      const ids = pendingIds();
+      if (ids.length === 0) return;
+
+      try {
+        const response = await getVideoProgressBatch(ids);
+        if (cancelled || !isMountedRef.current) return;
+        const updates: Record<number, ProcessingVideo> = {};
+        for (const id of ids) {
+          const data = response.data?.[String(id)];
+          if (data) updates[id] = { videoId: id, ...data };
+        }
+        if (Object.keys(updates).length > 0) {
+          setProcessingVideos((previous) => ({ ...previous, ...updates }));
+        }
+      } catch (error) {
+        // Progress is a convenience, not the source of truth; keep polling.
+        console.warn('[useVideoProcessing] progress poll failed', error);
+      }
+      schedule();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      clearTimer();
+      void tick();
+    };
+
+    if (pendingIds().length > 0) void tick();
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
-      console.log('[useVideoProcessing] Component unmounting, cleaning up');
-      isMountedRef.current = false;
-      clearPollingInterval();
-      setIsPolling(false);
+      cancelled = true;
+      clearTimer();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [clearPollingInterval]);
+    // `idsKey` is the stable identity of `videoIds`; the array itself is a new
+    // reference on every render of the dashboard.
+  }, [idsKey, clearTimer, pendingIds]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   return { processingVideos };
-}; 
+};

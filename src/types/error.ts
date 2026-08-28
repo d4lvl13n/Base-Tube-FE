@@ -62,6 +62,7 @@ export enum ErrorCode {
   // Upload Errors
   UPLOAD_FAILED = 'UPLOAD_FAILED',
   FILE_TOO_LARGE = 'FILE_TOO_LARGE',
+  PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
   INVALID_FILE_TYPE = 'INVALID_FILE_TYPE',
   
   // YouTube Integration Errors
@@ -144,6 +145,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   // Upload Errors
   [ErrorCode.UPLOAD_FAILED]: 'Upload failed. Please check your file and try again.',
   [ErrorCode.FILE_TOO_LARGE]: 'File is too large. Please choose a smaller file.',
+  [ErrorCode.PAYLOAD_TOO_LARGE]: 'File too large for the server limit.',
   [ErrorCode.INVALID_FILE_TYPE]: 'Invalid file type. Please choose a supported format.',
   
   // YouTube Integration Errors

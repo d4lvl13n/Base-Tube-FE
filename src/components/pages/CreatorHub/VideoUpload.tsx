@@ -12,7 +12,8 @@ import {
   X,
   Sparkles,
 } from 'lucide-react';
-import { uploadVideo, generateVideoDescription } from '../../../api/video';
+import { uploadVideo, generateVideoDescription, getVideoProgress, updateVideo } from '../../../api/video';
+import { UPLOAD_V2_ENABLED, useOptionalUploadQueue } from '../../../contexts/UploadQueueContext';
 import VideoUploadSuccess from '../../common/ModalScreen/VideoUploadSuccess';
 import { useNavigate } from 'react-router-dom';
 import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
@@ -24,6 +25,12 @@ import AIThumbnailPanel from '../../common/AIThumbnailPanel';
 import RichTextEditor from '../../common/RichTextEditor';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 import { useAIthumbnail } from '../../../hooks/useAIthumbnail';
+
+/** True for a cancellation raised by an AbortController, not a real failure. */
+const isAbortError = (error: unknown): boolean => {
+  const name = (error as { name?: string } | null)?.name;
+  return name === 'AbortError' || name === 'CanceledError';
+};
 
 interface VisibilityOption {
   id: 'public' | 'private';
@@ -53,10 +60,21 @@ const VideoUpload: React.FC = () => {
   const [suggestedTitle, setSuggestedTitle] = useState<string | undefined>();
   const [generatedDescription, setGeneratedDescription] = useState<string | undefined>();
   const [uploadStalled, setUploadStalled] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const processingPollRef = useRef<NodeJS.Timeout>();
   const lastProgressRef = useRef(0);
   const lastProgressTimeRef = useRef(Date.now());
-  const uploadTimerRef = useRef<NodeJS.Timeout>();
   const stallCheckTimerRef = useRef<NodeJS.Timeout>();
+
+  const uploadQueue = useOptionalUploadQueue();
+  const useDirectUpload = UPLOAD_V2_ENABLED && uploadQueue !== null;
+  const [queueLocalId, setQueueLocalId] = useState<string | null>(null);
+  const queuedEntry = queueLocalId
+    ? (uploadQueue?.entries.find((entry) => entry.localId === queueLocalId) ?? null)
+    : null;
+  // Stable across renders (useCallback in the hook), so it is safe in deps.
+  const updateQueueMetadata = uploadQueue?.updateMetadata;
 
   const { channels, selectedChannelId, selectedChannel } = useChannelSelection();
   const navigate = useNavigate();
@@ -91,14 +109,42 @@ const VideoUpload: React.FC = () => {
     { id: 'private', icon: Lock, label: 'Private', description: 'Only you can watch this video' },
   ];
 
+  /**
+   * With the direct-upload path the transfer starts the moment a file is
+   * chosen — the metadata form is filled in while the bytes are already
+   * moving, which is the whole point of the rebuild.
+   */
+  const acceptFile = async (file: File) => {
+    if (!useDirectUpload) {
+      setSelectedFile(file);
+      setStep(2);
+      return;
+    }
+
+    if (!selectedChannelId) {
+      showErrorToast(uploadErrors.noChannel);
+      return;
+    }
+
+    const result = await uploadQueue!.enqueueFiles([file], Number(selectedChannelId));
+    const created = result.accepted[0];
+    if (!created) {
+      showErrorToast(result.rejected[0]?.message ?? 'This file cannot be uploaded.');
+      return;
+    }
+    setQueueLocalId(created.localId);
+    setTitle(created.title);
+    setSelectedFile(file);
+    setStep(2);
+  };
+
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragActive(false);
 
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('video/')) {
-      setSelectedFile(file);
-      setStep(2);
+      void acceptFile(file);
     } else {
       alert('Please upload a valid video file.');
     }
@@ -107,20 +153,13 @@ const VideoUpload: React.FC = () => {
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      console.log('File selected:', {
-        name: file.name,
-        size: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
-        type: file.type
-      });
-
       if (!file.type.startsWith('video/')) {
         console.error('Invalid file type:', file.type);
         alert('Please upload a valid video file.');
         return;
       }
 
-      setSelectedFile(file);
-      setStep(2);
+      void acceptFile(file);
     }
   };
 
@@ -152,11 +191,46 @@ const VideoUpload: React.FC = () => {
   };
 
   const clearTimers = () => {
-    if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
     if (stallCheckTimerRef.current) clearInterval(stallCheckTimerRef.current);
+    if (processingPollRef.current) clearTimeout(processingPollRef.current);
+  };
+
+  /** Cancel the in-flight upload for real, then return to the details step. */
+  const cancelUpload = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    clearTimers();
+    setIsProcessing(false);
+    setUploadStalled(false);
+    setUploadProgress(0);
+    setStep(2);
+  };
+
+  /**
+   * On the direct-upload path the bytes are already on their way, so this
+   * button only settles the extras: apply a custom thumbnail if the Video row
+   * exists yet, then hand the creator over to Videos Management.
+   */
+  const handleDone = async () => {
+    if (thumbnailFile && queuedEntry?.videoId) {
+      try {
+        const formData = new FormData();
+        formData.append('thumbnail', thumbnailFile);
+        await updateVideo(String(queuedEntry.videoId), formData);
+      } catch (error) {
+        console.error('Thumbnail update failed:', error);
+        showErrorToast('The video is uploading, but the thumbnail could not be saved.');
+      }
+    }
+    navigate('/creator-hub/videos');
   };
 
   const handlePublish = async () => {
+    if (useDirectUpload) {
+      await handleDone();
+      return;
+    }
+
     if (!selectedFile) {
       showErrorToast(uploadErrors.noFile);
       return;
@@ -185,11 +259,15 @@ const VideoUpload: React.FC = () => {
     }
 
     clearTimers(); // Clear any existing timers
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
     setUploadStalled(false);
+    setIsProcessing(false);
     lastProgressRef.current = 0;
     lastProgressTimeRef.current = Date.now();
 
-    // Set up stall detection
+    // Stall detection only warns: a 2 GB upload on a slow link is slow, not
+    // broken, so nothing here may cancel the request on a timer.
     stallCheckTimerRef.current = setInterval(() => {
       const stallDuration = Date.now() - lastProgressTimeRef.current;
       if (stallDuration > 30000 && uploadProgress < 100 && uploadProgress === lastProgressRef.current) {
@@ -200,14 +278,6 @@ const VideoUpload: React.FC = () => {
         setUploadStalled(true);
       }
     }, 5000);
-
-    // Set up global timeout
-    uploadTimerRef.current = setTimeout(() => {
-      console.error('Upload timed out after 30 minutes');
-      setStep(2);
-      alert('Upload timed out. Please try again.');
-      clearTimers();
-    }, 1800000); // 30 minutes
 
     try {
       setStep(3);
@@ -224,24 +294,37 @@ const VideoUpload: React.FC = () => {
         formData.append('thumbnail', thumbnailFile);
       }
 
-      const result = await uploadVideo(formData, (progressEvent) => {
+      const result = await uploadVideo(
+        formData,
+        (progressEvent) => {
         if (progressEvent.total) {
           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(progress);
 
           if (progress > lastProgressRef.current) {
-            lastProgressRef.current = progress;
-            lastProgressTimeRef.current = Date.now();
-            setUploadStalled(false);
+              lastProgressRef.current = progress;
+              lastProgressTimeRef.current = Date.now();
+              setUploadStalled(false);
+            }
           }
-        }
-      });
+        },
+        abortRef.current.signal
+      );
 
       clearTimers();
+      abortRef.current = null;
+      setUploadProgress(100);
       setUploadedVideoId(result.videoId);
-      setStep(4);
+      // The bytes are in; the video is not watchable until the worker has
+      // transcoded it. Stay on the progress step and poll until it is.
+      setIsProcessing(true);
     } catch (error: unknown) {
       clearTimers();
+      abortRef.current = null;
+      if (isAbortError(error)) {
+        // The user cancelled; cancelUpload() already reset the wizard.
+        return;
+      }
       console.error('Upload failed:', error);
 
       const parsed = getVideoErrorMessage(error);
@@ -249,6 +332,80 @@ const VideoUpload: React.FC = () => {
       setStep(2);
     }
   };
+
+  // Poll processing status after the bytes land; the success screen is only
+  // correct once the backend reports the video as playable.
+  useEffect(() => {
+    if (!isProcessing || !uploadedVideoId) return;
+    const numericId = Number(uploadedVideoId);
+    if (!Number.isFinite(numericId)) {
+      setIsProcessing(false);
+      setStep(4);
+      return;
+    }
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await getVideoProgress(numericId);
+        if (cancelled) return;
+        const status = response?.data?.status as string | undefined;
+        if (status === 'completed' || status === 'processed') {
+          setIsProcessing(false);
+          setStep(4);
+          return;
+        }
+        if (status === 'failed') {
+          setIsProcessing(false);
+          showErrorToast(
+            response?.data?.error?.message ||
+              'Processing failed. Open Videos Management to retry this video.'
+          );
+          setStep(2);
+          return;
+        }
+      } catch (error) {
+        // Transient progress failures must not abandon a finished upload.
+        console.warn('Progress poll failed, retrying', error);
+      }
+      if (!cancelled) processingPollRef.current = setTimeout(poll, 5000);
+    };
+
+    processingPollRef.current = setTimeout(poll, 5000);
+    return () => {
+      cancelled = true;
+      if (processingPollRef.current) clearTimeout(processingPollRef.current);
+    };
+  }, [isProcessing, uploadedVideoId]);
+
+  // Direct-upload path: the draft metadata lives on the upload row until the
+  // worker creates the Video, so every edit is mirrored to the upload (the
+  // hook debounces the actual PATCH).
+  useEffect(() => {
+    if (!useDirectUpload || !queueLocalId || !updateQueueMetadata) return;
+    updateQueueMetadata(queueLocalId, {
+      title,
+      description,
+      isPublic: visibility === 'public',
+      tags: tags.trim()
+        ? tags
+            .split(',')
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+        : null,
+    });
+  }, [useDirectUpload, queueLocalId, updateQueueMetadata, title, description, tags, visibility]);
+
+  // The success screen is only honest once the backend says the video is
+  // playable; "the bytes arrived" is not the same thing.
+  const queuedVideoStatus = queuedEntry?.videoStatus ?? null;
+  const queuedVideoId = queuedEntry?.videoId ?? null;
+  useEffect(() => {
+    if (!useDirectUpload || queuedVideoStatus !== 'processed') return;
+    setUploadedVideoId(queuedVideoId === null ? null : String(queuedVideoId));
+    setUploadProgress(100);
+    setStep(4);
+  }, [useDirectUpload, queuedVideoStatus, queuedVideoId]);
 
   const handleGenerateDescription = async () => {
     if (!title.trim()) {
@@ -591,8 +748,29 @@ const VideoUpload: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Publish Button - Added back */}
+                {/* Publish / Done */}
                 <div className="pt-4 border-t border-gray-800/30">
+                  {useDirectUpload && queuedEntry && (
+                    <div className="mb-4 p-4 rounded-lg bg-black/40 border border-gray-800/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm text-gray-300 truncate">{queuedEntry.filename}</p>
+                        <span className="text-sm text-[#fa7517]">{queuedEntry.progress}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-gray-800 overflow-hidden">
+                        <div
+                          className="h-full bg-[#fa7517] transition-all"
+                          style={{ width: `${queuedEntry.progress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {queuedEntry.errorMessage
+                          ? queuedEntry.errorMessage
+                          : queuedEntry.videoStatus === 'processed'
+                            ? 'Ready to watch.'
+                            : 'Uploading in the background — you can keep editing these details.'}
+                      </p>
+                    </div>
+                  )}
                   <motion.button
                     onClick={handlePublish}
                     whileHover={{ scale: 1.02 }}
@@ -602,11 +780,13 @@ const VideoUpload: React.FC = () => {
                              flex items-center justify-center gap-3"
                   >
                     <Upload className="w-6 h-6" />
-                    Publish Video
+                    {useDirectUpload ? 'Done' : 'Publish Video'}
                   </motion.button>
                   {/* Optional helper text */}
                   <p className="text-sm text-gray-400 text-center mt-3">
-                    Make sure all required fields are filled before publishing
+                    {useDirectUpload
+                      ? 'Your video keeps uploading in the background. Track it in Videos Management.'
+                      : 'Make sure all required fields are filled before publishing'}
                   </p>
                 </div>
               </div>
@@ -644,7 +824,10 @@ const VideoUpload: React.FC = () => {
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => clearTimers();
+    return () => {
+      clearTimers();
+      abortRef.current?.abort();
+    };
   }, []);
 
   // Add stall warning to upload progress UI
@@ -662,14 +845,15 @@ const VideoUpload: React.FC = () => {
           <div className="flex-1">
             <h3 className="text-lg font-medium text-white">{selectedFile?.name}</h3>
             <p className="text-sm text-gray-400">
-              {uploadStalled ? 'Upload stalled' : 'Uploading video...'}
+              {isProcessing
+                ? 'Processing video... this can take a few minutes'
+                : uploadStalled
+                  ? 'Upload stalled'
+                  : 'Uploading video...'}
             </p>
           </div>
           <button
-            onClick={() => {
-              clearTimers();
-              setStep(2);
-            }}
+            onClick={cancelUpload}
             className="p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
           >
             <X className="w-5 h-5 text-gray-400" />
@@ -687,7 +871,7 @@ const VideoUpload: React.FC = () => {
         </div>
         <p className="text-sm text-gray-400 mt-2">{uploadProgress}% uploaded</p>
 
-        {uploadStalled && (
+        {uploadStalled && !isProcessing && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -699,10 +883,7 @@ const VideoUpload: React.FC = () => {
                 Upload appears to be stalled. You can wait or try again.
               </p>
               <button
-                onClick={() => {
-                  clearTimers();
-                  setStep(2);
-                }}
+                onClick={cancelUpload}
                 className="mt-2 px-4 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/30 
                            rounded-lg text-yellow-200 text-sm transition-colors"
               >

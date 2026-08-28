@@ -9,8 +9,10 @@ import { createAuthApi, createWeb3AuthApi } from './endpoints/web3auth';
 import { createEngagementApi } from './endpoints/engagement';
 import { createPassesApi } from './endpoints/passes';
 import { createAccessApi, createPurchasesApi } from './endpoints/purchases';
+import { createUploadApi } from './upload';
 
 export * from './types';
+export * from './upload';
 export type { BasetubeClientConfig, TokenProvider } from './config';
 export { createHttpClient } from './client';
 
@@ -24,6 +26,8 @@ export interface BasetubeClient {
   passes: ReturnType<typeof createPassesApi>;
   access: ReturnType<typeof createAccessApi>;
   purchases: ReturnType<typeof createPurchasesApi>;
+  /** Upload V2 control plane (`/api/v1/videos/uploads/*`). */
+  uploads: ReturnType<typeof createUploadApi>;
   web3auth: ReturnType<typeof createWeb3AuthApi>;
   auth: ReturnType<typeof createAuthApi>;
   /** Escape hatch to the underlying axios instance for not-yet-wrapped routes. */
@@ -52,6 +56,7 @@ export function createBasetubeClient(config: BasetubeClientConfig): BasetubeClie
     passes: createPassesApi(http),
     access: createAccessApi(http),
     purchases: createPurchasesApi(http),
+    uploads: createUploadApi(http),
     web3auth: createWeb3AuthApi(http),
     auth: createAuthApi(http),
     http,
