@@ -132,13 +132,60 @@ describe('createUploadApi', () => {
   it('asks for active uploads with the reconciliation flag', async () => {
     const { http, calls } = httpStub(async () => ({
       status: 200,
-      data: { success: true, data: { uploads: [] } },
+      data: { success: true, data: [] },
     }));
     await createUploadApi(http).listActive();
     expect(calls[0]).toMatchObject({
       method: 'get',
       url: '/api/v1/videos/uploads',
       config: { params: { active: true } },
+    });
+  });
+
+  // The controller does `res.json({ success: true, data: uploads })` — the
+  // payload IS the array, with no wrapping `uploads` key.
+  it('returns the active-uploads ARRAY straight from the envelope', async () => {
+    const summary = {
+      uploadId: 'u1',
+      uploadState: 'uploading',
+      channelId: 7,
+      title: 'clip',
+      description: null,
+      isPublic: false,
+      tags: null,
+      originalFilename: 'clip.mp4',
+      declaredSizeBytes: 300,
+      partSizeBytes: 100,
+      partCount: 3,
+      videoId: null,
+      videoStatus: null,
+      errorCode: null,
+      createdAt: '2026-08-28T10:00:00.000Z',
+      updatedAt: '2026-08-28T10:00:00.000Z',
+    };
+    const { http } = httpStub(async () => ({
+      status: 200,
+      data: { success: true, data: [summary] },
+    }));
+
+    const uploads = await createUploadApi(http).listActive();
+
+    expect(Array.isArray(uploads)).toBe(true);
+    expect(uploads).toHaveLength(1);
+    expect(uploads[0]).toMatchObject({ uploadId: 'u1', partCount: 3 });
+    // The server does not echo `clientAttemptId`; reconciliation is by uploadId.
+    expect(uploads[0]).not.toHaveProperty('clientAttemptId');
+  });
+
+  it('refuses a non-array active-uploads payload instead of reading it as empty', async () => {
+    const { http } = httpStub(async () => ({
+      status: 200,
+      data: { success: true, data: { uploads: [] } },
+    }));
+
+    await expect(createUploadApi(http).listActive()).rejects.toMatchObject({
+      name: 'UploadApiError',
+      code: 'INVALID_RESPONSE',
     });
   });
 });

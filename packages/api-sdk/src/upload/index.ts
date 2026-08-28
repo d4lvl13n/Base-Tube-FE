@@ -9,6 +9,7 @@ export * from './types';
 export {
   DirectUploadError,
   abortableSleep,
+  normalizeEtag,
   putBlobWithProgress,
 } from './direct-upload-transport';
 export {

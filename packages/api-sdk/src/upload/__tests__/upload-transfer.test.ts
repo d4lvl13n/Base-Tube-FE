@@ -204,6 +204,67 @@ describe('executeUploadTransfer', () => {
     expect(api.calls.complete).toHaveLength(0);
   });
 
+  // Completion is where the backend creates the Video row and PATCH starts
+  // answering 409, so the queue's debounced metadata has to land before it.
+  it('runs beforeComplete immediately before the completion call', async () => {
+    const file = fakeFile(300);
+    const entry = queueEntry({ file, uploadId: 'upload-1' });
+    const all = [completedPart(1, 100), completedPart(2, 100), completedPart(3, 100)];
+    const order: string[] = [];
+    const api = stubApi({
+      getState: scriptedStates([uploadState({ completedParts: all })]),
+      async complete(_uploadId, body) {
+        order.push('complete');
+        return { uploadId: 'upload-1', uploadState: 'processing', videoId: 42, ...(body ? {} : {}) };
+      },
+    });
+
+    await executeUploadTransfer(
+      entry,
+      file,
+      {
+        ...dependencies(api, jest.fn() as never),
+        beforeComplete: async () => {
+          order.push('beforeComplete');
+        },
+      },
+      () => {},
+    );
+
+    expect(order).toEqual(['beforeComplete', 'complete']);
+  });
+
+  it('completes with the server ETags, normalised', async () => {
+    const file = fakeFile(100);
+    const entry = queueEntry({ file, uploadId: 'upload-1' });
+    const api = stubApi({
+      getState: scriptedStates([
+        uploadState({ partCount: 1, completedParts: [{ partNumber: 1, etag: '"AB12"', sizeBytes: 100 }] }),
+      ]),
+    });
+
+    await executeUploadTransfer(entry, file, dependencies(api, jest.fn() as never), () => {});
+
+    expect(api.calls.complete).toEqual([{ parts: [{ partNumber: 1, etag: 'ab12' }] }]);
+  });
+
+  // The backend validates every etag as `z.string().min(1)`; posting a null
+  // would be a guaranteed 400 that looks to the queue like a client bug.
+  it('refuses to complete when even the server has no ETag for a part', async () => {
+    const file = fakeFile(100);
+    const entry = queueEntry({ file, uploadId: 'upload-1' });
+    const api = stubApi({
+      getState: scriptedStates([
+        uploadState({ partCount: 1, completedParts: [{ partNumber: 1, etag: null, sizeBytes: 100 }] }),
+      ]),
+    });
+
+    await expect(
+      executeUploadTransfer(entry, file, dependencies(api, jest.fn() as never), () => {}),
+    ).rejects.toMatchObject({ code: 'CAPABILITY_INVALID' });
+    expect(api.calls.complete).toHaveLength(0);
+  });
+
   it('waits instead of completing when the server has not confirmed every part', async () => {
     const file = fakeFile(300);
     const entry = queueEntry({ file, uploadId: 'upload-1' });
@@ -266,6 +327,41 @@ describe('classifyTransferFailure', () => {
     [
       'a network blip during a PUT waits',
       new DirectUploadError('net', null, 'STORAGE_NETWORK_ERROR'),
+      { status: 'retry_wait', retryAfterSeconds: 10 },
+    ],
+    [
+      'a storage 400 is the bucket rejecting this exact request, so it fails',
+      new DirectUploadError('bad request', 400, 'STORAGE_PUT_FAILED'),
+      { status: 'failed', retryAfterSeconds: null },
+    ],
+    [
+      'a storage 403 that survived the one signature renewal fails',
+      new DirectUploadError('denied', 403, 'STORAGE_PUT_FAILED'),
+      { status: 'failed', retryAfterSeconds: null },
+    ],
+    [
+      'a storage 401 that survived the one signature renewal fails',
+      new DirectUploadError('unauthorized', 401, 'STORAGE_PUT_FAILED'),
+      { status: 'failed', retryAfterSeconds: null },
+    ],
+    [
+      'a storage 404 fails',
+      new DirectUploadError('gone', 404, 'STORAGE_PUT_FAILED'),
+      { status: 'failed', retryAfterSeconds: null },
+    ],
+    [
+      'a storage 429 is a request to pause, not a verdict',
+      new DirectUploadError('slow down', 429, 'STORAGE_PUT_FAILED'),
+      { status: 'retry_wait', retryAfterSeconds: 10 },
+    ],
+    [
+      'a storage 500 waits',
+      new DirectUploadError('boom', 500, 'STORAGE_PUT_FAILED'),
+      { status: 'retry_wait', retryAfterSeconds: 10 },
+    ],
+    [
+      'a storage 503 waits',
+      new DirectUploadError('unavailable', 503, 'STORAGE_PUT_FAILED'),
       { status: 'retry_wait', retryAfterSeconds: 10 },
     ],
     [

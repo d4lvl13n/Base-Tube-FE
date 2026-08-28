@@ -133,8 +133,16 @@ interface FeaturedVideoResponse {
   }
 }
 
+/**
+ * `Videos.status` as the batch route reports it — the DB enum, whose terminal
+ * success value is `processed`. The legacy single-video route wraps the same
+ * row in its own `VideoProgress` shape and spells that value `completed`, so
+ * both live in this union and both are terminal.
+ */
+export type VideoProcessingStatus = 'pending' | 'processing' | 'processed' | 'completed' | 'failed';
+
 export interface VideoProgressData {
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: VideoProcessingStatus;
   progress?: {
     quality: string;
     percent: number;
@@ -153,10 +161,21 @@ export interface VideoProgressResponse {
   data: VideoProgressData;
 }
 
-/** `GET /api/v1/videos/progress?ids=` — keyed by video id. */
+/** One element of the `GET /api/v1/videos/progress?ids=` array. */
+export interface VideoProgressBatchRow extends VideoProgressData {
+  videoId: number;
+  renditions?: Array<{ quality: string; state: string }>;
+}
+
+/**
+ * The batch progress call, re-keyed by video id for the caller.
+ *
+ * The wire shape is `{ success, data: VideoProgressBatchRow[] }`; indexing by
+ * id happens here so every consumer does not have to re-derive it.
+ */
 export interface VideoProgressBatchResponse {
   success: boolean;
-  data: Record<string, VideoProgressData>;
+  data: Record<string, VideoProgressBatchRow>;
 }
 
 export const getAllVideos = (page: number = 1, limit: number = 10) =>
@@ -506,11 +525,21 @@ export const getVideoProgressBatch = async (
   if (ids.length === 0) {
     return { success: true, data: {} };
   }
-  const response = await api.get<VideoProgressBatchResponse>(
+  const response = await api.get<{ success: boolean; data?: unknown }>(
     `/api/v1/videos/progress`,
     { params: { ids: ids.join(',') } }
   );
-  return response.data;
+
+  // `data` is an ARRAY of rows, each carrying its own `videoId`; ids the caller
+  // does not own are simply absent (the backend filters by ownership in SQL).
+  const rows = Array.isArray(response.data?.data)
+    ? (response.data.data as VideoProgressBatchRow[])
+    : [];
+  const byId: Record<string, VideoProgressBatchRow> = {};
+  for (const row of rows) {
+    if (row && typeof row.videoId === 'number') byId[String(row.videoId)] = row;
+  }
+  return { success: response.data?.success !== false, data: byId };
 };
 
 export const retryVideoProcessing = async (videoId: number): Promise<{ success: boolean; message: string }> => {

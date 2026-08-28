@@ -23,8 +23,8 @@ describe('useVideoProcessing', () => {
     mockedBatch.mockResolvedValue({
       success: true,
       data: {
-        1: { status: 'processing' },
-        2: { status: 'completed' },
+        1: { videoId: 1, status: 'processing', renditions: [{ quality: '720p', state: 'running' }] },
+        2: { videoId: 2, status: 'processed', renditions: [] },
       },
     });
 
@@ -32,12 +32,60 @@ describe('useVideoProcessing', () => {
 
     await waitFor(() => expect(mockedBatch).toHaveBeenCalledTimes(1));
     expect(mockedBatch).toHaveBeenCalledWith([1, 2]);
-    await waitFor(() => expect(result.current.processingVideos[2]?.status).toBe('completed'));
+    await waitFor(() => expect(result.current.processingVideos[2]?.status).toBe('processed'));
     expect(result.current.processingVideos[1]?.status).toBe('processing');
+    expect(result.current.processingVideos[1]?.renditions).toEqual([
+      { quality: '720p', state: 'running' },
+    ]);
   });
 
-  it('stops polling once nothing is pending any more', async () => {
-    mockedBatch.mockResolvedValue({ success: true, data: { 1: { status: 'completed' } } });
+  it('stops polling once every id has reached `processed`', async () => {
+    mockedBatch.mockResolvedValue({
+      success: true,
+      data: { 1: { videoId: 1, status: 'processed', renditions: [] } },
+    });
+
+    renderHook(() => useVideoProcessing([1]));
+
+    await waitFor(() => expect(mockedBatch).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(mockedBatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats `failed` as terminal too', async () => {
+    mockedBatch.mockResolvedValue({
+      success: true,
+      data: { 1: { videoId: 1, status: 'failed', renditions: [] } },
+    });
+
+    const { result } = renderHook(() => useVideoProcessing([1]));
+
+    await waitFor(() => expect(result.current.processingVideos[1]?.status).toBe('failed'));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(mockedBatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps polling while a video is still pending or processing', async () => {
+    mockedBatch.mockResolvedValue({
+      success: true,
+      data: { 1: { videoId: 1, status: 'processing', renditions: [] } },
+    });
+
+    renderHook(() => useVideoProcessing([1]));
+
+    await waitFor(() => expect(mockedBatch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockedBatch.mock.calls.length).toBeGreaterThan(1), {
+      timeout: 10_000,
+    });
+  }, 15_000);
+
+  // The legacy single-video route still spells the terminal success value
+  // `completed`; a row carrying it must not restart the poll.
+  it('accepts `completed` as a legacy alias for `processed`', async () => {
+    mockedBatch.mockResolvedValue({
+      success: true,
+      data: { 1: { videoId: 1, status: 'completed', renditions: [] } },
+    });
 
     renderHook(() => useVideoProcessing([1]));
 

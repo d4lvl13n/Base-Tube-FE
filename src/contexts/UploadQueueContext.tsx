@@ -7,7 +7,15 @@ export const UPLOAD_V2_ENABLED = process.env.REACT_APP_UPLOAD_V2 === 'true';
 
 const UploadQueueContext = createContext<UploadQueueApi | null>(null);
 
-const ACTIVE_STATUSES = ['reserving', 'uploading', 'uploaded'] as const;
+/**
+ * Only `uploading` has bytes on the wire.
+ *
+ * `uploaded` means every part is already in storage and the row is waiting on
+ * the server's completion/processing — closing the tab costs nothing, and
+ * warning there trains creators to click through the dialog. `reserving` is the
+ * create round-trip, which is likewise resumable from IndexedDB.
+ */
+const BYTES_IN_FLIGHT_STATUSES = ['uploading'] as const;
 
 /**
  * Owns the upload queue for the whole tab.
@@ -19,7 +27,7 @@ const ACTIVE_STATUSES = ['reserving', 'uploading', 'uploaded'] as const;
 export const UploadQueueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queue = useUploadQueue();
   const uploading = queue.entries.some((entry) =>
-    (ACTIVE_STATUSES as readonly string[]).includes(entry.status),
+    (BYTES_IN_FLIGHT_STATUSES as readonly string[]).includes(entry.status),
   );
 
   useEffect(() => {

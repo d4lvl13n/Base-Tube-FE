@@ -24,6 +24,8 @@ import {
   type UploadResumeStore,
 } from '@basetube/api';
 import { getBasetubeClient } from '../lib/basetubeClient';
+import { updateVideo } from '../api/video';
+import { showErrorToast } from '../components/common/Notifications/ErrorToast';
 
 /** Files transferring at the same time. The server admits 8 per user (§7.2). */
 const ACTIVE_FILE_LIMIT = 4;
@@ -32,10 +34,56 @@ const STATUS_POLL_MS = 10_000;
 /** A finished row stays visible for a day so the creator sees the outcome. */
 const FINISHED_ROW_TTL_MS = 24 * 60 * 60 * 1_000;
 const PERSISTENCE_WARNING = 'This queue is running without reliable reload recovery.';
+/** How long a keystroke waits before it becomes a draft-metadata PATCH. */
+const METADATA_DEBOUNCE_MS = 800;
+/**
+ * Shown when a PATCH lost the race with completion: the backend answers 409
+ * `UPLOAD_STATE_CONFLICT` once the row has produced a `Video`, and from then on
+ * the video row — not the upload draft — is what edits apply to.
+ */
+const METADATA_MOVED_NOTICE = 'Saved to your video — edit it in Videos Management';
+const THUMBNAIL_FAILED_NOTICE = 'The video is uploading, but the thumbnail could not be saved.';
+
+/** The 409 the control plane raises once `video_uploads.video_id` is set. */
+function conflictVideoId(error: unknown): number | null {
+  const candidate = error as { code?: string; details?: { videoId?: unknown } } | null;
+  if (!candidate || candidate.code !== 'UPLOAD_STATE_CONFLICT') return null;
+  const videoId = candidate.details?.videoId;
+  return typeof videoId === 'number' ? videoId : null;
+}
+
+/** What a post-completion edit can still change on the Video row. */
+export interface VideoUpdateFields {
+  title?: string;
+  description?: string | null;
+  /**
+   * Always sent, never optional.
+   *
+   * `PUT /api/v1/videos/:id` computes `isPublic: is_public === 'true'`
+   * unconditionally, so a request that omits the field sets the video to
+   * PRIVATE. A thumbnail-only update must therefore restate the visibility.
+   */
+  isPublic: boolean;
+  thumbnail?: File;
+}
+
+/** Default post-completion edit: the existing `PUT /api/v1/videos/:id`. */
+async function putVideoUpdate(videoId: number, fields: VideoUpdateFields): Promise<void> {
+  const formData = new FormData();
+  if (fields.title !== undefined) formData.append('title', fields.title);
+  if (fields.description) formData.append('description', fields.description);
+  formData.append('is_public', fields.isPublic ? 'true' : 'false');
+  if (fields.thumbnail) formData.append('thumbnail', fields.thumbnail);
+  await updateVideo(String(videoId), formData);
+}
 
 export interface UseUploadQueueOptions {
   api?: UploadApi;
   resumeStore?: UploadResumeStore;
+  /** Injected by tests; defaults to `PUT /api/v1/videos/:id`. */
+  applyVideoUpdate?: (videoId: number, fields: VideoUpdateFields) => Promise<void>;
+  /** Injected by tests; defaults to the app's toast. */
+  notify?: (message: string) => void;
 }
 
 export interface UploadQueueApi {
@@ -54,6 +102,15 @@ export interface UploadQueueApi {
   ) => Promise<{ accepted: UploadQueueEntry[]; rejected: RejectedUploadFile[] }>;
   reselectFiles: (files: readonly File[]) => Promise<void>;
   updateMetadata: (localId: string, patch: PatchUploadBody) => void;
+  /** Sends any debounced metadata now and waits for the server to take it. */
+  flushMetadata: (localId: string) => Promise<void>;
+  /**
+   * Parks a chosen thumbnail until the upload produces a `videoId`.
+   *
+   * The queue lives above the router, so the file is applied even if the
+   * creator navigates away from the upload page before the video row exists.
+   */
+  setPendingThumbnail: (localId: string, thumbnail: File | null) => void;
   abortEntry: (localId: string) => Promise<void>;
   retryEntry: (localId: string) => Promise<void>;
   replaceAttempt: (localId: string) => Promise<void>;
@@ -90,12 +147,25 @@ function needsPolling(entries: readonly UploadQueueEntry[]): boolean {
 export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueueApi {
   const api = useMemo(() => options.api ?? getBasetubeClient().uploads, [options.api]);
   const transferDeps = useMemo(() => createTransferDependencies(api), [api]);
+  const applyVideoUpdate = options.applyVideoUpdate ?? putVideoUpdate;
+  const notify = options.notify ?? showErrorToast;
   const storeRef = useRef<UploadResumeStore>(options.resumeStore ?? createUploadResumeStore());
   const entriesRef = useRef<UploadQueueEntry[]>([]);
   const controllersRef = useRef(new Map<string, AbortController>());
   const activeIdsRef = useRef(new Set<string>());
   const abortingIdsRef = useRef(new Set<string>());
   const patchTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  /** The newest un-sent metadata per entry, merged across keystrokes. */
+  const pendingPatchesRef = useRef(new Map<string, PatchUploadBody>());
+  /** The PATCH currently on the wire per entry, so a flush can await it. */
+  const inFlightPatchRef = useRef(new Map<string, Promise<void>>());
+  const pendingThumbnailsRef = useRef(new Map<string, File>());
+  const thumbnailAttemptedRef = useRef(new Set<string>());
+  const mountedRef = useRef(true);
+  const applyVideoUpdateRef = useRef(applyVideoUpdate);
+  const notifyRef = useRef(notify);
+  applyVideoUpdateRef.current = applyVideoUpdate;
+  notifyRef.current = notify;
 
   const [entries, setEntries] = useState<UploadQueueEntry[]>([]);
   const [paused, setPaused] = useState(false);
@@ -110,16 +180,26 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   const sessionUsedRef = useRef(0);
   const pollingWanted = needsPolling(entries);
 
+  // Declared before every other effect so its cleanup runs first: the later
+  // cleanups (and any promise that settles after them) then see `false`.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const replaceEntries = useCallback((next: UploadQueueEntry[]) => {
     entriesRef.current = next;
-    setEntries(next);
+    // The ref is the queue's real state; React only needs it while mounted.
+    if (mountedRef.current) setEntries(next);
   }, []);
 
   const persist = useCallback(async (entry: UploadQueueEntry) => {
     try {
       await storeRef.current.put(persistedRecord(entry));
     } catch {
-      setPersistenceError(PERSISTENCE_WARNING);
+      if (mountedRef.current) setPersistenceError(PERSISTENCE_WARNING);
     }
   }, []);
 
@@ -127,7 +207,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     try {
       await storeRef.current.remove(localId);
     } catch {
-      setPersistenceError(PERSISTENCE_WARNING);
+      if (mountedRef.current) setPersistenceError(PERSISTENCE_WARNING);
     }
   }, []);
 
@@ -159,7 +239,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         try {
           const active = await api.listActive();
           if (cancelled) return;
-          const byId = new Map(active.uploads.map((row) => [row.uploadId, row]));
+          const byId = new Map(active.map((row) => [row.uploadId, row]));
           const survivors: UploadQueueEntry[] = [];
           for (const entry of entriesRef.current) {
             // A row the server has never heard of (or has already retired) is
@@ -195,12 +275,12 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   const consumeSessionSlots = useCallback((count: number) => {
     if (count <= 0) return;
     sessionUsedRef.current += count;
-    setSessionUsedCount(sessionUsedRef.current);
+    if (mountedRef.current) setSessionUsedCount(sessionUsedRef.current);
   }, []);
 
   const releaseSessionSlot = useCallback(() => {
     sessionUsedRef.current = Math.max(0, sessionUsedRef.current - 1);
-    setSessionUsedCount(sessionUsedRef.current);
+    if (mountedRef.current) setSessionUsedCount(sessionUsedRef.current);
   }, []);
 
   const enqueueFiles = useCallback(
@@ -242,6 +322,82 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     [persist, replaceEntries],
   );
 
+  /**
+   * Sends whatever draft metadata is pending for one entry, right now.
+   *
+   * Cancels the debounce first so a timer that fires later cannot re-send the
+   * same body after completion has already moved the metadata to the video.
+   */
+  const sendPendingPatch = useCallback(
+    async (localId: string): Promise<void> => {
+      const timer = patchTimersRef.current.get(localId);
+      if (timer) {
+        clearTimeout(timer);
+        patchTimersRef.current.delete(localId);
+      }
+      const patch = pendingPatchesRef.current.get(localId);
+      pendingPatchesRef.current.delete(localId);
+      const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
+      if (!patch || !entry?.uploadId) return;
+
+      // Past the point where PATCH applies: the draft became a Video, so the
+      // edit belongs to `PUT /api/v1/videos/:id` instead of being dropped.
+      if (entry.videoId !== null) {
+        const videoId = entry.videoId;
+        try {
+          await applyVideoUpdateRef.current(videoId, {
+            title: patch.title,
+            description: patch.description,
+            isPublic: patch.isPublic ?? entry.isPublic,
+          });
+        } catch {
+          // Best effort; Videos Management is the durable place to edit.
+        }
+        return;
+      }
+
+      const uploadId = entry.uploadId;
+      const request = (async () => {
+        try {
+          await api.patch(uploadId, patch);
+        } catch (error) {
+          const videoId = conflictVideoId(error);
+          if (videoId !== null) {
+            // The worker created the Video while this PATCH was in flight.
+            // Record the id so later edits go to `updateVideo` instead, and
+            // say so — silently dropping the creator's title is not an option.
+            await updateEntry(localId, { videoId });
+            if (mountedRef.current) notifyRef.current(METADATA_MOVED_NOTICE);
+          }
+          // Any other failure is re-sent on the next keystroke; a lost draft
+          // PATCH is not worth interrupting an upload for.
+        }
+      })();
+      inFlightPatchRef.current.set(localId, request);
+      try {
+        await request;
+      } finally {
+        if (inFlightPatchRef.current.get(localId) === request) {
+          inFlightPatchRef.current.delete(localId);
+        }
+      }
+    },
+    [api, updateEntry],
+  );
+
+  /**
+   * Drains the metadata pipeline for one entry: whatever is already on the
+   * wire, then whatever the debounce is still holding.
+   */
+  const flushMetadata = useCallback(
+    async (localId: string): Promise<void> => {
+      const inFlight = inFlightPatchRef.current.get(localId);
+      if (inFlight) await inFlight.catch(() => undefined);
+      await sendPendingPatch(localId);
+    },
+    [sendPendingPatch],
+  );
+
   /** Debounced draft-metadata PATCH; last write wins server-side (§7.3). */
   const updateMetadata = useCallback(
     (localId: string, patch: PatchUploadBody) => {
@@ -253,23 +409,53 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         ...(patch.channelId !== undefined ? { channelId: patch.channelId } : {}),
       });
 
+      pendingPatchesRef.current.set(localId, {
+        ...pendingPatchesRef.current.get(localId),
+        ...patch,
+      });
       const existing = patchTimersRef.current.get(localId);
       if (existing) clearTimeout(existing);
       patchTimersRef.current.set(
         localId,
         setTimeout(() => {
           patchTimersRef.current.delete(localId);
-          const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
-          if (!entry?.uploadId || entry.videoId !== null) return;
-          void api.patch(entry.uploadId, patch).catch(() => {
-            // Metadata is re-sent on the next keystroke; a lost PATCH is not
-            // worth interrupting an upload for.
-          });
-        }, 800),
+          void sendPendingPatch(localId);
+        }, METADATA_DEBOUNCE_MS),
       );
     },
-    [api, updateEntry],
+    [sendPendingPatch, updateEntry],
   );
+
+  const setPendingThumbnail = useCallback((localId: string, thumbnail: File | null) => {
+    if (thumbnail) pendingThumbnailsRef.current.set(localId, thumbnail);
+    else pendingThumbnailsRef.current.delete(localId);
+    thumbnailAttemptedRef.current.delete(localId);
+    // Re-runs the apply effect for the case where `videoId` is already known.
+    if (mountedRef.current) setSchedulerRevision((value) => value + 1);
+  }, []);
+
+  // ── parked thumbnails: apply as soon as the Video row exists ─────────────
+  useEffect(() => {
+    for (const entry of entries) {
+      const thumbnail = pendingThumbnailsRef.current.get(entry.localId);
+      if (!thumbnail || entry.videoId === null) continue;
+      if (thumbnailAttemptedRef.current.has(entry.localId)) continue;
+      // Marked before the await: `entries` changes on every poll tick and a
+      // second attempt would race the first.
+      thumbnailAttemptedRef.current.add(entry.localId);
+      const videoId = entry.videoId;
+      const localId = entry.localId;
+      void applyVideoUpdateRef
+        .current(videoId, { thumbnail, isPublic: entry.isPublic })
+        .then(() => {
+          pendingThumbnailsRef.current.delete(localId);
+        })
+        .catch(() => {
+          pendingThumbnailsRef.current.delete(localId);
+          if (mountedRef.current) notifyRef.current(THUMBNAIL_FAILED_NOTICE);
+        });
+    }
+  }, [entries, schedulerRevision]);
 
   const startEntry = useCallback(
     (entry: UploadQueueEntry) => {
@@ -284,19 +470,25 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
           patch.uploadId ||
           (patch.status && ['uploading', 'uploaded', 'processing', 'ready'].includes(patch.status))
         ) {
-          setAdmissionRetryAt(null);
-          setAdmissionProbe(false);
+          if (mountedRef.current) {
+            setAdmissionRetryAt(null);
+            setAdmissionProbe(false);
+          }
         }
         return updateEntry(entry.localId, patch, updateOptions);
       };
 
-      void executeUploadTransfer(entry, entry.file, transferDeps, update, { signal: controller.signal })
+      // Completion is the point of no return for draft metadata: the backend
+      // creates the Video row there, and every later PATCH is a 409.
+      const deps = { ...transferDeps, beforeComplete: () => flushMetadata(entry.localId) };
+
+      void executeUploadTransfer(entry, entry.file, deps, update, { signal: controller.signal })
         .catch(async (error: unknown) => {
           if (abortingIdsRef.current.has(entry.localId) || controller.signal.aborted) return;
           const failure = classifyTransferFailure(error);
           const retryAt =
             failure.retryAfterSeconds === null ? null : Date.now() + failure.retryAfterSeconds * 1_000;
-          if (failure.code === 'UPLOAD_ADMISSION_BUSY' && retryAt !== null) {
+          if (failure.code === 'UPLOAD_ADMISSION_BUSY' && retryAt !== null && mountedRef.current) {
             setAdmissionRetryAt((current) => Math.max(current ?? 0, retryAt));
             // Probe with a single file so a busy server is not hammered.
             setAdmissionProbe(true);
@@ -311,10 +503,12 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         .finally(() => {
           controllersRef.current.delete(entry.localId);
           activeIdsRef.current.delete(entry.localId);
-          setSchedulerRevision((value) => value + 1);
+          // The transfer outlives the component on navigation-away; without
+          // this the scheduler bump lands on an unmounted tree.
+          if (mountedRef.current) setSchedulerRevision((value) => value + 1);
         });
     },
-    [transferDeps, updateEntry],
+    [flushMetadata, transferDeps, updateEntry],
   );
 
   // ── scheduler ────────────────────────────────────────────────────────────
@@ -369,7 +563,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       try {
         const active = await api.listActive();
         if (cancelled) return;
-        const byId = new Map(active.uploads.map((row) => [row.uploadId, row]));
+        const byId = new Map(active.map((row) => [row.uploadId, row]));
         const now = Date.now();
         const next: UploadQueueEntry[] = [];
         const touched: UploadQueueEntry[] = [];
@@ -477,6 +671,8 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     async (localId: string) => {
       const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
       if (!entry || !['failed', 'held', 'aborted', 'ready'].includes(entry.status)) return;
+      pendingThumbnailsRef.current.delete(localId);
+      pendingPatchesRef.current.delete(localId);
       await forget(localId);
       replaceEntries(entriesRef.current.filter((candidate) => candidate.localId !== localId));
       releaseSessionSlot();
@@ -497,6 +693,8 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     enqueueFiles,
     reselectFiles,
     updateMetadata,
+    flushMetadata,
+    setPendingThumbnail,
     abortEntry,
     retryEntry,
     replaceAttempt,

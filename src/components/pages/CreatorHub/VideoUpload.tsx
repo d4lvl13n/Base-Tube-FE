@@ -12,7 +12,7 @@ import {
   X,
   Sparkles,
 } from 'lucide-react';
-import { uploadVideo, generateVideoDescription, getVideoProgress, updateVideo } from '../../../api/video';
+import { uploadVideo, generateVideoDescription, getVideoProgress } from '../../../api/video';
 import { UPLOAD_V2_ENABLED, useOptionalUploadQueue } from '../../../contexts/UploadQueueContext';
 import VideoUploadSuccess from '../../common/ModalScreen/VideoUploadSuccess';
 import { useNavigate } from 'react-router-dom';
@@ -60,6 +60,7 @@ const VideoUpload: React.FC = () => {
   const [suggestedTitle, setSuggestedTitle] = useState<string | undefined>();
   const [generatedDescription, setGeneratedDescription] = useState<string | undefined>();
   const [uploadStalled, setUploadStalled] = useState(false);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const processingPollRef = useRef<NodeJS.Timeout>();
@@ -75,6 +76,21 @@ const VideoUpload: React.FC = () => {
     : null;
   // Stable across renders (useCallback in the hook), so it is safe in deps.
   const updateQueueMetadata = uploadQueue?.updateMetadata;
+  const parkThumbnail = uploadQueue?.setPendingThumbnail;
+
+  // `URL.createObjectURL` in the JSX would mint a new blob URL on every render
+  // and never revoke any of them, pinning the whole file in memory each time.
+  useEffect(() => {
+    if (!selectedFile) {
+      setVideoPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(selectedFile);
+    setVideoPreviewUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [selectedFile]);
 
   const { channels, selectedChannelId, selectedChannel } = useChannelSelection();
   const navigate = useNavigate();
@@ -179,6 +195,10 @@ const VideoUpload: React.FC = () => {
       }
 
       setThumbnailFile(file);
+      // The Video row usually does not exist yet, so the queue holds the file
+      // and applies it the moment `videoId` appears — even if the creator has
+      // navigated away by then (the queue lives above the router).
+      if (useDirectUpload && queueLocalId) parkThumbnail?.(queueLocalId, file);
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result;
@@ -208,20 +228,14 @@ const VideoUpload: React.FC = () => {
 
   /**
    * On the direct-upload path the bytes are already on their way, so this
-   * button only settles the extras: apply a custom thumbnail if the Video row
-   * exists yet, then hand the creator over to Videos Management.
+   * button only settles the draft metadata still sitting in the debounce, then
+   * hands the creator over to Videos Management.
    */
   const handleDone = async () => {
-    if (thumbnailFile && queuedEntry?.videoId) {
-      try {
-        const formData = new FormData();
-        formData.append('thumbnail', thumbnailFile);
-        await updateVideo(String(queuedEntry.videoId), formData);
-      } catch (error) {
-        console.error('Thumbnail update failed:', error);
-        showErrorToast('The video is uploading, but the thumbnail could not be saved.');
-      }
-    }
+    // The thumbnail is already parked with the queue, which applies it as soon
+    // as the video row exists — including after this component unmounts. All
+    // this button owes is the draft metadata the debounce may still be holding.
+    if (queueLocalId) await uploadQueue?.flushMetadata(queueLocalId);
     navigate('/creator-hub/videos');
   };
 
@@ -453,6 +467,7 @@ const VideoUpload: React.FC = () => {
       .then(blob => {
         const file = new File([blob], 'ai-thumbnail.jpg', { type: 'image/jpeg' });
         setThumbnailFile(file);
+        if (useDirectUpload && queueLocalId) parkThumbnail?.(queueLocalId, file);
       })
       .catch(error => {
         console.error('Error fetching thumbnail:', error);
@@ -522,7 +537,7 @@ const VideoUpload: React.FC = () => {
                 <h2 className="text-xl font-medium text-white mb-6">Video Preview</h2>
                 <div className="relative rounded-lg overflow-hidden bg-black/50">
                   <video
-                    src={selectedFile ? URL.createObjectURL(selectedFile) : ''}
+                    src={videoPreviewUrl ?? ''}
                     controls
                     className="w-full aspect-video"
                   />
@@ -552,6 +567,7 @@ const VideoUpload: React.FC = () => {
                           onClick={() => {
                             setThumbnailPreview(null);
                             setThumbnailFile(null);
+                            if (useDirectUpload && queueLocalId) parkThumbnail?.(queueLocalId, null);
                           }}
                           className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg text-white text-sm font-medium hover:bg-white/30 transition-colors mx-2"
                         >

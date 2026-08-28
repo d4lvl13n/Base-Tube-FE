@@ -14,7 +14,12 @@
  *    after a reload costs only the bytes that never landed.
  */
 import type { CompletedPart, CompleteUploadBody, MultipartPartCapability } from './contracts';
-import { abortableSleep, DirectUploadError, putBlobWithProgress } from './direct-upload-transport';
+import {
+  abortableSleep,
+  DirectUploadError,
+  normalizeEtag,
+  putBlobWithProgress,
+} from './direct-upload-transport';
 import { UploadApiError, type UploadApi } from './endpoints';
 import { isTerminalServerStatus, statusFromServer } from './status';
 import type { UploadQueueEntry } from './types';
@@ -29,6 +34,15 @@ export interface UploadTransferDependencies {
   api: UploadApi;
   putBlob: typeof putBlobWithProgress;
   sleep: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
+  /**
+   * Awaited immediately before `PUT .../completion`.
+   *
+   * Completion is the moment the backend creates the `Video` row, after which
+   * `PATCH /videos/uploads/:id` answers 409 `UPLOAD_STATE_CONFLICT`. The queue
+   * uses this to flush its debounced draft-metadata PATCH while it can still
+   * land, so the title the creator typed is the title that gets published.
+   */
+  beforeComplete?: () => void | Promise<void>;
 }
 
 export type QueueEntryUpdate = (
@@ -61,8 +75,28 @@ function sortParts(parts: readonly CompletedPart[]): CompletedPart[] {
   return [...parts].sort((a, b) => a.partNumber - b.partNumber);
 }
 
+/**
+ * Builds the completion claim.
+ *
+ * `parts` is always the server's own `completedParts` list, so its ETags are
+ * the authoritative ones. If even that list has no ETag for a part there is
+ * nothing legitimate left to send — the backend requires `z.string().min(1)`
+ * — so this fails loudly rather than posting a body that is a guaranteed 400.
+ */
 function completionBody(parts: readonly CompletedPart[]): CompleteUploadBody {
-  return { parts: sortParts(parts).map(({ partNumber, etag }) => ({ partNumber, etag })) };
+  return {
+    parts: sortParts(parts).map(({ partNumber, etag }) => {
+      const normalized = normalizeEtag(etag);
+      if (!normalized) {
+        throw new DirectUploadError(
+          'Storage did not report an ETag for every part',
+          null,
+          'CAPABILITY_INVALID',
+        );
+      }
+      return { partNumber, etag: normalized };
+    }),
+  };
 }
 
 /**
@@ -382,7 +416,11 @@ export async function executeUploadTransfer(
       await update({ completedParts: parts, progress: 100, status: 'uploaded' });
     }
 
-    const completion = await dependencies.api.complete(uploadId, completionBody(parts));
+    const body = completionBody(parts);
+    // Last chance for pending draft metadata: after this call the row has a
+    // `video_id` and PATCH is a 409.
+    await dependencies.beforeComplete?.();
+    const completion = await dependencies.api.complete(uploadId, body);
     if (completion.uploadState === 'uploading') {
       // The server found parts missing after all; loop and send only those.
       continue;
@@ -439,12 +477,21 @@ export function classifyTransferFailure(error: unknown): {
     return { status: 'failed', code: error.code, message: error.message, retryAfterSeconds: null };
   }
   if (error instanceof DirectUploadError) {
-    const permanent = ['SIGNED_LENGTH_MISMATCH', 'CAPABILITY_INVALID', 'UPLOAD_STATE_INVALID'];
+    const permanentCodes = ['SIGNED_LENGTH_MISMATCH', 'CAPABILITY_INVALID', 'UPLOAD_STATE_INVALID'];
+    const status = error.status ?? 0;
+    // A storage 4xx is the bucket's verdict on this exact request: a malformed
+    // part, a policy denial, an object that no longer exists. Re-sending the
+    // same bytes to the same signed URL cannot change it. 401/403 are in that
+    // set too — `transferParts` has already spent the one signature renewal
+    // they deserve, so reaching here means renewal did not help.
+    // 429 is the exception: it is the bucket asking for a pause, not a verdict.
+    const permanentStatus = status >= 400 && status < 500 && status !== 429;
+    const permanent = permanentCodes.includes(error.code) || permanentStatus;
     return {
-      status: permanent.includes(error.code) ? 'failed' : 'retry_wait',
+      status: permanent ? 'failed' : 'retry_wait',
       code: error.code,
       message: error.message,
-      retryAfterSeconds: permanent.includes(error.code) ? null : 10,
+      retryAfterSeconds: permanent ? null : 10,
     };
   }
   return {

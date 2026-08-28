@@ -1,4 +1,5 @@
 import type {
+  ActiveUploadSummary,
   CompletedPart,
   CreateUploadResult,
   MultipartPartCapability,
@@ -20,6 +21,31 @@ export function capability(partNumber: number, contentLength: number): Multipart
 
 export function completedPart(partNumber: number, sizeBytes: number): CompletedPart {
   return { partNumber, etag: `etag-${partNumber}`, sizeBytes };
+}
+
+/** A `GET /videos/uploads?active=true` row, shaped like the backend's summary. */
+export function activeSummary(
+  overrides: Partial<ActiveUploadSummary> = {},
+): ActiveUploadSummary {
+  return {
+    uploadId: 'upload-1',
+    uploadState: 'uploading',
+    channelId: 7,
+    title: 'clip',
+    description: null,
+    isPublic: false,
+    tags: null,
+    originalFilename: 'clip.mp4',
+    declaredSizeBytes: 300,
+    partSizeBytes: 100,
+    partCount: 3,
+    videoId: null,
+    videoStatus: null,
+    errorCode: null,
+    createdAt: '2026-08-28T10:00:00.000Z',
+    updatedAt: '2026-08-28T10:00:00.000Z',
+    ...overrides,
+  };
 }
 
 /** A `File` stand-in: jsdom is not available in this package's node test env. */
@@ -118,7 +144,7 @@ export function stubApi(overrides: Partial<UploadApi> = {}): StubApi {
     async abort() {},
     async patch() {},
     async listActive() {
-      return { uploads: [] };
+      return [];
     },
     ...overrides,
   } as StubApi;

@@ -40,6 +40,25 @@ export function abortableSleep(milliseconds: number, signal?: AbortSignal): Prom
   });
 }
 
+/**
+ * Canonicalises a storage ETag into the form the backend stores and compares.
+ *
+ * The backend's `normalizeEtag()` trims, strips the surrounding quotes S3 puts
+ * on the header, and lowercases; the completion fingerprint is computed from
+ * that value, so a client sending `"ABC"` and a client sending `abc` must not
+ * look like two different completions.
+ *
+ * Returns `null` for anything that cannot be an ETag (absent, empty, or all
+ * quotes) — the caller then falls back to the server's authoritative part list.
+ */
+export function normalizeEtag(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  let etag = value.trim();
+  if (etag.length >= 2 && etag.startsWith('"') && etag.endsWith('"')) etag = etag.slice(1, -1);
+  etag = etag.trim().toLowerCase();
+  return etag.length > 0 ? etag : null;
+}
+
 function exactLength(capability: MultipartPartCapability): number {
   const raw = capability.uaManagedSignedHeaders['content-length'];
   if (!/^\d+$/u.test(raw)) {
@@ -64,6 +83,13 @@ export function putBlobWithProgress(
   }
 
   return new Promise((resolve, reject) => {
+    // Opening an XHR for a transfer the caller has already given up on both
+    // wastes the bytes and leaves an unobserved request in flight after the
+    // component that owned it is gone.
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
     const request = new XMLHttpRequest();
     request.open('PUT', capability.url);
     for (const [name, value] of Object.entries(capability.requiredHeaders)) {
@@ -75,7 +101,7 @@ export function putBlobWithProgress(
     request.onload = () => {
       if (request.status >= 200 && request.status < 300) {
         onProgress(requiredLength);
-        resolve({ etag: request.getResponseHeader('etag') });
+        resolve({ etag: normalizeEtag(request.getResponseHeader('etag')) });
       } else {
         reject(
           new DirectUploadError(

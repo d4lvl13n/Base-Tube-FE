@@ -100,9 +100,15 @@ export interface UploadCapabilitiesData {
   capabilities: MultipartPartCapability[];
 }
 
-/** `PUT /videos/uploads/:id/completion` request/response (§7.4). */
+/**
+ * `PUT /videos/uploads/:id/completion` request/response (§7.4).
+ *
+ * The backend validates every `etag` as `z.string().min(1)`: a null or empty
+ * ETag is a 400, never a completion. The client therefore only ever completes
+ * with the ETags `GET .../upload` reported, which are the server's own.
+ */
 export interface CompleteUploadBody {
-  parts: Array<{ partNumber: number; etag: string | null }>;
+  parts: Array<{ partNumber: number; etag: string }>;
 }
 
 export interface CompleteUploadData {
@@ -120,24 +126,38 @@ export interface PatchUploadBody {
   channelId?: number;
 }
 
-/** One row of `GET /videos/uploads?active=true` (§7.3). */
+/**
+ * One row of `GET /videos/uploads?active=true` (§7.3).
+ *
+ * Mirrors the backend's `uploadSummary()` field-for-field. Notably there is no
+ * `clientAttemptId`: the server never echoes it back, so reconciliation is by
+ * `uploadId` alone.
+ */
 export interface ActiveUploadSummary {
   uploadId: string;
-  clientAttemptId: string;
+  uploadState: UploadState;
   channelId: number;
   title: string;
+  description: string | null;
+  isPublic: boolean;
+  tags: string[] | null;
   originalFilename: string;
   declaredSizeBytes: number;
-  uploadState: UploadState;
+  partSizeBytes: number;
+  partCount: number;
   videoId: number | null;
   videoStatus: UploadVideoStatus | null;
   errorCode: string | null;
-  updatedAt: string;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
-export interface ActiveUploadsData {
-  uploads: ActiveUploadSummary[];
-}
+/**
+ * The payload of `GET /videos/uploads?active=true` is the array itself — the
+ * controller does `res.json({ success: true, data: uploads })`, with no
+ * intervening `uploads` key.
+ */
+export type ActiveUploadsData = ActiveUploadSummary[];
 
 /** The error half of the standard envelope (§9). */
 export interface ApiErrorEnvelope {

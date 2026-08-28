@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getVideoProgressBatch, VideoProgressData } from '../api/video';
+import { getVideoProgressBatch, VideoProgressBatchRow } from '../api/video';
 
-export interface ProcessingVideo extends VideoProgressData {
-  videoId: number;
-}
+export type ProcessingVideo = VideoProgressBatchRow;
 
 /** Base poll interval; jitter is added so N dashboards do not sync up. */
 const BASE_INTERVAL_MS = 5_000;
@@ -16,7 +14,15 @@ const BACKOFF_INTERVAL_MS = 30_000;
 /** Contract 9: `GET /videos/progress?ids=` takes at most 50 ids. */
 const MAX_IDS = 50;
 
-const STILL_WORKING = new Set(['pending', 'processing']);
+/**
+ * Terminal states from `GET /videos/progress?ids=`.
+ *
+ * The batch route reports the `Videos.status` enum verbatim, whose success
+ * value is `processed`; `completed` is only ever emitted by the legacy
+ * single-video route and is kept here as an alias so a row from either source
+ * stops the poll.
+ */
+const TERMINAL_STATUSES = new Set(['processed', 'completed', 'failed']);
 
 function nextDelay(startedAt: number): number {
   const base = Date.now() - startedAt > BACKOFF_AFTER_MS ? BACKOFF_INTERVAL_MS : BASE_INTERVAL_MS;
@@ -60,7 +66,7 @@ export const useVideoProcessing = (videoIds: number[]) => {
       videoIdsRef.current
         .filter((id) => {
           const known = processingVideosRef.current[id];
-          return !known || STILL_WORKING.has(known.status);
+          return !known || !TERMINAL_STATUSES.has(known.status);
         })
         .slice(0, MAX_IDS),
     [],
@@ -86,8 +92,8 @@ export const useVideoProcessing = (videoIds: number[]) => {
         if (cancelled || !isMountedRef.current) return;
         const updates: Record<number, ProcessingVideo> = {};
         for (const id of ids) {
-          const data = response.data?.[String(id)];
-          if (data) updates[id] = { videoId: id, ...data };
+          const row = response.data?.[String(id)];
+          if (row) updates[id] = { ...row, videoId: id };
         }
         if (Object.keys(updates).length > 0) {
           setProcessingVideos((previous) => ({ ...previous, ...updates }));

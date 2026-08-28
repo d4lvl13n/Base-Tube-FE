@@ -103,6 +103,59 @@ describe('transport', () => {
     expect(video).toMatchObject({ id: 7, title: 'ok' });
     jest.useRealTimers();
   });
+
+  // A FormData / Blob / File body is a stream axios has already handed to the
+  // network stack; replaying the config re-sends the payload or sends nothing.
+  it.each([
+    ['FormData', () => new FormData()],
+    ['Blob', () => new Blob(['x'])],
+    ['File', () => new File(['x'], 'clip.mp4', { type: 'video/mp4' })],
+  ])('never replays a 429 whose body is a %s', async (_label, makeBody) => {
+    let calls = 0;
+    const { adapter } = makeAdapter(() => {
+      calls += 1;
+      return { status: 429, headers: { 'retry-after': '1' }, data: {} };
+    });
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+    await expect(client.http.post('/api/v1/anything', makeBody())).rejects.toBeInstanceOf(
+      AxiosError,
+    );
+
+    expect(calls).toBe(1);
+  });
+
+  // The upload queue owns admission backoff (`UPLOAD_ADMISSION_BUSY` +
+  // Retry-After + single-file probing); a silent transport retry both hides
+  // that signal and stacks a second retry on top of the queue's own.
+  it('never auto-retries a 429 from the upload control plane', async () => {
+    let calls = 0;
+    const { adapter } = makeAdapter(() => {
+      calls += 1;
+      return { status: 429, headers: { 'retry-after': '1' }, data: {} };
+    });
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+
+    await expect(client.uploads.listActive()).rejects.toBeTruthy();
+
+    expect(calls).toBe(1);
+  });
+
+  it('still retries a 429 for an ordinary JSON body', async () => {
+    jest.useFakeTimers();
+    let calls = 0;
+    const { adapter } = makeAdapter(() => {
+      calls += 1;
+      if (calls === 1) return { status: 429, headers: { 'retry-after': '1' }, data: {} };
+      return { status: 200, data: { success: true, data: { ok: true } } };
+    });
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+    const promise = client.http.post('/api/v1/anything', { a: 1 });
+    await jest.advanceTimersByTimeAsync(1000);
+    await promise;
+
+    expect(calls).toBe(2);
+    jest.useRealTimers();
+  });
 });
 
 describe('response unwrapping', () => {

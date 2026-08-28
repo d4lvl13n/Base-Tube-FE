@@ -3,7 +3,11 @@ import axios, { AxiosRequestConfig } from 'axios';
 const RATE_LIMIT_DEFAULT_BACKOFF_MS = 5000;
 const REDEEM_PATH_PATTERN = /\/growth\/rewards\/[^/]+\/redeem$/;
 
-type RetryableConfig = AxiosRequestConfig & { __rateLimitRetried?: boolean };
+type RetryableConfig = AxiosRequestConfig & {
+  __rateLimitRetried?: boolean;
+  /** Stamped before `transformRequest` runs; see `isUnreplayableBody`. */
+  __unreplayableBody?: boolean;
+};
 
 const parseRetryAfterMs = (headerValue: unknown): number => {
   if (typeof headerValue !== 'string' && typeof headerValue !== 'number') {
@@ -14,6 +18,25 @@ const parseRetryAfterMs = (headerValue: unknown): number => {
     return RATE_LIMIT_DEFAULT_BACKOFF_MS;
   }
   return Math.min(seconds * 1000, 60_000);
+};
+
+/**
+ * True for a request body the browser cannot faithfully re-send.
+ *
+ * `FormData`, `Blob` and `File` (which extends `Blob`) are one-shot streams:
+ * axios has already handed them to the network stack, so replaying the same
+ * config either re-uploads the whole payload or sends an empty body. The
+ * `typeof` guards keep this safe under SSR/jsdom where the globals may be
+ * missing.
+ *
+ * Evaluated in the REQUEST interceptor: `transformRequest` runs afterwards and
+ * can replace the body with a serialised form, so the response interceptor no
+ * longer sees the original type.
+ */
+const isUnreplayableBody = (data: unknown): boolean => {
+  if (typeof FormData !== 'undefined' && data instanceof FormData) return true;
+  if (typeof Blob !== 'undefined' && data instanceof Blob) return true;
+  return false;
 };
 
 const isRedeemRequest = (config: AxiosRequestConfig): boolean => {
@@ -33,6 +56,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   async (config) => {
+    (config as RetryableConfig).__unreplayableBody = isUnreplayableBody(config.data);
     try {
       const authMethod = localStorage.getItem('auth_method');
       if (process.env.NODE_ENV !== 'production') {
@@ -99,9 +123,10 @@ api.interceptors.response.use(
           !!config &&
           !config.__rateLimitRetried &&
           !isRedeemRequest(config) &&
-          // Never auto-replay a multipart body: the stream has already been
+          // Never auto-replay a binary body: the stream has already been
           // consumed, so a retried upload would re-send gigabytes (or fail).
-          !(typeof FormData !== 'undefined' && config.data instanceof FormData);
+          !config.__unreplayableBody &&
+          !isUnreplayableBody(config.data);
 
         if (canRetry) {
           config.__rateLimitRetried = true;

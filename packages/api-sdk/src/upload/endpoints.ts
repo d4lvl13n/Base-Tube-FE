@@ -104,6 +104,7 @@ export interface UploadApi {
   complete: (uploadId: string, body: CompleteUploadBody) => Promise<CompleteUploadData>;
   abort: (uploadId: string) => Promise<void>;
   patch: (uploadId: string, body: PatchUploadBody) => Promise<void>;
+  /** Resolves the `UploadSummary[]` the control plane returns verbatim. */
   listActive: () => Promise<ActiveUploadsData>;
 }
 
@@ -182,6 +183,17 @@ export function createUploadApi(http: AxiosInstance): UploadApi {
 
     async listActive() {
       const { data } = await call<ActiveUploadsData>(() => http.get(BASE, { params: { active: true } }));
+      // `data` is the array itself (`{ success, data: UploadSummary[] }`).
+      // Anything else is a server the client does not understand, and silently
+      // treating it as "no active uploads" would delete resumable local rows.
+      if (!Array.isArray(data)) {
+        throw new UploadApiError(
+          'The server returned an unexpected active-uploads response',
+          502,
+          'INVALID_RESPONSE',
+          null,
+        );
+      }
       return data;
     },
   };

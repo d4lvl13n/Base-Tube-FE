@@ -11,7 +11,11 @@ const DEFAULT_RATE_LIMIT_RETRIES = 1;
 const RATE_LIMIT_FALLBACK_MS = 5_000;
 const RATE_LIMIT_MAX_BACKOFF_MS = 60_000;
 
-type RetryableConfig = InternalAxiosRequestConfig & { __rlRetried?: boolean };
+type RetryableConfig = InternalAxiosRequestConfig & {
+  __rlRetried?: boolean;
+  /** Stamped before `transformRequest` runs; see `isUnreplayableBody`. */
+  __rlUnreplayable?: boolean;
+};
 
 const parseRetryAfterMs = (headerValue: unknown): number => {
   if (typeof headerValue !== 'string' && typeof headerValue !== 'number') {
@@ -25,6 +29,39 @@ const parseRetryAfterMs = (headerValue: unknown): number => {
 };
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Upload V2 control plane: the queue owns its own `Retry-After` handling. */
+const UPLOAD_CONTROL_PLANE_PREFIX = '/api/v1/videos/uploads';
+
+/**
+ * True for a body axios cannot faithfully re-send.
+ *
+ * A `FormData`/`Blob`/`File` payload is a stream the browser has already read
+ * once; replaying the config either re-uploads gigabytes or sends nothing at
+ * all. (`File` extends `Blob`, so the Blob check covers both.) The guards are
+ * `typeof`-first because the SDK also runs in Node and React Native, where
+ * these globals may be absent.
+ *
+ * This must be evaluated in the REQUEST interceptor: `transformRequest` runs
+ * after it and may replace the body with a serialised form, so by the time the
+ * response interceptor sees `config.data` the original type is gone.
+ */
+const isUnreplayableBody = (data: unknown): boolean => {
+  if (typeof FormData !== 'undefined' && data instanceof FormData) return true;
+  if (typeof Blob !== 'undefined' && data instanceof Blob) return true;
+  return false;
+};
+
+/**
+ * True for the Upload V2 control plane.
+ *
+ * Its 429 is `UPLOAD_ADMISSION_BUSY` — a concurrency verdict the upload queue
+ * answers with backoff and single-file probing (contract §7.2). A transport
+ * that quietly slept and retried would both hide that signal from the queue
+ * and add a second retry on top of the queue's own.
+ */
+const isUploadControlPlane = (url: string | undefined): boolean =>
+  typeof url === 'string' && url.startsWith(UPLOAD_CONTROL_PLANE_PREFIX);
 
 /**
  * Builds the shared axios instance used by every endpoint module.
@@ -53,6 +90,7 @@ export function createHttpClient(config: BasetubeClientConfig): AxiosInstance {
   });
 
   instance.interceptors.request.use(async (req: InternalAxiosRequestConfig) => {
+    (req as RetryableConfig).__rlUnreplayable = isUnreplayableBody(req.data);
     if (getToken) {
       try {
         const token = await getToken();
@@ -78,7 +116,13 @@ export function createHttpClient(config: BasetubeClientConfig): AxiosInstance {
 
       if (status === 429 && maxRateLimitRetries > 0) {
         const reqConfig = error.config as RetryableConfig | undefined;
-        if (reqConfig && !reqConfig.__rlRetried) {
+        if (
+          reqConfig &&
+          !reqConfig.__rlRetried &&
+          !reqConfig.__rlUnreplayable &&
+          !isUnreplayableBody(reqConfig.data) &&
+          !isUploadControlPlane(reqConfig.url)
+        ) {
           reqConfig.__rlRetried = true;
           await delay(parseRetryAfterMs(error.response?.headers?.['retry-after']));
           return instance.request(reqConfig);
