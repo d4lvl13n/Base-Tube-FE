@@ -1,27 +1,30 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import type { SearchResponse, SearchVideosOptions } from '@basetube/api';
 import { searchApi } from '../api/search';
-import { SearchResponse } from '../components/pages/SearchPage/types';
+
+export const SEARCH_PAGE_SIZE = 20;
 
 /**
- * useSearch - custom hook to search for videos.
+ * Paged video search.
  *
- * @param query - The search query string.
- * @param page - Page number (defaults to 1).
- * @param limit - Number of items per page (defaults to 24).
- * @param sort - Sorting method: 'relevance', 'date', or 'views' (defaults to 'relevance').
+ * An empty query is a legitimate request — the server answers with the newest
+ * videos — so unlike the old hook this one is never disabled. That is what
+ * makes the filter rail usable on its own.
  *
- * @returns A query result containing the status, error, and data.
+ * Facets, engine and timing are read off the first page; the later pages carry
+ * the same values and re-reading them would make the header flicker.
  */
-export const useSearch = (
-  query: string,
-  page: number = 1,
-  limit: number = 24,
-  sort: 'relevance' | 'date' | 'views' = 'relevance'
-) => {
-  return useQuery<SearchResponse>({
-    queryKey: ['search', query, page, limit, sort],
-    queryFn: () => searchApi.searchVideos(query, page, limit, sort),
-    enabled: Boolean(query),
+export function useVideoSearch(options: SearchVideosOptions) {
+  const { page: _ignoredPage, limit = SEARCH_PAGE_SIZE, ...filters } = options;
+
+  return useInfiniteQuery<SearchResponse>({
+    queryKey: ['search', { ...filters, limit }],
+    initialPageParam: 1,
+    queryFn: ({ pageParam, signal }) =>
+      searchApi.search({ ...filters, limit, page: pageParam as number }, { signal }),
+    getNextPageParam: (lastPage, _pages, lastPageParam) =>
+      lastPage.hasMore ? (lastPageParam as number) + 1 : undefined,
     gcTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
-};
+}

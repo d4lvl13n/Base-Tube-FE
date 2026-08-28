@@ -44,21 +44,106 @@ export interface GetDiscoveryOptions {
   sort?: VideoSort;
 }
 
-export type SearchSort = 'relevance' | 'date' | 'views';
+/**
+ * Sort orders accepted by `GET /api/v1/search`.
+ *
+ * `date` is the legacy spelling the route still honours; `newest` is the name
+ * it publishes, and `trending` is new. Existing callers keep compiling.
+ */
+export type SearchSort = 'relevance' | 'date' | 'views' | 'newest' | 'trending';
+
+/** Which backend answered. `mysql` means the LIKE fallback ran. */
+export type SearchEngine = 'meilisearch' | 'mysql';
+
+/** The slice of a channel a search hit carries. */
+export interface SearchResultChannel {
+  id: number;
+  name: string;
+  handle: string;
+  channel_image_url?: string | null;
+  subscribers_count?: number;
+}
 
 /** A single search hit from `GET /api/v1/search`. */
 export interface SearchResult {
   id: number;
   title: string;
+  description?: string | null;
   search_text?: string;
   thumbnail_url: string;
-  thumbnail_path: string;
+  /** Absent on the Meilisearch route — read `thumbnail_url` instead. */
+  thumbnail_path?: string;
   duration: number;
   views_count: number;
   relevance?: number;
+  channel_id?: number;
+  channel?: SearchResultChannel;
+}
+
+/**
+ * Facet counts for the current result set, keyed by value.
+ *
+ * `null` when the MySQL fallback answered — it cannot count facets, and a
+ * zeroed object would read as "no categories" rather than "not available".
+ */
+export interface SearchFacets {
+  categories: Record<string, number>;
+  channel_id: Record<string, number>;
+}
+
+/**
+ * Marked-up title and description for one hit.
+ *
+ * The strings contain `<mark>` tags and nothing else, but they are still
+ * server-supplied text: split on the tags and render the element yourself.
+ * Never hand these to `dangerouslySetInnerHTML`.
+ */
+export interface SearchHighlight {
+  title?: string;
+  description?: string;
 }
 
 export interface SearchResponse {
   success: boolean;
   data: SearchResult[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
+  hasMore?: boolean;
+  facets?: SearchFacets | null;
+  engine?: SearchEngine;
+  /** Keyed by video id, as a string. */
+  highlights?: Record<string, SearchHighlight>;
+  processingTimeMs?: number;
+}
+
+/** Everything `GET /api/v1/search` accepts. An empty `query` browses newest. */
+export interface SearchVideosOptions {
+  query?: string;
+  page?: number;
+  /** Capped at 50 by the server. */
+  limit?: number;
+  channelId?: number;
+  /** Repeated as `category=` once per value. */
+  categories?: string[];
+  minDuration?: number;
+  maxDuration?: number;
+  sort?: SearchSort;
+}
+
+export interface SearchSuggestChannel {
+  id: number;
+  name: string;
+  handle: string;
+}
+
+export interface SearchSuggestions {
+  titles: string[];
+  channels: SearchSuggestChannel[];
+}
+
+export interface SearchSuggestResponse {
+  success: boolean;
+  data: SearchSuggestions;
 }

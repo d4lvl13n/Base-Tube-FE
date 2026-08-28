@@ -1,136 +1,218 @@
-import React, { useState, useEffect } from 'react';
-import { useSearch } from '../../../hooks/useSearch';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import type { SearchHighlight, SearchSort } from '@basetube/api';
 import Header from '../../common/Header';
 import Sidebar from '../../common/Sidebar';
-import VideoCard from '../../common/VideoCard';
-import FilterPanel from './FilterPanel';
-import { SearchSortOption, SearchResult } from './types';
-import InfiniteScroll from 'react-infinite-scroll-component';
-import { Video, VideoStatus } from '../../../types/video';
+import { useVideoSearch, SEARCH_PAGE_SIZE } from '../../../hooks/useSearch';
+import { useSearchSuggest } from '../../../hooks/useSearchSuggest';
+import FilterRail from './FilterRail';
+import ResultRow from './ResultRow';
+import {
+  hasActiveFilters,
+  readFilters,
+  toSearchOptions,
+  toggleCategory,
+  writeFilters,
+  type DurationBucketId,
+  type SearchFilters,
+} from './searchParams';
+
+/** A row-shaped skeleton, so the page does not reflow when results land. */
+const ResultSkeleton: React.FC = () => (
+  <div className="flex animate-pulse flex-col gap-4 py-5 sm:flex-row">
+    <div className="w-full shrink-0 rounded-lg bg-gray-900 pt-[56.25%] sm:w-64 sm:pt-0 sm:h-36" />
+    <div className="flex-1 space-y-2.5 pt-1">
+      <div className="h-4 w-3/4 rounded bg-gray-900" />
+      <div className="h-3 w-1/3 rounded bg-gray-900" />
+      <div className="h-3 w-full rounded bg-gray-900" />
+      <div className="h-3 w-5/6 rounded bg-gray-900" />
+    </div>
+  </div>
+);
 
 const SearchPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  
-  const initialQuery = searchParams.get('query') || '';
-  const initialSort = (searchParams.get('sort') as SearchSortOption) || 'relevance';
-  const initialPage = parseInt(searchParams.get('page') || '1', 10);
-  
-  const [sort, setSort] = useState<SearchSortOption>(initialSort);
-  const [page, setPage] = useState(initialPage);
-  const [pageSize, setPageSize] = useState(24);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = useMemo(() => readFilters(searchParams), [searchParams]);
+  const [expandedResults, setExpandedResults] = useState(false);
 
-  const { data, isLoading, error } = useSearch(initialQuery, page, pageSize, sort);
+  const searchOptions = useMemo(
+    () => toSearchOptions(filters, 1, SEARCH_PAGE_SIZE),
+    [filters]
+  );
 
-  // Update URL when search parameters change
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (initialQuery) params.set('query', initialQuery);
-    if (sort) params.set('sort', sort);
-    params.set('page', page.toString());
-    navigate(`/search?${params.toString()}`, { replace: true });
-  }, [sort, page, initialQuery, navigate]);
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useVideoSearch(searchOptions);
 
-  // Updated normalizeVideoData function with correct VideoStatus type
-  const normalizeVideoData = (result: SearchResult): Video => {
-    return {
-      id: result.id,
-      title: result.title,
-      description: result.search_text || '',
-      video_path: '', // Default empty string for video path
-      video_url: undefined,
-      thumbnail_path: result.thumbnail_path,
-      thumbnail_url: result.thumbnail_url,
-      duration: result.duration,
-      views_count: result.views_count,
-      user_id: 0,
-      channel_id: 0,
-      likes_count: 0,
-      likes: 0,
-      views: result.views_count,
-      dislikes: 0,
-      is_public: true,
-      is_featured: false,
-      trending_score: 0,
-      is_nft_content: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      comment_count: 0,
-      like_count: 0,
-      time_category: 'today',
-      status: 'completed' as VideoStatus, // Using correct VideoStatus type
-      processing_progress: {
-        percent: 100,
-        currentQuality: '1080p',
-        totalQualities: 1,
-        currentQualityIndex: 1
-      }
-    };
+  const pages = useMemo(() => data?.pages ?? [], [data]);
+  const results = useMemo(() => pages.flatMap((page) => page.data ?? []), [pages]);
+  const highlights = useMemo(
+    () =>
+      pages.reduce<Record<string, SearchHighlight>>(
+        (all, page) => Object.assign(all, page.highlights ?? {}),
+        {}
+      ),
+    [pages]
+  );
+
+  const first = pages[0];
+  const total = first?.total ?? results.length;
+  const engine = first?.engine;
+  const processingTimeMs = first?.processingTimeMs;
+
+  const isEmpty = !isLoading && !isError && results.length === 0;
+  // Only worth a suggestion when the query found nothing.
+  const { suggestions } = useSearchSuggest(filters.query, { enabled: isEmpty });
+  const didYouMean = suggestions.titles.find(
+    (title) => title.toLowerCase() !== filters.query.trim().toLowerCase()
+  );
+
+  const applyFilters = useCallback(
+    (next: SearchFilters) => {
+      setExpandedResults(false);
+      setSearchParams(writeFilters(next));
+    },
+    [setSearchParams]
+  );
+
+  const onSortChange = (sort: SearchSort) => applyFilters({ ...filters, sort });
+  const onCategoryToggle = (category: string) =>
+    applyFilters({ ...filters, categories: toggleCategory(filters.categories, category) });
+  const onDurationChange = (duration: DurationBucketId | null) =>
+    applyFilters({ ...filters, duration });
+  const onClear = () =>
+    applyFilters({ ...filters, categories: [], duration: null, channelId: null });
+
+  const onLoadMore = () => {
+    setExpandedResults(true);
+    void fetchNextPage();
   };
 
   return (
-    <div className="bg-black text-white min-h-screen">
-      <Header className="fixed top-0 left-0 right-0 z-50" />
+    <div className="min-h-screen bg-black text-white">
+      <Header className="fixed left-0 right-0 top-0 z-50" />
       <div className="flex pt-16">
-        <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
-        <main className="flex-1 p-8 overflow-auto ml-16" id="scrollableDiv">
-          <div className="max-w-7xl mx-auto">
-            {/* Search Header with Stats and Filters */}
-            <div className="flex justify-between items-center mb-8">
-              <div>
-                <h1 className="text-2xl font-bold mb-2">
-                  {data?.data.length ? `Found ${data.data.length} results` : 'Search Results'}
-                </h1>
-                {initialQuery && (
-                  <p className="text-gray-400">
-                    Showing results for "{initialQuery}"
-                  </p>
+        <Sidebar className="fixed bottom-0 left-0 top-16 z-40" />
+        <main className="ml-16 flex-1 overflow-auto px-6 py-10">
+          <div className="mx-auto max-w-5xl">
+            <header>
+              <h1 className="text-2xl font-semibold tracking-tight text-white">
+                {filters.query ? `Results for “${filters.query}”` : 'Browse videos'}
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                {isLoading ? (
+                  'Searching…'
+                ) : (
+                  <>
+                    {total === 1 ? '1 result' : `${total.toLocaleString()} results`}
+                    {processingTimeMs != null && ` · ${processingTimeMs} ms`}
+                    {engine === 'mysql' && (
+                      <span className="text-amber-500/80"> · search degraded, showing basic matches</span>
+                    )}
+                  </>
+                )}
+              </p>
+            </header>
+
+            <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:gap-10">
+              <FilterRail
+                filters={filters}
+                facets={first?.facets}
+                onSortChange={onSortChange}
+                onCategoryToggle={onCategoryToggle}
+                onDurationChange={onDurationChange}
+                onClear={onClear}
+                showClear={hasActiveFilters(filters)}
+              />
+
+              <div className="min-w-0 flex-1">
+                {isLoading ? (
+                  <div className="divide-y divide-white/5">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <ResultSkeleton key={index} />
+                    ))}
+                  </div>
+                ) : isError ? (
+                  <div className="py-16 text-center">
+                    <p className="text-sm text-gray-300">Search is not answering right now.</p>
+                    <button
+                      type="button"
+                      onClick={() => refetch()}
+                      className="mt-4 rounded-md bg-[#fa7517] px-3.5 py-2 text-sm font-medium
+                                 text-black transition-colors hover:bg-[#ff8c3a]"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : isEmpty ? (
+                  <div className="py-16 text-center">
+                    <p className="text-sm text-gray-300">
+                      {filters.query
+                        ? `Nothing matched “${filters.query}”.`
+                        : 'Nothing matched these filters.'}
+                    </p>
+                    {didYouMean ? (
+                      <p className="mt-2 text-sm text-gray-500">
+                        Did you mean{' '}
+                        <button
+                          type="button"
+                          onClick={() => applyFilters({ ...filters, query: didYouMean })}
+                          className="text-[#fa7517] underline-offset-4 hover:underline"
+                        >
+                          {didYouMean}
+                        </button>
+                        ?
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-sm text-gray-500">
+                        Try fewer words, or clear a filter.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="divide-y divide-white/5">
+                      {results.map((result) => (
+                        <ResultRow
+                          key={result.id}
+                          result={result}
+                          highlight={highlights[String(result.id)]}
+                        />
+                      ))}
+                    </div>
+
+                    {isFetchingNextPage && (
+                      <div className="divide-y divide-white/5">
+                        <ResultSkeleton />
+                      </div>
+                    )}
+
+                    {hasNextPage && !isFetchingNextPage && (
+                      <button
+                        type="button"
+                        onClick={onLoadMore}
+                        className="mt-8 w-full rounded-md border border-white/10 py-2.5 text-sm
+                                   text-gray-300 transition-colors hover:border-[#fa7517]/40 hover:text-white"
+                      >
+                        Load more
+                      </button>
+                    )}
+
+                    {!hasNextPage && expandedResults && (
+                      <p className="mt-8 text-center text-sm text-gray-600">
+                        That is everything.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
-              <FilterPanel
-                sortBy={sort}
-                setSortBy={setSort}
-                pageSize={pageSize}
-                setPageSize={setPageSize}
-              />
             </div>
-
-            {/* Results Display */}
-            {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {Array(pageSize).fill(null).map((_, i) => (
-                  <div key={i} className="animate-pulse bg-gray-800 rounded-xl h-64" />
-                ))}
-              </div>
-            ) : error ? (
-              <div className="text-center text-red-500 mt-8">
-                <p>Error: {error.toString()}</p>
-              </div>
-            ) : data?.data?.length ? (
-              <InfiniteScroll
-                dataLength={data.data.length}
-                next={() => setPage(page + 1)}
-                hasMore={data.data.length >= pageSize}
-                loader={<h4>Loading...</h4>}
-                scrollableTarget="scrollableDiv"
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {data.data.map((result) => (
-                    <VideoCard
-                      key={result.id}
-                      video={normalizeVideoData(result)}
-                      size="normal"
-                    />
-                  ))}
-                </div>
-              </InfiniteScroll>
-            ) : (
-              <div className="text-center text-gray-400 mt-16">
-                <p className="text-xl">No results found for "{initialQuery}"</p>
-                <p className="mt-2">Try different keywords or filters</p>
-              </div>
-            )}
           </div>
         </main>
       </div>

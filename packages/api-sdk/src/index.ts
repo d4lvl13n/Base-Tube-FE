@@ -15,6 +15,7 @@ export * from './types';
 export * from './upload';
 export type { BasetubeClientConfig, TokenProvider } from './config';
 export { createHttpClient } from './client';
+export { buildSearchQuery } from './endpoints/discovery';
 
 export interface BasetubeClient {
   videos: ReturnType<typeof createVideosApi>;
