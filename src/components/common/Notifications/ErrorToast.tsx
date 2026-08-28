@@ -1,6 +1,7 @@
 import React from 'react';
 import { toast } from 'react-toastify';
 import { AlertCircle, Info } from 'lucide-react';
+import { uploadCopy } from '../../upload/uploadCopy';
 
 export const showErrorToast = (message: string) => {
   toast.error(
@@ -43,13 +44,19 @@ export const showInfoToast = (message: string) => {
   );
 };
 
+/**
+ * Toast copy for the upload form.
+ *
+ * The four that also exist as queue states read from `uploadCopy`, so a file
+ * rejected on the form says exactly what the same file says in the queue panel.
+ */
 export const uploadErrors = {
-  noFile: 'Please select a video file to upload',
-  noTitle: 'Please enter a title for your video',
-  noDescription: 'Please enter a description for your video',
-  noChannel: 'Please select a channel',
-  fileTooLarge: 'Video file size exceeds 2GB limit',
-  unsupportedFormat: 'Unsupported video format. Please use MP4, MOV, or AVI.',
-  networkError: 'Network error. Please check your internet connection.',
-  uploadFailed: 'Failed to upload video. Please try again.',
+  noFile: 'Choose a video file to upload.',
+  noTitle: 'Give your video a title.',
+  noDescription: 'Add a description for your video.',
+  noChannel: 'Choose a channel for this video.',
+  fileTooLarge: uploadCopy.fileTooLarge,
+  unsupportedFormat: uploadCopy.unsupportedType,
+  networkError: uploadCopy.retryWait,
+  uploadFailed: uploadCopy.unknownFailure,
 }; 

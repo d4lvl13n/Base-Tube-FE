@@ -1,4 +1,13 @@
+/**
+ * Error copy for the legacy upload and the video-edit paths.
+ *
+ * These screens predate the upload queue, but a creator does not know that: an
+ * over-size file has to read the same here as it does in the queue panel. So
+ * every sentence comes from `uploadCopy` — this module owns the *shape* of the
+ * answer (code, message, whether a retry is worth offering), never the words.
+ */
 import axios from 'axios';
+import { describeUploadError, uploadCopy } from '../components/upload/uploadCopy';
 import { parseApiError, isRetryableServiceError } from './apiError';
 
 export interface VideoErrorResult {
@@ -7,21 +16,17 @@ export interface VideoErrorResult {
   canRetry: boolean;
 }
 
-export const PAYLOAD_TOO_LARGE_MESSAGE =
-  'File too large for the server limit. Try a smaller file.';
+export const PAYLOAD_TOO_LARGE_MESSAGE = uploadCopy.fileTooLarge;
 
-const VIDEO_ERROR_MAP: Record<string, string> = {
-  INVALID_VIDEO_FORMAT:
-    'Invalid video format or missing file. Use a supported format and try again.',
-  VIDEO_UPLOAD_FAILED:
-    'Upload failed. Please check your connection and try again.',
-  VIDEO_VALIDATION_FAILED: 'Please check your video details and try again.',
-  FILE_UPLOAD_ERROR: 'File could not be uploaded. Check size and format limits.',
-  UNAUTHORIZED: 'Please sign in to continue.',
-  PAYLOAD_TOO_LARGE: PAYLOAD_TOO_LARGE_MESSAGE,
-};
-
-const DEFAULT_MESSAGE = 'Upload failed. Please try again.';
+/**
+ * `parseApiError` invents these when the error carries nothing usable. They
+ * read like sentences but say nothing, so they must not win over the shared
+ * fallback, which at least tells the creator what to do next.
+ */
+const GENERIC_FILLER = new Set([
+  'Something went wrong',
+  'Something went wrong. Please try again.',
+]);
 
 export function getVideoErrorMessage(error: unknown): VideoErrorResult {
   const { code, message } = parseApiError(error);
@@ -36,23 +41,11 @@ export function getVideoErrorMessage(error: unknown): VideoErrorResult {
     };
   }
 
-  if (code && VIDEO_ERROR_MAP[code]) {
-    return {
-      code,
-      message: VIDEO_ERROR_MAP[code],
-      canRetry: isRetryableServiceError(code),
-    };
-  }
-
-  const hasServerMessage =
-    typeof message === 'string' &&
-    message.trim().length > 0 &&
-    message !== DEFAULT_MESSAGE &&
-    !/^Request failed with status code/i.test(message);
-
+  // A known code wins; an unknown one falls back to the server's own sentence
+  // when it reads like one, and to the shared last-resort line when it does not.
   return {
     code,
-    message: hasServerMessage ? message : DEFAULT_MESSAGE,
+    message: describeUploadError(code, GENERIC_FILLER.has(message.trim()) ? null : message),
     canRetry: isRetryableServiceError(code),
   };
 }

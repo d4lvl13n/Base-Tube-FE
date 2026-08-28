@@ -374,4 +374,23 @@ describe('classifyTransferFailure', () => {
   it.each(cases)('%s', (_name, error, expected) => {
     expect(classifyTransferFailure(error)).toMatchObject(expected);
   });
+
+  /**
+   * The message survives all the way to the queue panel, so it has to read as
+   * something a creator can act on — and match the web app's copy map
+   * (`src/components/upload/uploadCopy.ts`) word for word.
+   */
+  it('explains a wait in plain language instead of repeating the server', () => {
+    expect(classifyTransferFailure(new UploadApiError('busy', 429, 'UPLOAD_ADMISSION_BUSY', 5))).toMatchObject({
+      message: 'Waiting for an upload slot — you can have 8 in flight at once.',
+    });
+    expect(classifyTransferFailure(new Error('who knows'))).toMatchObject({
+      message: 'Connection hiccup — retrying in a moment.',
+    });
+    expect(
+      classifyTransferFailure(
+        new UploadApiError('completed parts cannot be renewed', 400, 'UPLOAD_PARTS_INVALID', null),
+      ),
+    ).toMatchObject({ message: 'Confirming the last parts — retrying in a moment.' });
+  });
 });
