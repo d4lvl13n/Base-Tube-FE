@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Bot, Wand2, Copy, Check } from 'lucide-react';
+import { X, Sparkles, Bot, Wand2, Copy, Check, RefreshCw } from 'lucide-react';
 
 interface AIAssistantPanelProps {
   isOpen: boolean;
@@ -17,7 +17,53 @@ interface AIAssistantPanelProps {
   suggestedTitle?: string;
   onAcceptTitle?: () => void;
   mode: 'video' | 'channel' | 'pass';
+  /**
+   * Applies the generated description to the form the panel was opened from.
+   *
+   * Optional on purpose: the channel and pass screens do not pass it, so they
+   * keep the copy-and-paste flow they have always had and no new button
+   * appears for them.
+   */
+  onAcceptDescription?: (description: string) => void;
+  /**
+   * Whether the target field already holds something. Only used to decide
+   * whether applying a description needs a confirmation first.
+   */
+  hasExistingDescription?: boolean;
+  /** Keywords the generator picked out, rendered as chips. */
+  generatedKeywords?: string[];
+  /** Hashtag line, already split, rendered as chips under the description. */
+  hashtags?: string[];
 }
+
+const CHIP =
+  'inline-flex items-center rounded-full border border-gray-800 bg-black/40 px-2.5 py-1 text-xs text-gray-300';
+
+const SECONDARY =
+  'inline-flex items-center gap-1.5 rounded text-xs text-[#fa7517] transition-colors ' +
+  'hover:text-[#ff8c3a] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60 ' +
+  'disabled:cursor-not-allowed disabled:text-gray-600';
+
+const APPLY =
+  'inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-[#fa7517] px-3 py-1.5 ' +
+  'text-xs font-medium text-black transition-colors hover:bg-[#ff8c3a] focus-visible:outline-none ' +
+  'focus-visible:ring-2 focus-visible:ring-[#fa7517]/60';
+
+const FIELD =
+  'mt-2 w-full rounded-md border border-gray-800 bg-black/40 px-3 py-2 text-sm text-white ' +
+  'placeholder:text-gray-600 transition-colors focus:border-[#fa7517]/60 focus:outline-none ' +
+  'focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
+
+const LABEL = 'block text-xs font-medium text-gray-400';
+
+/** Grey bars where the description will be — a shape, not a spinner. */
+const DescriptionSkeleton: React.FC = () => (
+  <div className="space-y-2" data-testid="ai-description-skeleton" aria-hidden="true">
+    {['w-3/4', 'w-full', 'w-full', 'w-5/6', 'w-1/2'].map((width, index) => (
+      <div key={index} className={`h-3 animate-pulse rounded bg-gray-800/70 ${width}`} />
+    ))}
+  </div>
+);
 
 const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   isOpen,
@@ -32,7 +78,11 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   generatedDescription,
   suggestedTitle,
   onAcceptTitle,
-  mode
+  mode,
+  onAcceptDescription,
+  hasExistingDescription = false,
+  generatedKeywords,
+  hashtags
 }) => {
   const [copied, setCopied] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
@@ -48,6 +98,22 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  /**
+   * Applying replaces whatever is in the field, so a draft that already has
+   * words in it gets one question first. An empty field just takes the text.
+   */
+  const handleAcceptDescription = () => {
+    if (!generatedDescription || !onAcceptDescription) return;
+    if (
+      hasExistingDescription &&
+      // eslint-disable-next-line no-alert
+      !window.confirm('Replace your current description with the AI version?')
+    ) {
+      return;
+    }
+    onAcceptDescription(generatedDescription);
   };
 
   const getContextualText = () => {
@@ -76,6 +142,7 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   };
 
   const contextText = getContextualText();
+  const hasResult = Boolean(generatedDescription);
 
   const panel = (
     <AnimatePresence mode="wait">
@@ -108,27 +175,28 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
             {/* Content */}
             <div className="h-full flex flex-col">
               {/* Header */}
-              <div className="p-6 border-b border-gray-800/30">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <Bot className="w-6 h-6 text-[#fa7517]" />
-                    <h2 className="text-xl font-semibold">{contextText.title}</h2>
+              <div className="border-b border-gray-800/30 p-5">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <Bot className="h-4 w-4 text-[#fa7517]" aria-hidden="true" />
+                    <h2 className="text-base font-semibold text-white">{contextText.title}</h2>
                   </div>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={onClose}
-                    className="p-2 hover:bg-gray-800/50 rounded-full transition-colors"
+                    aria-label="Close"
+                    className="rounded-full p-1.5 transition-colors hover:bg-gray-800/50"
                   >
-                    <X className="w-5 h-5 text-gray-400" />
+                    <X className="h-4 w-4 text-gray-400" aria-hidden="true" />
                   </motion.button>
                 </div>
-                <p className="text-gray-400">{contextText.subtitle}</p>
+                <p className="text-xs text-gray-500">{contextText.subtitle}</p>
               </div>
 
               {/* Main Content - Scrollable Area */}
               <div className="flex-1 overflow-y-auto">
-                <div className="p-6 space-y-6">
+                <div className="space-y-5 p-5">
                   {/* Show suggested title only for video mode */}
                   {mode === 'video' && suggestedTitle && (
                     <motion.div
@@ -136,73 +204,136 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-2"
                     >
-                      <label className="text-sm font-medium text-gray-400">AI Suggested Title</label>
-                      <div className="p-4 bg-[#fa7517]/10 rounded-lg border border-[#fa7517]/30">
-                        <p className="text-white">{suggestedTitle}</p>
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={onAcceptTitle}
-                          className="mt-3 px-4 py-2 bg-[#fa7517] text-black rounded-lg font-medium
-                            flex items-center justify-center space-x-2 w-full"
-                        >
-                          <Sparkles className="w-4 h-4" />
-                          <span>Use This Title</span>
-                        </motion.button>
+                      <span className={LABEL}>AI Suggested Title</span>
+                      <div className="rounded-md border border-[#fa7517]/30 bg-[#fa7517]/10 p-3">
+                        <p className="text-sm text-white">{suggestedTitle}</p>
+                        <button type="button" onClick={onAcceptTitle} className={`mt-3 ${APPLY}`}>
+                          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                          Use This Title
+                        </button>
                       </div>
                     </motion.div>
                   )}
 
-                  {/* Generated Description */}
-                  {generatedDescription && (
+                  {/* Generated description — or the skeleton standing in for it */}
+                  {(hasResult || isGenerating) && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-2"
                     >
                       <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium text-gray-400">AI Generated Description</label>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={handleCopyDescription}
-                          className="flex items-center space-x-2 text-[#fa7517] hover:text-[#ff8c3a] transition-colors px-3 py-1 rounded-full bg-[#fa7517]/10"
-                        >
-                          {copied ? (
-                            <Check className="w-4 h-4" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
+                        <span className={LABEL}>AI Generated Description</span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={onGenerate}
+                            disabled={isGenerating}
+                            className={SECONDARY}
+                          >
+                            <RefreshCw
+                              className={`h-3.5 w-3.5 ${isGenerating ? 'animate-spin' : ''}`}
+                              aria-hidden="true"
+                            />
+                            Regenerate
+                          </button>
+                          {hasResult && (
+                            <button
+                              type="button"
+                              onClick={handleCopyDescription}
+                              className={SECONDARY}
+                            >
+                              {copied ? (
+                                <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                              )}
+                              {copied ? 'Copied!' : 'Copy'}
+                            </button>
                           )}
-                          <span className="text-sm">{copied ? 'Copied!' : 'Copy'}</span>
-                        </motion.button>
+                        </div>
                       </div>
-                      <div className="p-4 bg-[#fa7517]/10 rounded-lg border border-[#fa7517]/30">
-                        <p className="text-white whitespace-pre-wrap">{generatedDescription}</p>
+
+                      <div className="rounded-md border border-[#fa7517]/30 bg-[#fa7517]/10 p-3">
+                        {isGenerating && !hasResult ? (
+                          <DescriptionSkeleton />
+                        ) : (
+                          <>
+                            {/* `whitespace-pre-wrap` is the whole point: the
+                                generator's blank lines and `•` bullets are the
+                                description, not decoration around it. */}
+                            <p
+                              data-testid="ai-generated-description"
+                              className="whitespace-pre-wrap text-sm leading-relaxed text-white"
+                            >
+                              {generatedDescription}
+                            </p>
+
+                            {hashtags && hashtags.length > 0 && (
+                              <div
+                                data-testid="ai-hashtags"
+                                className="mt-3 flex flex-wrap gap-1.5 border-t border-[#fa7517]/20 pt-3"
+                              >
+                                {hashtags.map((hashtag) => (
+                                  <span key={hashtag} className={CHIP}>
+                                    {hashtag.startsWith('#') ? hashtag : `#${hashtag}`}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
+
+                      {hasResult && onAcceptDescription && (
+                        <button type="button" onClick={handleAcceptDescription} className={APPLY}>
+                          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                          Use description
+                        </button>
+                      )}
                     </motion.div>
+                  )}
+
+                  {generatedKeywords && generatedKeywords.length > 0 && (
+                    <div className="space-y-2">
+                      <span className={LABEL}>Suggested keywords</span>
+                      <div data-testid="ai-keywords" className="flex flex-wrap gap-1.5">
+                        {generatedKeywords.map((keyword) => (
+                          <span key={keyword} className={CHIP}>
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
 
                   {/* Input Fields */}
                   <div className="space-y-4">
                     <div>
-                      <label className="text-sm font-medium text-gray-400">Keywords</label>
+                      <label className={LABEL} htmlFor="ai-assistant-keywords">
+                        Keywords
+                      </label>
                       <input
+                        id="ai-assistant-keywords"
                         type="text"
                         value={keywords}
                         onChange={(e) => onKeywordsChange(e.target.value)}
                         placeholder={contextText.keywordsPlaceholder}
-                        className="mt-2 w-full px-4 py-3 bg-gray-900/50 border border-gray-800/30 rounded-lg focus:outline-none focus:border-[#fa7517] text-white"
+                        className={FIELD}
                       />
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-gray-400">Additional Context</label>
+                      <label className={LABEL} htmlFor="ai-assistant-context">
+                        Additional Context
+                      </label>
                       <textarea
+                        id="ai-assistant-context"
                         value={additionalInfo}
                         onChange={(e) => onAdditionalInfoChange(e.target.value)}
                         placeholder={contextText.contextPlaceholder}
                         rows={4}
-                        className="mt-2 w-full px-4 py-3 bg-gray-900/50 border border-gray-800/30 rounded-lg focus:outline-none focus:border-[#fa7517] text-white"
+                        className={FIELD}
                       />
                     </div>
                   </div>
@@ -210,38 +341,24 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
               </div>
 
               {/* Footer with Generate Button */}
-              <div className="p-6 border-t border-gray-800/30">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+              <div className="border-t border-gray-800/30 p-5">
+                <button
+                  type="button"
                   onClick={onGenerate}
                   disabled={isGenerating}
-                  className={`w-full px-6 py-4 rounded-xl font-semibold
-                    flex items-center justify-center space-x-3 shadow-lg
-                    ${isGenerating 
-                      ? 'bg-gray-700 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-[#fa7517] to-[#ff8c3a] hover:shadow-[#fa7517]/50'
+                  title={title ? `Describe: ${title}` : undefined}
+                  className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5
+                    text-sm font-medium transition-colors focus-visible:outline-none
+                    focus-visible:ring-2 focus-visible:ring-[#fa7517]/60
+                    ${
+                      isGenerating
+                        ? 'cursor-not-allowed bg-gray-800 text-gray-500'
+                        : 'bg-[#fa7517] text-black hover:bg-[#ff8c3a]'
                     }`}
                 >
-                  {isGenerating ? (
-                    <>
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-6 h-6"
-                      >
-                        ⟳
-                      </motion.div>
-                      <span>Generating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-6 h-6" />
-                      <span>Generate Content</span>
-                      <Sparkles className="w-6 h-6" />
-                    </>
-                  )}
-                </motion.button>
+                  <Wand2 className="h-4 w-4" aria-hidden="true" />
+                  {isGenerating ? 'Generating...' : 'Generate Content'}
+                </button>
               </div>
             </div>
           </motion.div>
@@ -257,4 +374,4 @@ const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   return createPortal(panel, document.body);
 };
 
-export default AIAssistantPanel; 
+export default AIAssistantPanel;

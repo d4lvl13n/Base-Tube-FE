@@ -15,6 +15,11 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, FileVideo, Globe2, Lock, Sparkles, UploadCloud, X } from 'lucide-react';
 import { generateVideoDescription } from '../../../api/video';
+import {
+  editorHtmlToPlainText,
+  hasEditorContent,
+  plainTextToEditorHtml,
+} from '../../../utils/descriptionText';
 import { useUploadQueueContext } from '../../../contexts/UploadQueueContext';
 import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
 import { showErrorToast } from '../../common/Notifications/ErrorToast';
@@ -69,6 +74,8 @@ const VideoUpload: React.FC = () => {
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
   const [suggestedTitle, setSuggestedTitle] = useState<string | undefined>();
   const [generatedDescription, setGeneratedDescription] = useState<string | undefined>();
+  const [generatedKeywords, setGeneratedKeywords] = useState<string[] | undefined>();
+  const [generatedHashtags, setGeneratedHashtags] = useState<string[] | undefined>();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
@@ -82,7 +89,7 @@ const VideoUpload: React.FC = () => {
   const updateQueueMetadata = uploadQueue.updateMetadata;
   const parkThumbnail = uploadQueue.setPendingThumbnail;
 
-  const { selectedChannelId } = useChannelSelection();
+  const { selectedChannelId, selectedChannel } = useChannelSelection();
   const navigate = useNavigate();
 
   const {
@@ -187,6 +194,15 @@ const VideoUpload: React.FC = () => {
       .catch(() => showErrorToast('Failed to apply AI thumbnail'));
   };
 
+  /**
+   * The generator is told what the page already knows.
+   *
+   * Title, the draft the creator has written so far, their tags, and who is
+   * publishing (the selected channel's name and description) — a description
+   * written without those is a description about nothing in particular.
+   * `durationSeconds` is deliberately absent: the upload queue does not carry a
+   * duration, so nothing here would be true.
+   */
   const handleGenerateDescription = async () => {
     if (!title.trim()) {
       setTitleError('Give the video a title first.');
@@ -194,15 +210,35 @@ const VideoUpload: React.FC = () => {
     }
     setIsGenerating(true);
     try {
-      const { description: generated, suggestedTitle: suggestion } =
-        await generateVideoDescription(title, keywords, additionalInfo);
-      setGeneratedDescription(generated);
-      setSuggestedTitle(suggestion);
+      const result = await generateVideoDescription({
+        title,
+        keywords,
+        additionalInfo,
+        existingDescription: editorHtmlToPlainText(description),
+        tags,
+        channelName: selectedChannel?.name,
+        channelDescription: editorHtmlToPlainText(selectedChannel?.description),
+        language: typeof navigator === 'undefined' ? undefined : navigator.language,
+      });
+      setGeneratedDescription(result.description);
+      setSuggestedTitle(result.suggestedTitle);
+      setGeneratedKeywords(result.keywords);
+      setGeneratedHashtags(result.hashtags);
     } catch {
       showErrorToast('Failed to generate description. Please try again.');
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  /**
+   * The AI text lands in the editor as one paragraph per line, so the blank
+   * lines between sections and the `\u2022` bullets are still there when the
+   * draft PATCH (or the video PUT, once the row exists) sends the HTML on.
+   */
+  const handleAcceptDescription = (generated: string) => {
+    setDescription(plainTextToEditorHtml(generated));
+    setIsAIPanelOpen(false);
   };
 
   // The draft metadata lives on the upload row until the worker creates the
@@ -568,10 +604,15 @@ const VideoUpload: React.FC = () => {
         isGenerating={isGenerating}
         suggestedTitle={suggestedTitle}
         generatedDescription={generatedDescription}
+        generatedKeywords={generatedKeywords}
+        hashtags={generatedHashtags}
         onAcceptTitle={() => {
           setTitle(suggestedTitle || '');
           setSuggestedTitle(undefined);
+          setTitleError(null);
         }}
+        onAcceptDescription={handleAcceptDescription}
+        hasExistingDescription={hasEditorContent(description)}
         mode="video"
       />
 

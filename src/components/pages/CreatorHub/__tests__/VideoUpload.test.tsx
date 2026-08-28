@@ -44,15 +44,51 @@ jest.mock('react-router-dom', () => ({
 // about the upload screen and not about TipTap or the AI drawers.
 jest.mock('../../../common/RichTextEditor', () => ({
   __esModule: true,
-  default: ({ onChange }: { onChange: (value: string) => void }) => (
-    <textarea aria-label="Description" onChange={(event) => onChange(event.target.value)} />
+  default: ({ content, onChange }: { content: string; onChange: (value: string) => void }) => (
+    <textarea
+      aria-label="Description"
+      value={content}
+      onChange={(event) => onChange(event.target.value)}
+    />
   ),
 }));
-jest.mock('../../../common/AIAssistantPanel', () => ({ __esModule: true, default: () => null }));
+/**
+ * The AI drawer is a stub that records what the page told it and offers the two
+ * buttons the page reacts to. The drawer's own rendering is covered by
+ * `src/components/common/__tests__/AIAssistantPanel.test.tsx`.
+ */
+let aiPanelProps: Record<string, any> | null = null;
+jest.mock('../../../common/AIAssistantPanel', () => ({
+  __esModule: true,
+  default: (props: Record<string, any>) => {
+    aiPanelProps = props;
+    if (!props.isOpen) return null;
+    return (
+      <div>
+        <button type="button" onClick={() => props.onGenerate()}>
+          stub-generate
+        </button>
+        {props.generatedDescription && props.onAcceptDescription && (
+          <button
+            type="button"
+            onClick={() => props.onAcceptDescription(props.generatedDescription)}
+          >
+            stub-use-description
+          </button>
+        )}
+      </div>
+    );
+  },
+}));
 jest.mock('../../../common/AIThumbnailPanel', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../../common/CreatorHub/ChannelSelector', () => ({
   ChannelSelector: () => <div data-testid="channel-selector" />,
 }));
+const mockGenerateVideoDescription = jest.fn();
+jest.mock('../../../../api/video', () => ({
+  generateVideoDescription: (...args: unknown[]) => mockGenerateVideoDescription(...args),
+}));
+
 jest.mock('../../../../hooks/useAIthumbnail', () => ({
   useAIthumbnail: () => ({
     generateForVideo: jest.fn(),
@@ -153,10 +189,11 @@ function renderUpload(api: UploadQueueApi) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  aiPanelProps = null;
   mockUseChannelSelection.mockReturnValue({
     channels: [{ id: 7, name: 'Test channel' }],
     selectedChannelId: '7',
-    selectedChannel: { id: 7, name: 'Test channel' },
+    selectedChannel: { id: 7, name: 'Test channel', description: '<p>Weekly build logs</p>' },
   });
 });
 
@@ -310,6 +347,83 @@ describe('VideoUpload', () => {
 
     expect(await screen.findByText('Give the video a title.')).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+});
+
+describe('VideoUpload · AI description assistant', () => {
+  const AI_TEXT = [
+    'A hook line.',
+    '',
+    '\u2022 A bullet',
+    '\u2022 Another bullet',
+    '',
+    '#basetube #web3',
+  ].join('\n');
+
+  it('tells the generator what the page already knows', async () => {
+    mockGenerateVideoDescription.mockResolvedValue({
+      description: AI_TEXT,
+      suggestedTitle: 'A Better Title',
+      keywords: ['base'],
+      hashtags: ['#basetube'],
+    });
+    renderUpload(queue());
+
+    fireEvent.change(screen.getByPlaceholderText('Video title'), {
+      target: { value: 'My clip' },
+    });
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: 'a rough draft' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Separate tags with commas'), {
+      target: { value: 'web3, base' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Write with AI/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'stub-generate' }));
+
+    await waitFor(() => expect(mockGenerateVideoDescription).toHaveBeenCalled());
+    expect(mockGenerateVideoDescription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'My clip',
+        existingDescription: 'a rough draft',
+        tags: 'web3, base',
+        channelName: 'Test channel',
+        // The channel bio is stored as editor HTML; the generator gets prose.
+        channelDescription: 'Weekly build logs',
+        language: navigator.language,
+      }),
+    );
+    // Nothing on the queue entry says how long the video is, so nothing is
+    // claimed about it.
+    expect(mockGenerateVideoDescription.mock.calls[0][0]).not.toHaveProperty('durationSeconds');
+
+    await waitFor(() => expect(aiPanelProps?.hashtags).toEqual(['#basetube']));
+    expect(aiPanelProps?.generatedKeywords).toEqual(['base']);
+  });
+
+  it('applies the AI text as paragraphs, blank lines and bullets intact', async () => {
+    mockGenerateVideoDescription.mockResolvedValue({
+      description: AI_TEXT,
+      suggestedTitle: 'A Better Title',
+    });
+    renderUpload(queue());
+
+    fireEvent.change(screen.getByPlaceholderText('Video title'), {
+      target: { value: 'My clip' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Write with AI/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'stub-generate' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'stub-use-description' }));
+
+    const editor = screen.getByLabelText('Description') as HTMLTextAreaElement;
+    await waitFor(() =>
+      expect(editor.value).toBe(
+        '<p>A hook line.</p><p></p><p>\u2022 A bullet</p><p>\u2022 Another bullet</p>' +
+          '<p></p><p>#basetube #web3</p>',
+      ),
+    );
   });
 });
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -20,6 +20,17 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   className = '',
   minHeight = '200px'
 }) => {
+  /**
+   * The last HTML this editor itself produced.
+   *
+   * TipTap only reads `content` when it mounts, so a parent that sets the
+   * description from somewhere else (the AI assistant applying a draft) would
+   * otherwise be ignored. Comparing against what the editor last emitted keeps
+   * the sync one-way: typing never re-enters the document (which would move the
+   * caret), only a genuinely external value does.
+   */
+  const lastEmittedRef = useRef<string>(content);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -45,12 +56,24 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       },
     },
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const html = editor.getHTML();
+      lastEmittedRef.current = html;
+      onChange(html);
     },
     parseOptions: {
       preserveWhitespace: 'full',
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    if (content === lastEmittedRef.current) return;
+    lastEmittedRef.current = content;
+    // `emitUpdate: false` \u2014 the parent already holds this value, so echoing it
+    // back through `onChange` would be a pointless render. `preserveWhitespace`
+    // matches the parse options so blank paragraphs survive the round trip.
+    editor.commands.setContent(content ?? '', false, { preserveWhitespace: 'full' });
+  }, [content, editor]);
 
   if (!editor) {
     return null;

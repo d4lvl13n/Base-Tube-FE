@@ -25,9 +25,37 @@ interface UpdateViewResponse {
   };
 }
 
-interface GenerateVideoDescriptionResponse {
+/**
+ * `GET /api/v1/videos/description`.
+ *
+ * `description` is plain text with `\n` line breaks: a hook, blank-line
+ * separated paragraphs, `\u2022` bullet lines, a CTA and a hashtag line. The
+ * arrays are optional on the wire because a backend that has not shipped the
+ * structured generator yet simply omits them.
+ */
+export interface GenerateVideoDescriptionResponse {
   description: string;
   suggestedTitle: string;
+  keywords?: string[];
+  hashtags?: string[];
+}
+
+/** Everything the generator can be told about the video it is describing. */
+export interface GenerateVideoDescriptionParams {
+  /** Required \u2014 the generator has nothing to work from without it. */
+  title: string;
+  /** Comma-separated list. */
+  keywords?: string;
+  additionalInfo?: string;
+  channelName?: string;
+  channelDescription?: string;
+  durationSeconds?: number;
+  /** The creator's current draft, so the model rewrites instead of inventing. */
+  existingDescription?: string;
+  /** Comma-separated list. */
+  tags?: string;
+  /** BCP-47, e.g. `en-GB` \u2014 the description comes back in this language. */
+  language?: string;
 }
 
 interface DeleteVideoResponse {
@@ -384,28 +412,71 @@ export const updateVideoView = async (
   }
 };
 
-export const generateVideoDescription = async (
+/**
+ * Ask the backend for a description.
+ *
+ * Two call shapes, on purpose: the object form carries the full context the
+ * upload page can now supply, while the original positional form is kept so the
+ * older callers (the edit-video modal) keep compiling unchanged.
+ */
+export function generateVideoDescription(
+  params: GenerateVideoDescriptionParams
+): Promise<GenerateVideoDescriptionResponse>;
+export function generateVideoDescription(
   title: string,
   keywords?: string,
   additionalInfo?: string
-): Promise<GenerateVideoDescriptionResponse> => {
+): Promise<GenerateVideoDescriptionResponse>;
+export async function generateVideoDescription(
+  titleOrParams: string | GenerateVideoDescriptionParams,
+  keywords?: string,
+  additionalInfo?: string
+): Promise<GenerateVideoDescriptionResponse> {
+  const input: GenerateVideoDescriptionParams =
+    typeof titleOrParams === 'string'
+      ? { title: titleOrParams, keywords, additionalInfo }
+      : titleOrParams;
+
   try {
-    const params = new URLSearchParams({
-      title,
-      ...(keywords && { keywords }),
-      ...(additionalInfo && { additionalInfo })
+    const params = new URLSearchParams();
+    params.set('title', input.title);
+
+    // Empty strings are left out rather than sent: an empty `keywords=` tells
+    // the generator nothing and only makes the cache key noisier.
+    // The free-text context is capped: this is a GET, and a creator who has
+    // pasted an essay into the draft must not turn the request into a 414.
+    const optionalText: Array<[string, string | undefined, number]> = [
+      ['keywords', input.keywords, 500],
+      ['additionalInfo', input.additionalInfo, 2000],
+      ['channelName', input.channelName, 200],
+      ['channelDescription', input.channelDescription, 1000],
+      ['existingDescription', input.existingDescription, 2000],
+      ['tags', input.tags, 500],
+      ['language', input.language, 35],
+    ];
+    optionalText.forEach(([key, value, limit]) => {
+      const trimmed = value?.trim();
+      if (trimmed) params.set(key, trimmed.slice(0, limit));
     });
+
+    if (
+      typeof input.durationSeconds === 'number' &&
+      Number.isFinite(input.durationSeconds) &&
+      input.durationSeconds > 0
+    ) {
+      params.set('durationSeconds', String(Math.round(input.durationSeconds)));
+    }
 
     const response = await api.get<GenerateVideoDescriptionResponse>(
       `/api/v1/videos/description?${params.toString()}`
     );
-    
+
     return response.data;
   } catch (error) {
     console.error('Error generating video description:', error);
     throw error;
   }
-};
+}
 
 export const getVideoProgress = async (videoId: number): Promise<VideoProgressResponse> => {
   const response = await api.get(`/api/v1/videos/progress/${videoId}`);
