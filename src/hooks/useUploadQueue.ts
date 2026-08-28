@@ -43,6 +43,13 @@ const METADATA_DEBOUNCE_MS = 800;
  */
 const METADATA_MOVED_NOTICE = 'Saved to your video — edit it in Videos Management';
 const THUMBNAIL_FAILED_NOTICE = 'The video is uploading, but the thumbnail could not be saved.';
+/**
+ * Shown when neither the draft PATCH nor the video update took the edit. The
+ * pending fields stay queued for the next flush, so this is a warning, not an
+ * epitaph — but the creator has to know their last keystrokes are not saved.
+ */
+const METADATA_SAVE_FAILED_NOTICE =
+  'Your latest changes could not be saved yet — we will keep trying.';
 
 /** The 409 the control plane raises once `video_uploads.video_id` is set. */
 function conflictVideoId(error: unknown): number | null {
@@ -323,10 +330,54 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   );
 
   /**
+   * Retires a pending patch, but only the exact one that was accepted.
+   *
+   * `updateMetadata` replaces the map value with a freshly merged object on
+   * every keystroke, so an identity mismatch means the creator typed again
+   * while the request was in flight — those newer fields must survive.
+   */
+  const clearPendingPatch = useCallback((localId: string, sent: PatchUploadBody) => {
+    if (pendingPatchesRef.current.get(localId) === sent) {
+      pendingPatchesRef.current.delete(localId);
+    }
+  }, []);
+
+  /**
+   * Re-applies pending draft fields to the Video row the upload produced.
+   *
+   * `PUT /api/v1/videos/:id` only reads `title`, `description` and
+   * `is_public`; `tags`/`channelId` have no counterpart there and stay in
+   * Videos Management's hands. On failure the patch stays queued so the next
+   * flush retries it rather than the edit being lost.
+   */
+  const applyPendingToVideo = useCallback(
+    async (
+      localId: string,
+      videoId: number,
+      patch: PatchUploadBody,
+      fallbackIsPublic: boolean,
+    ): Promise<void> => {
+      try {
+        await applyVideoUpdateRef.current(videoId, {
+          title: patch.title,
+          description: patch.description,
+          isPublic: patch.isPublic ?? fallbackIsPublic,
+        });
+        clearPendingPatch(localId, patch);
+      } catch {
+        if (mountedRef.current) notifyRef.current(METADATA_SAVE_FAILED_NOTICE);
+      }
+    },
+    [clearPendingPatch],
+  );
+
+  /**
    * Sends whatever draft metadata is pending for one entry, right now.
    *
    * Cancels the debounce first so a timer that fires later cannot re-send the
    * same body after completion has already moved the metadata to the video.
+   * The pending entry is cleared only once a server has actually taken it —
+   * every failure path leaves it queued for the next flush.
    */
   const sendPendingPatch = useCallback(
     async (localId: string): Promise<void> => {
@@ -336,23 +387,13 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         patchTimersRef.current.delete(localId);
       }
       const patch = pendingPatchesRef.current.get(localId);
-      pendingPatchesRef.current.delete(localId);
       const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
       if (!patch || !entry?.uploadId) return;
 
       // Past the point where PATCH applies: the draft became a Video, so the
       // edit belongs to `PUT /api/v1/videos/:id` instead of being dropped.
       if (entry.videoId !== null) {
-        const videoId = entry.videoId;
-        try {
-          await applyVideoUpdateRef.current(videoId, {
-            title: patch.title,
-            description: patch.description,
-            isPublic: patch.isPublic ?? entry.isPublic,
-          });
-        } catch {
-          // Best effort; Videos Management is the durable place to edit.
-        }
+        await applyPendingToVideo(localId, entry.videoId, patch, entry.isPublic);
         return;
       }
 
@@ -360,17 +401,21 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       const request = (async () => {
         try {
           await api.patch(uploadId, patch);
+          clearPendingPatch(localId, patch);
         } catch (error) {
           const videoId = conflictVideoId(error);
           if (videoId !== null) {
             // The worker created the Video while this PATCH was in flight.
-            // Record the id so later edits go to `updateVideo` instead, and
-            // say so — silently dropping the creator's title is not an option.
+            // Record the id so later edits go to `updateVideo`, say so, and
+            // re-send these very fields there — the creator typed them, and a
+            // 409 is a change of address, not a rejection.
             await updateEntry(localId, { videoId });
             if (mountedRef.current) notifyRef.current(METADATA_MOVED_NOTICE);
+            await applyPendingToVideo(localId, videoId, patch, entry.isPublic);
+            return;
           }
-          // Any other failure is re-sent on the next keystroke; a lost draft
-          // PATCH is not worth interrupting an upload for.
+          // Network or 5xx: the edit is still pending, so the next flush (or
+          // the next keystroke's debounce) retries it.
         }
       })();
       inFlightPatchRef.current.set(localId, request);
@@ -382,7 +427,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         }
       }
     },
-    [api, updateEntry],
+    [api, applyPendingToVideo, clearPendingPatch, updateEntry],
   );
 
   /**

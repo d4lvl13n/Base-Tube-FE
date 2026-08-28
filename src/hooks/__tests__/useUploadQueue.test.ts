@@ -144,9 +144,11 @@ describe('useUploadQueue metadata flush', () => {
   }, 10_000);
 
   // 409 UPLOAD_STATE_CONFLICT carries `details.videoId`: the draft is gone and
-  // the Video row is now the thing to edit.
-  it('records the videoId and tells the creator when a PATCH loses the race', async () => {
+  // the Video row is now the thing to edit. The edit itself must survive that
+  // change of address — a 409 is a redirect, not a rejection.
+  it('records the videoId, tells the creator, and re-sends the lost fields to the video', async () => {
     const notify = jest.fn();
+    const applyVideoUpdate = jest.fn().mockResolvedValue(undefined);
     const { api, releaseCreate } = harness({
       async patch() {
         throw new UploadApiError('conflict', 409, 'UPLOAD_STATE_CONFLICT', null, { videoId: 55 });
@@ -157,7 +159,7 @@ describe('useUploadQueue metadata flush', () => {
       },
     });
     const { result } = renderHook(() =>
-      useUploadQueue({ api, resumeStore: createMemoryResumeStore(), notify }),
+      useUploadQueue({ api, resumeStore: createMemoryResumeStore(), notify, applyVideoUpdate }),
     );
     await waitFor(() => expect(result.current.hydrated).toBe(true));
 
@@ -177,6 +179,99 @@ describe('useUploadQueue metadata flush', () => {
     await waitFor(() =>
       expect(result.current.entries.find((entry) => entry.localId === localId)?.videoId).toBe(55),
     );
+    // The title the creator typed lands on the video, not on the floor.
+    await waitFor(() =>
+      expect(applyVideoUpdate).toHaveBeenCalledWith(55, {
+        title: 'Too late',
+        description: undefined,
+        isPublic: false,
+      }),
+    );
+  });
+
+  it('keeps the edit queued when the 409 fallback also fails', async () => {
+    const notify = jest.fn();
+    const applyVideoUpdate = jest.fn().mockRejectedValue(new Error('offline'));
+    const { api, releaseCreate } = harness({
+      async patch() {
+        throw new UploadApiError('conflict', 409, 'UPLOAD_STATE_CONFLICT', null, { videoId: 55 });
+      },
+      async complete() {
+        return { uploadId: 'upload-1', uploadState: 'processing', videoId: 55 };
+      },
+    });
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: createMemoryResumeStore(), notify, applyVideoUpdate }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    let localId = '';
+    await act(async () => {
+      const enqueued = await result.current.enqueueFiles([videoFile()], 7);
+      localId = enqueued.accepted[0].localId;
+    });
+    act(() => {
+      result.current.updateMetadata(localId, { title: 'Too late' });
+    });
+    releaseCreate();
+
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith(
+        'Your latest changes could not be saved yet — we will keep trying.',
+      ),
+    );
+
+    // Still pending: an explicit flush retries the same fields.
+    applyVideoUpdate.mockResolvedValue(undefined);
+    await act(async () => {
+      await result.current.flushMetadata(localId);
+    });
+    expect(applyVideoUpdate).toHaveBeenLastCalledWith(55, {
+      title: 'Too late',
+      description: undefined,
+      isPublic: false,
+    });
+  });
+
+  // A 5xx says nothing about whether the edit is still applicable, so the
+  // pending patch has to outlive it.
+  it('keeps the pending patch for the next flush when the PATCH 500s', async () => {
+    let attempts = 0;
+    const bodies: unknown[] = [];
+    const { api, releaseCreate } = harness({
+      async patch(_uploadId, body) {
+        attempts += 1;
+        bodies.push(body);
+        if (attempts === 1) throw new UploadApiError('boom', 500, 'INTERNAL_ERROR', null);
+      },
+      // Keep the row a draft so the retry is still a PATCH, not a video edit.
+      async complete() {
+        return { uploadId: 'upload-1', uploadState: 'processing', videoId: null };
+      },
+    });
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: createMemoryResumeStore(), notify: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    let localId = '';
+    await act(async () => {
+      const enqueued = await result.current.enqueueFiles([videoFile()], 7);
+      localId = enqueued.accepted[0].localId;
+    });
+    act(() => {
+      result.current.updateMetadata(localId, { title: 'Survives a 500' });
+    });
+    releaseCreate();
+
+    await waitFor(() => expect(attempts).toBe(1));
+
+    await act(async () => {
+      await result.current.flushMetadata(localId);
+    });
+
+    expect(attempts).toBe(2);
+    expect(bodies).toEqual([{ title: 'Survives a 500' }, { title: 'Survives a 500' }]);
   });
 
   // Once the row has a videoId, PATCH is dead: the edit has to go to the
