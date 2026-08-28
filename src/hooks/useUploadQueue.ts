@@ -22,15 +22,34 @@ import {
   type UploadApi,
   type UploadQueueEntry,
   type UploadResumeStore,
+  type UploadVideoStatus,
 } from '@basetube/api';
 import { getBasetubeClient } from '../lib/basetubeClient';
-import { updateVideo } from '../api/video';
+import {
+  getVideoProgressBatch,
+  updateVideo,
+  type VideoProcessingStatus,
+  type VideoProgressBatchResponse,
+  type VideoProgressBatchRow,
+} from '../api/video';
 import { showErrorToast } from '../components/common/Notifications/ErrorToast';
 
 /** Files transferring at the same time. The server admits 8 per user (§7.2). */
 const ACTIVE_FILE_LIMIT = 4;
 /** How often the queue asks the server what became of its uploads. */
 const STATUS_POLL_MS = 10_000;
+/**
+ * How often a row that already produced a `Video` re-checks the transcoder.
+ *
+ * `GET /videos/uploads?active=true` deliberately stops listing a `ready` upload
+ * once its video is `processed`/`failed`, so the upload poll can never report
+ * the end of processing — this second poll is the only thing that can.
+ */
+const PROGRESS_POLL_MS = 5_000;
+/** ±jitter, so a batch of rows does not stampede the endpoint on one tick. */
+const PROGRESS_POLL_JITTER_MS = 1_000;
+/** A background tab polls three times more slowly. */
+const HIDDEN_POLL_MULTIPLIER = 3;
 /** A finished row stays visible for a day so the creator sees the outcome. */
 const FINISHED_ROW_TTL_MS = 24 * 60 * 60 * 1_000;
 const PERSISTENCE_WARNING = 'This queue is running without reliable reload recovery.';
@@ -84,17 +103,38 @@ async function putVideoUpdate(videoId: number, fields: VideoUpdateFields): Promi
   await updateVideo(String(videoId), formData);
 }
 
+/** One transcode target as `GET /videos/progress` reports it. */
+export interface RenditionSummary {
+  quality: string;
+  state: string;
+}
+
+/**
+ * A queue entry as the UI sees it.
+ *
+ * `renditions` is memory-only: it says what the transcoder is doing *right
+ * now*, which is worthless after a reload, so it is deliberately not part of
+ * the persisted record.
+ */
+export interface UploadQueueViewEntry extends UploadQueueEntry {
+  renditions?: RenditionSummary[];
+}
+
+export type VideoProgressFetcher = (videoIds: number[]) => Promise<VideoProgressBatchResponse>;
+
 export interface UseUploadQueueOptions {
   api?: UploadApi;
   resumeStore?: UploadResumeStore;
   /** Injected by tests; defaults to `PUT /api/v1/videos/:id`. */
   applyVideoUpdate?: (videoId: number, fields: VideoUpdateFields) => Promise<void>;
+  /** Injected by tests; defaults to `GET /api/v1/videos/progress?ids=`. */
+  fetchVideoProgress?: VideoProgressFetcher;
   /** Injected by tests; defaults to the app's toast. */
   notify?: (message: string) => void;
 }
 
 export interface UploadQueueApi {
-  entries: UploadQueueEntry[];
+  entries: UploadQueueViewEntry[];
   paused: boolean;
   hydrated: boolean;
   persistenceError: string | null;
@@ -132,14 +172,62 @@ const IN_FLIGHT_STATUSES = new Set<UploadQueueEntry['status']>([
   'uploaded',
 ]);
 
-/** Rows the server may still have news about. */
+/**
+ * Rows `GET /videos/uploads?active=true` may still have news about.
+ *
+ * Only the pre-video phase: once `videoId` exists the upload row is `ready`
+ * and the transcoder — not the control plane — owns the remaining story.
+ */
 function needsPolling(entries: readonly UploadQueueEntry[]): boolean {
   return entries.some(
     (entry) =>
       entry.uploadId !== null &&
-      (IN_FLIGHT_STATUSES.has(entry.status) ||
-        entry.status === 'processing' ||
-        (entry.videoId !== null && entry.videoStatus !== 'processed' && entry.videoStatus !== 'failed')),
+      entry.videoId === null &&
+      (IN_FLIGHT_STATUSES.has(entry.status) || entry.status === 'processing'),
+  );
+}
+
+/** Has a `Video` row that has not finished (or failed) transcoding yet. */
+function awaitsProcessing(entry: UploadQueueEntry): boolean {
+  return (
+    entry.videoId !== null && entry.videoStatus !== 'processed' && entry.videoStatus !== 'failed'
+  );
+}
+
+/** The video ids whose processing state is still worth asking about. */
+function pendingProgressIds(entries: readonly UploadQueueEntry[]): number[] {
+  const ids = new Set<number>();
+  for (const entry of entries) {
+    if (awaitsProcessing(entry)) ids.add(entry.videoId as number);
+  }
+  return Array.from(ids).sort((a, b) => a - b);
+}
+
+/**
+ * `Videos.status` → the upload queue's narrower vocabulary.
+ *
+ * The legacy single-video route spells the terminal success value `completed`;
+ * both spellings mean the same finished video.
+ */
+function toVideoStatus(status: VideoProcessingStatus | undefined): UploadVideoStatus | null {
+  if (status === 'completed') return 'processed';
+  if (status === 'pending' || status === 'processing' || status === 'processed' || status === 'failed') {
+    return status;
+  }
+  return null;
+}
+
+/** The next progress tick: 5 s ± 1 s, three times slower in a hidden tab. */
+function progressPollDelay(): number {
+  const jittered = PROGRESS_POLL_MS + (Math.random() * 2 - 1) * PROGRESS_POLL_JITTER_MS;
+  const hidden = typeof document !== 'undefined' && document.hidden;
+  return Math.round(jittered * (hidden ? HIDDEN_POLL_MULTIPLIER : 1));
+}
+
+function sameRenditions(a: readonly RenditionSummary[], b: readonly RenditionSummary[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((item, index) => item.quality === b[index].quality && item.state === b[index].state)
   );
 }
 
@@ -155,6 +243,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   const api = useMemo(() => options.api ?? getBasetubeClient().uploads, [options.api]);
   const transferDeps = useMemo(() => createTransferDependencies(api), [api]);
   const applyVideoUpdate = options.applyVideoUpdate ?? putVideoUpdate;
+  const fetchVideoProgress = options.fetchVideoProgress ?? getVideoProgressBatch;
   const notify = options.notify ?? showErrorToast;
   const storeRef = useRef<UploadResumeStore>(options.resumeStore ?? createUploadResumeStore());
   const entriesRef = useRef<UploadQueueEntry[]>([]);
@@ -170,11 +259,17 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   const thumbnailAttemptedRef = useRef(new Set<string>());
   const mountedRef = useRef(true);
   const applyVideoUpdateRef = useRef(applyVideoUpdate);
+  const fetchVideoProgressRef = useRef(fetchVideoProgress);
   const notifyRef = useRef(notify);
   applyVideoUpdateRef.current = applyVideoUpdate;
+  fetchVideoProgressRef.current = fetchVideoProgress;
   notifyRef.current = notify;
 
   const [entries, setEntries] = useState<UploadQueueEntry[]>([]);
+  /** Memory-only transcode detail, keyed by `localId`. */
+  const [renditionsByLocalId, setRenditionsByLocalId] = useState<Record<string, RenditionSummary[]>>(
+    {},
+  );
   const [paused, setPaused] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
@@ -251,7 +346,12 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
           for (const entry of entriesRef.current) {
             // A row the server has never heard of (or has already retired) is
             // dead weight; a row with no uploadId has not been created yet.
-            if (entry.uploadId && !byId.has(entry.uploadId)) {
+            //
+            // A row that already produced a `Video` is NOT dead weight: the
+            // control plane drops `ready` uploads from the active list as soon
+            // as the video reaches `processed`/`failed`, so absence there means
+            // "finished", not "vanished". The progress poll finishes the story.
+            if (entry.uploadId && !byId.has(entry.uploadId) && entry.videoId === null) {
               await forget(entry.localId);
               continue;
             }
@@ -560,7 +660,10 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   useEffect(() => {
     if (!hydrated || paused) return;
     const candidates = selectQueueCandidates(
-      entries,
+      // Once the `Video` row exists there is nothing left to transfer, and a
+      // reload hydrates such a row as `uploaded` — without this guard the
+      // scheduler would re-run a finished transfer against it.
+      entries.filter((entry) => entry.videoId === null),
       activeIdsRef.current,
       false,
       Date.now(),
@@ -647,6 +750,87 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     };
   }, [api, forget, hydrated, persist, pollingWanted, replaceEntries]);
 
+  /** Folds one batch of `/videos/progress` rows into the queue. */
+  const applyProgressRows = useCallback(
+    async (rows: Record<string, VideoProgressBatchRow>) => {
+      const seen: Record<string, RenditionSummary[]> = {};
+      const updates: Array<{ localId: string; patch: Partial<UploadQueueEntry> }> = [];
+
+      for (const entry of entriesRef.current) {
+        if (entry.videoId === null) continue;
+        const row = rows[String(entry.videoId)];
+        if (!row) continue;
+        seen[entry.localId] = (row.renditions ?? []).map((rendition) => ({
+          quality: rendition.quality,
+          state: rendition.state,
+        }));
+        const videoStatus = toVideoStatus(row.status);
+        if (!videoStatus || videoStatus === entry.videoStatus) continue;
+        const settled = videoStatus === 'processed' || videoStatus === 'failed';
+        updates.push({
+          localId: entry.localId,
+          // The upload itself is long done by now; saying so lets the row be
+          // dismissed and keeps the phase derivation on `videoStatus`.
+          patch: settled ? { videoStatus, status: 'ready', progress: 100 } : { videoStatus },
+        });
+      }
+
+      if (mountedRef.current) {
+        setRenditionsByLocalId((current) => {
+          const localIds = Object.keys(seen);
+          const unchanged =
+            localIds.length === Object.keys(current).length &&
+            localIds.every((localId) => sameRenditions(current[localId] ?? [], seen[localId]));
+          return unchanged ? current : seen;
+        });
+      }
+      for (const { localId, patch } of updates) await updateEntry(localId, patch);
+    },
+    [updateEntry],
+  );
+
+  // ── transcode progress poll ──────────────────────────────────────────────
+  // Keyed by the id set, so it starts as soon as a video appears, re-arms when
+  // the set changes, and stops for good once every row is processed/failed.
+  const progressKey = pendingProgressIds(entries).join(',');
+  useEffect(() => {
+    if (!hydrated || progressKey === '') return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const poll = async () => {
+      if (cancelled) return;
+      const ids = pendingProgressIds(entriesRef.current);
+      if (ids.length === 0) return;
+      try {
+        const response = await fetchVideoProgressRef.current(ids);
+        if (cancelled) return;
+        await applyProgressRows(response.data ?? {});
+      } catch {
+        // Keep local state; the next tick tries again.
+      }
+      if (cancelled || pendingProgressIds(entriesRef.current).length === 0) return;
+      timer = setTimeout(() => void poll(), progressPollDelay());
+    };
+
+    // Immediately on boot (and whenever a new video joins): a reload of a
+    // finished batch must show the finished state, not a stale "processing".
+    void poll();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (timer !== undefined) clearTimeout(timer);
+      timer = setTimeout(() => void poll(), 250);
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [applyProgressRows, hydrated, progressKey]);
+
   const abortEntry = useCallback(
     async (localId: string) => {
       const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
@@ -715,9 +899,19 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   const removeEntry = useCallback(
     async (localId: string) => {
       const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
-      if (!entry || !['failed', 'held', 'aborted', 'ready'].includes(entry.status)) return;
+      // Settled either way: the upload gave up, or the video is done with us.
+      const dismissible =
+        ['failed', 'held', 'aborted', 'ready'].includes(entry?.status ?? '') ||
+        entry?.videoStatus === 'processed' ||
+        entry?.videoStatus === 'failed';
+      if (!entry || !dismissible) return;
       pendingThumbnailsRef.current.delete(localId);
       pendingPatchesRef.current.delete(localId);
+      setRenditionsByLocalId((current) => {
+        if (!(localId in current)) return current;
+        const { [localId]: _dropped, ...rest } = current;
+        return rest;
+      });
       await forget(localId);
       replaceEntries(entriesRef.current.filter((candidate) => candidate.localId !== localId));
       releaseSessionSlot();
@@ -725,8 +919,17 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     [forget, releaseSessionSlot, replaceEntries],
   );
 
+  const viewEntries = useMemo<UploadQueueViewEntry[]>(
+    () =>
+      entries.map((entry) => {
+        const renditions = renditionsByLocalId[entry.localId];
+        return renditions ? { ...entry, renditions } : entry;
+      }),
+    [entries, renditionsByLocalId],
+  );
+
   return {
-    entries,
+    entries: viewEntries,
     paused,
     hydrated,
     persistenceError,

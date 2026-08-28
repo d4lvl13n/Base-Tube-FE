@@ -1,43 +1,14 @@
 import React, { useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Pause, Play, RotateCcw, Upload, X } from 'lucide-react';
-import type { UploadQueueEntry } from '@basetube/api';
-import type { UploadQueueApi } from '../../hooks/useUploadQueue';
+import { Check, ChevronDown, ChevronUp, Pause, Play, RotateCcw, Upload, X } from 'lucide-react';
+import type { UploadQueueApi, UploadQueueViewEntry } from '../../hooks/useUploadQueue';
+import { phaseDetail, phaseLabel, uploadPhase, type UploadPhase } from './uploadPhase';
 
-const CANCELLABLE: readonly string[] = [
-  'queued',
-  'reselect_required',
-  'reserving',
-  'retry_wait',
-  'uploading',
-];
-const REPLACEABLE: readonly string[] = ['failed', 'held', 'aborted'];
-
-const STATUS_LABEL: Record<UploadQueueEntry['status'], string> = {
-  queued: 'Queued',
-  reselect_required: 'Reselect file',
-  reserving: 'Preparing',
-  retry_wait: 'Retrying',
-  uploading: 'Uploading',
-  uploaded: 'Finishing',
-  processing: 'Processing',
-  ready: 'Uploaded',
-  failed: 'Failed',
-  held: 'Needs a new attempt',
-  aborted: 'Cancelled',
-};
-
-const STATUS_TONE: Record<UploadQueueEntry['status'], string> = {
-  queued: 'text-gray-400',
-  reselect_required: 'text-yellow-400',
-  reserving: 'text-gray-300',
-  retry_wait: 'text-yellow-400',
+/** Colour per phase — one vocabulary, shared with the Content Studio. */
+const PHASE_TONE: Record<UploadPhase, string> = {
   uploading: 'text-[#fa7517]',
-  uploaded: 'text-[#fa7517]',
   processing: 'text-blue-400',
   ready: 'text-green-500',
   failed: 'text-red-500',
-  held: 'text-yellow-400',
-  aborted: 'text-gray-500',
 };
 
 function formatBytes(bytes: number): string {
@@ -48,12 +19,10 @@ function formatBytes(bytes: number): string {
 }
 
 /** What the row is waiting on, in the creator's terms. */
-function rowDetail(entry: UploadQueueEntry): string {
-  if (entry.errorMessage) return entry.errorMessage;
-  if (entry.status === 'processing') return 'Transcoding on the server';
-  if (entry.videoStatus === 'processed') return 'Ready to watch';
-  if (entry.videoStatus === 'failed') return 'Processing failed — retry from Videos Management';
-  return formatBytes(entry.sizeBytes);
+function rowDetail(entry: UploadQueueViewEntry): string {
+  const phase = uploadPhase(entry);
+  if (phase === 'uploading') return `${formatBytes(entry.sizeBytes)} · ${phaseDetail(entry)}`;
+  return phaseDetail(entry);
 }
 
 interface UploadQueuePanelProps {
@@ -68,9 +37,21 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
   const [collapsed, setCollapsed] = useState(false);
   const reselectInput = useRef<HTMLInputElement>(null);
   const needsReselect = queue.entries.some((entry) => entry.status === 'reselect_required');
-  const activeCount = queue.entries.filter((entry) =>
-    ['queued', 'reserving', 'retry_wait', 'uploading', 'uploaded'].includes(entry.status),
-  ).length;
+  const counts = queue.entries.reduce(
+    (acc, entry) => ({ ...acc, [uploadPhase(entry)]: acc[uploadPhase(entry)] + 1 }),
+    { uploading: 0, processing: 0, ready: 0, failed: 0 } as Record<UploadPhase, number>,
+  );
+  const headline = (
+    [
+      [counts.uploading, 'uploading'],
+      [counts.processing, 'processing'],
+      [counts.ready, 'ready'],
+      [counts.failed, 'failed'],
+    ] as const
+  )
+    .filter(([count]) => count > 0)
+    .map(([count, label]) => `${count} ${label}`)
+    .join(' · ');
 
   return (
     <section
@@ -82,7 +63,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
         <Upload className="w-4 h-4 text-[#fa7517]" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-white">
-            Uploads{activeCount > 0 ? ` · ${activeCount} active` : ''}
+            Uploads{headline ? ` · ${headline}` : ''}
           </p>
           {queue.persistenceError && (
             <p className="text-xs text-yellow-400 truncate">{queue.persistenceError}</p>
@@ -147,65 +128,105 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
           )}
 
           <ul>
-            {queue.entries.map((entry) => (
-              <li key={entry.localId} className="px-4 py-3 border-b border-gray-800/40 last:border-0">
-                <div className="flex items-center gap-2">
-                  <p className="flex-1 min-w-0 truncate text-sm text-white" title={entry.filename}>
-                    {entry.filename}
-                  </p>
-                  <span className={`text-xs shrink-0 ${STATUS_TONE[entry.status]}`}>
-                    {STATUS_LABEL[entry.status]}
-                  </span>
-                </div>
-
-                <div className="mt-2 h-1.5 w-full rounded-full bg-gray-800 overflow-hidden">
-                  <div
-                    className={`h-full ${entry.status === 'failed' ? 'bg-red-500' : 'bg-[#fa7517]'}`}
-                    style={{ width: `${entry.progress}%` }}
-                  />
-                </div>
-
-                <div className="mt-1.5 flex items-center gap-3">
-                  <p className="flex-1 min-w-0 truncate text-xs text-gray-500">{rowDetail(entry)}</p>
-                  {CANCELLABLE.includes(entry.status) && (
-                    <button
-                      type="button"
-                      onClick={() => void queue.abortEntry(entry.localId)}
-                      className="text-xs text-gray-400 hover:text-white inline-flex items-center gap-1"
+            {queue.entries.map((entry) => {
+              const phase = uploadPhase(entry);
+              return (
+                <li key={entry.localId} className="px-4 py-3 border-b border-gray-800/40 last:border-0">
+                  <div className="flex items-center gap-2">
+                    <p className="flex-1 min-w-0 truncate text-sm text-white" title={entry.filename}>
+                      {entry.filename}
+                    </p>
+                    <span
+                      className={`text-xs shrink-0 inline-flex items-center gap-1 ${PHASE_TONE[phase]}`}
                     >
-                      <X className="w-3 h-3" /> Cancel
-                    </button>
+                      {phase === 'ready' && <Check className="w-3 h-3" />}
+                      {phaseLabel(entry)}
+                    </span>
+                  </div>
+
+                  {/* Processing has no honest percentage: a pulsing bar, and the
+                      rendition line below carries the actual news. */}
+                  {phase === 'processing' ? (
+                    <div className="mt-2 h-1.5 w-full rounded-full bg-gray-800 overflow-hidden">
+                      <div className="h-full w-full bg-blue-500/60 animate-pulse" />
+                    </div>
+                  ) : (
+                    <div className="mt-2 h-1.5 w-full rounded-full bg-gray-800 overflow-hidden">
+                      <div
+                        className={
+                          phase === 'failed'
+                            ? 'h-full bg-red-500'
+                            : phase === 'ready'
+                              ? 'h-full bg-green-500'
+                              : 'h-full bg-[#fa7517]'
+                        }
+                        style={{ width: `${phase === 'uploading' ? entry.progress : 100}%` }}
+                      />
+                    </div>
                   )}
-                  {entry.status === 'retry_wait' && (
-                    <button
-                      type="button"
-                      onClick={() => void queue.retryEntry(entry.localId)}
-                      className="text-xs text-gray-400 hover:text-white inline-flex items-center gap-1"
-                    >
-                      <RotateCcw className="w-3 h-3" /> Retry now
-                    </button>
-                  )}
-                  {REPLACEABLE.includes(entry.status) && (
-                    <>
+
+                  <div className="mt-1.5 flex items-center gap-3">
+                    <p className="flex-1 min-w-0 truncate text-xs text-gray-500">{rowDetail(entry)}</p>
+                    {/* Cancel only while bytes are moving; once the video exists
+                        there is nothing left here to cancel. */}
+                    {phase === 'uploading' && (
                       <button
                         type="button"
-                        onClick={() => void queue.replaceAttempt(entry.localId)}
-                        className="text-xs text-[#fa7517] hover:text-[#ff8c3a]"
+                        onClick={() => void queue.abortEntry(entry.localId)}
+                        className="text-xs text-gray-400 hover:text-white inline-flex items-center gap-1"
                       >
-                        Try again
+                        <X className="w-3 h-3" /> Cancel
                       </button>
+                    )}
+                    {entry.status === 'retry_wait' && (
+                      <button
+                        type="button"
+                        onClick={() => void queue.retryEntry(entry.localId)}
+                        className="text-xs text-gray-400 hover:text-white inline-flex items-center gap-1"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Retry now
+                      </button>
+                    )}
+                    {phase === 'ready' && (
                       <button
                         type="button"
                         onClick={() => void queue.removeEntry(entry.localId)}
                         className="text-xs text-gray-500 hover:text-white"
                       >
-                        Remove
+                        Dismiss
                       </button>
-                    </>
-                  )}
-                </div>
-              </li>
-            ))}
+                    )}
+                    {phase === 'failed' && entry.videoId === null && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void queue.replaceAttempt(entry.localId)}
+                          className="text-xs text-[#fa7517] hover:text-[#ff8c3a]"
+                        >
+                          Try again
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void queue.removeEntry(entry.localId)}
+                          className="text-xs text-gray-500 hover:text-white"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    )}
+                    {phase === 'failed' && entry.videoId !== null && (
+                      <button
+                        type="button"
+                        onClick={() => void queue.removeEntry(entry.localId)}
+                        className="text-xs text-gray-500 hover:text-white"
+                      >
+                        Dismiss
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

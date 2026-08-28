@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 export const Container = styled.div`
   display: flex;
@@ -66,7 +66,9 @@ export const DragDropZone = styled.div`
 
 export const StatsContainer = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Six cards now (total / uploading / processing / ready / failed / transfer),
+     so they wrap instead of being squeezed into four fixed columns. */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 `;
@@ -176,6 +178,33 @@ export const ProgressBar = styled.div<{ progress: number; status: string }>`
       status === 'failed' ? '#ef4444' : 
       '#fa7517'};
     transition: width 0.3s ease;
+  }
+`;
+
+const slide = keyframes`
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+`;
+
+/**
+ * Processing has no honest percentage — the server reports renditions, not
+ * bytes — so the bar moves without ever claiming a number.
+ */
+export const IndeterminateBar = styled.div`
+  height: 4px;
+  background: #374151;
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 25%;
+    background: #fa7517;
+    animation: ${slide} 1.4s ease-in-out infinite;
   }
 `;
 

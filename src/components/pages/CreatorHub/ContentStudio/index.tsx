@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import { Upload, XCircle, FileVideo, AlertCircle, CheckCircle, Info, ArrowRight, X } from 'lucide-react';
-import type { UploadQueueEntry } from '@basetube/api';
+import type { UploadQueueViewEntry } from '../../../../hooks/useUploadQueue';
 import {
   Container,
   Header,
@@ -23,32 +23,25 @@ import {
   StatusIcon,
   InfoCard,
   SuccessCard,
+  IndeterminateBar,
 } from './styles';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import NoChannelView from '../NoChannelView';
 import { useUploadQueueContext } from '../../../../contexts/UploadQueueContext';
+import { phaseDetail, phaseLabel, uploadPhase } from '../../../upload/uploadPhase';
+import { summarizeEntries } from './summary';
 
 /** Files accepted in one selection — the client-side ceiling from contract 4. */
 const MAX_FILES = 50;
 
-/** Queue status → the three visual states the styled components understand. */
-function visualStatus(entry: UploadQueueEntry): 'completed' | 'failed' | 'uploading' {
-  if (entry.videoStatus === 'processed' || entry.status === 'ready') return 'completed';
-  if (['failed', 'held', 'aborted'].includes(entry.status) || entry.videoStatus === 'failed') {
-    return 'failed';
-  }
+/** Phase → the three visual states the styled components understand. */
+function visualStatus(entry: UploadQueueViewEntry): 'completed' | 'failed' | 'uploading' {
+  const phase = uploadPhase(entry);
+  if (phase === 'ready') return 'completed';
+  if (phase === 'failed') return 'failed';
   return 'uploading';
-}
-
-function statusLabel(entry: UploadQueueEntry): string {
-  if (entry.videoStatus === 'processed') return 'ready';
-  if (entry.videoStatus === 'failed') return 'processing failed';
-  if (entry.status === 'reselect_required') return 'reselect file';
-  if (entry.status === 'retry_wait') return 'retrying';
-  if (entry.status === 'uploaded') return 'finishing';
-  return entry.status;
 }
 
 export const ContentStudio: React.FC = () => {
@@ -88,20 +81,12 @@ export const ContentStudio: React.FC = () => {
     setDragActive(true);
   };
 
-  const totalFiles = files.length;
-  const uploadedFiles = files.filter((entry) => visualStatus(entry) === 'completed').length;
-  const failedFiles = files.filter((entry) => visualStatus(entry) === 'failed').length;
-  const averageProgress =
-    files.length > 0
-      ? Math.round(files.reduce((acc, entry) => acc + entry.progress, 0) / files.length)
-      : 0;
-  const isUploading = files.some((entry) =>
-    ['queued', 'reserving', 'retry_wait', 'uploading', 'uploaded'].includes(entry.status),
-  );
+  const summary = summarizeEntries(files);
+  const isUploading = summary.uploading > 0;
 
   React.useEffect(() => {
-    if (files.length > 0 && uploadedFiles === files.length) setShowSuccess(true);
-  }, [files.length, uploadedFiles]);
+    if (files.length > 0 && summary.ready === files.length) setShowSuccess(true);
+  }, [files.length, summary.ready]);
 
   if (channels.length === 0) {
     return (
@@ -193,20 +178,30 @@ export const ContentStudio: React.FC = () => {
         <>
           <StatsContainer>
             <StatBox>
-              <span className="text-sm text-gray-400">Total Files</span>
-              <span className="text-2xl font-semibold">{totalFiles}</span>
+              <span className="text-sm text-gray-400">Total</span>
+              <span className="text-2xl font-semibold">{summary.total}</span>
             </StatBox>
             <StatBox>
-              <span className="text-sm text-gray-400">Uploaded</span>
-              <span className="text-2xl font-semibold text-green-500">{uploadedFiles}</span>
+              <span className="text-sm text-gray-400">Uploading</span>
+              <span className="text-2xl font-semibold text-[#fa7517]">{summary.uploading}</span>
+            </StatBox>
+            <StatBox>
+              <span className="text-sm text-gray-400">Processing</span>
+              <span className="text-2xl font-semibold text-blue-400">{summary.processing}</span>
+            </StatBox>
+            <StatBox>
+              <span className="text-sm text-gray-400">Ready</span>
+              <span className="text-2xl font-semibold text-green-500">{summary.ready}</span>
             </StatBox>
             <StatBox>
               <span className="text-sm text-gray-400">Failed</span>
-              <span className="text-2xl font-semibold text-red-500">{failedFiles}</span>
+              <span className="text-2xl font-semibold text-red-500">{summary.failed}</span>
             </StatBox>
             <StatBox>
-              <span className="text-sm text-gray-400">Progress</span>
-              <span className="text-2xl font-semibold text-[#fa7517]">{averageProgress}%</span>
+              <span className="text-sm text-gray-400">Transfer</span>
+              <span className="text-2xl font-semibold text-[#fa7517]">
+                {summary.transferComplete ? 'Transfer complete' : `${summary.transferPercent}%`}
+              </span>
             </StatBox>
           </StatsContainer>
 
@@ -224,6 +219,7 @@ export const ContentStudio: React.FC = () => {
           <FileList>
             <AnimatePresence>
               {files.map((entry) => {
+                const phase = uploadPhase(entry);
                 const visual = visualStatus(entry);
                 return (
                   <motion.div
@@ -252,9 +248,9 @@ export const ContentStudio: React.FC = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <FileStatus status={visual}>{statusLabel(entry)}</FileStatus>
-                          <FileProgress>{entry.progress}%</FileProgress>
-                          {['queued', 'reserving', 'retry_wait', 'uploading'].includes(entry.status) && (
+                          <FileStatus status={visual}>{phaseLabel(entry)}</FileStatus>
+                          <FileProgress>{phaseDetail(entry)}</FileProgress>
+                          {phase === 'uploading' && (
                             <button
                               type="button"
                               onClick={() => void queue.abortEntry(entry.localId)}
@@ -263,7 +259,25 @@ export const ContentStudio: React.FC = () => {
                               Cancel
                             </button>
                           )}
-                          {['failed', 'held', 'aborted'].includes(entry.status) && (
+                          {phase === 'ready' && entry.videoId !== null && (
+                            <>
+                              <Link
+                                to={`/video/${entry.videoId}`}
+                                className="text-xs text-[#fa7517] hover:text-[#ff8c3a]"
+                              >
+                                View
+                              </Link>
+                              <Link
+                                to="/creator-hub/videos"
+                                className="text-xs text-gray-400 hover:text-white"
+                              >
+                                Edit
+                              </Link>
+                            </>
+                          )}
+                          {/* Once the video exists the backend owns the retry —
+                              it lives in Videos Management, not here. */}
+                          {phase === 'failed' && entry.videoId === null && (
                             <button
                               type="button"
                               onClick={() => void queue.replaceAttempt(entry.localId)}
@@ -272,9 +286,24 @@ export const ContentStudio: React.FC = () => {
                               Try again
                             </button>
                           )}
+                          {phase === 'failed' && entry.videoId !== null && (
+                            <Link
+                              to="/creator-hub/videos"
+                              className="text-xs text-gray-400 hover:text-white"
+                            >
+                              Edit
+                            </Link>
+                          )}
                         </div>
                       </FileDetails>
-                      <ProgressBar progress={entry.progress} status={visual} />
+                      {phase === 'processing' ? (
+                        <IndeterminateBar aria-label="Processing on the server" />
+                      ) : (
+                        <ProgressBar
+                          progress={phase === 'uploading' ? entry.progress : 100}
+                          status={visual}
+                        />
+                      )}
                       {entry.errorMessage && (
                         <p className="text-xs text-red-400 mt-2">{entry.errorMessage}</p>
                       )}

@@ -5,10 +5,20 @@ import {
   type ActiveUploadSummary,
   type CompleteUploadBody,
   type CreateUploadResult,
+  type PersistedUploadRecord,
   type UploadApi,
   type UploadStateData,
 } from '@basetube/api';
+import type { VideoProgressBatchResponse } from '../../api/video';
 import { useUploadQueue } from '../useUploadQueue';
+
+// The queue's default collaborators talk to axios (`PUT /videos/:id`,
+// `GET /videos/progress`). Every test injects its own, so the real module only
+// has to exist — and must never reach the network from jsdom.
+jest.mock('../../api/video', () => ({
+  updateVideo: jest.fn().mockResolvedValue({ success: true }),
+  getVideoProgressBatch: jest.fn().mockResolvedValue({ success: true, data: {} }),
+}));
 
 if (typeof (globalThis.crypto as Crypto | undefined)?.randomUUID !== 'function') {
   let counter = 0;
@@ -382,5 +392,171 @@ describe('useUploadQueue parked thumbnail', () => {
 
     await waitFor(() => expect(order).toContain('complete'));
     expect(applyVideoUpdate).not.toHaveBeenCalled();
+  });
+});
+
+/** A row already recovered from IndexedDB: bytes in, video created. */
+function persistedRow(overrides: Partial<PersistedUploadRecord> = {}): PersistedUploadRecord {
+  return {
+    localId: 'row-1',
+    clientAttemptId: 'row-1',
+    uploadId: 'upload-9',
+    channelId: 7,
+    title: 'clip',
+    description: null,
+    isPublic: false,
+    tags: null,
+    filename: 'clip.mp4',
+    sizeBytes: 10,
+    lastModified: 0,
+    contentType: 'video/mp4',
+    partSizeBytes: 10,
+    partCount: 1,
+    completedParts: [],
+    status: 'ready',
+    progress: 100,
+    errorCode: null,
+    errorMessage: null,
+    retryAt: null,
+    videoId: 99,
+    videoStatus: 'processing',
+    createdAt: '2026-08-28T10:00:00.000Z',
+    updatedAt: '2026-08-28T10:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function progressResponse(
+  videoId: number,
+  status: 'pending' | 'processing' | 'processed' | 'failed',
+  renditions: Array<{ quality: string; state: string }> = [],
+): VideoProgressBatchResponse {
+  return {
+    success: true,
+    data: { [String(videoId)]: { videoId, status, renditions, progress: undefined } },
+  };
+}
+
+async function seededStore(record: PersistedUploadRecord) {
+  const store = createMemoryResumeStore();
+  await store.put(record);
+  return store;
+}
+
+describe('useUploadQueue video processing poll', () => {
+  // `GET /videos/uploads?active=true` stops listing a `ready` upload the moment
+  // its video is processed/failed. Treating that absence as "vanished" both
+  // deleted the row and left it reading "processing" forever.
+  it('keeps a row the active list no longer returns and finishes it from /videos/progress', async () => {
+    const { api } = harness(); // listActive() → []
+    const store = await seededStore(persistedRow());
+    const fetchVideoProgress = jest.fn().mockResolvedValue(progressResponse(99, 'processed'));
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    // Not forgotten by the boot reconciliation…
+    expect(result.current.entries).toHaveLength(1);
+    // …and the progress poll — which runs once on boot — settles it.
+    await waitFor(() => expect(result.current.entries[0].videoStatus).toBe('processed'));
+    expect(fetchVideoProgress).toHaveBeenCalledWith([99]);
+    // The row is dismissible now, not stuck mid-transfer.
+    expect(result.current.entries[0].status).toBe('ready');
+  });
+
+  it('carries the rendition detail so the row can say what is transcoding', async () => {
+    const { api } = harness();
+    const store = await seededStore(persistedRow());
+    const fetchVideoProgress = jest.fn().mockResolvedValue(
+      progressResponse(99, 'processing', [
+        { quality: '480p', state: 'verified' },
+        { quality: '720p', state: 'in_progress' },
+      ]),
+    );
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    await waitFor(() =>
+      expect(result.current.entries[0].renditions).toEqual([
+        { quality: '480p', state: 'verified' },
+        { quality: '720p', state: 'in_progress' },
+      ]),
+    );
+  });
+});
+
+describe('useUploadQueue video processing poll cadence', () => {
+  const setVisibility = (hidden: boolean) => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => (hidden ? 'hidden' : 'visible'),
+    });
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // Kill the ±1 s jitter so the interval is exactly the nominal one.
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    setVisibility(false);
+  });
+
+  it('polls every 5 s and stops for good once the video is processed', async () => {
+    setVisibility(false);
+    const { api } = harness();
+    const store = await seededStore(persistedRow());
+    const fetchVideoProgress = jest
+      .fn()
+      .mockResolvedValueOnce(progressResponse(99, 'processing'))
+      .mockResolvedValue(progressResponse(99, 'processed'));
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(fetchVideoProgress).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      jest.advanceTimersByTime(5_100);
+    });
+    expect(fetchVideoProgress).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(result.current.entries[0].videoStatus).toBe('processed'));
+
+    // Terminal: no further tick is ever scheduled.
+    await act(async () => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(fetchVideoProgress).toHaveBeenCalledTimes(2);
+  });
+
+  it('backs off to a third of the rate while the tab is hidden', async () => {
+    setVisibility(true);
+    const { api } = harness();
+    const store = await seededStore(persistedRow());
+    const fetchVideoProgress = jest.fn().mockResolvedValue(progressResponse(99, 'processing'));
+
+    renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(fetchVideoProgress).toHaveBeenCalledTimes(1));
+
+    // 5 s would have been the visible-tab tick; hidden, nothing happens yet.
+    await act(async () => {
+      jest.advanceTimersByTime(14_000);
+    });
+    expect(fetchVideoProgress).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(1_500);
+    });
+    expect(fetchVideoProgress).toHaveBeenCalledTimes(2);
   });
 });
