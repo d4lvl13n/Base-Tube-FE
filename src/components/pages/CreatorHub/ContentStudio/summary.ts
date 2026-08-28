@@ -37,3 +37,36 @@ export function summarizeEntries(entries: readonly UploadQueueViewEntry[]): Queu
     transferComplete: entries.length > 0 && counts.uploading === 0,
   };
 }
+
+/** How a summary segment should read — colour is meaning, not decoration. */
+export type SummaryTone = 'muted' | 'active' | 'ready' | 'failed';
+
+export interface SummarySegment {
+  key: string;
+  text: string;
+  tone: SummaryTone;
+}
+
+/**
+ * The status strip: `9 files · 2 uploading · 3 processing · 4 ready · 1 failed`.
+ *
+ * Only the total is always shown; a phase earns a segment by having something
+ * in it, so a queue that is simply working reads as one short line.
+ */
+export function summarySegments(summary: QueueSummary): SummarySegment[] {
+  if (summary.total === 0) return [];
+  const segments: SummarySegment[] = [
+    { key: 'total', text: `${summary.total} ${summary.total === 1 ? 'file' : 'files'}`, tone: 'muted' },
+  ];
+  const phases: ReadonlyArray<[keyof QueueSummary, string, SummaryTone]> = [
+    ['uploading', 'uploading', 'active'],
+    ['processing', 'processing', 'muted'],
+    ['ready', 'ready', 'ready'],
+    ['failed', 'failed', 'failed'],
+  ];
+  for (const [key, label, tone] of phases) {
+    const count = summary[key] as number;
+    if (count > 0) segments.push({ key: String(key), text: `${count} ${label}`, tone });
+  }
+  return segments;
+}

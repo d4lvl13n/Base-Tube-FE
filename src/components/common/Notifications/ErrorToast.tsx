@@ -1,6 +1,6 @@
 import React from 'react';
 import { toast } from 'react-toastify';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Info } from 'lucide-react';
 
 export const showErrorToast = (message: string) => {
   toast.error(
@@ -16,6 +16,27 @@ export const showErrorToast = (message: string) => {
       pauseOnHover: true,
       draggable: true,
       progress: undefined,
+      theme: "dark",
+      className: "bg-black/90 backdrop-blur-sm border border-gray-800/30",
+    }
+  );
+};
+
+/** The quiet sibling: news, not a problem. */
+export const showInfoToast = (message: string) => {
+  toast.info(
+    <div className="flex items-center gap-3">
+      <Info className="w-5 h-5 text-[#fa7517] flex-shrink-0" />
+      <p className="text-sm text-white">{message}</p>
+    </div>,
+    {
+      // Bottom-centre, because this one points at the bottom-right panel.
+      position: "bottom-center",
+      autoClose: 5000,
+      hideProgressBar: true,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
       theme: "dark",
       className: "bg-black/90 backdrop-blur-sm border border-gray-800/30",
     }

@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Pause, Play, RotateCcw, Upload, X } from 'lucide-react';
 import type { UploadQueueApi, UploadQueueViewEntry } from '../../hooks/useUploadQueue';
-import { phaseDetail, phaseLabel, uploadPhase, type UploadPhase } from './uploadPhase';
+import { formatBytes, phaseDetail, phaseLabel, uploadPhase, type UploadPhase } from './uploadPhase';
 
 /** Colour per phase — one vocabulary, shared with the Content Studio. */
 const PHASE_TONE: Record<UploadPhase, string> = {
@@ -10,13 +10,6 @@ const PHASE_TONE: Record<UploadPhase, string> = {
   ready: 'text-green-500',
   failed: 'text-red-500',
 };
-
-function formatBytes(bytes: number): string {
-  if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
-  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
-  if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
-  return `${bytes} B`;
-}
 
 /** What the row is waiting on, in the creator's terms. */
 function rowDetail(entry: UploadQueueViewEntry): string {

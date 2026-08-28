@@ -1,6 +1,6 @@
 import type { UploadQueueViewEntry } from '../../../../../hooks/useUploadQueue';
 import { phaseDetail, phaseLabel, uploadPhase } from '../../../../upload/uploadPhase';
-import { summarizeEntries } from '../summary';
+import { summarizeEntries, summarySegments } from '../summary';
 
 function entry(overrides: Partial<UploadQueueViewEntry> = {}): UploadQueueViewEntry {
   return {
@@ -125,5 +125,47 @@ describe('phase vocabulary', () => {
     expect(uploadPhase(failed)).toBe('failed');
     expect(phaseLabel(failed)).toBe('Failed');
     expect(phaseDetail(failed)).toContain('processing failed');
+  });
+});
+
+describe('summarySegments', () => {
+  it('reads as one line, and only mentions phases that have something in them', () => {
+    const segments = summarySegments(
+      summarizeEntries([
+        entry({ localId: 'a', status: 'uploading', progress: 40 }),
+        entry({ localId: 'b', status: 'uploading', progress: 10 }),
+        entry({ localId: 'c', status: 'uploaded', progress: 100 }),
+        entry({ localId: 'd', status: 'ready', progress: 100, videoId: 9, videoStatus: 'processed' }),
+      ]),
+    );
+
+    expect(segments.map((segment) => segment.text)).toEqual([
+      '4 files',
+      '2 uploading',
+      '1 processing',
+      '1 ready',
+    ]);
+    // Nothing failed, so "0 failed" is never said.
+    expect(segments.some((segment) => segment.text.includes('failed'))).toBe(false);
+  });
+
+  it('says "1 file", not "1 files"', () => {
+    const segments = summarySegments(summarizeEntries([entry({ status: 'uploading' })]));
+    expect(segments[0].text).toBe('1 file');
+  });
+
+  it('colours failures and transfers differently from the rest', () => {
+    const segments = summarySegments(
+      summarizeEntries([
+        entry({ localId: 'a', status: 'uploading', progress: 5 }),
+        entry({ localId: 'b', status: 'failed', progress: 3 }),
+      ]),
+    );
+    expect(segments.find((segment) => segment.key === 'uploading')?.tone).toBe('active');
+    expect(segments.find((segment) => segment.key === 'failed')?.tone).toBe('failed');
+  });
+
+  it('is empty when the queue is', () => {
+    expect(summarySegments(summarizeEntries([]))).toEqual([]);
   });
 });

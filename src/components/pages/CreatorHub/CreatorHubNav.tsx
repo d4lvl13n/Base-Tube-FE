@@ -81,7 +81,7 @@ const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) 
       path: '/creator-hub/content-studio',
       subItems: [
         { title: 'Videos Management', path: '/creator-hub/videos' },
-        { title: 'Batch Upload', path: '/creator-hub/content-studio' },
+        { title: 'Content Studio', path: '/creator-hub/content-studio' },
         { title: 'Playlists', path: '/creator-hub/playlists' },
         { title: 'Channel Management', path: '/creator-hub/channels' },
         { title: 'Manage Content Passes', path: '/creator-hub/passes' }
