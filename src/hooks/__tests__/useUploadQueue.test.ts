@@ -560,3 +560,215 @@ describe('useUploadQueue video processing poll cadence', () => {
     expect(fetchVideoProgress).toHaveBeenCalledTimes(2);
   });
 });
+
+/**
+ * The same file as `videoFile()`, but with a fixed `lastModified` so it matches
+ * the persisted fingerprint a reload has to recognise.
+ */
+const resumableFile = () =>
+  new File(['0123456789'], 'clip.mp4', { type: 'video/mp4', lastModified: 0 });
+
+/** An upload the browser lost its file handle for, still live on the server. */
+function resumableRow(overrides: Partial<PersistedUploadRecord> = {}): PersistedUploadRecord {
+  return persistedRow({
+    status: 'uploading',
+    progress: 50,
+    videoId: null,
+    videoStatus: null,
+    ...overrides,
+  });
+}
+
+/** The active-list row that keeps `resumableRow` from being forgotten at boot. */
+function activeRow(): ActiveUploadSummary {
+  return {
+    uploadId: 'upload-9',
+    uploadState: 'uploading',
+    channelId: 7,
+    title: 'clip',
+    description: null,
+    isPublic: false,
+    tags: null,
+    originalFilename: 'clip.mp4',
+    declaredSizeBytes: 10,
+    partSizeBytes: 10,
+    partCount: 1,
+    videoId: null,
+    videoStatus: null,
+    errorCode: null,
+    createdAt: '2026-08-28T10:00:00.000Z',
+  } as ActiveUploadSummary;
+}
+
+describe('useUploadQueue cancel that the server refuses', () => {
+  /**
+   * Hydrates one row, reattaches its file, and cancels it — with the queue
+   * paused throughout, so the scheduler's behaviour afterwards is the only
+   * thing the test is measuring.
+   */
+  async function cancelWithFailingAbort(abortError: Error) {
+    const touched: string[] = [];
+    const { api } = harness({
+      abort: async () => {
+        touched.push('abort');
+        throw abortError;
+      },
+      async getState() {
+        touched.push('getState');
+        throw new Error('the transfer must not run');
+      },
+      listActive: async () => [activeRow()],
+    });
+    const store = await seededStore(resumableRow());
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    // Paused, so reattaching the file cannot start a transfer behind our back.
+    act(() => {
+      result.current.setPaused(true);
+    });
+    await act(async () => {
+      await result.current.reselectFiles([resumableFile()]);
+    });
+    await waitFor(() => expect(result.current.entries[0].status).toBe('queued'));
+    const localId = result.current.entries[0].localId;
+
+    await act(async () => {
+      await result.current.abortEntry(localId);
+    });
+
+    return { result, localId, touched };
+  }
+
+  it('parks the row in a terminal `aborted` state instead of requeueing it', async () => {
+    const { result } = await cancelWithFailingAbort(new Error('Network Error'));
+
+    const entry = result.current.entries[0];
+    expect(entry.status).toBe('aborted');
+    expect(entry.errorCode).toBe('UPLOAD_ABORT_FAILED');
+    // The file is still attached — what stops the resume is the status, not
+    // the absence of bytes to send.
+    expect(entry.file).not.toBeNull();
+  });
+
+  it('is never picked up again by the scheduler', async () => {
+    const { result, touched } = await cancelWithFailingAbort(new Error('Network Error'));
+
+    // Unpausing is exactly the moment the old `queued` fallback resumed the
+    // upload the creator had just cancelled.
+    await act(async () => {
+      result.current.setPaused(false);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(touched).toEqual(['abort']);
+    expect(result.current.entries[0].status).toBe('aborted');
+  });
+
+  it('can be removed by the creator', async () => {
+    const { result, localId } = await cancelWithFailingAbort(new Error('Network Error'));
+
+    await act(async () => {
+      await result.current.removeEntry(localId);
+    });
+
+    expect(result.current.entries).toHaveLength(0);
+  });
+
+  it('reports the failure as a code plus message, never as raw text', async () => {
+    const { result } = await cancelWithFailingAbort(
+      new Error('{"error":{"code":"BOOM","stack":"at abort (upload.ts:12:3)"}}'),
+    );
+
+    expect(result.current.actionError).toEqual({
+      code: 'UPLOAD_ABORT_FAILED',
+      message: '{"error":{"code":"BOOM","stack":"at abort (upload.ts:12:3)"}}',
+    });
+  });
+
+  it('resolves true and leaves nothing behind when the server accepts the cancel', async () => {
+    const { api } = harness({ listActive: async () => [activeRow()] });
+    const store = await seededStore(resumableRow());
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    act(() => {
+      result.current.setPaused(true);
+    });
+
+    const localId = result.current.entries[0].localId;
+    let stopped = false;
+    await act(async () => {
+      stopped = await result.current.abortEntry(localId);
+    });
+
+    expect(stopped).toBe(true);
+    expect(result.current.entries[0].status).toBe('aborted');
+    expect(result.current.entries[0].errorCode).toBeNull();
+    expect(result.current.actionError).toBeNull();
+  });
+});
+
+describe('useUploadQueue progress poll is single-flight', () => {
+  const setVisibility = (hidden: boolean) => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => (hidden ? 'hidden' : 'visible'),
+    });
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    setVisibility(false);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    setVisibility(false);
+  });
+
+  // A tab regaining focus used to jump the queue while a batch was already on
+  // the wire: two overlapping requests, and the older answer could land last.
+  it('does not issue a second request when the tab is refocused mid-poll', async () => {
+    let resolveFirst: (value: VideoProgressBatchResponse) => void = () => {};
+    const fetchVideoProgress = jest.fn().mockImplementation(
+      () =>
+        new Promise<VideoProgressBatchResponse>((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    const { api } = harness();
+    const store = await seededStore(persistedRow());
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(fetchVideoProgress).toHaveBeenCalledTimes(1));
+
+    // Focus returns, and the 250 ms catch-up tick comes due — while the first
+    // request is still unresolved.
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(2_000);
+    });
+    expect(fetchVideoProgress).toHaveBeenCalledTimes(1);
+
+    // The one response in flight is the one that lands.
+    await act(async () => {
+      resolveFirst(progressResponse(99, 'processed'));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.entries[0].videoStatus).toBe('processed'));
+    expect(fetchVideoProgress).toHaveBeenCalledTimes(1);
+  });
+});

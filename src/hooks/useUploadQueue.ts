@@ -78,6 +78,18 @@ function conflictVideoId(error: unknown): number | null {
   return typeof videoId === 'number' ? videoId : null;
 }
 
+/**
+ * A failed queue action, in the two pieces the UI needs.
+ *
+ * The code is what `describeUploadError` can translate exactly; the message is
+ * whatever the server said, and is only ever shown after that sanitizer has
+ * decided it reads as a sentence. Nothing here reaches a creator raw.
+ */
+export interface UploadActionError {
+  code: string | null;
+  message: string;
+}
+
 /** What a post-completion edit can still change on the Video row. */
 export interface VideoUpdateFields {
   title?: string;
@@ -139,7 +151,7 @@ export interface UploadQueueApi {
   hydrated: boolean;
   persistenceError: string | null;
   selectionNotice: string | null;
-  actionError: string | null;
+  actionError: UploadActionError | null;
   activeCount: number;
   remainingSessionSlots: number;
   setPaused: (paused: boolean) => void;
@@ -158,7 +170,12 @@ export interface UploadQueueApi {
    * creator navigates away from the upload page before the video row exists.
    */
   setPendingThumbnail: (localId: string, thumbnail: File | null) => void;
-  abortEntry: (localId: string) => Promise<void>;
+  /**
+   * Stops one upload. Resolves `true` only when the server confirmed it — a
+   * `false` leaves the row on screen in its terminal `aborted` state, saying
+   * what happened, for the creator to dismiss.
+   */
+  abortEntry: (localId: string) => Promise<boolean>;
   retryEntry: (localId: string) => Promise<void>;
   replaceAttempt: (localId: string) => Promise<void>;
   removeEntry: (localId: string) => Promise<void>;
@@ -274,7 +291,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   const [hydrated, setHydrated] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<UploadActionError | null>(null);
   const [schedulerRevision, setSchedulerRevision] = useState(0);
   const [admissionRetryAt, setAdmissionRetryAt] = useState<number | null>(null);
   const [admissionProbe, setAdmissionProbe] = useState(false);
@@ -797,19 +814,27 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     if (!hydrated || progressKey === '') return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // Single-flight: a tab regaining focus used to fire a second batch while
+    // the first was still on the wire, and whichever answered last won.
+    let inFlight = false;
 
     const poll = async () => {
-      if (cancelled) return;
+      if (cancelled || inFlight) return;
       const ids = pendingProgressIds(entriesRef.current);
       if (ids.length === 0) return;
+      inFlight = true;
       try {
         const response = await fetchVideoProgressRef.current(ids);
         if (cancelled) return;
         await applyProgressRows(response.data ?? {});
       } catch {
         // Keep local state; the next tick tries again.
+      } finally {
+        inFlight = false;
       }
       if (cancelled || pendingProgressIds(entriesRef.current).length === 0) return;
+      // The visibility handler may have queued a tick while this one ran.
+      if (timer !== undefined) clearTimeout(timer);
       timer = setTimeout(() => void poll(), progressPollDelay());
     };
 
@@ -819,6 +844,9 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
 
     const onVisibilityChange = () => {
       if (document.visibilityState !== 'visible') return;
+      // A request already on the wire schedules the next tick itself; jumping
+      // the queue here is what produced two overlapping batches.
+      if (inFlight) return;
       if (timer !== undefined) clearTimeout(timer);
       timer = setTimeout(() => void poll(), 250);
     };
@@ -832,9 +860,9 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   }, [applyProgressRows, hydrated, progressKey]);
 
   const abortEntry = useCallback(
-    async (localId: string) => {
+    async (localId: string): Promise<boolean> => {
       const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
-      if (!entry) return;
+      if (!entry) return false;
       abortingIdsRef.current.add(localId);
       controllersRef.current.get(localId)?.abort();
       setActionError(null);
@@ -852,14 +880,22 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
           replaceEntries(entriesRef.current.filter((candidate) => candidate.localId !== localId));
           releaseSessionSlot();
         }
+        return true;
       } catch (error) {
+        // The cancel did not take. Putting the row back to `queued` was the
+        // worst of both worlds: the creator asked for it to stop, and the
+        // scheduler quietly resumed it. It ends here instead — terminal,
+        // never rescheduled, dismissible — and the multipart session is left
+        // to the server's stale-upload cleanup.
         const message = error instanceof Error ? error.message : 'Upload cancellation failed';
-        setActionError(message);
+        setActionError({ code: 'UPLOAD_ABORT_FAILED', message });
         await updateEntry(localId, {
-          status: entry.file ? 'queued' : 'reselect_required',
+          status: 'aborted',
+          retryAt: null,
           errorCode: 'UPLOAD_ABORT_FAILED',
           errorMessage: message,
         });
+        return false;
       } finally {
         abortingIdsRef.current.delete(localId);
       }

@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Pause, Play, RotateCcw, Upload, X } from 'lucide-react';
 import type { UploadQueueApi, UploadQueueViewEntry } from '../../hooks/useUploadQueue';
-import { uploadCopy } from './uploadCopy';
+import { describeUploadError, uploadCopy } from './uploadCopy';
 import { formatBytes, phaseDetail, phaseLabel, uploadPhase, type UploadPhase } from './uploadPhase';
 
 /** Colour per phase — one vocabulary, shared with the Content Studio. */
@@ -115,7 +115,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
 
           {queue.actionError && (
             <p className="px-4 py-2 text-xs text-red-400" role="alert">
-              {queue.actionError}
+              {describeUploadError(queue.actionError.code, queue.actionError.message)}
             </p>
           )}
 

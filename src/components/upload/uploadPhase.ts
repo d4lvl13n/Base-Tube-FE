@@ -43,7 +43,10 @@ export function isTransferring(entry: UploadQueueViewEntry): boolean {
 export function phaseLabel(entry: UploadQueueViewEntry): string {
   switch (uploadPhase(entry)) {
     case 'failed':
-      return entry.status === 'aborted' ? 'Cancelled' : 'Failed';
+      // A cancel the server refused is a failure, not a cancellation.
+      return entry.status === 'aborted' && entry.errorCode !== 'UPLOAD_ABORT_FAILED'
+        ? 'Cancelled'
+        : 'Failed';
     case 'ready':
       return 'Ready';
     case 'processing':
@@ -90,6 +93,12 @@ function retryDetail(entry: UploadQueueViewEntry): string {
 export function phaseDetail(entry: UploadQueueViewEntry): string {
   switch (uploadPhase(entry)) {
     case 'failed':
+      // Checked before `aborted`: the row is parked in that state precisely
+      // because the cancel did NOT take, so "you stopped this upload" would be
+      // the one thing that is not true.
+      if (entry.errorCode === 'UPLOAD_ABORT_FAILED') {
+        return describeUploadError(entry.errorCode, entry.errorMessage);
+      }
       if (entry.status === 'aborted') return uploadCopy.cancelled;
       // The server could not say whether the upload exists, so retrying might
       // duplicate it — this one has its own instruction.

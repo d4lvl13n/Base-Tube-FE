@@ -133,12 +133,26 @@ const VideoUpload: React.FC = () => {
     if (file) void acceptFile(file);
   };
 
-  /** Cancelling gives the page back its drop zone, not a dead row. */
+  /**
+   * Cancelling gives the page back its drop zone, not a dead row — but only
+   * when the upload actually stopped. A cancel the server refused leaves the
+   * row where it is, saying so, until the creator dismisses it: silently
+   * clearing the page while bytes may still be moving is the lie this avoids.
+   */
   const onCancel = async () => {
     if (!queueLocalId) return;
     const localId = queueLocalId;
+    const stopped = await uploadQueue.abortEntry(localId);
+    if (!stopped) return;
     setQueueLocalId(null);
-    await uploadQueue.abortEntry(localId);
+    await uploadQueue.removeEntry(localId);
+  };
+
+  /** The creator dismissing a settled row: the queue forgets it either way. */
+  const onRemove = async () => {
+    if (!queueLocalId) return;
+    const localId = queueLocalId;
+    setQueueLocalId(null);
     await uploadQueue.removeEntry(localId);
   };
 
@@ -268,6 +282,20 @@ const VideoUpload: React.FC = () => {
                            focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            )}
+
+            {/* A settled failure — including a cancel the server refused —
+                stays on screen with its sentence until this is clicked. */}
+            {phase === 'failed' && (
+              <button
+                type="button"
+                onClick={() => void onRemove()}
+                aria-label={`Remove ${entry.filename}`}
+                className="shrink-0 rounded px-1 text-xs text-gray-500 transition-colors hover:text-white
+                           focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600"
+              >
+                Remove
               </button>
             )}
 

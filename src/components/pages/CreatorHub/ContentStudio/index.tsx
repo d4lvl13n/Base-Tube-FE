@@ -19,6 +19,7 @@ import { Container } from './styles';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
 import NoChannelView from '../NoChannelView';
 import { useUploadQueueContext } from '../../../../contexts/UploadQueueContext';
+import { describeUploadError } from '../../../upload/uploadCopy';
 import { formatBytes, phaseDetail, phaseLabel, uploadPhase } from '../../../upload/uploadPhase';
 import { summarizeEntries, summarySegments, type SummaryTone } from './summary';
 
@@ -225,7 +226,7 @@ export const ContentStudio: React.FC = () => {
       {queue.actionError && (
         <p className="mt-4 flex items-center gap-1.5 text-xs text-red-400" role="alert">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          {queue.actionError}
+          {describeUploadError(queue.actionError.code, queue.actionError.message)}
         </p>
       )}
       {queue.selectionNotice && (

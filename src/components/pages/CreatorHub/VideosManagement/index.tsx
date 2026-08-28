@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { useSearchParams } from 'react-router-dom';
@@ -10,7 +10,23 @@ import EditVideoModal from './EditVideoModal';
 import DeleteConfirmationDialog from '../../../common/DeleteConfirmationDialog';
 import { Video } from '../../../../types/video';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
+import { useUploadQueueContext } from '../../../../contexts/UploadQueueContext';
 import { useVideoProcessing } from '../../../../hooks/useVideoProcessing';
+
+/**
+ * How long we keep watching the upload queue for `?highlight=<uploadId>`.
+ *
+ * The video row does not exist at the moment the upload page hands over — the
+ * worker creates it during completion — so the id in the URL is the upload's
+ * until the queue learns the video id. A minute is far longer than that takes;
+ * after it, the creator is just looking at their videos.
+ */
+const HIGHLIGHT_RESOLVE_MS = 60_000;
+
+/** `?highlight=` carrying a video id rather than an upload id. */
+function isVideoId(value: string): boolean {
+  return /^\d+$/.test(value);
+}
 
 interface PaginatedResponse {
   data: Video[];
@@ -42,13 +58,43 @@ const VideosManagement: React.FC = () => {
     direction: 'desc'
   });
 
+  // `failed` belongs here too: without it the poll never returns a row for a
+  // failed video, so the list showed no status and no Retry — the one state
+  // where the creator actually has something to do.
   const processingVideoIds = useMemo(() => {
     return videos
-      .filter(v => v.status === 'pending' || v.status === 'processing')
+      .filter(v => v.status === 'pending' || v.status === 'processing' || v.status === 'failed')
       .map(v => v.id);
   }, [videos]);
   
   const { processingVideos } = useVideoProcessing(processingVideoIds);
+
+  // ── `?highlight=` resolution ─────────────────────────────────────────────
+  // The upload pages link here with whichever id they hold. A video id can be
+  // matched against the list directly; an upload id cannot — the API does not
+  // return it — so it is resolved through the queue, which knows both.
+  const { entries: queueEntries } = useUploadQueueContext();
+  const numericHighlight = highlightId !== null && isVideoId(highlightId);
+  const [queueHighlightId, setQueueHighlightId] = useState<string | null>(null);
+  const highlightDeadlineRef = useRef(0);
+
+  useEffect(() => {
+    setQueueHighlightId(null);
+    highlightDeadlineRef.current = Date.now() + HIGHLIGHT_RESOLVE_MS;
+  }, [highlightId]);
+
+  // The queue re-renders on every one of its own polls, so this reads as a
+  // poll without owning a timer of its own.
+  useEffect(() => {
+    if (highlightId === null || numericHighlight || queueHighlightId !== null) return;
+    if (Date.now() > highlightDeadlineRef.current) return;
+    const match = queueEntries.find(
+      (entry) => entry.uploadId === highlightId || entry.localId === highlightId,
+    );
+    if (match?.videoId != null) setQueueHighlightId(String(match.videoId));
+  }, [highlightId, numericHighlight, queueEntries, queueHighlightId]);
+
+  const resolvedHighlightId = numericHighlight ? highlightId : queueHighlightId;
 
   // Fetch videos with react-query
   const {
@@ -195,7 +241,7 @@ const VideosManagement: React.FC = () => {
             videos={sortedVideos}
             processingVideos={processingVideos}
             onRetryProcessing={handleRetryProcessing}
-            highlightId={highlightId}
+            highlightId={resolvedHighlightId}
             isLoading={isLoading}
             hasMore={hasMore}
             onLoadMore={handleLoadMore}

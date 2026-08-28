@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, forwardRef } from 'react';
+import React, { useEffect, useMemo, useRef, forwardRef } from 'react';
 import videojs from 'video.js';
 import type Player from 'video.js/dist/types/player';
 import 'video.js/dist/video-js.css';
@@ -34,6 +34,16 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
   ({ src, video_url, video_urls, thumbnail_path, thumbnail_url, onReady, videoId, duration, isEmbed = false, title }, ref) => {
     const videoRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<Player | null>(null);
+    /** The URL currently loaded into the player, so a prop change can be seen. */
+    const loadedSourceRef = useRef<string>('');
+
+    // A rendition can arrive minutes after mount, when the transcoder finishes
+    // and the parent refetches. Memoised so the switch effect below fires on a
+    // genuinely different URL, not on every render.
+    const playbackSource = useMemo(
+      () => selectPlaybackSource({ video_url, video_urls, src }),
+      [video_url, video_urls, src],
+    );
 
     // Initialize view tracking
     const viewTracking = useViewTracking({
@@ -119,6 +129,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
 
       const player = videojs(videoElement, playerOptions);
       playerRef.current = player;
+      loadedSourceRef.current = videoSource;
 
       // Event listeners for view tracking
       player.on('playing', () => {
@@ -196,6 +207,36 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
         }
       };
     }, []); // Empty dependency array to run only once on mount
+
+    /**
+     * Swap the source when the selected one changes after mount.
+     *
+     * The player is not rebuilt — that would drop the poster, the control bar
+     * state and every listener above. The playhead and the play/pause state are
+     * carried across, so a 720p rendition landing mid-watch is a quality change
+     * rather than a restart.
+     */
+    useEffect(() => {
+      const player = playerRef.current;
+      if (!player) return;
+      if (!playbackSource || playbackSource === loadedSourceRef.current) return;
+
+      const resumeAt = player.currentTime() ?? 0;
+      const wasPlaying = !player.paused();
+      loadedSourceRef.current = playbackSource;
+      player.src({ src: playbackSource, type: 'video/mp4' });
+      player.one('loadedmetadata', () => {
+        if (resumeAt > 0) player.currentTime(resumeAt);
+        if (wasPlaying) {
+          const resumed = player.play();
+          if (resumed && typeof resumed.catch === 'function') {
+            resumed.catch(() => {
+              // Autoplay policy said no; the controls are still there.
+            });
+          }
+        }
+      });
+    }, [playbackSource]);
 
     return (
       <div className="video-player-container w-full h-full">

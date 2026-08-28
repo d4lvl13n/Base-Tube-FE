@@ -131,13 +131,24 @@ function selectFile(container: HTMLElement, file: File) {
   fireEvent.change(input);
 }
 
+let rerenderUpload: () => void = () => undefined;
+
 function renderUpload(api: UploadQueueApi) {
   mockUseUploadQueueContext.mockReturnValue(api);
-  return render(
+  const utils = render(
     <MemoryRouter>
       <VideoUpload />
     </MemoryRouter>,
   );
+  // Lets a test swap the queue's answer and re-render, the way the provider
+  // does when the queue's own state moves on.
+  rerenderUpload = () =>
+    utils.rerender(
+      <MemoryRouter>
+        <VideoUpload />
+      </MemoryRouter>,
+    );
+  return utils;
 }
 
 beforeEach(() => {
@@ -188,13 +199,13 @@ describe('VideoUpload', () => {
   it('surfaces the SDK rejection message under the drop zone', async () => {
     const enqueueFiles = jest.fn().mockResolvedValue({
       accepted: [],
-      rejected: [{ file: null, code: 'UNSUPPORTED_TYPE', message: 'Choose an MP4, MOV, or AVI video.' }],
+      rejected: [{ file: null, code: 'UNSUPPORTED_TYPE', message: 'We accept MP4, MOV and AVI files.' }],
     });
     const { container } = renderUpload(queue({ enqueueFiles }));
 
     selectFile(container, new File(['x'], 'clip.txt', { type: 'text/plain' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Choose an MP4, MOV, or AVI video.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('We accept MP4, MOV and AVI files.');
   });
 
   it('saves and navigates to Videos Management with the highlight', async () => {
@@ -231,6 +242,58 @@ describe('VideoUpload', () => {
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith('/creator-hub/videos?highlight=55'),
     );
+  });
+
+  // Cancelling is only over when the server says so. A refused cancel used to
+  // clear the page while the bytes may well have kept moving.
+  it('clears the row when the cancel is confirmed', async () => {
+    const created = entry();
+    const api = queue({
+      entries: [created],
+      enqueueFiles: jest.fn().mockResolvedValue({ accepted: [created], rejected: [] }),
+      abortEntry: jest.fn().mockResolvedValue(true),
+    });
+    const { container } = renderUpload(api);
+
+    selectFile(container, new File(['bytes'], 'clip.mp4', { type: 'video/mp4' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel clip.mp4' }));
+
+    await waitFor(() => expect(api.abortEntry).toHaveBeenCalledWith('local-1'));
+    await waitFor(() => expect(api.removeEntry).toHaveBeenCalledWith('local-1'));
+    expect(await screen.findByText('Drop a video here')).toBeInTheDocument();
+  });
+
+  it('keeps the row, and does not remove it, when the cancel was refused', async () => {
+    const refused = entry({
+      status: 'aborted',
+      errorCode: 'UPLOAD_ABORT_FAILED',
+      errorMessage: '{"error":"gateway timeout"}',
+    });
+    const api = queue({
+      entries: [entry()],
+      enqueueFiles: jest.fn().mockResolvedValue({ accepted: [entry()], rejected: [] }),
+      abortEntry: jest.fn().mockResolvedValue(false),
+    });
+    const { container } = renderUpload(api);
+
+    selectFile(container, new File(['bytes'], 'clip.mp4', { type: 'video/mp4' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel clip.mp4' }));
+    await waitFor(() => expect(api.abortEntry).toHaveBeenCalledWith('local-1'));
+
+    expect(api.removeEntry).not.toHaveBeenCalled();
+    expect(screen.getByText('clip.mp4')).toBeInTheDocument();
+
+    // The queue has since parked the row as a failed cancel; the page says so
+    // in the copy map's words and waits for the creator to dismiss it.
+    mockUseUploadQueueContext.mockReturnValue({ ...api, entries: [refused] });
+    rerenderUpload();
+
+    expect(await screen.findByText(/We couldn't stop this upload/)).toBeInTheDocument();
+    expect(screen.queryByText(/gateway timeout/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove clip.mp4' }));
+    await waitFor(() => expect(api.removeEntry).toHaveBeenCalledWith('local-1'));
   });
 
   it('requires a title before saving', async () => {

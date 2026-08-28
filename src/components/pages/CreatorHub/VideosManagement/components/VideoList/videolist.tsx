@@ -19,7 +19,7 @@ interface VideoListProps {
   onVideoAction: (videoId: string, action: VideoAction, formData?: FormData) => Promise<void>;
   processingVideos?: Record<number, ProcessingVideo>;
   onRetryProcessing?: (videoId: number) => Promise<void>;
-  /** `?highlight=` from the URL: a video id or the upload id that produced it. */
+  /** The video id to light up, already resolved from `?highlight=`. */
   highlightId?: string | null;
   sort?: SortState;
   onSort?: (field: SortField) => void;
@@ -29,13 +29,15 @@ interface VideoListProps {
 const HIGHLIGHT_MS = 1_500;
 
 /**
- * The single-upload page links here with the id it knows — which is the video
- * id once the row exists, and the upload id before that. Match either.
+ * A row's status line when the progress poll has not answered yet.
+ *
+ * A video the list already knows is `failed` must say so — and offer Retry —
+ * without waiting on a round-trip. The poll's row, once it lands, carries the
+ * transcoder's actual reason and replaces this one.
  */
-function matchesHighlight(video: Video, highlightId: string): boolean {
-  if (String(video.id) === highlightId) return true;
-  const uploadId = (video as { upload_id?: string | number | null }).upload_id;
-  return uploadId != null && String(uploadId) === highlightId;
+function fallbackProcessingRow(video: Video): ProcessingVideo | undefined {
+  if (video.status !== 'failed') return undefined;
+  return { videoId: video.id, status: 'failed', renditions: [] };
 }
 
 interface SortableHeaderProps {
@@ -84,7 +86,7 @@ export const VideoList: React.FC<VideoListProps> = ({
 
   const highlightedVideoId = useMemo(() => {
     if (!highlightId) return null;
-    const match = videos.find((video) => matchesHighlight(video, highlightId));
+    const match = videos.find((video) => String(video.id) === highlightId);
     return match ? match.id : null;
   }, [videos, highlightId]);
 
@@ -162,6 +164,8 @@ export const VideoList: React.FC<VideoListProps> = ({
               <AnimatePresence mode="popLayout">
                 {videos.map((video) => {
                   const isHighlighted = highlightedVideoId === video.id;
+                  const processingRow =
+                    processingVideos?.[video.id] ?? fallbackProcessingRow(video);
                   return (
                   <motion.tr
                     key={video.id}
@@ -200,11 +204,11 @@ export const VideoList: React.FC<VideoListProps> = ({
                           <p className="text-xs text-gray-400 mt-1 line-clamp-2 break-words">
                             {video.description || 'No description'}
                           </p>
-                          {processingVideos?.[video.id] && (
+                          {processingRow && (
                             <div className="mt-2">
                               <ProcessingStatus
                                 videoId={video.id}
-                                processingStatus={processingVideos[video.id]}
+                                processingStatus={processingRow}
                                 onRetry={
                                   onRetryProcessing
                                     ? () => onRetryProcessing(video.id)
