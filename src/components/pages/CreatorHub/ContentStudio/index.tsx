@@ -28,7 +28,7 @@ import { useChannelSelection } from '../../../../contexts/ChannelSelectionContex
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import NoChannelView from '../NoChannelView';
-import { UPLOAD_V2_ENABLED, useOptionalUploadQueue } from '../../../../contexts/UploadQueueContext';
+import { useUploadQueueContext } from '../../../../contexts/UploadQueueContext';
 
 /** Files accepted in one selection — the client-side ceiling from contract 4. */
 const MAX_FILES = 50;
@@ -57,14 +57,14 @@ export const ContentStudio: React.FC = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
-  const queue = useOptionalUploadQueue();
+  const queue = useUploadQueueContext();
   const channelId = selectedChannelId ? parseInt(selectedChannelId, 10) : 0;
-  const files = (queue?.entries ?? []).filter((entry) => entry.channelId === channelId);
+  const files = queue.entries.filter((entry) => entry.channelId === channelId);
 
   const onChooseFiles = () => fileInputRef.current?.click();
 
   const enqueue = (selected: File[]) => {
-    if (!queue || !channelId) return;
+    if (!channelId) return;
     if (selected.length > MAX_FILES) {
       alert(`You can upload up to ${MAX_FILES} files at once`);
       return;
@@ -136,35 +136,6 @@ export const ContentStudio: React.FC = () => {
             <ArrowRight size={16} />
           </Link>
         </motion.div>
-      </Container>
-    );
-  }
-
-  // The batch surface has no legacy path any more: it is the upload queue.
-  if (!queue) {
-    return (
-      <Container>
-        <Header>
-          <Title>Content Studio</Title>
-        </Header>
-        <InfoCard>
-          <Info className="w-5 h-5 text-[#fa7517]" />
-          <div>
-            <h3 className="font-medium text-white mb-1">Batch upload is switched off</h3>
-            <p className="text-gray-400">
-              {UPLOAD_V2_ENABLED
-                ? 'The upload queue is not available in this session.'
-                : 'Multi-file upload runs on the new upload service. Upload videos one at a time from Video Upload for now.'}
-            </p>
-          </div>
-        </InfoCard>
-        <Link
-          to="/creator-hub/upload"
-          className="flex items-center gap-2 text-[#fa7517] hover:text-[#ff8c3a] transition-colors"
-        >
-          Go to Video Upload
-          <ArrowRight className="w-4 h-4" />
-        </Link>
       </Container>
     );
   }

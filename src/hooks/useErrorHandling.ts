@@ -21,10 +21,10 @@ interface UseErrorHandlingReturn {
  * @example
  * const { error, isLoading, clearError, executeWithErrorHandling } = useErrorHandling();
  * 
- * const handleUpload = async () => {
+ * const handleUpdate = async () => {
  *   const result = await executeWithErrorHandling(
- *     () => uploadVideo(formData),
- *     'video upload'
+ *     () => updateVideo(id, formData),
+ *     'video update'
  *   );
  *   if (result) {
  *     // Handle success

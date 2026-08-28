@@ -2,9 +2,6 @@ import React, { createContext, useContext, useEffect } from 'react';
 import { useUploadQueue, type UploadQueueApi } from '../hooks/useUploadQueue';
 import UploadQueuePanel from '../components/upload/UploadQueuePanel';
 
-/** `REACT_APP_UPLOAD_V2=true` switches the creator surfaces to the V2 queue. */
-export const UPLOAD_V2_ENABLED = process.env.REACT_APP_UPLOAD_V2 === 'true';
-
 const UploadQueueContext = createContext<UploadQueueApi | null>(null);
 
 /**
@@ -56,11 +53,4 @@ export function useUploadQueueContext(): UploadQueueApi {
     throw new Error('useUploadQueueContext must be used inside <UploadQueueProvider>');
   }
   return context;
-}
-
-/**
- * Null-safe variant for components that also run on the legacy upload path.
- */
-export function useOptionalUploadQueue(): UploadQueueApi | null {
-  return useContext(UploadQueueContext);
 }

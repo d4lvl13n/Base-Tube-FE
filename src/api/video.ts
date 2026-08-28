@@ -1,65 +1,8 @@
 import api from './index';
 import { RecommendedVideo, PaginationResponse, TrendingVideoResponse, Video, RecommendedVideosResponse } from '../types/video';
-import axios, { AxiosProgressEvent } from 'axios';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
-import { parseApiErrorFromBody } from '../utils/apiError';
-import { getVideoErrorMessage } from '../utils/videoErrorMessages';
-
-export class VideoApiError extends Error {
-  readonly code: string | null;
-  readonly canRetry: boolean;
-
-  constructor(code: string | null, message: string, canRetry = false) {
-    super(message);
-    this.name = 'VideoApiError';
-    this.code = code;
-    this.canRetry = canRetry;
-  }
-}
-
-export interface VideoUploadResult {
-  videoId: string;
-  status?: string;
-  title?: string;
-  duration?: number;
-}
-
-interface VideoUploadApiResponse {
-  success?: boolean;
-  data?: {
-    videoId?: string;
-    id?: string;
-    status?: string;
-    title?: string;
-    duration?: number;
-  };
-  id?: string;
-  videoId?: string;
-}
-
-function normalizeVideoUploadResponse(body: VideoUploadApiResponse): VideoUploadResult {
-  if (body.success === false) {
-    const parsed = getVideoErrorMessage(body);
-    throw new VideoApiError(parsed.code, parsed.message, parsed.canRetry);
-  }
-
-  const data: { videoId?: string; id?: string; status?: string; title?: string; duration?: number } =
-    body.data && typeof body.data === 'object' ? body.data : body;
-  const rawId = data.videoId ?? data.id ?? body.videoId ?? body.id;
-  if (rawId === undefined || rawId === null || rawId === '') {
-    throw new VideoApiError(null, 'Invalid upload response from server.');
-  }
-
-  return {
-    videoId: String(rawId),
-    status: data.status,
-    title: data.title,
-    duration: data.duration,
-  };
-}
-
 
 interface InitViewResponse {
   success: boolean;
@@ -251,53 +194,6 @@ export const getTrendingVideos = async ({
 
 export const getVideos = (category: string, limit: number = 4) => 
   api.get<Video[]>(`/api/v1/videos?category=${category}&limit=${limit}`);
-
-export const uploadVideo = async (
-  formData: FormData,
-  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void,
-  signal?: AbortSignal
-): Promise<VideoUploadResult> => {
-  try {
-    const response = await api.post<VideoUploadApiResponse>(
-      '/api/v1/videos/upload',
-      formData,
-      {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        withCredentials: true,
-        onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-          if (onUploadProgress) {
-            onUploadProgress(progressEvent);
-          }
-        },
-        // A 2 GB upload on a slow link takes far longer than any fixed
-        // timeout; cancellation is the caller's job via `signal`.
-        timeout: 0,
-        signal,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      }
-    );
-
-    const body = response.data;
-    if (parseApiErrorFromBody(body)) {
-      const parsed = getVideoErrorMessage(body);
-      throw new VideoApiError(parsed.code, parsed.message, parsed.canRetry);
-    }
-
-    return normalizeVideoUploadResponse(body);
-  } catch (error: unknown) {
-    if (error instanceof VideoApiError) {
-      throw error;
-    }
-    // A caller-initiated abort is not an upload failure — let it through
-    // untouched so the UI can tell "cancelled" from "broken".
-    if (axios.isCancel(error) || (error as { name?: string })?.name === 'CanceledError') {
-      throw error;
-    }
-    const parsed = getVideoErrorMessage(error);
-    throw new VideoApiError(parsed.code, parsed.message, parsed.canRetry);
-  }
-};
 
 export const updateVideo = async (id: string, formData: FormData): Promise<UpdateVideoResponse> => {
   const executeUpdate = async () => {

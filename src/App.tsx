@@ -65,7 +65,7 @@ import LandingPage from './components/pages/landingPage';
 import ThumbnailLanding from './components/pages/ThumbnailLanding';
 import { AuditPage as CTRAuditPage, ChannelAuditPage as CTRChannelAuditPage, GeneratePage as CTRGeneratePage, SettingsPage as CTRSettingsPage, GalleryPage as CTRGalleryPage } from './components/pages/CTREngine';
 import AuditHistoryPage from './components/pages/CTREngine/AuditHistoryPage';
-import { UPLOAD_V2_ENABLED, UploadQueueProvider } from './contexts/UploadQueueContext';
+import { UploadQueueProvider } from './contexts/UploadQueueContext';
 
 // Lazy-loaded components
 const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
@@ -132,13 +132,6 @@ const AuthRouteAliasRedirect: React.FC<{ to: string }> = ({ to }) => {
 
 const isInternalMonitoringEnabled = process.env.REACT_APP_ENABLE_INTERNAL_MONITORING === 'true';
 
-/**
- * The upload queue owns IndexedDB records and polls the V2 routes, so it is
- * only mounted when the V2 upload path is switched on.
- */
-const UploadQueueGate: React.FC<{ children: React.ReactNode }> = ({ children }) =>
-  UPLOAD_V2_ENABLED ? <UploadQueueProvider>{children}</UploadQueueProvider> : <>{children}</>;
-
 function App() {
   const queryClient = useMemo(() => new QueryClient({
     defaultOptions: {
@@ -157,7 +150,7 @@ function App() {
         <ConfigProvider>
           <VideoProvider>
             <AuthProvider>
-              <UploadQueueGate>
+              <UploadQueueProvider>
               <div className="min-h-screen bg-black">
                 <ReferralAttributionBridge />
                 <CryptoResumeBridge />
@@ -489,7 +482,7 @@ function App() {
                 <ToastContainer />
                 <ReactQueryDevtools initialIsOpen={false} />
               </div>
-              </UploadQueueGate>
+              </UploadQueueProvider>
             </AuthProvider>
           </VideoProvider>
         </ConfigProvider>
