@@ -5,6 +5,7 @@ import 'video.js/dist/video-js.css';
 import '../../../styles/videojs-skin.css';
 import '../../../styles/video-player.css';
 import { useViewTracking } from '../../../hooks/useViewTracking';
+import { selectPlaybackSource } from './playbackSource';
 
 interface VideoPlayerProps {
   src: string;
@@ -54,8 +55,9 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       // Detect if the device is a touch device
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-      // Determine video source (prefer Storj URL if available)
-      const videoSource = video_url || src;
+      // A rendition, when one exists, always beats the published original: the
+      // original is the very file the transcoder was asked to rescue.
+      const videoSource = selectPlaybackSource({ video_url, video_urls, src });
       const thumbnailSource = thumbnail_url || thumbnail_path;
 
       const playerOptions = {

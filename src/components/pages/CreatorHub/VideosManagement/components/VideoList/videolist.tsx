@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Edit2, Trash2, Eye, EyeOff, FileVideo, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,8 +18,24 @@ interface VideoListProps {
   onLoadMore: () => void;
   onVideoAction: (videoId: string, action: VideoAction, formData?: FormData) => Promise<void>;
   processingVideos?: Record<number, ProcessingVideo>;
+  onRetryProcessing?: (videoId: number) => Promise<void>;
+  /** `?highlight=` from the URL: a video id or the upload id that produced it. */
+  highlightId?: string | null;
   sort?: SortState;
   onSort?: (field: SortField) => void;
+}
+
+/** How long the orange edge stays lit after arriving from an upload. */
+const HIGHLIGHT_MS = 1_500;
+
+/**
+ * The single-upload page links here with the id it knows — which is the video
+ * id once the row exists, and the upload id before that. Match either.
+ */
+function matchesHighlight(video: Video, highlightId: string): boolean {
+  if (String(video.id) === highlightId) return true;
+  const uploadId = (video as { upload_id?: string | number | null }).upload_id;
+  return uploadId != null && String(uploadId) === highlightId;
 }
 
 interface SortableHeaderProps {
@@ -58,9 +74,36 @@ export const VideoList: React.FC<VideoListProps> = ({
   onLoadMore,
   onVideoAction,
   processingVideos,
+  onRetryProcessing,
+  highlightId,
   sort,
   onSort,
 }) => {
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
+  const [highlightLit, setHighlightLit] = useState(false);
+
+  const highlightedVideoId = useMemo(() => {
+    if (!highlightId) return null;
+    const match = videos.find((video) => matchesHighlight(video, highlightId));
+    return match ? match.id : null;
+  }, [videos, highlightId]);
+
+  // Arriving from an upload: put the row on screen, light its edge briefly, and
+  // then get out of the way. Nothing here is sticky.
+  useEffect(() => {
+    if (highlightedVideoId === null) {
+      setHighlightLit(false);
+      return;
+    }
+    const row = highlightRowRef.current;
+    if (row && typeof row.scrollIntoView === 'function') {
+      row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    setHighlightLit(true);
+    const timer = setTimeout(() => setHighlightLit(false), HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [highlightedVideoId]);
+
   if (isLoading && !videos.length) {
     return (
       <motion.div 
@@ -117,13 +160,21 @@ export const VideoList: React.FC<VideoListProps> = ({
             </thead>
             <tbody>
               <AnimatePresence mode="popLayout">
-                {videos.map((video) => (
+                {videos.map((video) => {
+                  const isHighlighted = highlightedVideoId === video.id;
+                  return (
                   <motion.tr
                     key={video.id}
+                    ref={isHighlighted ? highlightRowRef : undefined}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className={styles.table.row}
+                    data-highlighted={isHighlighted && highlightLit ? 'true' : undefined}
+                    className={`${styles.table.row} border-l-2 ${
+                      isHighlighted && highlightLit
+                        ? 'border-l-[#fa7517]'
+                        : 'border-l-transparent'
+                    }`}
                   >
                     <td className={`${styles.table.cell} w-[600px] min-w-[600px] max-w-[600px]`}>
                       <div className="flex items-start space-x-3">
@@ -154,6 +205,11 @@ export const VideoList: React.FC<VideoListProps> = ({
                               <ProcessingStatus
                                 videoId={video.id}
                                 processingStatus={processingVideos[video.id]}
+                                onRetry={
+                                  onRetryProcessing
+                                    ? () => onRetryProcessing(video.id)
+                                    : undefined
+                                }
                               />
                             </div>
                           )}
@@ -215,7 +271,8 @@ export const VideoList: React.FC<VideoListProps> = ({
                       </div>
                     </td>
                   </motion.tr>
-                ))}
+                  );
+                })}
               </AnimatePresence>
             </tbody>
           </table>

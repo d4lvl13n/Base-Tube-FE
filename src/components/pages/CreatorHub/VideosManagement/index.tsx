@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
+import { useSearchParams } from 'react-router-dom';
 import { getChannelVideos } from '../../../../api/channel';
-import { updateVideo, deleteVideo } from '../../../../api/video';
+import { updateVideo, deleteVideo, retryVideoProcessing } from '../../../../api/video';
 import { VideoAction, VideoFilters, SortField, SortState } from './types';
 import { VideoList } from './components/VideoList/videolist';
 import EditVideoModal from './EditVideoModal';
@@ -29,6 +30,11 @@ const VideosManagement: React.FC = () => {
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
   const [deletingVideo, setDeletingVideo] = useState<Video | null>(null);
   const { selectedChannelId, channels, selectedChannel, isLoading: isChannelsLoading } = useChannelSelection();
+
+  // `?highlight=<videoId|uploadId>` — how the upload pages hand a creator over
+  // to the row they just created.
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlight');
 
   // Add sort state
   const [sort, setSort] = useState<SortState>({
@@ -119,6 +125,21 @@ const VideosManagement: React.FC = () => {
     setDeletingVideo(null);
   };
 
+  // Handle a failed transcode. The backend owns the retry; this only asks.
+  const handleRetryProcessing = useCallback(async (videoId: number) => {
+    try {
+      const result = await retryVideoProcessing(videoId);
+      if (result.success) {
+        toast.success('Processing restarted');
+      } else {
+        toast.error(result.message || 'Failed to restart processing');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to restart processing';
+      toast.error(message);
+    }
+  }, []);
+
   // Handle sort
   const handleSort = useCallback((field: SortField) => {
     setSort(prev => ({
@@ -173,6 +194,8 @@ const VideosManagement: React.FC = () => {
           <VideoList
             videos={sortedVideos}
             processingVideos={processingVideos}
+            onRetryProcessing={handleRetryProcessing}
+            highlightId={highlightId}
             isLoading={isLoading}
             hasMore={hasMore}
             onLoadMore={handleLoadMore}
