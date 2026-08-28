@@ -24,7 +24,7 @@ const VideoActions: React.FC<VideoActionsProps> = ({ selectedVideos, onBulkActio
       )}
       
       <Link
-        to="/creator-hub/upload-video"
+        to="/creator-hub/upload"
         className="px-4 py-2 bg-[#fa7517] text-black rounded-lg hover:bg-[#fa9517] transition-colors flex items-center gap-2"
       >
         <Plus className="h-5 w-5" />
