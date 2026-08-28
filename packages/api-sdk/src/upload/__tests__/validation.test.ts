@@ -62,3 +62,44 @@ describe('validateFileSelection', () => {
     expect(result.rejected[0]).toMatchObject({ code: 'SESSION_FULL' });
   });
 });
+
+/**
+ * These sentences are read by a creator, not a developer, and they are kept
+ * word-for-word in step with the web app's copy map
+ * (`src/components/upload/uploadCopy.ts`). Pinning them here is what makes a
+ * drift between the two a failing test rather than a support ticket.
+ */
+describe('rejection copy', () => {
+  it('says what the file did wrong and what to choose instead', () => {
+    expect(classifyUploadFile(file('a.webm', 1_000, 'video/webm'))).toMatchObject({
+      message: 'We accept MP4, MOV and AVI files.',
+    });
+    expect(classifyUploadFile(file('a.mp4', VIDEO_MAX_BYTES + 1))).toMatchObject({
+      message: 'This file is over the 2 GB limit.',
+    });
+    expect(classifyUploadFile(file('dir/a.mp4'))).toMatchObject({
+      message: 'Rename the file without slashes or control characters.',
+    });
+  });
+
+  it('says which cap is full and how to make room', () => {
+    expect(validateFileSelection([file('a.mp4')], 0).rejected[0]).toMatchObject({
+      message: 'The queue is full at 50 files. Let some finish, then add more.',
+    });
+    expect(validateFileSelection([file('a.mp4')], 0, 'session').rejected[0]).toMatchObject({
+      message: 'This browser session is full at 200 files. Reload the page to start another.',
+    });
+  });
+
+  it('never leaks a code as the message', () => {
+    const rejected = [
+      classifyUploadFile(file('a.webm', 1_000, 'video/webm')),
+      classifyUploadFile(file('a.mp4', 0)),
+      classifyUploadFile(file('dir/a.mp4')),
+    ];
+    for (const result of rejected) {
+      expect(result).toHaveProperty('message');
+      expect((result as { message: string }).message).not.toMatch(/[A-Z]{2,}_[A-Z]{2,}/);
+    }
+  });
+});

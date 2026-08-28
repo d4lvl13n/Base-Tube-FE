@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Pause, Play, RotateCcw, Upload, X } from 'lucide-react';
 import type { UploadQueueApi, UploadQueueViewEntry } from '../../hooks/useUploadQueue';
+import { uploadCopy } from './uploadCopy';
 import { formatBytes, phaseDetail, phaseLabel, uploadPhase, type UploadPhase } from './uploadPhase';
 
 /** Colour per phase — one vocabulary, shared with the Content Studio. */
@@ -84,15 +85,13 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
         <div className="max-h-[22rem] overflow-y-auto">
           {needsReselect && (
             <div className="px-4 py-3 border-b border-gray-800/60 bg-yellow-500/5">
-              <p className="text-xs text-yellow-200 mb-2">
-                Reselect the same files to resume — only the missing parts are sent.
-              </p>
+              <p className="text-xs text-yellow-200 mb-2">{uploadCopy.reselectRequired}</p>
               <button
                 type="button"
                 onClick={() => reselectInput.current?.click()}
                 className="px-3 py-1.5 text-xs rounded-lg bg-yellow-500/20 text-yellow-100 hover:bg-yellow-500/30"
               >
-                Choose files
+                {uploadCopy.reselectAction}
               </button>
               <input
                 ref={reselectInput}
@@ -159,7 +158,14 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
                   )}
 
                   <div className="mt-1.5 flex items-center gap-3">
-                    <p className="flex-1 min-w-0 truncate text-xs text-gray-500">{rowDetail(entry)}</p>
+                    {/* The failure sentences are long on purpose; the row
+                        truncates, so the full text lives in the tooltip. */}
+                    <p
+                      className="flex-1 min-w-0 truncate text-xs text-gray-500"
+                      title={rowDetail(entry)}
+                    >
+                      {rowDetail(entry)}
+                    </p>
                     {/* Cancel only while bytes are moving; once the video exists
                         there is nothing left here to cancel. */}
                     {phase === 'uploading' && (

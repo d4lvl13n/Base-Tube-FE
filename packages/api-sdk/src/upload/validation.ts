@@ -1,6 +1,10 @@
 /**
  * File selection validation and reload fingerprinting.
  *
+ * The rejection messages here are creator-facing and are kept word-for-word in
+ * step with the web app's copy map (`src/components/upload/uploadCopy.ts`); the
+ * SDK cannot import from the app, so the strings are duplicated on purpose.
+ *
  * Ported from the AmazingAerial `submission-validation.ts` (`fingerprint`,
  * `matchReselectedFiles`, `validateFileSelection`); the accepted MIME set and
  * the size ceiling come from contract §4: mp4 / mov / avi, 2 GB.
@@ -66,7 +70,7 @@ export function classifyUploadFile(file: File): ValidatedUploadFile | RejectedUp
     return {
       file,
       code: 'INVALID_FILENAME',
-      message: 'Use a filename without folders or control characters.',
+      message: 'Rename the file without slashes or control characters.',
     };
   }
 
@@ -76,7 +80,7 @@ export function classifyUploadFile(file: File): ValidatedUploadFile | RejectedUp
     return {
       file,
       code: 'UNSUPPORTED_TYPE',
-      message: 'Choose an MP4, MOV, or AVI video.',
+      message: 'We accept MP4, MOV and AVI files.',
     };
   }
 
@@ -84,7 +88,7 @@ export function classifyUploadFile(file: File): ValidatedUploadFile | RejectedUp
     return {
       file,
       code: 'FILE_TOO_LARGE',
-      message: 'Videos must be 2 GB or smaller.',
+      message: 'This file is over the 2 GB limit.',
     };
   }
 
@@ -108,8 +112,8 @@ export function validateFileSelection(
         code: cap === 'session' ? 'SESSION_FULL' : 'QUEUE_FULL',
         message:
           cap === 'session'
-            ? 'A browser session can upload 200 files. Remove unfinished files or refresh to start another session.'
-            : 'This queue already holds 50 active files.',
+            ? 'This browser session is full at 200 files. Reload the page to start another.'
+            : 'The queue is full at 50 files. Let some finish, then add more.',
       });
     } else {
       accepted.push(result);

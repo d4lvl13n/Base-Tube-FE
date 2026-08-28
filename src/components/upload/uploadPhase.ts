@@ -13,6 +13,7 @@
  * finished videos could read as "processing 100%" forever.
  */
 import type { UploadQueueViewEntry } from '../../hooks/useUploadQueue';
+import { describeUploadError, uploadCopy, uploadErrorCopyFor } from './uploadCopy';
 
 export type UploadPhase = 'uploading' | 'processing' | 'ready' | 'failed';
 
@@ -69,22 +70,39 @@ function renditionDetail(entry: UploadQueueViewEntry): string {
 }
 
 /**
+ * Why a waiting retry is waiting.
+ *
+ * Unlike a failure, the queue is about to act on its own, so an unrecognised
+ * cause must not read "add the file again" — the creator has nothing to do.
+ */
+function retryDetail(entry: UploadQueueViewEntry): string {
+  return uploadErrorCopyFor(entry.errorCode) ?? uploadCopy.retryWait;
+}
+
+/**
  * The line next to the chip. Deliberately never a percentage outside the
  * `Uploading` phase — a byte count says nothing about transcoding.
+ *
+ * Every failure sentence comes from `uploadCopy`, so a raw error code or a
+ * server stack trace can never reach this line: `describeUploadError` only
+ * passes a server message through when it reads as a sentence.
  */
 export function phaseDetail(entry: UploadQueueViewEntry): string {
   switch (uploadPhase(entry)) {
     case 'failed':
-      if (entry.errorMessage) return entry.errorMessage;
-      if (entry.status === 'aborted') return 'cancelled';
-      if (entry.videoStatus === 'failed') return 'processing failed — retry from Videos Management';
-      return entry.errorCode ?? 'upload failed';
+      if (entry.status === 'aborted') return uploadCopy.cancelled;
+      // The server could not say whether the upload exists, so retrying might
+      // duplicate it — this one has its own instruction.
+      if (entry.status === 'held') return uploadCopy.unconfirmedStart;
+      if (entry.videoStatus === 'failed') return uploadCopy.processingFailed;
+      return describeUploadError(entry.errorCode, entry.errorMessage);
     case 'ready':
       return 'ready to watch';
     case 'processing':
       return entry.videoId === null ? 'waiting for processing' : renditionDetail(entry);
     default:
-      if (entry.status === 'reselect_required') return 'reselect the file to resume';
+      if (entry.status === 'reselect_required') return uploadCopy.reselectRequired;
+      if (entry.status === 'retry_wait') return retryDetail(entry);
       return `${entry.progress}%`;
   }
 }

@@ -124,7 +124,7 @@ describe('phase vocabulary', () => {
     const failed = entry({ status: 'ready', progress: 100, videoId: 9, videoStatus: 'failed' });
     expect(uploadPhase(failed)).toBe('failed');
     expect(phaseLabel(failed)).toBe('Failed');
-    expect(phaseDetail(failed)).toContain('processing failed');
+    expect(phaseDetail(failed)).toContain('Processing failed on our side');
   });
 });
 

@@ -30,6 +30,15 @@ const COMPLETION_RETRY_SECONDS = 120;
 const MAX_INITIALIZATION_ATTEMPTS = 30;
 const MAX_COMPLETION_ROUNDS = 5;
 
+/**
+ * The one failure a creator has to act on personally: a reload dropped the
+ * browser's handle on the file. Kept word-for-word in step with the web app's
+ * copy map (`src/components/upload/uploadCopy.ts`), which the SDK cannot import.
+ */
+const RESELECT_REQUIRED_MESSAGE =
+  'Your browser let go of this file when the page reloaded. ' +
+  'Choose the same file again to resume — only the missing parts are sent.';
+
 export interface UploadTransferDependencies {
   api: UploadApi;
   putBlob: typeof putBlobWithProgress;
@@ -89,7 +98,7 @@ function completionBody(parts: readonly CompletedPart[]): CompleteUploadBody {
       const normalized = normalizeEtag(etag);
       if (!normalized) {
         throw new DirectUploadError(
-          'Storage did not report an ETag for every part',
+          'Storage did not confirm every part of this file. Add the file again.',
           null,
           'CAPABILITY_INVALID',
         );
@@ -148,7 +157,7 @@ async function ensureUpload(
   }
 
   throw new DirectUploadError(
-    'The upload could not be initialized in time',
+    'This upload took too long to start — retrying in a moment.',
     null,
     'UPLOAD_INITIALIZATION_TIMEOUT',
   );
@@ -187,7 +196,7 @@ async function capabilitiesForParts(
         for (const partNumber of unsigned) {
           if (!completed.has(partNumber)) {
             throw new DirectUploadError(
-              'Not every multipart capability was returned',
+              'We could not get permission to send every part. Add the file again.',
               null,
               'CAPABILITY_INVALID',
             );
@@ -274,7 +283,7 @@ async function transferParts(
           const listed = await listedCompletedPart(uploadId, partNumber, dependencies);
           if (!listed) {
             throw new DirectUploadError(
-              'Not every multipart capability was returned',
+              'We could not get permission to send every part. Add the file again.',
               null,
               'CAPABILITY_INVALID',
             );
@@ -323,7 +332,7 @@ async function transferParts(
   const authoritative = await dependencies.api.getState(uploadId);
   if (authoritative.completedParts.length !== partCount) {
     throw new DirectUploadError(
-      'Upload confirmation is delayed; retrying safely',
+      'Confirming the last parts — retrying in a moment.',
       null,
       'PART_CONFIRMATION_PENDING',
     );
@@ -346,7 +355,7 @@ export async function executeUploadTransfer(
   if (!entry.uploadId) {
     if (!file) {
       throw new DirectUploadError(
-        'Reselect the original file to continue',
+        RESELECT_REQUIRED_MESSAGE,
         null,
         'FILE_RESELECT_REQUIRED',
       );
@@ -368,7 +377,11 @@ export async function executeUploadTransfer(
     const partSizeBytes = state.partSizeBytes ?? entry.partSizeBytes;
     const partCount = state.partCount ?? entry.partCount;
     if (!partSizeBytes || !partCount) {
-      throw new DirectUploadError('Multipart geometry is missing', null, 'UPLOAD_STATE_INVALID');
+      throw new DirectUploadError(
+        'This upload is missing its part layout. Add the file again.',
+        null,
+        'UPLOAD_STATE_INVALID',
+      );
     }
     entry.partSizeBytes = partSizeBytes;
     entry.partCount = partCount;
@@ -389,7 +402,7 @@ export async function executeUploadTransfer(
     } else {
       if (!file) {
         throw new DirectUploadError(
-          'Reselect the original file to continue',
+          RESELECT_REQUIRED_MESSAGE,
           null,
           'FILE_RESELECT_REQUIRED',
         );
@@ -436,7 +449,7 @@ export async function executeUploadTransfer(
   }
 
   throw new DirectUploadError(
-    'Upload confirmation is delayed; retrying safely',
+    'Confirming the last parts — retrying in a moment.',
     null,
     'PART_CONFIRMATION_PENDING',
   );
@@ -467,9 +480,9 @@ export function classifyTransferFailure(error: unknown): {
         status: 'retry_wait',
         code: error.code,
         message: isCompletedPartsRenewalError(error)
-          ? 'Upload confirmation is delayed; retrying safely'
+          ? 'Confirming the last parts — retrying in a moment.'
           : error.code === 'UPLOAD_ADMISSION_BUSY'
-            ? 'Waiting for a secure upload slot'
+            ? 'Waiting for an upload slot — you can have 8 in flight at once.'
             : error.message,
         retryAfterSeconds: error.retryAfterSeconds ?? (isCompletedPartsRenewalError(error) ? 2 : 10),
       };
@@ -497,7 +510,7 @@ export function classifyTransferFailure(error: unknown): {
   return {
     status: 'retry_wait',
     code: 'UPLOAD_INTERRUPTED',
-    message: error instanceof Error ? error.message : 'Upload interrupted',
+    message: 'Connection hiccup — retrying in a moment.',
     retryAfterSeconds: 10,
   };
 }
