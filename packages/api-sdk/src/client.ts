@@ -6,6 +6,26 @@ import axios, {
 } from 'axios';
 import type { BasetubeClientConfig } from './config';
 
+/**
+ * This package is compiled to CommonJS and consumed by three module systems
+ * (webpack in the CRA web app, Metro in Expo, Node in Jest). Depending on how the
+ * bundler resolves axios's `exports` map, `require('axios')` may yield the
+ * instance itself, `{ default: instance }`, or a namespace wrapped one level
+ * deeper — then `axios.create` is undefined at runtime ("axios_1.default.create
+ * is not a function" in the web bundle). Unwrap until we hold the object that
+ * actually has `create`.
+ */
+function resolveAxios(): typeof axios {
+  let candidate: unknown = axios;
+  for (let depth = 0; depth < 3; depth += 1) {
+    const value = candidate as { create?: unknown; default?: unknown } | null;
+    if (value && typeof value.create === 'function') return candidate as typeof axios;
+    if (!value || value.default === undefined) break;
+    candidate = value.default;
+  }
+  throw new Error('@basetube/api: could not resolve the axios module (no create())');
+}
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_RATE_LIMIT_RETRIES = 1;
 const RATE_LIMIT_FALLBACK_MS = 5_000;
@@ -81,7 +101,7 @@ export function createHttpClient(config: BasetubeClientConfig): AxiosInstance {
     adapter,
   } = config;
 
-  const instance = axios.create({
+  const instance = resolveAxios().create({
     baseURL: baseUrl.replace(/\/$/, ''),
     timeout: timeoutMs,
     withCredentials,
