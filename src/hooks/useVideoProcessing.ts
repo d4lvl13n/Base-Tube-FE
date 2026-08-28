@@ -24,6 +24,27 @@ const MAX_IDS = 50;
  */
 const TERMINAL_STATUSES = new Set(['processed', 'completed', 'failed']);
 
+/**
+ * Does this progress row say anything the one we already hold did not?
+ *
+ * Everything a row is read for: its status, its failure reason, and which
+ * rendition is in which state. Anything else the batch route happens to send
+ * back is not on screen, so a change in it must not churn React.
+ */
+export function sameProgress(previous?: ProcessingVideo, next?: ProcessingVideo): boolean {
+  if (previous === next) return true;
+  if (!previous || !next) return false;
+  if (previous.status !== next.status) return false;
+  if (previous.error?.code !== next.error?.code) return false;
+  if (previous.error?.message !== next.error?.message) return false;
+  const a = previous.renditions ?? [];
+  const b = next.renditions ?? [];
+  if (a.length !== b.length) return false;
+  return a.every((rendition, index) => (
+    rendition.quality === b[index].quality && rendition.state === b[index].state
+  ));
+}
+
 function nextDelay(startedAt: number): number {
   const base = Date.now() - startedAt > BACKOFF_AFTER_MS ? BACKOFF_INTERVAL_MS : BASE_INTERVAL_MS;
   const jittered = base + (Math.random() * 2 - 1) * JITTER_MS;
@@ -118,7 +139,13 @@ export const useVideoProcessing = (videoIds: number[]) => {
         const updates: Record<number, ProcessingVideo> = {};
         for (const id of ids) {
           const row = response.data?.[String(id)];
-          if (row) updates[id] = { ...row, videoId: id };
+          // A tick that says exactly what the last one said is not news. The
+          // old code spread a fresh object in every time, so `processingVideos`
+          // — and every row object inside it — changed identity every 5 s, and
+          // the whole Videos Management list rebuilt itself for nothing.
+          if (row && !sameProgress(processingVideosRef.current[id], { ...row, videoId: id })) {
+            updates[id] = { ...row, videoId: id };
+          }
         }
         if (Object.keys(updates).length > 0) {
           setProcessingVideos((previous) => ({ ...previous, ...updates }));

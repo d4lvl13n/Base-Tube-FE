@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CalendarDays, Clock3, Eye, Heart, MessageCircle, PlayCircle, X } from 'lucide-react';
 import { useDescriptionDock } from '../../../../contexts/DescriptionDockContext';
 import { formatDuration, formatNumber } from '../../../../utils/format';
-import RichTextDisplay from '../../RichTextDisplay';
+import DescriptionText from '../DescriptionText';
 
 const formatPublishedDate = (dateString?: string) => {
   if (!dateString) return 'Unknown';
@@ -167,9 +167,11 @@ const DescriptionDock: React.FC = () => {
                   <CalendarDays className="h-3.5 w-3.5 text-[#fa7517]" />
                   Description
                 </div>
-                <div className="prose prose-invert max-w-none prose-p:my-2 prose-a:text-[#fa7517] prose-strong:text-white text-sm leading-6 text-gray-200">
-                  <RichTextDisplay content={video.description || 'No description yet.'} />
-                </div>
+                <DescriptionText
+                  content={video.description}
+                  collapsible
+                  className="text-sm leading-6 text-gray-200"
+                />
               </div>
 
               {tags.length > 0 && (

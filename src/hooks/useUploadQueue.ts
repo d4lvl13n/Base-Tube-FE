@@ -179,7 +179,20 @@ export interface UploadQueueApi {
   retryEntry: (localId: string) => Promise<void>;
   replaceAttempt: (localId: string) => Promise<void>;
   removeEntry: (localId: string) => Promise<void>;
+  /** Takes the one-off "N files added" line off screen. */
+  dismissSelectionNotice: () => void;
+  /** Removes every row that has nothing left to do (ready, failed, cancelled). */
+  clearFinished: () => Promise<void>;
 }
+
+/**
+ * How long the "N file(s) added to the upload queue." line stays up.
+ *
+ * It is an acknowledgement of something the creator just did, not a state, so
+ * it has to expire on its own — it used to sit in the panel until the queue
+ * was emptied.
+ */
+export const SELECTION_NOTICE_MS = 4_000;
 
 const IN_FLIGHT_STATUSES = new Set<UploadQueueEntry['status']>([
   'queued',
@@ -958,6 +971,33 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     [forget, releaseSessionSlot, replaceEntries],
   );
 
+  const dismissSelectionNotice = useCallback(() => setSelectionNotice(null), []);
+
+  /**
+   * Empties the panel of everything that is done.
+   *
+   * Goes through `removeEntry` one row at a time so each one still gets its
+   * IndexedDB record forgotten and its session slot released — the sweep is a
+   * convenience over the per-row Dismiss, not a second way of doing it.
+   */
+  const clearFinished = useCallback(async () => {
+    const finished = entriesRef.current
+      .filter((entry) => uploadRowIsTerminal(entry))
+      .map((entry) => entry.localId);
+    for (const localId of finished) {
+      // Serial: each removal reads `entriesRef.current` to build the next list.
+      // eslint-disable-next-line no-await-in-loop
+      await removeEntry(localId);
+    }
+  }, [removeEntry]);
+
+  // The notice acknowledges an action; it is not a state to live in.
+  useEffect(() => {
+    if (selectionNotice === null) return;
+    const timer = setTimeout(() => setSelectionNotice(null), SELECTION_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [selectionNotice]);
+
   const viewEntries = useMemo<UploadQueueViewEntry[]>(
     () =>
       entries.map((entry) => {
@@ -986,7 +1026,26 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     retryEntry,
     replaceAttempt,
     removeEntry,
+    dismissSelectionNotice,
+    clearFinished,
   };
+}
+
+/**
+ * Has this row nothing left to say?
+ *
+ * The panel's `Ready` and `Failed` phases, expressed without importing the
+ * phase module (which imports this one). Deliberately a *subset* of what
+ * `removeEntry` will dismiss: a row whose upload finished but whose video is
+ * still transcoding reads as `Processing` on screen, and "Clear finished" must
+ * not take it away.
+ */
+export function uploadRowIsTerminal(entry: {
+  status: string;
+  videoStatus?: string | null;
+}): boolean {
+  if (entry.videoStatus === 'failed' || entry.videoStatus === 'processed') return true;
+  return ['failed', 'held', 'aborted'].includes(entry.status);
 }
 
 /** Folds a server row into a local entry, leaving the local one alone if equal. */

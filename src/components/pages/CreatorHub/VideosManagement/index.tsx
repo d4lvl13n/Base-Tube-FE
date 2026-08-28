@@ -117,6 +117,15 @@ const VideosManagement: React.FC = () => {
     queryFn: () => getChannelVideos(selectedChannelId, page),
     enabled: !!selectedChannelId && !!selectedChannel && channels.length > 0 && !isChannelsLoading,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    // The list only changes when the creator changes it. Refetching because a
+    // window regained focus (or a component remounted) hands back a brand-new
+    // array of brand-new video objects, which rebuilt every row on screen —
+    // rows re-animated, the "Ready" chip flashed again. The row's news comes
+    // from the progress poll; the list is invalidated explicitly, by a retry or
+    // by `?highlight=` resolving to a video we have not fetched yet.
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // The list was fetched before the worker created this video, so the row to
@@ -151,7 +160,7 @@ const VideosManagement: React.FC = () => {
   }, [data, page]);
 
   // Handle video update
-  const handleUpdateVideo = async (videoId: string, formData: FormData) => {
+  const handleUpdateVideo = useCallback(async (videoId: string, formData: FormData) => {
     try {
       const result = await updateVideo(videoId, formData);
       if (result.success) {
@@ -169,7 +178,7 @@ const VideosManagement: React.FC = () => {
       toast.error(message);
       console.error('Update error:', error);
     }
-  };
+  }, []);
 
   // Handle video deletion
   const handleDeleteVideo = async (videoId: string) => {
@@ -213,6 +222,28 @@ const VideosManagement: React.FC = () => {
       toast.error(message);
     }
   }, [restartProcessingPoll]);
+
+  // The rows are memoised, so a callback that changed identity on every render
+  // would defeat the memo entirely. The list it needs to search is read from a
+  // ref rather than closed over, which keeps this stable for the tab's life.
+  const videosRef = useRef<Video[]>(videos);
+  videosRef.current = videos;
+
+  const handleVideoAction = useCallback(
+    async (videoId: string, action: VideoAction, formData?: FormData) => {
+      const video = videosRef.current.find((v) => v.id.toString() === videoId);
+      switch (action) {
+        case 'edit':
+          if (formData) await handleUpdateVideo(videoId, formData);
+          else if (video) setEditingVideo(video);
+          break;
+        case 'delete':
+          if (video) setDeletingVideo(video);
+          break;
+      }
+    },
+    [handleUpdateVideo],
+  );
 
   // Handle sort
   const handleSort = useCallback((field: SortField) => {
@@ -273,22 +304,7 @@ const VideosManagement: React.FC = () => {
             isLoading={isLoading}
             hasMore={hasMore}
             onLoadMore={handleLoadMore}
-            onVideoAction={async (videoId: string, action: VideoAction, formData?: FormData) => {
-              switch (action) {
-                case 'edit':
-                  if (formData) {
-                    await handleUpdateVideo(videoId, formData);
-                  } else {
-                    const video = videos.find(v => v.id.toString() === videoId);
-                    if (video) setEditingVideo(video);
-                  }
-                  break;
-                case 'delete':
-                  const video = videos.find(v => v.id.toString() === videoId);
-                  if (video) setDeletingVideo(video);
-                  break;
-              }
-            }}
+            onVideoAction={handleVideoAction}
             sort={sort}
             onSort={handleSort}
           />

@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { formatDistanceToNow } from 'date-fns';
 import type { UploadQueueApi, UploadQueueViewEntry } from '../../../../../hooks/useUploadQueue';
 import type { Video } from '../../../../../types/video';
 import VideosManagement from '../index';
@@ -38,6 +39,13 @@ jest.mock('../../../../../contexts/UploadQueueContext', () => ({
 
 jest.mock('../../../../../hooks/useVideoProcessing', () => ({
   useVideoProcessing: (ids: number[]) => mockUseVideoProcessing(ids),
+}));
+
+// A render counter with no production seam: the row formats its date exactly
+// once per render, so the call count *is* the row render count.
+jest.mock('date-fns', () => ({
+  ...jest.requireActual('date-fns'),
+  formatDistanceToNow: jest.fn(() => '2 hours ago'),
 }));
 
 function video(overrides: Partial<Video> = {}): Video {
@@ -122,6 +130,10 @@ function highlightedRow(): HTMLElement | null {
   return document.querySelector('[data-highlighted="true"]');
 }
 
+/** Everything React complained about during the test, for the nesting guard. */
+let consoleErrors: string[] = [];
+let consoleErrorSpy: jest.SpyInstance;
+
 beforeEach(() => {
   // CRA resets every mock between tests, including the shared `matchMedia`
   // stub — framer-motion reads it on first mount, so put it back.
@@ -151,6 +163,24 @@ beforeEach(() => {
     data: [video()],
     pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
   });
+
+  consoleErrors = [];
+  consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((...args) => {
+    consoleErrors.push(args.map((arg) => String(arg)).join(' '));
+  });
+});
+
+/**
+ * Invalid DOM nesting fails the test that produced it.
+ *
+ * React warns once per offending tag pair for the whole process, so this has
+ * to be a file-wide guard rather than one assertion in one test: whichever
+ * test renders the table first is the one that would see it.
+ */
+afterEach(() => {
+  const nesting = consoleErrors.filter((line) => line.includes('validateDOMNesting'));
+  consoleErrorSpy.mockRestore();
+  expect(nesting).toEqual([]);
 });
 
 describe('VideosManagement failed videos', () => {
@@ -309,5 +339,84 @@ describe('VideosManagement ?highlight=', () => {
 
     await screen.findByText('Clip one');
     expect(highlightedRow()).toBeNull();
+  });
+});
+
+describe('VideosManagement DOM correctness', () => {
+  // `SortableHeader` used to render its own `<th>` inside the `<th>` the caller
+  // had already opened. React warns once per offending tag pair per process,
+  // so the guard for it is the file-wide `afterEach` above, not a test here —
+  // a test of its own would only ever see the already-warned second time.
+  it('gives every sortable column one header cell with a real button', async () => {
+    renderManagement();
+    await screen.findByText('Clip one');
+
+    const header = screen.getByRole('button', { name: 'Sort by Views' });
+    expect(header.closest('th')).not.toBeNull();
+    expect(header.closest('th')?.querySelector('th')).toBeNull();
+  });
+});
+
+describe('VideosManagement row churn', () => {
+  /** One call per row render — the row formats its date exactly once. */
+  const rowRenders = () => (formatDistanceToNow as jest.Mock).mock.calls.length;
+
+  // The 5 s progress poll used to hand back a brand-new `processingVideos`
+  // object (and brand-new row objects inside it) on every tick, whether or not
+  // anything had changed, which rebuilt every row on screen.
+  it('does not re-render a row when a poll tick repeats itself', async () => {
+    mockGetChannelVideos.mockResolvedValue({
+      data: [video({ id: 2, title: 'Working clip', status: 'processing' })],
+      pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+    });
+    const tick = () => ({
+      processingVideos: {
+        2: {
+          videoId: 2,
+          status: 'processing',
+          renditions: [{ quality: '720p', state: 'in_progress' }],
+        },
+      },
+      restart: mockRestart,
+    });
+    mockUseVideoProcessing.mockReturnValue(tick());
+
+    const { rerender } = renderManagement();
+    await screen.findByText('Working clip');
+
+    const before = rowRenders();
+    expect(before).toBeGreaterThan(0);
+
+    // The next tick: a different object saying exactly the same thing.
+    mockUseVideoProcessing.mockReturnValue(tick());
+    rerender(currentTree());
+
+    expect(rowRenders()).toBe(before);
+  });
+
+  it('does re-render the row when the poll actually has news', async () => {
+    mockGetChannelVideos.mockResolvedValue({
+      data: [video({ id: 2, title: 'Working clip', status: 'processing' })],
+      pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+    });
+    mockUseVideoProcessing.mockReturnValue({
+      processingVideos: { 2: { videoId: 2, status: 'processing', renditions: [] } },
+      restart: mockRestart,
+    });
+
+    const { rerender } = renderManagement();
+    await screen.findByText('Working clip');
+    const before = rowRenders();
+
+    mockUseVideoProcessing.mockReturnValue({
+      processingVideos: {
+        2: { videoId: 2, status: 'processing', renditions: [{ quality: '1080p', state: 'in_progress' }] },
+      },
+      restart: mockRestart,
+    });
+    rerender(currentTree());
+
+    expect(rowRenders()).toBeGreaterThan(before);
+    expect(await screen.findByText('Processing · transcoding 1080p')).toBeInTheDocument();
   });
 });

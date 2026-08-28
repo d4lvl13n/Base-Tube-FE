@@ -1,8 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Pause, Play, RotateCcw, Upload, X } from 'lucide-react';
 import type { UploadQueueApi, UploadQueueViewEntry } from '../../hooks/useUploadQueue';
 import { describeUploadError, uploadCopy } from './uploadCopy';
 import { formatBytes, phaseDetail, phaseLabel, uploadPhase, type UploadPhase } from './uploadPhase';
+
+/** After this long with nothing left to report, the panel folds to its header. */
+export const IDLE_COLLAPSE_MS = 30_000;
 
 /** Colour per phase — one vocabulary, shared with the Content Studio. */
 const PHASE_TONE: Record<UploadPhase, string> = {
@@ -29,8 +32,66 @@ interface UploadQueuePanelProps {
  */
 const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [closed, setClosed] = useState(false);
   const reselectInput = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const needsReselect = queue.entries.some((entry) => entry.status === 'reselect_required');
+  const phases = queue.entries.map(uploadPhase);
+  /** Nothing is uploading or transcoding: every row has finished its story. */
+  const allSettled =
+    phases.length > 0 && phases.every((phase) => phase === 'ready' || phase === 'failed');
+  const hasFinished = phases.some((phase) => phase === 'ready' || phase === 'failed');
+  /** Restarts the idle countdown whenever any row's phase moves. */
+  const activityKey = phases.join(',');
+
+  /** Rows the panel has already shown, and which of them were still working. */
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const workingIdsRef = useRef<Set<string>>(new Set());
+
+  // A close dismisses the queue *as it stands*. Genuinely new news brings the
+  // panel back: another file enqueued, or a row that starts working again
+  // (a retry, a replaced attempt). A row merely finishing does not — that is
+  // exactly what the creator closed the panel on.
+  useEffect(() => {
+    const working = new Set<string>();
+    let reopen = false;
+    for (const entry of queue.entries) {
+      if (!seenIdsRef.current.has(entry.localId)) {
+        seenIdsRef.current.add(entry.localId);
+        reopen = true;
+      }
+      const phase = uploadPhase(entry);
+      if (phase === 'uploading' || phase === 'processing') {
+        working.add(entry.localId);
+        if (!workingIdsRef.current.has(entry.localId)) reopen = true;
+      }
+    }
+    workingIdsRef.current = working;
+    if (reopen) {
+      setClosed(false);
+      setCollapsed(false);
+    }
+  }, [queue.entries]);
+
+  // Everything is done and the creator has not touched the panel: fold it to
+  // its header rather than hiding it, so the summary line stays readable.
+  useEffect(() => {
+    if (!allSettled) return;
+    const timer = setTimeout(() => setCollapsed(true), IDLE_COLLAPSE_MS);
+    return () => clearTimeout(timer);
+  }, [allSettled, activityKey]);
+
+  // Any interaction with the panel is an acknowledgement of the notice.
+  const acknowledge = useCallback(() => {
+    if (queue.selectionNotice !== null) queue.dismissSelectionNotice();
+  }, [queue]);
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Escape') return;
+    event.stopPropagation();
+    setClosed(true);
+  }, []);
+
   const counts = queue.entries.reduce(
     (acc, entry) => ({ ...acc, [uploadPhase(entry)]: acc[uploadPhase(entry)] + 1 }),
     { uploading: 0, processing: 0, ready: 0, failed: 0 } as Record<UploadPhase, number>,
@@ -47,9 +108,16 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
     .map(([count, label]) => `${count} ${label}`)
     .join(' · ');
 
+  if (closed) return null;
+
   return (
     <section
+      ref={panelRef}
       aria-label="Upload queue"
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
+      onPointerDown={acknowledge}
+      onFocus={acknowledge}
       className="fixed bottom-4 right-4 z-[60] w-[min(26rem,calc(100vw-2rem))] rounded-xl
                  border border-gray-800/60 bg-black/90 backdrop-blur-sm shadow-2xl"
     >
@@ -63,6 +131,19 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
             <p className="text-xs text-yellow-400 truncate">{queue.persistenceError}</p>
           )}
         </div>
+        {/* Only offered when there is actually something finished to sweep. */}
+        {hasFinished && (
+          <button
+            type="button"
+            onClick={() => {
+              acknowledge();
+              void queue.clearFinished();
+            }}
+            className="shrink-0 px-2 py-1 text-xs rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/60"
+          >
+            Clear finished
+          </button>
+        )}
         <button
           type="button"
           aria-label={queue.paused ? 'Resume uploads' : 'Pause uploads'}
@@ -78,6 +159,16 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
           className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/60"
         >
           {collapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+        {/* The panel had no way out: an upload that failed at 3 a.m. sat over
+            the page until the tab was closed. Uploads keep running. */}
+        <button
+          type="button"
+          aria-label="Close upload queue"
+          onClick={() => setClosed(true)}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/60"
+        >
+          <X className="w-4 h-4" />
         </button>
       </header>
 

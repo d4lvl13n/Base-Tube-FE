@@ -71,3 +71,31 @@ export const editorHtmlToPlainText = (value?: string): string => {
 /** Does this editor value hold anything a creator would mind losing? */
 export const hasEditorContent = (value?: string): boolean =>
   editorHtmlToPlainText(value).trim().length > 0;
+
+/**
+ * A stored description -> the plain text it was written as.
+ *
+ * Descriptions arrive in two shapes and only one of them is HTML: the editor
+ * saves `<p>`-per-line markup, while everything written before it (and every
+ * import) is plain text with `\n` breaks. Both have to end up as the same
+ * thing — lines — before anything can render them as paragraphs.
+ *
+ * The legacy shape goes through `plainTextToEditorHtml` first so that the two
+ * paths normalise identically (`\r\n` collapsed, trailing spaces dropped).
+ */
+export const descriptionToPlainText = (value?: string): string => {
+  if (!value) return '';
+  const looksLikeHtml = /<[a-z!/][^>]*>/i.test(value);
+  return looksLikeHtml
+    ? editorHtmlToPlainText(value)
+    : editorHtmlToPlainText(plainTextToEditorHtml(value));
+};
+
+/**
+ * One line of description, for a table cell.
+ *
+ * Line breaks become spaces rather than nothing — the whole point is that
+ * "…filmées en 4K" and "Abonnez-vous…" are two sentences, not one word.
+ */
+export const descriptionToPreview = (value?: string): string =>
+  descriptionToPlainText(value).replace(/\s+/g, ' ').trim();

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Video } from '../../../../types/video';
 import { Channel } from '../../../../types/channel';
 import { SubscribeButton } from '../../buttons/SubscribeButton';
-import RichTextDisplay from '../../RichTextDisplay';
+import DescriptionText from '../DescriptionText';
 
 interface InfoPanelProps {
   isOpen: boolean;
@@ -231,13 +231,11 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
                   <h4 className="text-xs font-medium uppercase tracking-widest text-gray-500 mb-3">
                     Description
                   </h4>
-                  <div className="text-gray-300 text-sm leading-relaxed">
-                    {video.description ? (
-                      <RichTextDisplay content={video.description} />
-                    ) : (
-                      <p className="text-gray-500 italic">No description provided</p>
-                    )}
-                  </div>
+                  <DescriptionText
+                    content={video.description}
+                    emptyText="No description provided"
+                    className="text-gray-300 text-sm leading-relaxed"
+                  />
                 </div>
 
                 {/* Tags Section */}

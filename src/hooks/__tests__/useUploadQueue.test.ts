@@ -10,7 +10,7 @@ import {
   type UploadStateData,
 } from '@basetube/api';
 import type { VideoProgressBatchResponse } from '../../api/video';
-import { useUploadQueue } from '../useUploadQueue';
+import { SELECTION_NOTICE_MS, uploadRowIsTerminal, useUploadQueue } from '../useUploadQueue';
 
 // The queue's default collaborators talk to axios (`PUT /videos/:id`,
 // `GET /videos/progress`). Every test injects its own, so the real module only
@@ -770,5 +770,60 @@ describe('useUploadQueue progress poll is single-flight', () => {
     });
     await waitFor(() => expect(result.current.entries[0].videoStatus).toBe('processed'));
     expect(fetchVideoProgress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useUploadQueue selection notice', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  // It acknowledges something the creator just did. It used to sit in the
+  // panel for the rest of the session, long after it had stopped being true.
+  it('takes itself down after four seconds', async () => {
+    const { api } = harness();
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: createMemoryResumeStore(), notify: jest.fn() }),
+    );
+
+    await act(async () => {
+      await result.current.enqueueFiles([videoFile()], 7);
+    });
+    expect(result.current.selectionNotice).toBe('1 file added to the upload queue.');
+
+    act(() => {
+      jest.advanceTimersByTime(SELECTION_NOTICE_MS + 1);
+    });
+    expect(result.current.selectionNotice).toBeNull();
+  });
+
+  it('goes away at once when the panel says it was seen', async () => {
+    const { api } = harness();
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: createMemoryResumeStore(), notify: jest.fn() }),
+    );
+
+    await act(async () => {
+      await result.current.enqueueFiles([videoFile()], 7);
+    });
+    act(() => result.current.dismissSelectionNotice());
+
+    expect(result.current.selectionNotice).toBeNull();
+  });
+});
+
+describe('uploadRowIsTerminal', () => {
+  // "Clear finished" removes exactly the rows the panel calls Ready or Failed.
+  it('is true for the settled rows and false for the working ones', () => {
+    expect(uploadRowIsTerminal({ status: 'failed', videoStatus: null })).toBe(true);
+    expect(uploadRowIsTerminal({ status: 'aborted', videoStatus: null })).toBe(true);
+    expect(uploadRowIsTerminal({ status: 'held', videoStatus: null })).toBe(true);
+    expect(uploadRowIsTerminal({ status: 'ready', videoStatus: 'processed' })).toBe(true);
+    expect(uploadRowIsTerminal({ status: 'ready', videoStatus: 'failed' })).toBe(true);
+
+    expect(uploadRowIsTerminal({ status: 'uploading', videoStatus: null })).toBe(false);
+    // Upload done, transcode still running: the panel says Processing, so the
+    // sweep must leave it alone.
+    expect(uploadRowIsTerminal({ status: 'ready', videoStatus: 'processing' })).toBe(false);
+    expect(uploadRowIsTerminal({ status: 'ready', videoStatus: null })).toBe(false);
   });
 });

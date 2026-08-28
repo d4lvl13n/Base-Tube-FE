@@ -3,7 +3,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Video } from '../../../types/video';
 import { useWindowSize } from '../../../hooks/useWindowSize';
-import RichTextDisplay from '../RichTextDisplay';
+import DescriptionText from './DescriptionText';
 import { useDescriptionDock } from '../../../contexts/DescriptionDockContext';
 
 interface VideoInfoOverlayProps {
@@ -29,9 +29,13 @@ export const VideoInfoOverlay: React.FC<VideoInfoOverlayProps> = ({ video }) => 
     >
       <div className="pointer-events-auto">
         <h2 className="text-xl font-bold text-white mb-2">{video.title}</h2>
-        <div className="text-sm text-gray-300 line-clamp-3">
-          <RichTextDisplay content={video.description || ''} />
-        </div>
+        {/* The opening paragraph only — "View more" below opens the dock. */}
+        <DescriptionText
+          content={video.description}
+          previewOnly
+          emptyText=""
+          className="text-sm text-gray-300"
+        />
         <button
           onClick={(e) => { e.stopPropagation(); open(video); }}
           className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-white/90 bg-[#fa7517] hover:bg-[#fa7517]/80 px-3 py-1.5 rounded-full"
