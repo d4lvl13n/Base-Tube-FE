@@ -29,7 +29,7 @@ import type {
 } from '../types/analytics';
 import type { InsightsPeriod } from '../types/insights';
 import type { InsightsResponse } from '../api/analytics';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { queryKeys } from '../utils/queryKeys';
 
 // A creator dashboard tab mounts ~12 queries at once. With staleTime: 0 and
@@ -422,6 +422,17 @@ export const useChannelInsights = (channelId: string | undefined, period: Insigh
   const queryClient = useQueryClient();
   const queryKey = queryKeys.analytics.channelMetric(channelId, 'insights', period);
 
+  /**
+   * The `generatedAt` of the report we are waiting to see REPLACED.
+   *
+   * A regeneration that loses the backend's generation lock comes back as 202, and the
+   * cached report on screen is still the old one. Without this marker the hook would see
+   * a perfectly good `ready` payload, stop polling, and the Regenerate button would look
+   * like it had done nothing — while somebody's generation was still running and paid
+   * for. We poll until the stamp moves.
+   */
+  const [awaitingReplacementOf, setAwaitingReplacementOf] = useState<string | null>(null);
+
   const { data, isLoading, error, refetch } = useQuery<InsightsResponse, Error>({
     queryKey,
     queryFn: () => {
@@ -431,34 +442,67 @@ export const useChannelInsights = (channelId: string | undefined, period: Insigh
     enabled: !!channelId,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    // Poll only while someone else's generation is in flight; a finished report is
-    // stable for its whole cache lifetime.
-    refetchInterval: (query) =>
-      (query.state.data as InsightsResponse | undefined)?.status === 'generating' ? 5000 : false,
+    refetchInterval: (query) => {
+      const current = query.state.data as InsightsResponse | undefined;
+      // Someone else's generation is in flight.
+      if (current?.status === 'generating') return 5000;
+      // Our regeneration is in flight and this is still the report it will replace.
+      if (
+        awaitingReplacementOf &&
+        current?.status === 'ready' &&
+        current.data.generatedAt === awaitingReplacementOf
+      ) {
+        return 5000;
+      }
+      return false;
+    },
     // A generation is expensive. Retrying a failure automatically would spend a second
     // one on a backend that has already told us it could not produce a report.
     retry: false
   });
+
+  const ready = data?.status === 'ready' ? data : undefined;
+
+  // Stop waiting the moment a newer report lands.
+  useEffect(() => {
+    if (awaitingReplacementOf && ready && ready.data.generatedAt !== awaitingReplacementOf) {
+      setAwaitingReplacementOf(null);
+    }
+  }, [awaitingReplacementOf, ready]);
 
   const regenerate = useMutation({
     mutationFn: () => {
       if (!channelId) throw new Error('Channel ID is required for insights');
       return getChannelInsights(channelId, period, { refresh: true });
     },
-    onSuccess: (fresh) => queryClient.setQueryData(queryKey, fresh)
+    onSuccess: (fresh) => {
+      if (fresh.status === 'ready') {
+        queryClient.setQueryData(queryKey, fresh);
+        setAwaitingReplacementOf(null);
+        return;
+      }
+      // 202: another request is already generating. Keep the report on screen — writing
+      // `generating` into the query cache would blank the card — and start waiting for a
+      // newer `generatedAt`.
+      setAwaitingReplacementOf(ready?.data.generatedAt ?? fresh.previous?.generatedAt ?? null);
+    }
   });
 
-  const ready = data?.status === 'ready' ? data : undefined;
+  const isGenerating =
+    data?.status === 'generating' ||
+    (!!awaitingReplacementOf && ready?.data.generatedAt === awaitingReplacementOf);
 
   return {
-    insights: ready?.data,
+    // While a generation is in flight and we have nothing else, the backend's `previous`
+    // gives a cold tab something true to render rather than an empty card.
+    insights: ready?.data ?? (data?.status === 'generating' ? data.previous : undefined),
     meta: ready?.meta,
-    isGenerating: data?.status === 'generating',
+    isGenerating,
     isLoading,
     error,
     refetch,
     regenerate: regenerate.mutate,
-    isRegenerating: regenerate.isPending,
+    isRegenerating: regenerate.isPending || isGenerating,
     regenerateError: regenerate.error as Error | null
   };
 };

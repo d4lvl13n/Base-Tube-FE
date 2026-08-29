@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ChannelInsightsCard } from '../ChannelInsightsCard';
 import type { ChannelInsightsV2 } from '../../../../../../types/insights';
 
@@ -244,6 +244,64 @@ describe('generating', () => {
       'Generating your insights'
     );
     expect(screen.queryByTestId('insights-error')).not.toBeInTheDocument();
+  });
+});
+
+describe('a regeneration that loses the race keeps waiting', () => {
+  it('shows the old report AND says a new one is coming, rather than looking finished', async () => {
+    const original = insights({ generatedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() });
+    prime(original);
+    render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
+
+    await screen.findByTestId('insights-coverage');
+    // The backend already holds a generation lock for this channel and period.
+    mockGetChannelInsights.mockResolvedValueOnce({ status: 'generating', previous: original });
+    fireEvent.click(screen.getByTestId('insights-regenerate'));
+
+    // The regression: the old report used to come back as a normal result, so the card
+    // looked settled and the button looked broken.
+    expect(await screen.findByTestId('insights-generating')).toBeInTheDocument();
+    expect(screen.getByTestId('insights-facts')).toBeInTheDocument();
+    expect(screen.getByTestId('insights-regenerate')).toBeDisabled();
+  });
+
+  it('polls until generatedAt actually moves, then settles', async () => {
+    jest.useFakeTimers();
+    try {
+      const original = insights({ generatedAt: '2026-08-29T09:00:00.000Z' });
+      const replacement = insights({ generatedAt: '2026-08-29T10:00:00.000Z' });
+      prime(original);
+      render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
+
+      await screen.findByTestId('insights-coverage');
+
+      mockGetChannelInsights.mockResolvedValueOnce({ status: 'generating', previous: original });
+      fireEvent.click(screen.getByTestId('insights-regenerate'));
+      await screen.findByTestId('insights-generating');
+
+      // Still polling: the stamp on screen is the one we are waiting to see replaced.
+      const callsBefore = mockGetChannelInsights.mock.calls.length;
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+      });
+      expect(mockGetChannelInsights.mock.calls.length).toBeGreaterThan(callsBefore);
+
+      // The winner finishes; the next poll sees a different stamp and we settle.
+      mockGetChannelInsights.mockResolvedValue({
+        status: 'ready',
+        data: replacement,
+        meta: { cached: false, refreshRemaining: 2 }
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+      });
+
+      await waitFor(() =>
+        expect(screen.queryByTestId('insights-generating')).not.toBeInTheDocument()
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

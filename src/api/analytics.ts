@@ -569,6 +569,15 @@ export const getChannelDemographics = async (
  */
 export interface InsightsGenerating {
   status: 'generating';
+  /**
+   * The report currently stored, when there is one.
+   *
+   * Deliberately NOT delivered as `data`: a refresh that loses the race and receives the
+   * old report under the normal key is indistinguishable from a regeneration that
+   * finished and changed nothing, so the client would stop waiting for the answer it is
+   * still paying for. Renderable while we wait, and never mistaken for the new one.
+   */
+  previous?: ChannelInsightsV2;
 }
 
 export type InsightsResponse =
@@ -601,10 +610,15 @@ export const getChannelInsights = async (
     status?: 'generating';
     data?: ChannelInsightsV2;
     meta?: ChannelInsightsMeta;
+    previous?: ChannelInsightsV2;
   }>(`/api/v1/creators/channels/${channelId}/analytics/insights`, { params });
 
   if (response.status === 202 || response.data.status === 'generating') {
-    return { status: 'generating' };
+    const previous = response.data.previous;
+    return {
+      status: 'generating',
+      ...(previous?.schemaVersion === INSIGHTS_SCHEMA_VERSION ? { previous } : {})
+    };
   }
 
   if (!response.data.success || !response.data.data || !response.data.meta) {
