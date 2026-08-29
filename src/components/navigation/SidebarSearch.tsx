@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect } from 'react';
 import { Search } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { isDesktopViewport, setSidebarMobileOpen } from './sidebarState';
 import SidebarTooltip from './SidebarTooltip';
 import { useSidebarView } from './SidebarViewContext';
+
+export const SEARCH_PATH = '/search';
 
 /** Marks the header's real search input so the sidebar can hand focus to it. */
 export const HEADER_SEARCH_SELECTOR = '[data-bt-search-input]';
@@ -30,17 +32,30 @@ export interface SidebarSearchProps {
 const SidebarSearch: React.FC<SidebarSearchProps> = ({ className = '' }) => {
   const { collapsed } = useSidebarView();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const open = useCallback(() => {
+    // The results page keeps the query and every filter in the URL, so
+    // navigating to a bare /search from /search?query=cats would silently
+    // throw the search away. Once you are there, this row only reopens the box.
+    const onResultsPage = pathname === SEARCH_PATH;
+
     // Below `md` the sidebar is an overlay sitting on top of the header, so
-    // focusing the header's input would put the caret in a box nobody can see.
+    // focusing the header's input first would put the caret in a box nobody
+    // can see. Close the drawer, then reach for it.
     if (!isDesktopViewport()) {
       setSidebarMobileOpen(false);
-      navigate('/search');
+      if (onResultsPage) {
+        focusHeaderSearch();
+        return;
+      }
+      navigate(SEARCH_PATH);
       return;
     }
-    if (!focusHeaderSearch()) navigate('/search');
-  }, [navigate]);
+
+    if (focusHeaderSearch() || onResultsPage) return;
+    navigate(SEARCH_PATH);
+  }, [navigate, pathname]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

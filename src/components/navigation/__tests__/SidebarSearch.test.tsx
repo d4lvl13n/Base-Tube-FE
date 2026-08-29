@@ -20,13 +20,18 @@ const setViewport = (desktop: boolean) => {
   });
 };
 
-const Where: React.FC = () => <span data-testid="path">{useLocation().pathname}</span>;
+const Where: React.FC = () => {
+  const { pathname, search } = useLocation();
+  return <span data-testid="path">{`${pathname}${search}`}</span>;
+};
 
-const renderSearch = () =>
+const renderSearch = (path = '/', withHeaderBox = true) =>
   render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={[path]}>
       {/* Stands in for the header's real box, which the sidebar hands focus to. */}
-      <input data-bt-search-input="" aria-label="Search videos and creators" />
+      {withHeaderBox && (
+        <input data-bt-search-input="" aria-label="Search videos and creators" />
+      )}
       <SidebarSearch />
       <Where />
       <Routes>
@@ -78,5 +83,27 @@ describe('SidebarSearch', () => {
     renderSearch();
 
     expect(screen.getByText('⌘K').className).toContain('text-gray-400');
+  });
+
+  it('leaves the URL alone when it is already on the results page', () => {
+    // The query and every filter live in the URL there, so navigating to a
+    // bare /search would throw the search away.
+    setViewport(false);
+    renderSearch('/search?query=cats&sort=views');
+    act(() => setSidebarMobileOpen(true));
+
+    fireEvent.click(screen.getByTestId('sidebar-search'));
+
+    expect(screen.getByTestId('path')).toHaveTextContent('/search?query=cats&sort=views');
+    expect(getSidebarState().mobileOpen).toBe(false);
+  });
+
+  it('does not navigate away from the results page on desktop either', () => {
+    setViewport(true);
+    renderSearch('/search?query=cats&sort=views', false);
+
+    fireEvent.click(screen.getByTestId('sidebar-search'));
+
+    expect(screen.getByTestId('path')).toHaveTextContent('/search?query=cats&sort=views');
   });
 });

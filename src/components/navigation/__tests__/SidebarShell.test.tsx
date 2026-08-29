@@ -26,36 +26,70 @@ const GoElsewhere: React.FC = () => {
 };
 
 /**
- * `resetMocks` wipes the shared `matchMedia` jest.fn(), and the sidebar asks it
- * which of its two forms is on screen. A plain function survives the reset.
+ * A controllable `matchMedia`.
+ *
+ * `resetMocks` wipes the shared jest.fn(), and the sidebar asks this which of
+ * its two forms is on screen — so it is a plain function that survives the
+ * reset, keeps a live `matches` getter, and remembers its listeners so a test
+ * can resize the window.
  */
+let viewportListeners: Array<() => void> = [];
+let isDesktopViewportStub = true;
+
 const setViewport = (desktop: boolean) => {
+  isDesktopViewportStub = desktop;
+  viewportListeners = [];
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
-      matches: desktop,
+      get matches() {
+        return isDesktopViewportStub;
+      },
       media: query,
       onchange: null,
-      addListener: () => undefined,
-      removeListener: () => undefined,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
+      addListener: (listener: () => void) => viewportListeners.push(listener),
+      removeListener: (listener: () => void) => {
+        viewportListeners = viewportListeners.filter((entry) => entry !== listener);
+      },
+      addEventListener: (_type: string, listener: () => void) =>
+        viewportListeners.push(listener),
+      removeEventListener: (_type: string, listener: () => void) => {
+        viewportListeners = viewportListeners.filter((entry) => entry !== listener);
+      },
       dispatchEvent: () => false,
     }),
   });
 };
 
-const OpenDrawer: React.FC = () => (
-  <button type="button" onClick={() => setSidebarMobileOpen(true)}>
-    open
-  </button>
-);
+/** Resize the window past the breakpoint and tell whoever is listening. */
+const resizeViewport = (desktop: boolean) => {
+  isDesktopViewportStub = desktop;
+  act(() => viewportListeners.forEach((listener) => listener()));
+};
+
+/** An opener that can be taken away, the way a route change takes one away. */
+const OpenDrawer: React.FC = () => {
+  const [unmounted, setUnmounted] = React.useState(false);
+  return (
+    <>
+      {!unmounted && (
+        <button type="button" onClick={() => setSidebarMobileOpen(true)}>
+          open
+        </button>
+      )}
+      <button type="button" onClick={() => setUnmounted(true)}>
+        unmount opener
+      </button>
+    </>
+  );
+};
 
 const renderSidebar = (path = '/creator-hub', className?: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
       <GoElsewhere />
       <OpenDrawer />
+      <main>page</main>
       <SidebarShell
         className={className}
         top={<SidebarSearch />}
@@ -188,6 +222,8 @@ describe('SidebarShell', () => {
   });
 
   describe('the mobile drawer', () => {
+    beforeEach(() => setViewport(false));
+
     it('closes on Escape', () => {
       renderSidebar();
       act(() => setSidebarMobileOpen(true));
@@ -244,6 +280,8 @@ describe('SidebarShell', () => {
   });
 
   describe('the drawer as a modal', () => {
+    beforeEach(() => setViewport(false));
+
     const openDrawer = () => {
       const opener = screen.getByRole('button', { name: 'open' });
       opener.focus();
@@ -283,6 +321,39 @@ describe('SidebarShell', () => {
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(opener).toHaveFocus();
+    });
+
+    it('falls back to the page when the opener has gone', () => {
+      // The header button unmounts on a route change. Focus left on a detached
+      // node quietly becomes `<body>`, and the next Tab restarts at the top of
+      // the document.
+      renderSidebar();
+      openDrawer();
+
+      fireEvent.click(screen.getByRole('button', { name: 'unmount opener' }));
+      expect(screen.queryByRole('button', { name: 'open' })).not.toBeInTheDocument();
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+
+      expect(screen.getByRole('main')).toHaveFocus();
+    });
+
+    it('closes itself when the window grows past md', () => {
+      // Otherwise a display:none dialog stays mounted with a global Tab trap
+      // still reading from it, and focus disappears into a modal nobody sees.
+      renderSidebar();
+      const opener = openDrawer();
+
+      resizeViewport(true);
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(opener).toHaveFocus();
+
+      // The trap went with it: Tab is nobody's business again.
+      const elsewhere = screen.getByRole('button', { name: 'go' });
+      elsewhere.focus();
+      fireEvent.keyDown(window, { key: 'Tab' });
+      expect(elsewhere).toHaveFocus();
     });
 
     it('closes when the backdrop is clicked', () => {

@@ -7,6 +7,7 @@ import {
   SIDEBAR_WIDTH,
   setSidebarCollapsed,
   setSidebarMobileOpen,
+  useIsDesktopViewport,
   useSidebarState,
 } from './sidebarState';
 import { useSidebarShortcuts } from './useSidebarShortcuts';
@@ -43,6 +44,24 @@ const POSITIONED = /(^|\s)(fixed|absolute|sticky|relative)(\s|$)/;
  */
 export const panelPositionClass = (className: string): string =>
   POSITIONED.test(className) ? '' : 'relative';
+
+/**
+ * Where focus goes when the drawer closes and the thing that opened it is no
+ * longer there — the header button unmounts on a route change, and focus left
+ * on a detached node silently falls back to `<body>`, which reads as "nowhere"
+ * and sends the next Tab to the top of the document.
+ */
+const focusPageStart = () => {
+  const main = document.querySelector<HTMLElement>('[data-bt-main], main');
+  if (main) {
+    // Programmatic focus only; a negative tabindex keeps it out of the tab
+    // order, so nobody has to Tab past the page body to reach the content.
+    if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1');
+    main.focus();
+    return;
+  }
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+};
 
 /** Everything you can tab to inside the drawer. */
 const FOCUSABLE =
@@ -94,6 +113,7 @@ const SidebarShell: React.FC<SidebarShellProps> = ({
   edgeToggle = true,
 }) => {
   const { collapsed, mobileOpen } = useSidebarState();
+  const isDesktop = useIsDesktopViewport();
   const location = useLocation();
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -108,6 +128,14 @@ const SidebarShell: React.FC<SidebarShellProps> = ({
     setSidebarMobileOpen(false);
   }, [location.pathname]);
 
+  // Widening the window past `md` swaps the drawer for the column. Leaving
+  // `mobileOpen` set would keep a display:none dialog mounted with a global
+  // Tab trap still reading from it — focus would vanish into a modal nobody
+  // can see.
+  useEffect(() => {
+    if (isDesktop && mobileOpen) setSidebarMobileOpen(false);
+  }, [isDesktop, mobileOpen]);
+
   // The drawer is modal: it takes focus on open and hands it back on close,
   // so the control that opened it is still where the user left it.
   useEffect(() => {
@@ -120,7 +148,11 @@ const SidebarShell: React.FC<SidebarShellProps> = ({
     return () => {
       const returnTo = openerRef.current;
       openerRef.current = null;
-      if (returnTo && document.contains(returnTo)) returnTo.focus();
+      if (returnTo && document.contains(returnTo)) {
+        returnTo.focus();
+        return;
+      }
+      focusPageStart();
     };
   }, [mobileOpen]);
 
