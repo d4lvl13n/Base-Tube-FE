@@ -56,7 +56,20 @@ const mockAnalytics: any = {
 };
 
 jest.mock('../../../../../hooks/useAnalyticsData', () => ({
-  useCreatorAnalytics: () => mockAnalytics
+  useCreatorAnalytics: () => mockAnalytics,
+  // The Insights card sits at the top of this tab now. It has its own suite
+  // (insights/__tests__/ChannelInsightsCard.test.tsx); here it must simply not
+  // reach the network, so it renders its loading line and stays out of the way.
+  useChannelInsights: () => ({
+    insights: undefined,
+    meta: undefined,
+    isLoading: true,
+    error: null,
+    refetch: jest.fn(),
+    regenerate: jest.fn(),
+    isRegenerating: false,
+    regenerateError: null
+  })
 }));
 
 const mockChannel: { channel: unknown; isLoading: boolean; error: Error | null } = {
