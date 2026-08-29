@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle, Sparkles, ChevronLeft, ChevronRight, DollarSign, Clock, Tag, GamepadIcon } from 'lucide-react';
-import { useNavigation } from '../../contexts/NavigationContext';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 
@@ -23,15 +22,13 @@ const getCategoryStyle = (category: string) => {
 };
 
 const NFTMarketplace: React.FC = () => {
-  const { navStyle } = useNavigation();
-  
   if (!PASSES_ENABLED) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-black to-gray-900">
         <Header />
         <div className="flex">
-          {navStyle === 'classic' && <Sidebar />}
-          <div className={`flex-1 ${navStyle === 'classic' ? 'ml-16' : ''} pt-16`}>
+          <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
+          <div className="bt-sidebar-offset flex-1 pt-16">
             <motion.div 
               className="bg-[#fa7517]/10 border border-[#fa7517]/20 rounded-lg m-4 p-6"
               initial={{ opacity: 0, y: -20 }}
@@ -138,9 +135,9 @@ const NFTMarketplace: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-b from-black to-gray-900">
       <Header />
       <div className="flex">
-        {navStyle === 'classic' && <Sidebar />}
-        
-        <div className={`flex-1 ${navStyle === 'classic' ? 'ml-16' : ''} pt-16`}>
+        <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
+
+        <div className="bt-sidebar-offset flex-1 pt-16">
           {/* Development Banner */}
           <motion.div 
             className="bg-[#fa7517]/10 border border-[#fa7517]/20 rounded-lg m-4 p-4"

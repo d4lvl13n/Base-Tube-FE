@@ -12,14 +12,11 @@ import { usePassDiscover } from '../../hooks/usePass';
 import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';
 import Header from '../common/Header';
-import { useNavigation } from '../../contexts/NavigationContext';
 import PassCard from '../pass/PassCard';
 
 const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
 
 const BaseTubeHomepage: React.FC = () => {
-  const { navStyle } = useNavigation();
-  const isFloatingNav = navStyle === 'floating';
   const [featuredVideos, setFeaturedVideos] = useState<Video[]>([]);
   const [recommendedVideos, setRecommendedVideos] = useState<Video[]>([]);
   const [popularChannels, setPopularChannels] = useState<Channel[]>([]);
@@ -149,8 +146,8 @@ const BaseTubeHomepage: React.FC = () => {
       <div className="flex-1 flex flex-col bg-black">
         <Header/>
         <div className="flex pt-16">
-          <Sidebar className={`${isFloatingNav ? 'hidden' : 'fixed left-0 top-16 bottom-0 z-40'}`} />
-          <main className={`flex-1 ${isFloatingNav ? '' : 'pl-16'} max-w-[1920px] mx-auto w-full`}>
+          <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
+          <main className="bt-sidebar-offset-pad mx-auto w-full max-w-[1920px] flex-1">
             <div className="p-4 md:p-6">
               <HeroSection 
                 featuredVideos={featuredVideos.slice(0, 2)} 

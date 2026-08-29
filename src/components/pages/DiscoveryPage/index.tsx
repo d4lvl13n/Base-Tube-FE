@@ -138,7 +138,7 @@ const DiscoveryPage: React.FC = () => {
       <div className="flex pt-16 relative">
         <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
         <main 
-          className="flex-1 p-8 overflow-auto main-content ml-16" 
+          className="bt-sidebar-offset flex-1 p-8 overflow-auto main-content" 
           id="scrollableDiv"
           style={{ height: 'calc(100vh - 64px)' }}
         >

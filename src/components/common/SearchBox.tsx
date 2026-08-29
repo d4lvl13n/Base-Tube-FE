@@ -124,6 +124,9 @@ const SearchBox: React.FC<SearchBoxProps> = ({ className = '' }) => {
         />
         <input
           ref={inputRef}
+          // The sidebar's search row hands focus here rather than owning a
+          // second query state that could disagree with this one.
+          data-bt-search-input=""
           type="search"
           role="combobox"
           aria-expanded={showDropdown}
