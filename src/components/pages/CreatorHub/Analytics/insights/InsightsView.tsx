@@ -1,59 +1,51 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { motion, useReducedMotion } from 'framer-motion';
-import {
-  AlertTriangle,
-  Check,
-  FlaskConical,
-  Globe,
-  Image as ImageIcon,
-  Lightbulb,
-  RefreshCw,
-  Ruler,
-} from 'lucide-react';
+import { AlertTriangle, FlaskConical, Globe, Lightbulb, RefreshCw } from 'lucide-react';
 import { Select } from '../../../../ui/Select';
 import type {
-  ChannelInsightsV2,
-  InsightsNicheReference,
+  ChannelInsightsV3,
+  InsightsNicheComparison,
+  InsightsPackaging,
   InsightsPeriod,
 } from '../../../../../types/insights';
-import {
-  INSUFFICIENT_VIEWS_THRESHOLD,
-  NICHE_MIN_PEERS,
-  THIN_VIEWS_THRESHOLD,
-} from '../../../../../types/insights';
-import {
-  basedOnLabels,
-  factLabel,
-  factValue,
-  headlineSentence,
-  windowLabel,
-} from './format';
+import { basedOnLabels, coverageSentence } from './format';
 
 /*
- * The Insights tab, as a page rather than a stack of sections.
+ * The Insights tab — a PACKAGING STRATEGY page, not a report.
  *
- * WHAT THE LAYOUT IS FOR. The v2 contract is honest but it reads like a report:
- * coverage, facts, observations, hypotheses, experiments, niche, notices. This
- * view keeps every one of those distinctions — a creator must still be able to
- * tell measured from guessed without reading the code — and gives each its own
- * card, so the honesty is legible instead of exhausting:
+ * WHAT CHANGED FROM v2, AND WHY. v2 rendered the contract in the order the contract
+ * happened to be written: a coverage strip, a grid of measured facts, a row of tiles
+ * describing the creator's own thumbnails back to them, hypotheses, experiments, niche
+ * medians, an unlock checklist. Everything on that page was true. Nothing on it was
+ * worth acting on, and the first two sections were the Overview tab again.
  *
- *  - the HEADER greets the channel and states the coverage in one sentence, so
- *    the first thing on screen is what the report was computed from;
- *  - FACTS are a stat grid, because they are numbers;
- *  - OBSERVATIONS sit under the thumbnails they describe, because they are
- *    about pictures;
- *  - HYPOTHESES are numbered and carry "based on", because they are guesses
- *    with a stated basis, and the low-confidence chip stays in `thin` mode;
- *  - the NICHE reference and the unlock checklist live in a side column, since
- *    neither is about this channel's own performance;
- *  - `insufficient` is NOT an empty state. It renders everything measurable and
- *    adds the checklist that says what more data will unlock.
+ * v3 leads with the read and demotes everything that is only evidence FOR the read:
  *
- * This component is PURE: it is given a report and renders it. The network, the
- * polling and the regeneration budget all live in ChannelInsightsCard, which is
- * the only thing that fetches a report.
+ *  - the HEADLINE is the first thing on the page, in the accent colour, because it is
+ *    the one sentence the creator came for;
+ *  - POSITIONING follows it, as a paragraph, because a strategy read is prose;
+ *  - "FIX FIRST" is the left column, numbered, because that is the answer to "so what";
+ *  - GAPS sit under the fixes with the THUMBNAILS THEY NAME beside them, because a gap
+ *    that cannot point at a real video is not a gap;
+ *  - the NICHE column says what peers DO, what this channel does and what to try — never
+ *    a median, which is a number about strangers;
+ *  - PER-VIDEO NOTES are tiles at the bottom of the right column: one line each, the
+ *    detail behind the read rather than the read itself;
+ *  - HYPOTHESES and EXPERIMENTS appear only when the views can carry them, and when they
+ *    cannot there is one quiet line saying so — not a checklist, not an empty state.
+ *
+ * THE FACTS GRID IS GONE. `facts[]` still travels in the payload (it is the number
+ * guard's allow-list) and one code-generated coverage sentence still says what was
+ * looked at. The Overview tab owns the numbers.
+ *
+ * This component is PURE: it is given a report and renders it. The network, the polling
+ * and the regeneration budget all live in ChannelInsightsCard.
+ *
+ * LAYOUT NOTE — no `flex-col lg:flex-row` and no `hidden md:flex` here.
+ * `@coinbase/onchainkit/styles.css` is imported after Tailwind's in src/index.tsx and
+ * ships its own unprefixed `.flex-col` / display rules, which beat `.lg\:flex-row` on
+ * document order (a media query adds no specificity). Grid columns have no such twin.
  */
 
 const PANEL = 'rounded-xl border border-gray-800/60 bg-[#0f0f0f]';
@@ -93,7 +85,7 @@ const Panel: React.FC<{
 
 const Header: React.FC<{
   channelName?: string;
-  insights?: ChannelInsightsV2;
+  insights?: ChannelInsightsV3;
   period: InsightsPeriod;
   onPeriodChange?: (period: InsightsPeriod) => void;
   regenerate?: () => void;
@@ -110,31 +102,17 @@ const Header: React.FC<{
   canRegenerate,
   refreshRemaining,
 }) => (
-  // GRID, not `flex-col lg:flex-row`: OnchainKit's stylesheet is imported after
-  // Tailwind's in src/index.tsx and ships its own unprefixed `.flex-col`, which
-  // beats `.lg\:flex-row` on document order (a media query adds no specificity).
-  // Grid columns have no such twin, so this one stays a row on large screens.
   <header className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-8">
     <div className="min-w-0">
       <h1 className="text-2xl font-semibold tracking-tight text-white">
         Insights{channelName ? ` for ${channelName}` : ''}
       </h1>
       {insights ? (
-        <>
-          {/* The coverage numbers ARE the sentence — the greeting is the wrapper,
-              never a replacement for saying what this was computed from. */}
-          <p className="mt-1 max-w-2xl text-sm text-gray-400" data-testid="insights-coverage">
-            {headlineSentence(insights)}
-          </p>
-          {insights.sample.size < insights.sample.of && (
-            <p className="mt-1 text-xs text-gray-500" data-testid="insights-sample">
-              AI sections reviewed your {insights.sample.size} most-viewed videos of{' '}
-              {insights.sample.of}. The measured numbers cover all {insights.sample.of}.
-            </p>
-          )}
-        </>
+        <p className="mt-1 text-sm text-gray-400" data-testid="insights-coverage">
+          {coverageSentence(insights)}
+        </p>
       ) : (
-        <p className="mt-1 text-sm text-gray-500">What the data supports, and only that.</p>
+        <p className="mt-1 text-sm text-gray-500">How your packaging reads, and what to change.</p>
       )}
     </div>
 
@@ -171,7 +149,7 @@ const Header: React.FC<{
               aria-hidden="true"
             />
             Regenerate
-            <span className="text-gray-600">({refreshRemaining} left today)</span>
+            <span className="text-gray-600">({refreshRemaining} left)</span>
           </button>
         )}
       </div>
@@ -179,114 +157,239 @@ const Header: React.FC<{
   </header>
 );
 
-/* ----------------------------------------------------------------- facts -- */
+/* -------------------------------------------------------------- the read -- */
 
-const Facts: React.FC<{ insights: ChannelInsightsV2 }> = ({ insights }) => {
-  if (insights.facts.length === 0) return null;
+/**
+ * The headline and the positioning paragraph — the top of the page.
+ *
+ * Not inside a panel: this is the page's own voice, and boxing it would make it one
+ * section among several instead of the thing the rest of the page supports.
+ */
+const Read: React.FC<{ packaging: InsightsPackaging }> = ({ packaging }) => {
+  if (!packaging.headline && !packaging.positioning) return null;
   return (
-    <Panel delay={0.02} testId="insights-facts">
-      <h2 className={TITLE}>
-        <Ruler className={ICON} aria-hidden="true" />
-        What we measured
-      </h2>
-      {/* A tile shows the figure and names it; the measured SENTENCE is carried
-          verbatim in the tooltip and for screen readers, so nothing the backend
-          wrote is paraphrased away. */}
-      <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-5">
-        {insights.facts.map((fact) => (
-          <p key={fact.metric} className="min-w-0" title={fact.text}>
-            <span aria-hidden="true" className="block text-xl font-semibold tabular-nums text-white">
-              {factValue(fact)}
+    <div data-testid="insights-read">
+      {packaging.headline && (
+        <p className="text-xl font-semibold leading-snug tracking-tight text-[#fa7517] sm:text-2xl">
+          {packaging.headline}
+        </p>
+      )}
+      {packaging.positioning && (
+        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-gray-300">
+          {packaging.positioning}
+        </p>
+      )}
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------ fix first -- */
+
+const Fixes: React.FC<{ packaging: InsightsPackaging }> = ({ packaging }) => {
+  if (packaging.fixes.length === 0) return null;
+  return (
+    <Panel delay={0.02} testId="insights-fixes">
+      <h2 className={TITLE}>Fix first</h2>
+      <ol className="mt-4 space-y-3">
+        {packaging.fixes.map((fix) => (
+          <li
+            key={`${fix.order}-${fix.title}`}
+            className="flex gap-3 rounded-lg border border-gray-800/60 bg-black/20 p-3"
+          >
+            {/* An ORDER, never an impact label: 1 is the one to do first. */}
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded
+                             border border-[#fa7517]/30 text-[11px] font-medium tabular-nums text-[#fa7517]">
+              {fix.order}
             </span>
-            <span aria-hidden="true" className="mt-0.5 block text-xs leading-snug text-gray-500">
-              {factLabel(fact)}
-            </span>
-            <span className="sr-only">{fact.text}</span>
-          </p>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-200">{fix.title}</p>
+              <p className="mt-1 text-sm leading-relaxed text-gray-400">{fix.detail}</p>
+            </div>
+          </li>
         ))}
-      </div>
+      </ol>
     </Panel>
   );
 };
 
-/* ---------------------------------------------------------- observations -- */
+/* ----------------------------------------------------------------- gaps -- */
 
-type ObservedVideo = { title: string; thumbnailUrl: string | null; lines: string[] };
-
-function groupObservations(insights: ChannelInsightsV2): [string, ObservedVideo][] {
-  const byVideo = new Map<string, ObservedVideo>();
-  insights.observations.forEach((observation, index) => {
-    const key = observation.videoId ?? `channel-${index}`;
-    const existing = byVideo.get(key);
-    if (existing) existing.lines.push(observation.text);
-    else
-      byVideo.set(key, {
-        title: observation.videoTitle ?? 'Your channel',
-        thumbnailUrl: observation.thumbnailUrl ?? null,
-        lines: [observation.text],
-      });
-  });
-  return Array.from(byVideo.entries());
+/** The thumbnails a gap names, looked up from the per-video notes that carry them. */
+function thumbnailsFor(packaging: InsightsPackaging, videoIds: string[]) {
+  return videoIds
+    .map((id) => packaging.perVideo.find((note) => note.videoId === id))
+    .filter((note): note is NonNullable<typeof note> => Boolean(note));
 }
 
-const Packaging: React.FC<{ insights: ChannelInsightsV2 }> = ({ insights }) => {
-  const videos = groupObservations(insights);
-  const failed = insights.partial?.includes('observations') ?? false;
-  if (videos.length === 0 && !failed) return null;
+const Gaps: React.FC<{ packaging: InsightsPackaging }> = ({ packaging }) => {
+  if (packaging.gaps.length === 0) return null;
+  return (
+    <Panel delay={0.04} testId="insights-gaps">
+      <h2 className={TITLE}>Gaps</h2>
+      <p className="mt-1 text-xs text-gray-500">
+        Where the packaging and the promise pull in different directions.
+      </p>
+      <ul className="mt-4 space-y-4">
+        {packaging.gaps.map((gap) => {
+          const named = thumbnailsFor(packaging, gap.videoIds);
+          return (
+            <li key={gap.text} className="rounded-lg border border-gray-800/60 bg-black/20 p-3">
+              <p className="text-sm leading-relaxed text-gray-300">{gap.text}</p>
+              {named.length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {named.map((note) => (
+                    <li key={note.videoId} className="w-24">
+                      {note.thumbnailUrl ? (
+                        <img
+                          src={note.thumbnailUrl}
+                          alt=""
+                          className="aspect-video w-full rounded border border-gray-800/60 bg-gray-900 object-cover"
+                        />
+                      ) : (
+                        <div className="aspect-video w-full rounded border border-gray-800/60 bg-gray-900" />
+                      )}
+                      <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-gray-500">
+                        {note.videoTitle}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Panel>
+  );
+};
+
+/* ---------------------------------------------------------------- niche -- */
+
+const NicheHeading: React.FC = () => (
+  <h2 className={TITLE}>
+    <Globe className={ICON} aria-hidden="true" />
+    Your niche on YouTube
+  </h2>
+);
+
+const ComparisonList: React.FC<{ label: string; items: string[] }> = ({ label, items }) => {
+  if (items.length === 0) return null;
+  return (
+    <div className="border-t border-gray-800/50 pt-3">
+      <p className="text-[11px] uppercase tracking-wide text-gray-500">{label}</p>
+      <ul className="mt-1.5 space-y-1.5">
+        {items.map((item) => (
+          <li key={item} className="text-sm leading-snug text-gray-300">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+/**
+ * Conventions, not medians.
+ *
+ * v2 put "median views per peer video: 15,000" beside a creator with two views, under a
+ * disclaimer asking them not to compare. This says what those creators DO instead —
+ * which is the part that can be borrowed.
+ */
+const Niche: React.FC<{
+  comparison?: InsightsNicheComparison;
+  query?: string;
+  disclaimer?: string;
+  unavailableReason?: string;
+  failed: boolean;
+}> = ({ comparison, query, disclaimer, unavailableReason, failed }) => {
+  const hasComparison = Boolean(
+    comparison && (comparison.theyDo.length || comparison.youDo.length || comparison.tryNext.length)
+  );
+  if (!hasComparison && !unavailableReason && !failed) return null;
 
   return (
-    <Panel delay={0.04} testId="insights-observations">
-      <h2 className={TITLE}>
-        <ImageIcon className={ICON} aria-hidden="true" />
-        Your thumbnails and titles
-      </h2>
-      <p className="mt-1 text-xs text-gray-500">
-        Recorded from the pictures and words alone — no view counts were shown to this step.
-      </p>
+    <Panel delay={0.04} testId="insights-niche">
+      <NicheHeading />
 
+      {hasComparison && comparison ? (
+        <>
+          {query && (
+            <p className="mt-3 inline-block rounded-full border border-gray-800/70 bg-black/40 px-2.5 py-1 text-xs text-gray-300">
+              {query}
+            </p>
+          )}
+          <div className="mt-3 space-y-3">
+            <ComparisonList label="They do" items={comparison.theyDo} />
+            <ComparisonList label="You do" items={comparison.youDo} />
+            <ComparisonList label="Try next" items={comparison.tryNext} />
+          </div>
+          {disclaimer && (
+            <p className="mt-4 border-t border-gray-800/50 pt-3 text-xs leading-snug text-gray-500">
+              {disclaimer}
+            </p>
+          )}
+        </>
+      ) : (
+        unavailableReason && (
+          <p
+            className="mt-2 text-sm leading-relaxed text-gray-400"
+            data-testid="insights-niche-unavailable"
+          >
+            No comparison published — {unavailableReason}
+          </p>
+        )
+      )}
+
+      {/* The LEG is named whenever it failed, whether or not a stale comparison from an
+          earlier generation is still on screen. A section that quietly shrinks reads as
+          a bug; a named failure reads as a measurement we declined to fake. */}
       {failed && (
-        <p className="mt-3 text-xs text-gray-500" data-testid="insights-partial">
-          The packaging review could not be produced for this report.
+        <p className="mt-2 text-xs text-gray-500" data-testid="insights-partial">
+          The YouTube comparison could not be produced for this report.
         </p>
       )}
+    </Panel>
+  );
+};
 
-      {videos.length > 0 && (
-        <ul className="mt-4 flex gap-4 overflow-x-auto pb-2">
-          {videos.map(([key, video]) => (
-            <li key={key} className="w-40 shrink-0">
-              {video.thumbnailUrl ? (
-                <img
-                  src={video.thumbnailUrl}
-                  alt=""
-                  className="aspect-video w-full rounded-md border border-gray-800/60 bg-gray-900 object-cover"
-                />
-              ) : (
-                <div className="aspect-video w-full rounded-md border border-gray-800/60 bg-gray-900" />
+/* ------------------------------------------------------- per-video notes -- */
+
+const PerVideo: React.FC<{ packaging: InsightsPackaging }> = ({ packaging }) => {
+  if (packaging.perVideo.length === 0) return null;
+  return (
+    <Panel delay={0.06} testId="insights-pervideo">
+      <h2 className={TITLE}>Video by video</h2>
+      <ul className="mt-4 space-y-3">
+        {packaging.perVideo.map((note) => (
+          <li key={note.videoId} className="flex gap-3">
+            {note.thumbnailUrl ? (
+              <img
+                src={note.thumbnailUrl}
+                alt=""
+                className="h-12 w-20 shrink-0 rounded border border-gray-800/60 bg-gray-900 object-cover"
+              />
+            ) : (
+              <div className="h-12 w-20 shrink-0 rounded border border-gray-800/60 bg-gray-900" />
+            )}
+            <div className="min-w-0">
+              {note.videoTitle && (
+                <p className="line-clamp-1 text-xs font-medium text-gray-300">{note.videoTitle}</p>
               )}
-              <p className="mt-2 line-clamp-2 text-xs font-medium leading-snug text-gray-300">
-                {video.title}
-              </p>
-              <ul className="mt-1.5 space-y-1">
-                {video.lines.map((line) => (
-                  <li key={line} className="text-[11px] leading-snug text-gray-500">
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      )}
+              <p className="mt-0.5 text-xs leading-snug text-gray-500">{note.note}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
     </Panel>
   );
 };
 
 /* ------------------------------------------------------------ hypotheses -- */
 
-const Hypotheses: React.FC<{ insights: ChannelInsightsV2 }> = ({ insights }) => {
+const Hypotheses: React.FC<{ insights: ChannelInsightsV3 }> = ({ insights }) => {
   if (insights.hypotheses.length === 0) return null;
   return (
-    <Panel delay={0.06} testId="insights-hypotheses">
+    <Panel delay={0.08} testId="insights-hypotheses">
       <h2 className={TITLE}>
         <Lightbulb className={ICON} aria-hidden="true" />
         Hypotheses
@@ -326,27 +429,26 @@ const Hypotheses: React.FC<{ insights: ChannelInsightsV2 }> = ({ insights }) => 
   );
 };
 
-/* ------------------------------------------------------------------ what -- */
-
-/** The hypotheses slot when the sample cannot carry one. Not a shrug — a reason. */
-const InsufficientNotice: React.FC = () => (
-  <Panel delay={0.06}>
-    <h2 className={TITLE}>
-      <Lightbulb className={ICON} aria-hidden="true" />
-      Hypotheses
-    </h2>
-    <p className="mt-2 text-sm text-gray-400" data-testid="insights-insufficient">
-      Not enough views yet for hypotheses — here&apos;s what we can say.
-    </p>
-  </Panel>
+/**
+ * The hypotheses slot when the views cannot carry one.
+ *
+ * ONE QUIET LINE. v2 filled this space with an unlock checklist, which turned "we do not
+ * know yet" into a to-do list about our own thresholds. The packaging read above already
+ * gave the creator something to do; this only explains what is missing and when it
+ * arrives.
+ */
+const NoHypothesesYet: React.FC = () => (
+  <p className="text-sm text-gray-500" data-testid="insights-insufficient">
+    Performance hypotheses appear once your videos have been watched a few dozen times.
+  </p>
 );
 
 /* ----------------------------------------------------------- experiments -- */
 
-const Experiments: React.FC<{ insights: ChannelInsightsV2 }> = ({ insights }) => {
+const Experiments: React.FC<{ insights: ChannelInsightsV3 }> = ({ insights }) => {
   if (insights.experiments.length === 0) return null;
   return (
-    <Panel delay={0.08} testId="insights-experiments">
+    <Panel delay={0.1} testId="insights-experiments">
       <h2 className={TITLE}>
         <FlaskConical className={ICON} aria-hidden="true" />
         Experiments to try
@@ -385,147 +487,9 @@ const Experiments: React.FC<{ insights: ChannelInsightsV2 }> = ({ insights }) =>
   );
 };
 
-/* ----------------------------------------------------------------- niche -- */
-
-const NicheStat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <div className="flex items-baseline justify-between gap-3 border-t border-gray-800/50 py-2">
-    <span className="text-xs text-gray-500">{label}</span>
-    <span className="text-sm tabular-nums text-gray-200">{value}</span>
-  </div>
-);
-
-const NicheHeading: React.FC = () => (
-  <h2 className={TITLE}>
-    <Globe className={ICON} aria-hidden="true" />
-    Your niche on YouTube
-  </h2>
-);
-
-const Niche: React.FC<{ reference: InsightsNicheReference }> = ({ reference }) => (
-  <Panel delay={0.04} testId="insights-niche">
-    <NicheHeading />
-    <div className="mt-3 flex flex-wrap items-center gap-2">
-      <span className="rounded-full border border-gray-800/70 bg-black/40 px-2.5 py-1 text-xs text-gray-300">
-        {reference.query}
-      </span>
-      <span className="text-xs text-gray-500">
-        {reference.peerCount} peers · {windowLabel(reference.window)}
-      </span>
-    </div>
-
-    <div className="mt-3">
-      <NicheStat
-        label="Median views per video"
-        value={reference.medianViewsPerVideo.toLocaleString()}
-      />
-      {/* Null means we could not measure it from this sample — the row is omitted
-          rather than printed as 0, which would read as "these creators never upload". */}
-      {reference.medianUploadsPerWeek !== null && (
-        <NicheStat label="Median uploads per week" value={`${reference.medianUploadsPerWeek}`} />
-      )}
-      <NicheStat label="Median title length" value={`${reference.medianTitleLength} chars`} />
-    </div>
-
-    {reference.commonPatterns.length > 0 && (
-      <ul className="mt-3 space-y-1.5">
-        {reference.commonPatterns.map((pattern) => (
-          <li key={pattern} className="flex gap-2 text-xs leading-snug text-gray-400">
-            <span aria-hidden="true" className="text-gray-700">
-              —
-            </span>
-            {pattern}
-          </li>
-        ))}
-      </ul>
-    )}
-
-    <p className="mt-4 border-t border-gray-800/50 pt-3 text-xs leading-snug text-gray-500">
-      {reference.disclaimer}
-    </p>
-  </Panel>
-);
-
-/** No peers, and the reason why. A stated reason is not a missing section. */
-const NicheUnavailable: React.FC<{ reason: string; failed: boolean }> = ({ reason, failed }) => (
-  <Panel delay={0.04} testId="insights-niche-unavailable">
-    <NicheHeading />
-    <p className="mt-2 text-sm leading-relaxed text-gray-400">No comparison published — {reason}</p>
-    {failed && (
-      <p className="mt-2 text-xs text-gray-500" data-testid="insights-partial">
-        The YouTube comparison could not be produced for this report.
-      </p>
-    )}
-  </Panel>
-);
-
-/* --------------------------------------------------------------- unlocks -- */
-
-type UnlockStep = { label: string; met: boolean; progress: string };
-
-function unlockSteps(insights: ChannelInsightsV2): UnlockStep[] {
-  const views = insights.coverage.views;
-  const peers = insights.nicheReference?.peerCount ?? 0;
-  return [
-    {
-      label: 'Hypotheses about what is working',
-      met: views >= INSUFFICIENT_VIEWS_THRESHOLD,
-      progress: `${views.toLocaleString()} / ${INSUFFICIENT_VIEWS_THRESHOLD} views`,
-    },
-    {
-      label: 'Readings we no longer hedge',
-      met: views >= THIN_VIEWS_THRESHOLD,
-      progress: `${views.toLocaleString()} / ${THIN_VIEWS_THRESHOLD} views`,
-    },
-    {
-      label: 'A YouTube niche reference',
-      met: peers >= NICHE_MIN_PEERS,
-      progress: `${peers} / ${NICHE_MIN_PEERS} peers found`,
-    },
-  ];
-}
-
-/**
- * What more data buys.
- *
- * The thresholds are the ones the backend actually branches on, imported from
- * the shared contract — a checklist that promised something the code does not
- * do would be worse than no checklist. It disappears once everything is met.
- */
-const Unlocks: React.FC<{ insights: ChannelInsightsV2 }> = ({ insights }) => {
-  const steps = unlockSteps(insights);
-  if (steps.every((step) => step.met)) return null;
-  return (
-    <Panel delay={0.06} testId="insights-unlocks">
-      <h2 className={TITLE}>What unlocks more</h2>
-      <ul className="mt-3 space-y-3">
-        {steps.map((step) => (
-          <li key={step.label} className="flex items-start gap-2.5">
-            {step.met ? (
-              <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" aria-hidden="true" />
-            ) : (
-              <span
-                aria-hidden="true"
-                className="mt-1 h-3 w-3 shrink-0 rounded-full border border-gray-700"
-              />
-            )}
-            <div className="min-w-0">
-              <p
-                className={`text-sm leading-snug ${step.met ? 'text-gray-500' : 'text-gray-300'}`}
-              >
-                {step.label}
-              </p>
-              <p className="text-xs tabular-nums text-gray-600">{step.progress}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Panel>
-  );
-};
-
 /* --------------------------------------------------------------- notices -- */
 
-/** A failed model call is stated, not disguised. The measured data below is intact. */
+/** A failed model call is stated, not disguised. */
 const FallbackNotice: React.FC<{ reason: string }> = ({ reason }) => (
   <div
     className="flex items-start gap-2.5 rounded-lg border border-gray-800/60 bg-[#0f0f0f] px-4 py-3"
@@ -533,10 +497,20 @@ const FallbackNotice: React.FC<{ reason: string }> = ({ reason }) => (
   >
     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
     <p className="text-sm text-gray-300">
-      AI unavailable — showing measured data only.
+      AI unavailable — showing what we could produce.
       <span className="mt-0.5 block text-xs text-gray-500">{reason}</span>
     </p>
   </div>
+);
+
+/** The vision leg failed on its own. Named, not silently absent. */
+const PackagingUnavailable: React.FC = () => (
+  <Panel testId="insights-partial">
+    <p className="text-sm text-gray-400">
+      The packaging review could not be produced for this report. Try regenerating in a
+      few minutes.
+    </p>
+  </Panel>
 );
 
 /** The layout, drawn empty. A shape that fills in beats a spinner on a blank page. */
@@ -545,10 +519,11 @@ const Skeleton: React.FC<{ line: string; testId?: string }> = ({ line, testId })
     <p className="text-sm text-gray-500" data-testid={testId}>
       {line}
     </p>
+    <div className={`${PANEL} h-20 animate-pulse bg-gray-900/40`} />
     <div className="grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
       <div className="space-y-5">
-        <div className={`${PANEL} h-40 animate-pulse bg-gray-900/40`} />
         <div className={`${PANEL} h-56 animate-pulse bg-gray-900/40`} />
+        <div className={`${PANEL} h-40 animate-pulse bg-gray-900/40`} />
       </div>
       <div className="space-y-5">
         <div className={`${PANEL} h-64 animate-pulse bg-gray-900/40`} />
@@ -560,11 +535,10 @@ const Skeleton: React.FC<{ line: string; testId?: string }> = ({ line, testId })
 /**
  * Turn a failed regeneration into something a creator can act on.
  *
- * The backend's 429 body already says which budget ran out and it is the only
- * place that knows; axios's default ("Request failed with status code 429")
- * says nothing. The generic client retry is disabled for this request precisely
- * so this message survives to be shown — see `isInsightsRegeneration` in
- * src/api/index.ts.
+ * The backend's 429 body already says which budget ran out and it is the only place that
+ * knows; axios's default ("Request failed with status code 429") says nothing. The
+ * generic client retry is disabled for this request precisely so this message survives
+ * to be shown — see `isInsightsRegeneration` in src/api/index.ts.
  */
 export function regenerationMessage(error: Error): string {
   const response = (error as { response?: { status?: number; data?: { message?: string } } })
@@ -580,7 +554,7 @@ export function regenerationMessage(error: Error): string {
 /* ------------------------------------------------------------------ view -- */
 
 export interface InsightsViewProps {
-  insights?: ChannelInsightsV2;
+  insights?: ChannelInsightsV3;
   channelName?: string;
   period: InsightsPeriod;
   /** Omitted when the caller owns no period control (tests drive the card directly). */
@@ -607,7 +581,9 @@ export const InsightsView: React.FC<InsightsViewProps> = ({
   regenerateError,
   refreshRemaining = 0,
 }) => {
+  const packaging = insights?.packaging;
   const nicheFailed = insights?.partial?.includes('nicheReference') ?? false;
+  const packagingFailed = insights?.partial?.includes('packaging') ?? false;
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6" data-testid="insights-card">
@@ -634,9 +610,9 @@ export const InsightsView: React.FC<InsightsViewProps> = ({
         </p>
       )}
 
-      {/* A generation already in flight — ours, or somebody else's paying for the
-          same report. With nothing on screen yet it gets the empty layout; with a
-          previous report on screen it is one line above intact data. */}
+      {/* A generation already in flight — ours, or somebody else's paying for the same
+          report. With nothing on screen yet it gets the empty layout; with a previous
+          report on screen it is one line above intact data. */}
       {isGenerating && insights && (
         <p className="text-sm text-gray-500" data-testid="insights-generating">
           Generating your insights — this usually takes under a minute.
@@ -648,43 +624,37 @@ export const InsightsView: React.FC<InsightsViewProps> = ({
           line="Generating your insights — this usually takes under a minute."
         />
       )}
-      {isLoading && !isGenerating && <Skeleton line="Reading your analytics…" />}
+      {isLoading && !isGenerating && <Skeleton line="Reading your packaging…" />}
 
       {insights && (
         <>
           {insights.fallback && <FallbackNotice reason={insights.fallback.reason} />}
+          {packagingFailed && <PackagingUnavailable />}
+
+          {packaging && <Read packaging={packaging} />}
 
           <div className="grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
             <div className="space-y-5">
-              <Facts insights={insights} />
-              <Packaging insights={insights} />
-              {insights.hypotheses.length > 0 ? (
-                <Hypotheses insights={insights} />
-              ) : (
-                insights.dataMode === 'insufficient' && <InsufficientNotice />
-              )}
-              <Experiments insights={insights} />
+              {packaging && <Fixes packaging={packaging} />}
+              {packaging && <Gaps packaging={packaging} />}
             </div>
 
             <div className="space-y-5">
-              {insights.nicheReference && <Niche reference={insights.nicheReference} />}
-              {!insights.nicheReference && insights.nicheUnavailable && (
-                <NicheUnavailable
-                  reason={insights.nicheUnavailable.reason}
-                  failed={nicheFailed}
-                />
-              )}
-              {!insights.nicheReference && !insights.nicheUnavailable && nicheFailed && (
-                <Panel delay={0.04}>
-                  <NicheHeading />
-                  <p className="mt-2 text-xs text-gray-500" data-testid="insights-partial">
-                    The YouTube comparison could not be produced for this report.
-                  </p>
-                </Panel>
-              )}
-              <Unlocks insights={insights} />
+              <Niche
+                comparison={packaging?.nicheComparison}
+                query={insights.nicheReference?.query}
+                disclaimer={insights.nicheReference?.disclaimer}
+                unavailableReason={
+                  packaging?.nicheComparison ? undefined : insights.nicheUnavailable?.reason
+                }
+                failed={nicheFailed}
+              />
+              {packaging && <PerVideo packaging={packaging} />}
             </div>
           </div>
+
+          {insights.hypotheses.length > 0 ? <Hypotheses insights={insights} /> : <NoHypothesesYet />}
+          <Experiments insights={insights} />
         </>
       )}
     </div>
