@@ -5,12 +5,16 @@ export interface EditVideoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdate: (videoId: string, formData: FormData) => Promise<void>;
+  /**
+   * Hands the delete back to the page that owns the list, so one confirmation
+   * dialog and one delete path serve both the row and this screen.
+   */
+  onDelete?: (videoId: number) => void;
 }
 
 export interface FormErrors {
   title?: string;
   description?: string;
-  video?: string;
   thumbnail?: string;
   submit?: string;
 }
@@ -20,12 +24,4 @@ export interface FormFields {
   description: string;
   tags: string;
   is_public: boolean;
-  thumbnail?: File;
-}
-
-export interface VisibilityOption {
-  id: 'public' | 'private';
-  icon: React.ElementType;
-  label: string;
-  description: string;
 }
