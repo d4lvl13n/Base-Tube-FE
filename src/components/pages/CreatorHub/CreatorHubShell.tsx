@@ -3,6 +3,7 @@ import { PanelLeft } from 'lucide-react';
 import Header from '../../common/Header';
 import CreatorHubNav from './CreatorHubNav';
 import { setSidebarMobileOpen, useSidebarWidth } from '../../navigation';
+import { useIsDesktopViewport } from '../../navigation/sidebarState';
 
 interface CreatorHubShellProps {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ interface CreatorHubShellProps {
  */
 const CreatorHubShell: React.FC<CreatorHubShellProps> = ({ children }) => {
   const width = useSidebarWidth();
+  const isDesktop = useIsDesktopViewport();
 
   return (
     <div
@@ -48,6 +50,7 @@ const CreatorHubShell: React.FC<CreatorHubShellProps> = ({ children }) => {
         than borrowing the header's panel icon, which belongs to the global
         sidebar and means something else.
       */}
+      {!isDesktop && (
       <button
         type="button"
         onClick={() => setSidebarMobileOpen(true)}
@@ -55,11 +58,12 @@ const CreatorHubShell: React.FC<CreatorHubShellProps> = ({ children }) => {
         className="fixed bottom-4 left-4 z-40 flex h-11 items-center gap-2 rounded-full
                    border border-gray-800/60 bg-[#0f0f0f] px-4 text-[14px] text-gray-200
                    shadow-xl focus-visible:outline-none focus-visible:ring-2
-                   focus-visible:ring-[#fa7517]/40 min-[480px]:hidden"
+                   focus-visible:ring-[#fa7517]/40"
       >
         <PanelLeft className="h-[18px] w-[18px] text-[#fa7517]" aria-hidden="true" />
         Menu
       </button>
+      )}
     </div>
   );
 };

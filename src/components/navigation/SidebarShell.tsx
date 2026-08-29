@@ -199,6 +199,12 @@ const SidebarShell: React.FC<SidebarShellProps> = ({
 
   return (
     <>
+      {/* Desktop vs drawer is decided in JS from the same matchMedia query the
+          width offset uses — NOT with `hidden md:flex`. A dependency
+          (@coinbase/onchainkit/styles.css) ships its own compiled Tailwind with
+          `.hidden{display:none}` later in the document, so any responsive
+          "hidden → flex" override in our stylesheet loses the cascade. */}
+      {isDesktop && (
       <aside
         aria-label={label}
         data-testid="sidebar"
@@ -206,7 +212,7 @@ const SidebarShell: React.FC<SidebarShellProps> = ({
         style={{ width: collapsed ? SIDEBAR_RAIL_WIDTH : SIDEBAR_WIDTH }}
         className={`group/sidebar ${panelPositionClass(
           className
-        )} hidden min-[480px]:flex ${PANEL_CLASS} ${className}`}
+        )} ${PANEL_CLASS} ${className}`}
       >
         <SidebarViewContext.Provider value={{ collapsed }}>
           <SidebarBody top={top} footer={footer} collapsed={collapsed}>
@@ -234,9 +240,10 @@ const SidebarShell: React.FC<SidebarShellProps> = ({
           </button>
         )}
       </aside>
+      )}
 
-      {mobileOpen && (
-        <div className="fixed inset-0 z-[70] min-[480px]:hidden" data-testid="sidebar-drawer">
+      {mobileOpen && !isDesktop && (
+        <div className="fixed inset-0 z-[70]" data-testid="sidebar-drawer">
           <button
             type="button"
             tabIndex={-1}

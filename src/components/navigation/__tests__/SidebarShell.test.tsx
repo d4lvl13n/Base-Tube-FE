@@ -194,9 +194,10 @@ describe('SidebarShell', () => {
 
       fireEvent.keyDown(window, { key: '[' });
       expect(screen.queryByTestId('sidebar-drawer')).not.toBeInTheDocument();
-      // The desktop preference is untouched: it describes a column that does
-      // not exist at this width.
-      expect(screen.getByTestId('sidebar')).toHaveAttribute('data-collapsed', 'false');
+      // Below the breakpoint the column is not rendered at all (JS-gated, not
+      // CSS-hidden), and the desktop preference is untouched.
+      expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+      expect(window.localStorage.getItem('bt.creatorhub.sidebar.collapsed')).not.toBe('true');
     });
 
     it('is ignored while typing', () => {
