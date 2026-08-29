@@ -88,7 +88,7 @@ describe('CreatorHubShell', () => {
     renderShell();
 
     const button = screen.getByTestId('creator-hub-menu-button');
-    expect(button.className).toContain('md:hidden');
+    expect(button.className).toContain('min-[480px]:hidden');
 
     fireEvent.click(button);
 

@@ -19,7 +19,7 @@ export const SIDEBAR_WIDTH = 240;
 export const SIDEBAR_RAIL_WIDTH = 60;
 
 /** Below this, the sidebar is a drawer rather than a column. */
-export const SIDEBAR_DESKTOP_QUERY = '(min-width: 768px)';
+export const SIDEBAR_DESKTOP_QUERY = '(min-width: 480px)';
 
 interface SidebarState {
   collapsed: boolean;

@@ -206,7 +206,7 @@ const SidebarShell: React.FC<SidebarShellProps> = ({
         style={{ width: collapsed ? SIDEBAR_RAIL_WIDTH : SIDEBAR_WIDTH }}
         className={`group/sidebar ${panelPositionClass(
           className
-        )} hidden md:flex ${PANEL_CLASS} ${className}`}
+        )} hidden min-[480px]:flex ${PANEL_CLASS} ${className}`}
       >
         <SidebarViewContext.Provider value={{ collapsed }}>
           <SidebarBody top={top} footer={footer} collapsed={collapsed}>
@@ -236,7 +236,7 @@ const SidebarShell: React.FC<SidebarShellProps> = ({
       </aside>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-[70] md:hidden" data-testid="sidebar-drawer">
+        <div className="fixed inset-0 z-[70] min-[480px]:hidden" data-testid="sidebar-drawer">
           <button
             type="button"
             tabIndex={-1}

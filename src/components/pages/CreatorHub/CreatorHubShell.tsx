@@ -55,7 +55,7 @@ const CreatorHubShell: React.FC<CreatorHubShellProps> = ({ children }) => {
         className="fixed bottom-4 left-4 z-40 flex h-11 items-center gap-2 rounded-full
                    border border-gray-800/60 bg-[#0f0f0f] px-4 text-[14px] text-gray-200
                    shadow-xl focus-visible:outline-none focus-visible:ring-2
-                   focus-visible:ring-[#fa7517]/40 md:hidden"
+                   focus-visible:ring-[#fa7517]/40 min-[480px]:hidden"
       >
         <PanelLeft className="h-[18px] w-[18px] text-[#fa7517]" aria-hidden="true" />
         Menu
