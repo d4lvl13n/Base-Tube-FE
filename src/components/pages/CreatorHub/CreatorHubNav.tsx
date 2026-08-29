@@ -1,50 +1,67 @@
 // src/components/pages/CreatorHub/CreatorHubNav.tsx
 import React from 'react';
-import { useUser } from '@clerk/clerk-react';
 import {
   BarChart2,
   DollarSign,
   ImageIcon,
   LayoutDashboard,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Ticket,
   Tv,
   Upload,
   VideoIcon,
 } from 'lucide-react';
-import { useAuth } from '../../../contexts/AuthContext';
 import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
 import {
-  SidebarFooter,
-  SidebarGroup,
   SidebarItem,
   SidebarPrimaryAction,
   SidebarSection,
   SidebarShell,
   SidebarSwitcher,
 } from '../../navigation';
+import { setSidebarCollapsed, useSidebarCollapsed } from '../../navigation/sidebarState';
 
 const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
 
-const STUDIO_PATHS = [
-  '/creator-hub/upload',
-  '/creator-hub/content-studio',
-  '/creator-hub/videos',
-  '/creator-hub/channels',
-];
+/** The collapse control lives at the bottom of the column: the account is
+ *  already in the header, so a second avatar there was redundant. */
+const CollapseToggle: React.FC = () => {
+  const collapsed = useSidebarCollapsed();
+  return (
+    <button
+      type="button"
+      onClick={() => setSidebarCollapsed(!collapsed)}
+      aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      aria-expanded={!collapsed}
+      data-testid="creator-hub-collapse-toggle"
+      className={`flex h-9 w-full items-center gap-3 rounded-md text-[14px] text-gray-400
+                  transition-colors hover:bg-white/[0.04] hover:text-white
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/40
+                  ${collapsed ? 'justify-center px-0' : 'px-2.5'}`}
+    >
+      {collapsed ? (
+        <PanelLeftOpen className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+      ) : (
+        <>
+          <PanelLeftClose className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+          <span>Collapse</span>
+        </>
+      )}
+    </button>
+  );
+};
 
 /**
  * The Creator Hub column.
  *
- * One filled button (Upload) and a flat list of rows. "Create channel" moved
- * into the switcher's menu and "Create content pass" into the monetization
- * group: both were full-width blocks competing with Upload for the same
- * attention, and the pass block did it with an animated gold border.
+ * One filled button (Upload), then flat sections — Content Studio is always
+ * open (a collapsible group hid four rows behind a click for nothing), and
+ * Monetization is itself the clickable row, with the pass rows under it.
  */
 const CreatorHubNav: React.FC = () => {
   const { channels, selectedChannelId, setSelectedChannelId, isLoading } = useChannelSelection();
-  const { isSignedIn, user: clerkUser } = useUser();
-  const { isAuthenticated, user: web3User } = useAuth();
 
   const options = channels.map((channel) => ({
     id: channel.id.toString(),
@@ -52,20 +69,6 @@ const CreatorHubNav: React.FC = () => {
     handle: channel.handle,
     imageUrl: channel.channel_image_url ?? null,
   }));
-
-  const account = isAuthenticated && web3User
-    ? {
-        name: web3User.username || 'My wallet',
-        handle: null as string | null,
-        imageUrl: web3User.profile_image_url ?? null,
-      }
-    : isSignedIn && clerkUser
-      ? {
-          name: clerkUser.username || clerkUser.firstName || 'Account',
-          handle: clerkUser.username ?? null,
-          imageUrl: clerkUser.imageUrl ?? null,
-        }
-      : null;
 
   return (
     <SidebarShell
@@ -84,38 +87,25 @@ const CreatorHubNav: React.FC = () => {
           <SidebarPrimaryAction icon={Upload} label="Upload" to="/creator-hub/upload" />
         </div>
       }
-      footer={
-        account ? (
-          <SidebarFooter
-            name={account.name}
-            handle={account.handle}
-            imageUrl={account.imageUrl}
-          />
-        ) : undefined
-      }
+      footer={<CollapseToggle />}
     >
       <SidebarSection>
         <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/creator-hub" end />
-        <SidebarGroup
-          id="content-studio"
-          icon={VideoIcon}
-          label="Content Studio"
-          paths={STUDIO_PATHS}
-          primaryPath="/creator-hub/content-studio"
-        >
-          <SidebarItem icon={Upload} label="Upload" to="/creator-hub/upload" indent />
-          <SidebarItem icon={VideoIcon} label="Studio" to="/creator-hub/content-studio" indent />
-          <SidebarItem icon={ImageIcon} label="Videos" to="/creator-hub/videos" indent />
-          <SidebarItem icon={Tv} label="Channels" to="/creator-hub/channels" indent />
-        </SidebarGroup>
         <SidebarItem icon={BarChart2} label="Analytics" to="/creator-hub/analytics" />
         <SidebarItem icon={ImageIcon} label="Thumbnail Gallery" to="/thumbnail-gallery" />
       </SidebarSection>
 
-      <SidebarSection label="Monetization">
+      <SidebarSection label="Content Studio">
+        <SidebarItem icon={Upload} label="Upload" to="/creator-hub/upload" />
+        <SidebarItem icon={VideoIcon} label="Studio" to="/creator-hub/content-studio" />
+        <SidebarItem icon={ImageIcon} label="Videos" to="/creator-hub/videos" />
+        <SidebarItem icon={Tv} label="Channels" to="/creator-hub/channels" />
+      </SidebarSection>
+
+      <SidebarSection>
         <SidebarItem
           icon={DollarSign}
-          label="Overview"
+          label="Monetization"
           to="/creator-hub/monetization"
           badge="Beta"
         />
@@ -124,12 +114,14 @@ const CreatorHubNav: React.FC = () => {
           label="Content passes"
           to="/creator-hub/passes"
           disabled={!PASSES_ENABLED}
+          indent
         />
         <SidebarItem
           icon={Plus}
           label="Create pass"
           to="/creator-hub/create-content-pass"
           disabled={!PASSES_ENABLED}
+          indent
         />
       </SidebarSection>
     </SidebarShell>
