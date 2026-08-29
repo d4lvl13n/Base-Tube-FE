@@ -1,40 +1,85 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
-import { useNavigation } from '../../contexts/NavigationContext';
-import CommandOrbNavItem from './CommandOrbNavItem';
-import FloatingSidebar from './FloatingSidebar';
-import { isNavigationItemActive, navigationItems } from './navigationItems';
+import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  SidebarFooter,
+  SidebarItem,
+  SidebarSearch,
+  SidebarSection,
+  SidebarShell,
+} from '../navigation';
+import { navigationItems } from './navigationItems';
 
 const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
 
-const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { navStyle } = useNavigation();
-  const location = useLocation();
+/** Which rows sit under which heading. Order follows `navigationItems`. */
+const BROWSE = ['/', '/discover', '/leaderboard', '/nft-marketplace'];
+const YOURS = ['/subscribed', '/channel', '/profile'];
+const CREATE = ['/creator-hub'];
 
-  if (navStyle === 'floating') {
-    return <FloatingSidebar />;
-  }
+const itemsFor = (paths: string[]) =>
+  paths
+    .map((path) => navigationItems.find((item) => item.path === path))
+    .filter((item): item is (typeof navigationItems)[number] => Boolean(item));
+
+/**
+ * Where the column goes when the page does not say.
+ *
+ * Most pages hand in `fixed left-0 top-16 …` and offset their own content;
+ * the ones that just drop a `<Sidebar />` into a flex row get a sticky column
+ * that clears the fixed header instead of hiding its first rows under it.
+ */
+const DEFAULT_POSITION = 'sticky top-16 h-[calc(100vh-4rem)] self-start';
+
+const Sidebar: React.FC<{ className?: string }> = ({ className = '' }) => {
+  const { isSignedIn, user: clerkUser } = useUser();
+  const { isAuthenticated, user: web3User } = useAuth();
+
+  const account = isAuthenticated && web3User
+    ? {
+        name: web3User.username || 'My wallet',
+        handle: null,
+        imageUrl: web3User.profile_image_url ?? null,
+      }
+    : isSignedIn && clerkUser
+      ? {
+          name: clerkUser.username || clerkUser.firstName || 'Account',
+          handle: clerkUser.username ?? null,
+          imageUrl: clerkUser.imageUrl ?? null,
+        }
+      : null;
+
+  const renderItems = (paths: string[]) =>
+    itemsFor(paths).map((item) => (
+      <SidebarItem
+        key={item.path}
+        icon={item.Icon}
+        label={item.label}
+        to={item.path}
+        end={item.path === '/'}
+        disabled={Boolean(item.passGated) && !PASSES_ENABLED}
+      />
+    ));
 
   return (
-    <nav
-      aria-label="Primary navigation"
-      className={`relative h-full w-16 overflow-visible bg-black flex flex-col items-center py-12 ${className}`}
-    >
-      <div className="pointer-events-none absolute left-1/2 top-12 bottom-12 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-[rgba(214,235,253,0.12)] to-transparent" />
-      <div className="pointer-events-none absolute left-1/2 top-20 h-24 w-px -translate-x-1/2 bg-gradient-to-b from-[#fa7517]/0 via-[#fa7517]/35 to-[#fa7517]/0 blur-[1px]" />
-
-      <div className="relative flex flex-1 flex-col items-center gap-5">
-        {navigationItems.map((item) => (
-          <CommandOrbNavItem
-            key={item.path}
-            item={item}
-            active={isNavigationItemActive(location.pathname, item.path)}
-            disabled={item.passGated && !PASSES_ENABLED}
-            tooltipPlacement="right"
+    <SidebarShell
+      label="Primary navigation"
+      className={className || DEFAULT_POSITION}
+      top={<SidebarSearch />}
+      footer={
+        account ? (
+          <SidebarFooter
+            name={account.name}
+            handle={account.handle}
+            imageUrl={account.imageUrl}
           />
-        ))}
-      </div>
-    </nav>
+        ) : undefined
+      }
+    >
+      <SidebarSection>{renderItems(BROWSE)}</SidebarSection>
+      <SidebarSection label="Yours">{renderItems(YOURS)}</SidebarSection>
+      <SidebarSection label="Create">{renderItems(CREATE)}</SidebarSection>
+    </SidebarShell>
   );
 };
 
