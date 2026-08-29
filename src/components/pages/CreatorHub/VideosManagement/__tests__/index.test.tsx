@@ -836,6 +836,68 @@ describe('VideosManagement finished processing', () => {
     await waitFor(() => expect(screen.queryByText('Working clip')).toBeNull());
   });
 
+  /**
+   * The list endpoint can still be saying `processing` after the poll has said
+   * `processed` — the worker updates the row a moment later.
+   *
+   * The verdict used to be applied once. Anything that re-read the pages
+   * (a delete, a "Load more", a reconcile) handed back the stale status,
+   * nothing re-applied the verdict, and the poll had already stopped for that
+   * id: Watch went back to disabled and stayed there until a reload.
+   */
+  it('holds the verdict across a refetch that still says processing', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([
+        video({ id: 9, title: 'Working clip', status: 'processing' }),
+        video({ id: 10, title: 'Other clip', status: 'processed' }),
+      ]),
+    );
+    mockUseVideoProcessing.mockReturnValue(processingRow('processing'));
+
+    const { rerender } = renderManagement();
+    await screen.findByText('Working clip');
+    expect(screen.getByRole('button', { name: 'Watch Working clip' })).toBeDisabled();
+
+    mockUseVideoProcessing.mockReturnValue(processingRow('processed'));
+    rerender(currentTree());
+    expect(await screen.findByRole('link', { name: 'Watch Working clip' })).toBeInTheDocument();
+
+    // Something forces the loaded pages to be re-read — and the server has not
+    // caught up: it still calls video 9 `processing`.
+    fireEvent.keyDown(screen.getAllByRole('button', { name: 'More actions' })[1], { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Delete/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mockGetChannelVideos).toHaveBeenCalledTimes(2));
+
+    // The verdict still stands.
+    expect(await screen.findByRole('link', { name: 'Watch Working clip' })).toBeInTheDocument();
+  });
+
+  it('keeps a finished video out of the Processing list across the same refetch', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([
+        video({ id: 9, title: 'Working clip', status: 'processing' }),
+        video({ id: 10, title: 'Other clip', status: 'processing' }),
+      ]),
+    );
+    mockUseVideoProcessing.mockReturnValue(processingRow('processing'));
+
+    const { rerender } = renderManagement('?visibility=processing');
+    await screen.findByText('Working clip');
+
+    mockUseVideoProcessing.mockReturnValue(processingRow('processed'));
+    rerender(currentTree());
+    await waitFor(() => expect(screen.queryByText('Working clip')).toBeNull());
+
+    // The stub keeps insisting video 9 is processing; the row must not return.
+    fireEvent.keyDown(screen.getByRole('button', { name: 'More actions' }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Delete/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mockGetChannelVideos).toHaveBeenCalledTimes(2));
+
+    await waitFor(() => expect(screen.queryByText('Working clip')).toBeNull());
+  });
+
   it('leaves a failed video where it is — it is still the creator\'s problem', async () => {
     mockGetChannelVideos.mockResolvedValue(
       page([video({ id: 9, title: 'Broken clip', status: 'processing' })]),
@@ -875,6 +937,52 @@ describe('VideosManagement membership', () => {
     expect(screen.getByText('Clip two')).toBeInTheDocument();
   });
 
+  /**
+   * A patch can only edit rows a cache already HOLDS.
+   *
+   * Publish a private video while the Public list is cached without it and no
+   * amount of patching puts it there — the creator switches to Public and the
+   * video they just published is simply missing, for five minutes. The cached
+   * lists nobody is looking at are therefore thrown away.
+   */
+  it('does not serve a cached Public list that predates the video joining it', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([
+        video({ id: 1, title: 'Clip one', is_public: false }),
+        video({ id: 2, title: 'Clip two', is_public: true }),
+      ]),
+    );
+
+    renderManagement();
+    await screen.findByText('Clip one');
+
+    // Visit Public once, so it is in the cache without Clip one.
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 2, title: 'Clip two', is_public: true })]));
+    fireEvent.click(screen.getByRole('button', { name: 'Public' }));
+    await waitFor(() => expect(mockGetChannelVideos).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('Clip one')).toBeNull();
+
+    // Back to All, from cache.
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    await screen.findByText('Clip one');
+    expect(mockGetChannelVideos).toHaveBeenCalledTimes(2);
+
+    // Publish it. The Public list is now wrong in a way patching cannot fix.
+    mockGetChannelVideos.mockResolvedValue(
+      page([
+        video({ id: 1, title: 'Clip one', is_public: true }),
+        video({ id: 2, title: 'Clip two', is_public: true }),
+      ]),
+    );
+    fireEvent.click(screen.getByRole('switch', { name: 'Clip one is private' }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Public' }));
+
+    await waitFor(() => expect(mockGetChannelVideos).toHaveBeenCalledTimes(3));
+    expect(await screen.findByText('Clip one')).toBeInTheDocument();
+  });
+
   // The common case — the unfiltered list — must not pay for any of that.
   it('does not refetch when the row still belongs where it is', async () => {
     mockGetChannelVideos.mockResolvedValue(page([video({ id: 1, is_public: false })]));
@@ -898,9 +1006,10 @@ describe('VideosManagement mutation races', () => {
    * is a genuine overlap, and when the older request then fails its rollback
    * would overwrite the newer, correct value.
    */
-  it('does not roll back over a newer choice', async () => {
-    const slow = deferred<{ success: boolean }>();
-    mockUpdateVideo.mockReturnValueOnce(slow.promise);
+  it('does not roll back over a newer choice, and never lets the two cross', async () => {
+    const first = deferred<{ success: boolean }>();
+    const second = deferred<{ success: boolean }>();
+    mockUpdateVideo.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
     mockGetChannelVideos.mockResolvedValue(
       page([video({ id: 1, title: 'Clip one', is_public: true })]),
     );
@@ -914,13 +1023,23 @@ describe('VideosManagement mutation races', () => {
     // Flip two, over the top of it, from the bulk bar: private -> public.
     fireEvent.click(screen.getByLabelText('Select Clip one'));
     fireEvent.click(screen.getByRole('button', { name: /Make public/ }));
-    await waitFor(() => expect(mockUpdateVideo).toHaveBeenCalledTimes(2));
+
+    // The screen answers at once…
     await waitFor(() => expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true'));
+    // …but the second request has NOT been sent. If both were in the air they
+    // could land in either order, and the older one landing last would leave
+    // the database holding the value the creator changed their mind about.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(mockUpdateVideo).toHaveBeenCalledTimes(1);
 
-    // The first request finally fails. It no longer owns this video, so its
-    // rollback must not run.
-    slow.settle({ success: false });
+    // The first finally fails. It no longer owns this video, so its rollback
+    // must not run — and only now does the second go out.
+    first.settle({ success: false });
+    await waitFor(() => expect(mockUpdateVideo).toHaveBeenCalledTimes(2));
+    expect((mockUpdateVideo.mock.calls[1][1] as FormData).get('is_public')).toBe('true');
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
 
+    second.settle({ success: true });
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   });
@@ -1139,5 +1258,94 @@ describe('VideosManagement desktop layout', () => {
     expect(cell?.querySelector('th')).toBeNull();
     expect(cell?.parentElement?.parentElement?.tagName).toBe('THEAD');
     /* eslint-enable testing-library/no-node-access */
+  });
+});
+
+describe('VideosManagement selection safety', () => {
+  // Reordering the list reshuffles which rows are loaded at all, so a
+  // selection made under one order means nothing under another.
+  it('drops the selection when the order changes', async () => {
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 1, title: 'Clip one' })]));
+
+    renderManagement();
+    fireEvent.click(await screen.findByLabelText('Select Clip one'));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Sort' }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Most viewed' }));
+
+    await waitFor(() => expect(screen.queryByText('1 selected')).toBeNull());
+  });
+
+  /**
+   * A row can leave the list on its own.
+   *
+   * It stayed ticked, invisible, and inside the next bulk action — so "Delete"
+   * could act on a video the creator could not see, and the dialog would
+   * cheerfully call it "this video".
+   */
+  it('unticks a row that has left the filter it was selected under', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([
+        video({ id: 1, title: 'Clip one', is_public: false }),
+        video({ id: 2, title: 'Clip two', is_public: false }),
+      ]),
+    );
+
+    renderManagement('?visibility=private');
+    fireEvent.click(await screen.findByLabelText('Select Clip one'));
+    fireEvent.click(screen.getByLabelText('Select Clip two'));
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+
+    // Clip one is published, and so leaves the Private list.
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 2, title: 'Clip two', is_public: false })]));
+    fireEvent.click(screen.getByRole('switch', { name: 'Clip one is private' }));
+
+    await waitFor(() => expect(screen.queryByText('Clip one')).toBeNull());
+    expect(await screen.findByText('1 selected')).toBeInTheDocument();
+  });
+
+  it('names the video it is about to delete', async () => {
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 1, title: 'Clip one' })]));
+
+    renderManagement();
+    fireEvent.click(await screen.findByLabelText('Select Clip one'));
+    fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }));
+
+    expect(await screen.findByText(/Are you sure you want to delete "Clip one"/)).toBeInTheDocument();
+  });
+});
+
+describe('VideosManagement checkbox', () => {
+  /**
+   * The tick box is a real `<button>`.
+   *
+   * That is not decoration: Space and Enter activating it are the browser's
+   * default behaviour for buttons, which jsdom does not simulate but every
+   * real one does. A `<div role="checkbox">` would have needed its own key
+   * handling, and would have been outside the tab order.
+   */
+  it('is a button, so the keyboard works without us reimplementing it', async () => {
+    renderManagement();
+    const box = await screen.findByLabelText('Select Clip one');
+
+    expect(box.tagName).toBe('BUTTON');
+    expect(box).toHaveAttribute('type', 'button');
+    expect(box).toHaveAttribute('role', 'checkbox');
+    expect(box).not.toBeDisabled();
+  });
+
+  it('toggles both ways and reports its state', async () => {
+    renderManagement();
+    const box = await screen.findByLabelText('Select Clip one');
+    expect(box).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(box);
+    expect(screen.getByLabelText('Select Clip one')).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByLabelText('Select Clip one'));
+    expect(screen.getByLabelText('Select Clip one')).toHaveAttribute('aria-checked', 'false');
+    // The bulk bar animates out, so it is still in the DOM for a beat.
+    await waitFor(() => expect(screen.queryByText('1 selected')).toBeNull());
   });
 });

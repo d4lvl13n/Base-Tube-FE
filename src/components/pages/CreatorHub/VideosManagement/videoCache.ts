@@ -168,19 +168,40 @@ export function removeCachedChannelVideos(
 }
 
 /**
- * Put the pagination back on its feet after rows have left a list.
+ * Drop every cached list for this channel that nobody is looking at.
+ *
+ * A patch can only edit rows a cache already holds, which says nothing about
+ * the rows that should now have JOINED one. Publish a private video while the
+ * Public list is cached without it, and no amount of patching puts it there:
+ * the creator switches to Public and the video they just published is missing
+ * for five minutes. Rather than guess where in a paginated, sorted list a new
+ * row belongs, the lists nobody is looking at are thrown away — the next visit
+ * to that filter asks the server, which is the only thing that knows.
+ *
+ * This is cheap and it is unconditional: it costs a fetch the creator was
+ * going to trigger anyway, and it is the difference between a stale list and
+ * a wrong one.
+ */
+export function dropInactiveChannelVideos(client: QueryClient, channelId: string): void {
+  client.removeQueries({ queryKey: [CHANNEL_VIDEOS_KEY, channelId], type: 'inactive' });
+}
+
+/**
+ * Re-read the pages the creator is actually looking at.
  *
  * Offset pagination cannot be repaired in place: once a row is gone, every
  * page after it is shifted by one, and the next "Load more" would skip exactly
  * one video — silently, and forever, because nothing refetches the pages that
- * are already loaded. The list on screen refetches the pages it holds; the
- * lists nobody is looking at are dropped rather than kept as a plausible lie,
- * so the next visit to that filter asks the server.
+ * are already loaded.
+ *
+ * Only called when rows have genuinely left the visible list. A flip that
+ * leaves a video where it was does not refetch, and the rows on screen do not
+ * so much as re-render.
  */
-export function reconcileChannelVideos(client: QueryClient, channelId: string): void {
-  client.removeQueries({ queryKey: [CHANNEL_VIDEOS_KEY, channelId], type: 'inactive' });
+export function refetchActiveChannelVideos(client: QueryClient, channelId: string): void {
   void client.refetchQueries({ queryKey: [CHANNEL_VIDEOS_KEY, channelId], type: 'active' });
 }
+
 
 /** Every field of `patch` that actually carries a value. */
 export function mergeDefined(video: Video, patch: Partial<Video>): Video {

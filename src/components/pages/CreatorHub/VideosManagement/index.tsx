@@ -20,9 +20,11 @@ import {
   ChannelVideoPage,
   ChannelVideoPages,
   channelVideosKey,
+  dropInactiveChannelVideos,
+  matchesChannelVideoQuery,
   mergeDefined,
   patchCachedChannelVideos,
-  reconcileChannelVideos,
+  refetchActiveChannelVideos,
   removeCachedChannelVideos,
 } from './videoCache';
 import { styles } from './components/VideoList/styles';
@@ -248,7 +250,7 @@ const VideosManagement: React.FC = () => {
   // A video can move between pages while the creator pages (a fresh upload
   // pushes the last row of page 1 onto page 2), so the same id can arrive
   // twice. Two rows with one key is a React warning and a duplicated action.
-  const videos = useMemo(() => {
+  const rawVideos = useMemo(() => {
     const pages = data?.pages ?? [];
     const seen = new Set<number>();
     const flat: Video[] = [];
@@ -261,6 +263,35 @@ const VideosManagement: React.FC = () => {
     }
     return flat;
   }, [data]);
+
+  /**
+   * Verdicts the progress poll has reached, held until the list agrees.
+   *
+   * This has to be an overlay applied to every list that arrives, not a
+   * one-shot patch. The list endpoint can still be saying `processing` after
+   * the poll has said `processed` — the worker updates the row a moment
+   * later — so a refetch used to hand back the stale status, nothing
+   * re-applied the verdict, and the poll had already stopped for that id.
+   * Watch went back to disabled and the row sat under Processing until the
+   * page was reloaded. The map is only forgotten once the server itself says
+   * the same thing.
+   */
+  const [settledStatuses, setSettledStatuses] = useState<ReadonlyMap<number, VideoStatus>>(
+    () => new Map(),
+  );
+
+  const videos = useMemo(() => {
+    if (settledStatuses.size === 0) return rawVideos;
+    const overlaid = rawVideos.map((video) => {
+      const settled = settledStatuses.get(video.id);
+      return settled && video.status !== settled ? { ...video, status: settled } : video;
+    });
+    // A video the poll says is finished does not belong under "Processing",
+    // whatever the list still claims.
+    return overlaid.filter(
+      (video) => !settledStatuses.has(video.id) || matchesChannelVideoQuery(video, apiQuery),
+    );
+  }, [apiQuery, rawVideos, settledStatuses]);
 
   const videosRef = useRef<Video[]>(videos);
   videosRef.current = videos;
@@ -281,16 +312,24 @@ const VideosManagement: React.FC = () => {
   );
 
   /**
-   * Put the pagination back on its feet after rows have left a list.
+   * What every membership-changing mutation owes the cache.
    *
-   * Only called when something actually moved: a flip that leaves a video in
-   * the same list (the usual case, on the unfiltered list) touches nothing
-   * else and the rows on screen do not so much as re-render.
+   * Two different debts. A patch can only edit rows a cache already HOLDS, so
+   * it says nothing about the lists a video should now have joined — publish a
+   * private video and the cached Public list still does not contain it. Those
+   * lists are therefore dropped, always, whether or not anything visibly
+   * moved; the next visit asks the server, which is the only thing that knows
+   * where in a sorted page the row belongs.
+   *
+   * The visible list is a separate question: it is only re-read when rows have
+   * actually left it, because its offsets have then shifted. A flip that
+   * leaves a video where it was refetches nothing and the rows on screen do
+   * not so much as re-render.
    */
   const reconcile = useCallback(
     (moved: boolean) => {
-      if (!moved) return;
-      reconcileChannelVideos(queryClient, selectedChannelId);
+      dropInactiveChannelVideos(queryClient, selectedChannelId);
+      if (moved) refetchActiveChannelVideos(queryClient, selectedChannelId);
     },
     [queryClient, selectedChannelId],
   );
@@ -307,13 +346,36 @@ const VideosManagement: React.FC = () => {
   const [busyCounts, setBusyCounts] = useState<ReadonlyMap<number, number>>(() => new Map());
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  // A selection is about the rows on screen. Change the filter or the channel
-  // and those rows are gone — acting on ids the creator can no longer see is
-  // the one thing a bulk bar must never do.
-  const selectionScope = `${selectedChannelId}|${filters.q}|${filters.visibility}`;
+  // A selection is about the rows on screen. Change the channel, the filter or
+  // the order and those rows are gone or reshuffled — acting on ids the
+  // creator can no longer see is the one thing a bulk bar must never do, and
+  // "Delete" is where that stops being theoretical.
+  const selectionScope = `${selectedChannelId}|${filters.q}|${filters.visibility}|${filters.sort}`;
   useEffect(() => {
     setSelectedIds(new Set());
   }, [selectionScope]);
+
+  /**
+   * A selection may only ever name rows that are loaded.
+   *
+   * Resetting on a filter change is not enough: a row can leave the list on
+   * its own — made public while the Private filter is on, finished
+   * transcoding under Processing, deleted in another tab and dropped by a
+   * refetch — and it stayed ticked, invisible, and inside the next bulk
+   * action. The count in the bar was wrong and the delete dialog said "this
+   * video" about a video nobody could see.
+   */
+  useEffect(() => {
+    setSelectedIds((previous) => {
+      if (previous.size === 0) return previous;
+      const loaded = new Set(videos.map((video) => video.id));
+      const next = new Set<number>();
+      previous.forEach((id) => {
+        if (loaded.has(id)) next.add(id);
+      });
+      return next.size === previous.size ? previous : next;
+    });
+  }, [videos]);
 
   const handleSelect = useCallback((videoId: number, selected: boolean) => {
     setSelectedIds((previous) => {
@@ -353,6 +415,34 @@ const VideosManagement: React.FC = () => {
    * one several seconds after the creator had moved on.
    */
   const generationsRef = useRef<Map<number, number>>(new Map());
+
+  /**
+   * One request at a time per video, in the order the creator asked for them.
+   *
+   * The generation counter decides who owns the *optimistic* value, but the
+   * server has its own opinion about order: two overlapping writes can land in
+   * either sequence, and if the older one lands last the database keeps the
+   * value the creator changed their mind about while the screen shows the
+   * newer one. The switch locks itself mid-flight, but the bulk bar does not
+   * go through the switch and will happily include a row that is already
+   * flipping. Queuing the requests per video makes "last asked" and "last
+   * written" the same thing.
+   */
+  const writeQueueRef = useRef<Map<number, Promise<unknown>>>(new Map());
+  const enqueueWrite = useCallback(<T,>(videoId: number, task: () => Promise<T>): Promise<T> => {
+    const previous = writeQueueRef.current.get(videoId) ?? Promise.resolve();
+    // Run whether the one before succeeded or failed — a failure ahead of us
+    // must not strand every later write for this video.
+    const next = previous.then(task, task);
+    writeQueueRef.current.set(
+      videoId,
+      next.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return next;
+  }, []);
   const claim = useCallback((videoId: number): number => {
     const generation = (generationsRef.current.get(videoId) ?? 0) + 1;
     generationsRef.current.set(videoId, generation);
@@ -398,7 +488,7 @@ const VideosManagement: React.FC = () => {
       try {
         const formData = new FormData();
         formData.append('is_public', String(next));
-        const result = await updateVideo(String(videoId), formData);
+        const result = await enqueueWrite(videoId, () => updateVideo(String(videoId), formData));
         if (!result.success) {
           if (stillOwns(videoId, generation)) reconcile(writeVisibility(videoId, prior));
           return { status: 'failed', message: result.message || 'Failed to update visibility' };
@@ -417,7 +507,7 @@ const VideosManagement: React.FC = () => {
         markBusy(videoId, -1);
       }
     },
-    [claim, markBusy, reconcile, stillOwns, writeVisibility],
+    [claim, enqueueWrite, markBusy, reconcile, stillOwns, writeVisibility],
   );
 
   const handleToggleVisibility = useCallback(
@@ -629,39 +719,48 @@ const VideosManagement: React.FC = () => {
 
   const { processingVideos, restart: restartProcessingPoll } = useVideoProcessing(processingVideoIds);
 
-  /**
-   * Verdicts already written back, so each is written back once.
-   *
-   * Copying a settled status onto a video in the Processing list takes it out
-   * of that list, which makes the pagination refetch. If the server has not
-   * caught up yet it answers with the same row still `processing`, and without
-   * this we would patch it, drop it, refetch, and be told again — a refetch
-   * loop for as long as the lag lasts.
-   */
-  const settledAppliedRef = useRef<Map<number, VideoStatus>>(new Map());
-
-  // The poll is the only thing that learns a transcode finished. Copying its
-  // verdict onto the list's own `status` is what unlocks Watch and the
-  // visibility switch, and what takes a finished video out of the Processing
-  // filter — none of which used to happen until the page was reloaded.
+  // The poll is the only thing that learns a transcode finished. Recording its
+  // verdict is what unlocks Watch and the visibility switch, and what takes a
+  // finished video out of the Processing filter — none of which used to happen
+  // until the page was reloaded. The verdict is held, not applied once: see
+  // `settledStatuses`.
   useEffect(() => {
-    const settled = new Map<number, VideoStatus>();
+    let added = false;
+    const next = new Map(settledStatuses);
     for (const row of Object.values(processingVideos)) {
       const status = settledStatus(row);
       if (!status) continue;
-      if (settledAppliedRef.current.get(row.videoId) === status) continue;
-      const known = videosRef.current.find((video) => video.id === row.videoId);
-      if (known && known.status !== status) settled.set(row.videoId, status);
+      if (next.get(row.videoId) === status) continue;
+      next.set(row.videoId, status);
+      added = true;
     }
-    if (settled.size === 0) return;
-    settled.forEach((status, id) => settledAppliedRef.current.set(id, status));
-    reconcile(
-      patchVideos(new Set(settled.keys()), (video) => ({
-        ...video,
-        status: settled.get(video.id) ?? video.status,
-      })),
-    );
-  }, [patchVideos, processingVideos, reconcile, videos]);
+    if (!added) return;
+    setSettledStatuses(next);
+    // Other cached filters — Processing above all — are now wrong about this
+    // video. The visible list is not refetched: the overlay already tells it
+    // the truth, and refetching would only invite the stale answer back.
+    dropInactiveChannelVideos(queryClient, selectedChannelId);
+  }, [processingVideos, queryClient, selectedChannelId, settledStatuses]);
+
+  /**
+   * Forget a verdict once the server says the same thing.
+   *
+   * Until then the overlay stands, however many times the list is re-read.
+   */
+  useEffect(() => {
+    setSettledStatuses((previous) => {
+      if (previous.size === 0) return previous;
+      const next = new Map(previous);
+      let dropped = false;
+      for (const video of rawVideos) {
+        if (next.get(video.id) === video.status) {
+          next.delete(video.id);
+          dropped = true;
+        }
+      }
+      return dropped ? next : previous;
+    });
+  }, [rawVideos]);
 
   // Handle a failed transcode. The backend owns the retry; this only asks.
   //
@@ -674,9 +773,15 @@ const VideosManagement: React.FC = () => {
         const result = await retryVideoProcessing(videoId);
         if (!mountedRef.current) return;
         if (result.success) {
-          // The same id is about to be transcoded again, so the verdict we
-          // already wrote back is void — its successor must be applied too.
-          settledAppliedRef.current.delete(videoId);
+          // The same id is about to be transcoded again, so the verdict we are
+          // holding is void — the row is `pending` until the poll says
+          // otherwise.
+          setSettledStatuses((previous) => {
+            if (!previous.has(videoId)) return previous;
+            const next = new Map(previous);
+            next.delete(videoId);
+            return next;
+          });
           reconcile(patchVideos(new Set([videoId]), (video) => ({ ...video, status: 'pending' })));
           restartProcessingPoll([videoId]);
           toast.success('Processing restarted');
