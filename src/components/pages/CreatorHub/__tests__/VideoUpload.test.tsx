@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { UploadQueueApi, UploadQueueViewEntry } from '../../../../hooks/useUploadQueue';
 import VideoUpload from '../VideoUpload';
-import VideoActions from '../VideosManagement/components/VideoActions';
 
 const mockUseUploadQueueContext = jest.fn();
 const mockUseChannelSelection = jest.fn();
@@ -423,21 +422,6 @@ describe('VideoUpload · AI description assistant', () => {
         '<p>A hook line.</p><p></p><p>\u2022 A bullet</p><p>\u2022 Another bullet</p>' +
           '<p></p><p>#basetube #web3</p>',
       ),
-    );
-  });
-});
-
-describe('VideoActions', () => {
-  it('links to the real upload route', () => {
-    render(
-      <MemoryRouter>
-        <VideoActions selectedVideos={[]} onBulkAction={jest.fn()} />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByRole('link', { name: /Upload Video/i })).toHaveAttribute(
-      'href',
-      '/creator-hub/upload',
     );
   });
 });

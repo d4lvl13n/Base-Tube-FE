@@ -1,14 +1,47 @@
+import { format, formatDistanceToNow } from 'date-fns';
 import { Video } from '../../../../../../types/video';
+import { VideoStatus } from '../../../../../../types/video';
 
 /**
- * Formats duration in seconds to a human-readable string (HH:MM:SS or MM:SS)
+ * Formats duration in seconds to a human-readable string (H:MM:SS or M:SS)
  */
 export const formatDuration = (seconds?: number): string => {
   if (!seconds) return '0:00';
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const total = Math.floor(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const remainingSeconds = total % 60;
+  const paddedSeconds = remainingSeconds.toString().padStart(2, '0');
+  if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${paddedSeconds}`;
+  return `${minutes}:${paddedSeconds}`;
 };
+
+/** A week — after which "3 weeks ago" is less use than the date itself. */
+const RELATIVE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * The date a row shows.
+ *
+ * Recent uploads are the ones a creator is still thinking in hours about, so
+ * they read as "2 hours ago"; anything older is a calendar date, because
+ * "9 months ago" tells nobody which video this is.
+ */
+export const formatRowDate = (createdAt: string): string => {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '';
+  if (Date.now() - date.getTime() < RELATIVE_WINDOW_MS) {
+    return formatDistanceToNow(date, { addSuffix: true });
+  }
+  return format(date, 'MMM d');
+};
+
+/** The statuses at which a video exists as something you can actually play. */
+export const isPlayable = (status?: VideoStatus): boolean =>
+  status === 'processed' || status === 'completed';
+
+/** Is the transcoder still working on this one — or did it give up? */
+export const isUnfinished = (status?: VideoStatus): boolean =>
+  status === 'pending' || status === 'processing' || status === 'failed';
 
 /**
  * Gets the thumbnail URL for a video, handling different URL formats and fallbacks

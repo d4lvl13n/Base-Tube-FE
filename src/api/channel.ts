@@ -281,12 +281,39 @@ export const getChannelDetails = async (identifier: number | string): Promise<Ch
   return response.data;
 };
 
-export const getChannelVideos = async (channelId: string | number, page: number = 1) => {
+/**
+ * The server-side filters the creator's video list may ask for.
+ *
+ * All four are optional and the backend drops anything it does not recognise,
+ * so an omitted field is "no filter", never an error. They have to be applied
+ * server side: the list is paginated, and a filter applied to the page the
+ * browser happens to hold would tell a creator their video does not exist.
+ */
+export interface ChannelVideoQuery {
+  /** Case-insensitive match on title/description. */
+  search?: string;
+  visibility?: 'public' | 'private';
+  /** `processing` covers pending, processing and failed. */
+  status?: 'processing';
+  sort?: 'newest' | 'oldest' | 'most_viewed' | 'most_liked';
+}
+
+export const getChannelVideos = async (
+  channelId: string | number,
+  page: number = 1,
+  query: ChannelVideoQuery = {}
+) => {
   const fetchVideos = async () => {
     const response = await api.get(`/api/v1/channels/${channelId}/videos`, {
       params: {
         page,
-        include_private: true
+        include_private: true,
+        // Undefined params are dropped by axios, so an unfiltered call is
+        // byte-for-byte the request this function has always made.
+        search: query.search || undefined,
+        visibility: query.visibility,
+        status: query.status,
+        sort: query.sort
       }
     });
     return response.data;
