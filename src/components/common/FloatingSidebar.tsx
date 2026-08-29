@@ -54,7 +54,9 @@ const FloatingSidebar: React.FC = () => {
             duration: 0.3,
           }}
         >
-          <div className="pointer-events-auto relative flex max-w-full items-center gap-2 overflow-x-auto px-2 py-3 [scrollbar-width:none] sm:gap-3 sm:px-3 [&::-webkit-scrollbar]:hidden">
+          <div className="pointer-events-auto relative flex max-w-full items-center gap-2 overflow-x-auto rounded-full border border-[rgba(214,235,253,0.12)] bg-black/[0.72] px-2 py-3 shadow-[0_0_0_1px_rgba(176,199,217,0.08),0_20px_54px_rgba(0,0,0,0.48)] backdrop-blur-xl [scrollbar-width:none] sm:gap-3 sm:px-3 [&::-webkit-scrollbar]:hidden">
+            <div className="pointer-events-none absolute inset-3 rounded-full border border-[#fa7517]/10" />
+            <div className="pointer-events-none absolute inset-x-7 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-[#fa7517]/20 to-transparent" />
 
             {navigationItems.map((item) => (
               <CommandOrbNavItem
