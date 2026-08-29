@@ -105,7 +105,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
         </span>
       )}
       {shortcut && (
-        <kbd className="shrink-0 font-sans text-[11px] text-gray-600">{shortcut}</kbd>
+        <kbd className="shrink-0 font-sans text-[11px] text-gray-400">{shortcut}</kbd>
       )}
       {trailing}
     </>

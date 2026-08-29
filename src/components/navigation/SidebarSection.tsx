@@ -23,7 +23,7 @@ const SidebarSection: React.FC<SidebarSectionProps> = ({ label, children, classN
         (collapsed ? (
           <div className="mx-auto my-2 h-px w-6 bg-gray-800/60" aria-hidden="true" />
         ) : (
-          <div className="px-2.5 pb-1 pt-3 text-[11px] font-medium uppercase tracking-wider text-gray-600">
+          <div className="px-2.5 pb-1 pt-3 text-[11px] font-medium uppercase tracking-wider text-gray-400">
             {label}
           </div>
         ))}

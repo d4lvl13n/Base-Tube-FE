@@ -39,8 +39,8 @@ const Avatar: React.FC<AvatarProps> = ({
         data-testid="avatar-fallback"
         aria-hidden="true"
         style={style}
-        className={`grid shrink-0 place-items-center rounded-md bg-gradient-to-br
-                    from-gray-700 to-gray-900 font-medium text-gray-300 ${className}`}
+        className={`grid shrink-0 place-items-center rounded-md bg-gray-800
+                    font-medium text-gray-300 ${className}`}
       >
         {showInitial ? initial : null}
       </span>

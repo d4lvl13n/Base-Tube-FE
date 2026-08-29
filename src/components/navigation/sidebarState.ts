@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 /**
  * One sidebar, two trees.
@@ -89,18 +89,27 @@ export const setSidebarCollapsed = (collapsed: boolean) => {
 
 export const setSidebarMobileOpen = (mobileOpen: boolean) => set({ mobileOpen });
 
+/** Is the sidebar showing, whichever form it currently takes? */
+export const isSidebarOpen = (desktop = isDesktopViewport()): boolean =>
+  desktop ? !state.collapsed : state.mobileOpen;
+
 /**
- * What the header's panel button does. On a phone the sidebar is an overlay,
- * so the same control opens and closes the drawer instead of narrowing a
- * column that is not on screen.
+ * Open or close the sidebar in whichever form it currently takes.
+ *
+ * On a phone the sidebar is an overlay, so every control — the header button,
+ * `[`, `]` — works the drawer rather than narrowing a column that is not on
+ * screen and whose state nothing can see.
  */
-export const toggleSidebar = () => {
+export const setSidebarOpen = (open: boolean) => {
   if (isDesktopViewport()) {
-    setSidebarCollapsed(!state.collapsed);
+    setSidebarCollapsed(!open);
     return;
   }
-  setSidebarMobileOpen(!state.mobileOpen);
+  setSidebarMobileOpen(open);
 };
+
+/** What the header's panel button does. */
+export const toggleSidebar = () => setSidebarOpen(!isSidebarOpen());
 
 /** Test seam: resets both flags and the persisted value. */
 export const resetSidebarState = () => {
@@ -118,3 +127,35 @@ export const useSidebarState = (): SidebarState =>
   useSyncExternalStore(subscribeToSidebar, getSidebarState, getSidebarState);
 
 export const useSidebarCollapsed = (): boolean => useSidebarState().collapsed;
+
+/**
+ * Tracks the breakpoint, so a control can say which of the two sidebars it is
+ * talking about without re-reading `matchMedia` on every render.
+ */
+export const useIsDesktopViewport = (): boolean => {
+  const [isDesktop, setIsDesktop] = useState(isDesktopViewport);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const query = window.matchMedia(SIDEBAR_DESKTOP_QUERY);
+    const onChange = () => setIsDesktop(query.matches);
+    onChange();
+
+    if (typeof query.addEventListener === 'function') {
+      query.addEventListener('change', onChange);
+      return () => query.removeEventListener('change', onChange);
+    }
+    // Safari < 14 and the jsdom mock only have the deprecated pair.
+    query.addListener?.(onChange);
+    return () => query.removeListener?.(onChange);
+  }, []);
+
+  return isDesktop;
+};
+
+/** Whether the sidebar is showing, in whichever form this viewport uses. */
+export const useSidebarIsOpen = (): boolean => {
+  const { collapsed, mobileOpen } = useSidebarState();
+  const isDesktop = useIsDesktopViewport();
+  return isDesktop ? !collapsed : mobileOpen;
+};

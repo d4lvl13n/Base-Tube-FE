@@ -1,4 +1,4 @@
-export { default as SidebarShell } from './SidebarShell';
+export { default as SidebarShell, panelPositionClass } from './SidebarShell';
 export type { SidebarShellProps } from './SidebarShell';
 export { default as SidebarSection } from './SidebarSection';
 export type { SidebarSectionProps } from './SidebarSection';
@@ -19,10 +19,16 @@ export {
   COLLAPSED_STORAGE_KEY,
   SIDEBAR_RAIL_WIDTH,
   SIDEBAR_WIDTH,
+  getSidebarState,
+  isDesktopViewport,
+  isSidebarOpen,
   resetSidebarState,
   setSidebarCollapsed,
   setSidebarMobileOpen,
+  setSidebarOpen,
   toggleSidebar,
+  useIsDesktopViewport,
   useSidebarCollapsed,
+  useSidebarIsOpen,
   useSidebarState,
 } from './sidebarState';

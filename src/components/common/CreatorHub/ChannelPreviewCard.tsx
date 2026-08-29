@@ -33,14 +33,27 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
   // Whether the clamp is actually hiding anything. A one-line description with
   // a "more" link under it is a lie, and this card is shown to a creator who
   // pasted a wall of text into the field at least once.
+  //
+  // Measured again on resize: collapsing the sidebar widens this card, and text
+  // that needed three lines at 240px may well fit in two at 60px.
   useLayoutEffect(() => {
     const node = descriptionRef.current;
     if (!node) {
       setDescriptionOverflows(false);
-      return;
+      return undefined;
     }
-    if (descriptionExpanded) return;
-    setDescriptionOverflows(node.scrollHeight - node.clientHeight > 1);
+
+    const measure = () => {
+      if (descriptionExpanded) return;
+      setDescriptionOverflows(node.scrollHeight - node.clientHeight > 1);
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
   }, [channel.description, descriptionExpanded]);
 
   // Sanitize the description HTML to prevent XSS attacks

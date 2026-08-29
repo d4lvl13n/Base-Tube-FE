@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { setSidebarCollapsed } from './sidebarState';
+import { setSidebarOpen } from './sidebarState';
 
 const isTypingTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) return false;
@@ -17,7 +17,8 @@ const isTypingTarget = (target: EventTarget | null): boolean => {
  *
  * Two keys rather than one toggle: a toggle bound to a bare bracket fires from
  * muscle memory in the wrong direction half the time, and these are the keys
- * every editor already uses for exactly this.
+ * every editor already uses for exactly this. Below `md` they work the drawer,
+ * because that is the sidebar you can actually see there.
  */
 export const useSidebarShortcuts = (enabled = true) => {
   useEffect(() => {
@@ -28,7 +29,7 @@ export const useSidebarShortcuts = (enabled = true) => {
       if (event.key !== '[' && event.key !== ']') return;
       if (isTypingTarget(event.target)) return;
       event.preventDefault();
-      setSidebarCollapsed(event.key === '[');
+      setSidebarOpen(event.key === ']');
     };
 
     window.addEventListener('keydown', onKeyDown);

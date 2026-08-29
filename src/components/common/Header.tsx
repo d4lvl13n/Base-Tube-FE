@@ -6,7 +6,7 @@ import SearchBox from './SearchBox';
 import { Link } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { toggleSidebar, useSidebarState } from '../navigation';
+import { toggleSidebar, useSidebarIsOpen } from '../navigation';
 
 
 interface HeaderProps {
@@ -16,15 +16,16 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ className = '' }) => {
   const { isSignedIn, user: clerkUser } = useUser();
   const { isAuthenticated, user: web3User } = useAuth();
-  const { collapsed, mobileOpen } = useSidebarState();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showSignInOptions, setShowSignInOptions] = useState(false);
   const [hoveredAvatar, setHoveredAvatar] = useState(false);
 
-  // The panel icon is the one control for the sidebar: it narrows the column
-  // on desktop and opens the drawer on a phone. `[` and `]` do the same thing
-  // from the keyboard.
-  const sidebarIsOpen = mobileOpen || !collapsed;
+  // The panel icon is the one control for the sidebar: it narrows the column on
+  // desktop and opens the drawer on a phone. What it reports has to be the
+  // sidebar you can actually see — `!collapsed` describes a column that does
+  // not exist below `md`, so the button announced "expanded" over a closed
+  // drawer. `[` and `]` follow the same rule.
+  const sidebarIsOpen = useSidebarIsOpen();
 
   const SignInPopover = () => (
     <motion.div

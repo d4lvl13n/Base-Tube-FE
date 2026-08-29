@@ -1,8 +1,8 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { BarChart2, LayoutDashboard } from 'lucide-react';
-import SidebarShell from '../SidebarShell';
+import SidebarShell, { panelPositionClass } from '../SidebarShell';
 import SidebarSection from '../SidebarSection';
 import SidebarItem from '../SidebarItem';
 import SidebarSearch from '../SidebarSearch';
@@ -25,11 +25,42 @@ const GoElsewhere: React.FC = () => {
   );
 };
 
-const renderSidebar = (path = '/creator-hub') =>
+/**
+ * `resetMocks` wipes the shared `matchMedia` jest.fn(), and the sidebar asks it
+ * which of its two forms is on screen. A plain function survives the reset.
+ */
+const setViewport = (desktop: boolean) => {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: desktop,
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  });
+};
+
+const OpenDrawer: React.FC = () => (
+  <button type="button" onClick={() => setSidebarMobileOpen(true)}>
+    open
+  </button>
+);
+
+const renderSidebar = (path = '/creator-hub', className?: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
       <GoElsewhere />
-      <SidebarShell top={<SidebarSearch />} footer={<SidebarFooter name="Ada" handle="ada" />}>
+      <OpenDrawer />
+      <SidebarShell
+        className={className}
+        top={<SidebarSearch />}
+        footer={<SidebarFooter name="Ada" handle="ada" />}
+      >
         <SidebarSection label="Main">
           <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/creator-hub" end />
           <SidebarItem
@@ -44,6 +75,7 @@ const renderSidebar = (path = '/creator-hub') =>
   );
 
 beforeEach(() => {
+  setViewport(true);
   act(() => resetSidebarState());
 });
 
@@ -119,6 +151,20 @@ describe('SidebarShell', () => {
       expect(window.localStorage.getItem(COLLAPSED_STORAGE_KEY)).toBe('false');
     });
 
+    it('works the drawer below md, where the column is not on screen', () => {
+      setViewport(false);
+      renderSidebar();
+
+      fireEvent.keyDown(window, { key: ']' });
+      expect(screen.getByTestId('sidebar-drawer')).toBeInTheDocument();
+
+      fireEvent.keyDown(window, { key: '[' });
+      expect(screen.queryByTestId('sidebar-drawer')).not.toBeInTheDocument();
+      // The desktop preference is untouched: it describes a column that does
+      // not exist at this width.
+      expect(screen.getByTestId('sidebar')).toHaveAttribute('data-collapsed', 'false');
+    });
+
     it('is ignored while typing', () => {
       renderSidebar();
       const input = document.createElement('input');
@@ -171,5 +217,87 @@ describe('SidebarShell', () => {
 
       expect(screen.getByTestId('sidebar-drawer')).toHaveTextContent('Dashboard');
     });
+  });
+
+  describe('positioning', () => {
+    it('does not add `relative` over the page\'s own position', () => {
+      // Tailwind emits `.relative` after `.fixed`, so an unconditional
+      // `relative` silently won and left the column in the flex flow while the
+      // page ALSO reserved its width beside it.
+      expect(panelPositionClass('fixed left-0 top-16 bottom-0 z-40')).toBe('');
+      expect(panelPositionClass('sticky top-16 h-[calc(100vh-4rem)] self-start')).toBe('');
+      expect(panelPositionClass('')).toBe('relative');
+    });
+
+    it('keeps a page-supplied `fixed` on the desktop panel', () => {
+      renderSidebar('/creator-hub', 'fixed left-0 top-16 bottom-0 z-40');
+
+      const aside = screen.getByTestId('sidebar');
+      expect(aside).toHaveClass('fixed');
+      expect(aside).not.toHaveClass('relative');
+    });
+
+    it('anchors the edge chevron when the page says nothing', () => {
+      renderSidebar();
+      expect(screen.getByTestId('sidebar')).toHaveClass('relative');
+    });
+  });
+
+  describe('the drawer as a modal', () => {
+    const openDrawer = () => {
+      const opener = screen.getByRole('button', { name: 'open' });
+      opener.focus();
+      fireEvent.click(opener);
+      return opener;
+    };
+
+    it('takes focus to the close button', () => {
+      renderSidebar();
+      openDrawer();
+
+      expect(screen.getByRole('button', { name: 'Close navigation' })).toHaveFocus();
+    });
+
+    it('keeps Tab inside the drawer', () => {
+      renderSidebar();
+      openDrawer();
+
+      const dialog = screen.getByRole('dialog');
+      const close = screen.getByRole('button', { name: 'Close navigation' });
+      const last = within(dialog).getByTestId('sidebar-footer');
+
+      // Backwards off the first row lands on the last one, not on the page
+      // underneath, which the overlay has already covered.
+      fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+      expect(last).toHaveFocus();
+
+      fireEvent.keyDown(window, { key: 'Tab' });
+      expect(close).toHaveFocus();
+    });
+
+    it('hands focus back to whatever opened it', () => {
+      renderSidebar();
+      const opener = openDrawer();
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(opener).toHaveFocus();
+    });
+
+    it('closes when the backdrop is clicked', () => {
+      renderSidebar();
+      openDrawer();
+
+      fireEvent.click(screen.getByTestId('sidebar-drawer-backdrop'));
+
+      expect(screen.queryByTestId('sidebar-drawer')).not.toBeInTheDocument();
+    });
+  });
+
+  it('labels sections with enough contrast to read', () => {
+    renderSidebar();
+    // gray-600 on #0f0f0f is ~2.5:1; gray-400 clears 4.5:1.
+    expect(screen.getByText('Main').className).toContain('text-gray-400');
   });
 });

@@ -46,7 +46,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({
       <Avatar src={imageUrl} name={name} size={28} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] text-gray-200">{name}</span>
-        {handle && <span className="block truncate text-[11px] text-gray-500">@{handle}</span>}
+        {handle && <span className="block truncate text-[11px] text-gray-400">@{handle}</span>}
       </span>
     </Link>
   );

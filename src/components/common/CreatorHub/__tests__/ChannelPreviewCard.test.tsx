@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { Channel } from '../../../../types/channel';
 import ChannelPreviewCard from '../ChannelPreviewCard';
@@ -114,6 +114,35 @@ describe('ChannelPreviewCard', () => {
       renderCard();
 
       expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
+    });
+
+    it('re-measures when the card is resized', () => {
+      // Collapsing the sidebar widens this card, and text that needed three
+      // lines at 240px may well fit in two at 60px.
+      const observers: Array<() => void> = [];
+      const original = global.ResizeObserver;
+      class CapturingResizeObserver {
+        constructor(callback: () => void) {
+          observers.push(callback);
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+      global.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver;
+
+      try {
+        setOverflowing(false);
+        renderCard({ description: LOG_DUMP });
+        expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
+
+        setOverflowing(true);
+        act(() => observers.forEach((notify) => notify()));
+
+        expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument();
+      } finally {
+        global.ResizeObserver = original;
+      }
     });
   });
 });

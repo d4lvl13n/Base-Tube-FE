@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { isDesktopViewport, setSidebarMobileOpen } from './sidebarState';
 import SidebarTooltip from './SidebarTooltip';
 import { useSidebarView } from './SidebarViewContext';
 
@@ -31,6 +32,13 @@ const SidebarSearch: React.FC<SidebarSearchProps> = ({ className = '' }) => {
   const navigate = useNavigate();
 
   const open = useCallback(() => {
+    // Below `md` the sidebar is an overlay sitting on top of the header, so
+    // focusing the header's input would put the caret in a box nobody can see.
+    if (!isDesktopViewport()) {
+      setSidebarMobileOpen(false);
+      navigate('/search');
+      return;
+    }
     if (!focusHeaderSearch()) navigate('/search');
   }, [navigate]);
 
@@ -77,7 +85,7 @@ const SidebarSearch: React.FC<SidebarSearchProps> = ({ className = '' }) => {
     >
       <Search className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate text-left">Search</span>
-      <kbd className="shrink-0 font-sans text-[11px] text-gray-600">⌘K</kbd>
+      <kbd className="shrink-0 font-sans text-[11px] text-gray-400">⌘K</kbd>
     </button>
   );
 };
