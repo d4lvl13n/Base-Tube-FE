@@ -22,6 +22,9 @@ import type { RecordViewOutcome } from '../endpoints/engagement';
  *     interval instead meant a callback more than ~750 ms late at 2x looked
  *     like a seek — and under main-thread load a perfectly honest session
  *     recorded nothing at all;
+ *   - every in-flight request belongs to a GENERATION. Switching video resets
+ *     the session, but a request already in flight cannot be recalled: when it
+ *     lands it must not write to, or unlock, the session that replaced it;
  *   - a creation that fails cannot be retried faster than its backoff says.
  *     Every status callback re-entered the open path and cancelled the pending
  *     timer, so a permanent 400 or an outage produced ~2 POSTs a second and hit
@@ -96,6 +99,15 @@ export class ViewTrackingSession {
 
   private lastTickAtMs: number | null = null;
 
+  /**
+   * Bumped by every reset. An in-flight request captures the generation it
+   * started in and touches nothing once that generation is over — including
+   * the `opening`/`inFlight` guards, which are shared state.
+   *
+   * A plain `videoId` comparison is not enough: A -> B -> A leaves the id
+   * looking unchanged to a request that started in the first A.
+   */
+  private generation = 0;
   private opening = false;
   private inFlight = false;
   private disposed = false;
@@ -148,6 +160,7 @@ export class ViewTrackingSession {
   }
 
   private reset(): void {
+    this.generation += 1;
     this.cancelRetry();
     this.playedMsValue = 0;
     this.lastPositionMs = null;
@@ -158,7 +171,11 @@ export class ViewTrackingSession {
     this.createAttempt = 0;
     this.nextCreateAttemptAt = 0;
     this.createBlocked = false;
+    // The guards belong to the generation that is ending: the new one starts
+    // unlocked, and the old generation's `finally` will decline to touch these
+    // because its captured generation no longer matches.
     this.opening = false;
+    this.inFlight = false;
   }
 
   /**
@@ -245,6 +262,7 @@ export class ViewTrackingSession {
     if (!this.canAttemptCreate(this.now())) return;
 
     const videoId = this.videoId;
+    const generation = this.generation;
     this.opening = true;
     // NOT cancelling the pending retry here. Cancelling was the bug: a status
     // callback would tear down the timer, fire immediately, and the backoff
@@ -256,7 +274,7 @@ export class ViewTrackingSession {
       );
 
       // The session may have moved on while the request was in flight.
-      if (this.disposed || this.videoId !== videoId) return;
+      if (this.disposed || this.generation !== generation) return;
 
       if (viewId) {
         this.viewIdValue = viewId;
@@ -279,9 +297,13 @@ export class ViewTrackingSession {
     } catch {
       // `recordViewResult` is contracted not to throw, but a caller-supplied
       // api could. Back off rather than spin.
-      this.scheduleRetry();
+      if (!this.disposed && this.generation === generation) this.scheduleRetry();
     } finally {
-      this.opening = false;
+      // ONLY unlock the generation we locked. Clearing it unconditionally let a
+      // stale creation for the previous video open the gate while the new
+      // video's own creation was still in flight — the next status callback
+      // then started a second one, and the viewer got two view rows.
+      if (this.generation === generation) this.opening = false;
     }
   }
 
@@ -313,13 +335,21 @@ export class ViewTrackingSession {
     if (this.playedMsValue <= 0) return;
     if (!force && this.playedMsValue <= this.lastSentMs) return;
 
+    const videoId = this.videoId;
+    const generation = this.generation;
     this.inFlight = true;
     const snapshot = this.playedMsValue;
     try {
-      await this.api.updateView(this.videoId, viewId, snapshot / 1000);
-      this.lastSentMs = Math.max(this.lastSentMs, snapshot);
+      await this.api.updateView(videoId, viewId, snapshot / 1000);
+      // Same generation rule as `openView`: a heartbeat for the previous video
+      // must not stamp its watched duration onto the new session's
+      // "already sent" mark, which would suppress the new video's heartbeats
+      // until it happened to pass the old one.
+      if (this.generation === generation) {
+        this.lastSentMs = Math.max(this.lastSentMs, snapshot);
+      }
     } finally {
-      this.inFlight = false;
+      if (this.generation === generation) this.inFlight = false;
     }
   }
 

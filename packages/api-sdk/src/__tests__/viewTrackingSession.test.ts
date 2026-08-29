@@ -271,6 +271,31 @@ describe('a failed creation does not silence the session — or flood the server
     expect(api.recordViewResult).toHaveBeenCalledTimes(1);
   });
 
+  it('caps a wildly long Retry-After rather than parking the session', async () => {
+    const api = makeApi();
+    api.recordViewResult.mockResolvedValue({
+      viewId: null,
+      retryable: true,
+      retryAfterMs: 120_000,
+    });
+    const session = makeSession(api, { retryDelaysMs: [1_000] });
+
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await Promise.resolve();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(1);
+
+    // Two minutes is longer than we are willing to sit on an unopened view.
+    jest.advanceTimersByTime(59_999);
+    await Promise.resolve();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(2);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(2);
+  });
+
   it('stops asking once the backend has given a verdict', async () => {
     const api = makeApi();
     api.recordViewResult.mockResolvedValue({ viewId: null, retryable: false });
@@ -518,6 +543,149 @@ describe('switching video starts a clean session', () => {
     await flushPromises();
 
     expect(session.viewId).toBeNull();
+  });
+
+  it('a stale creation cannot unlock the new video\'s in-flight guard', async () => {
+    // The bug: `opening` was shared state cleared unconditionally in `finally`.
+    // Video A's creation resolving after the switch opened the gate while
+    // video B's own creation was still in flight, so B's next status callback
+    // started a SECOND creation and the viewer got two view rows.
+    const api = makeApi();
+    const pending: ((value: { viewId: string | null; retryable: boolean }) => void)[] = [];
+    api.recordViewResult.mockImplementation(
+      () => new Promise((resolve) => {
+        pending.push(resolve);
+      })
+    );
+    const session = makeSession(api);
+
+    // A: creation starts and hangs.
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await flushPromises();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(1);
+
+    // Switch to B; B's own creation starts and also hangs.
+    session.setVideoId('99');
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await flushPromises();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(2);
+    expect(api.recordViewResult.mock.calls[1][0]).toBe('99');
+
+    // A finally lands. It must change nothing at all.
+    pending[0]({ viewId: 'stale-view', retryable: false });
+    await flushPromises();
+
+    expect(session.viewId).toBeNull();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(2);
+
+    // And the next callback must not start a third request either.
+    play(session, 31_000, 33_000);
+    await flushPromises();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(2);
+
+    // B's own creation still completes normally.
+    pending[1]({ viewId: 'view-b', retryable: false });
+    await flushPromises();
+    expect(session.viewId).toBe('view-b');
+  });
+
+  it('a stale verdict cannot block the new video from ever opening a row', async () => {
+    const api = makeApi();
+    const pending: ((value: { viewId: string | null; retryable: boolean }) => void)[] = [];
+    api.recordViewResult.mockImplementation(
+      () => new Promise((resolve) => {
+        pending.push(resolve);
+      })
+    );
+    const session = makeSession(api);
+
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await flushPromises();
+
+    session.setVideoId('99');
+    // A's request comes back as a verdict AFTER the switch. The terminal flag
+    // belongs to A's session, not B's.
+    pending[0]({ viewId: null, retryable: false });
+    await flushPromises();
+
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await flushPromises();
+
+    expect(api.recordViewResult).toHaveBeenCalledTimes(2);
+    pending[1]({ viewId: 'view-b', retryable: false });
+    await flushPromises();
+    expect(session.viewId).toBe('view-b');
+  });
+
+  it('survives A -> B -> A, which a plain video-id check does not', async () => {
+    // Comparing `this.videoId` to the id captured at request start passes here:
+    // the id really is '42' again by the time A's first request lands.
+    const api = makeApi();
+    const pending: ((value: { viewId: string | null; retryable: boolean }) => void)[] = [];
+    api.recordViewResult.mockImplementation(
+      () => new Promise((resolve) => {
+        pending.push(resolve);
+      })
+    );
+    const session = makeSession(api);
+
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await flushPromises();
+
+    session.setVideoId('99');
+    session.setVideoId('42');
+
+    pending[0]({ viewId: 'stale-view', retryable: false });
+    await flushPromises();
+
+    // The first visit's view row belongs to a session that no longer exists.
+    expect(session.viewId).toBeNull();
+  });
+
+  it('a stale heartbeat cannot suppress the new video\'s heartbeats', async () => {
+    // `lastSentMs` is per-session. A late `updateView` for a long video A would
+    // otherwise stamp its watched duration onto B, and B would send nothing
+    // until it happened to overtake it.
+    const api = makeApi();
+    let releaseFlush: () => void = () => {};
+    api.updateView.mockImplementation(
+      () => new Promise<void>((resolve) => {
+        releaseFlush = () => resolve();
+      })
+    );
+    const session = makeSession(api);
+
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await flushPromises();
+    // Creation banks the played time it was opened with, so play on before
+    // flushing or there is nothing new to send.
+    play(session, 31_000, 400_000);
+    const staleFlush = session.flush();
+    await Promise.resolve();
+    expect(api.updateView).toHaveBeenCalledTimes(1);
+
+    session.setVideoId('99');
+    releaseFlush();
+    await staleFlush;
+    await flushPromises();
+
+    // B plays a little and flushes; the request must actually go out.
+    api.updateView.mockResolvedValue(undefined);
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await flushPromises();
+    play(session, 31_000, 45_000);
+    await session.flush();
+
+    const lastCall = api.updateView.mock.calls[api.updateView.mock.calls.length - 1];
+    expect(lastCall[0]).toBe('99');
+    expect(lastCall[2]).toBeCloseTo(45, 0);
   });
 
   it('is a no-op when the id has not actually changed', async () => {
