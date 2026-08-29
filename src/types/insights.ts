@@ -52,16 +52,37 @@ export const THIN_VIEWS_THRESHOLD = 200;
 /** A posting-hour / weekday read needs at least this many views to be worth saying. */
 export const POSTING_PATTERN_MIN_VIEWS = 30;
 
-/** What the model actually saw. Rendered verbatim by the FE coverage strip. */
+/**
+ * What the report was computed from.
+ *
+ * CATALOGUE-WIDE, NOT THE SAMPLE. `views`, `videos` and `watchSeconds` are aggregates
+ * over every analytics-visible video on the channel, from dedicated SQL — they are not
+ * sums over the rows we happened to serialise into the prompt. An earlier cut computed
+ * them from the 40 highest-viewed rows and labelled the result "your catalogue", which
+ * is exactly the mislabelling this rebuild exists to delete. What the MODEL saw is
+ * reported separately, in `sample`.
+ */
 export interface InsightsCoverage {
-  /** Counted views (`is_counted = 1`) inside the period. */
+  /** Counted views (`is_counted = 1`) inside the period, across the whole catalogue. */
   views: number;
-  /** Videos whose rows were serialised into the prompt. */
+  /** Analytics-visible videos on the channel. Not a page, not a sample. */
   videos: number;
-  /** Total watched seconds inside the period. */
+  /** Total watched seconds inside the period, across the whole catalogue. */
   watchSeconds: number;
   /** Days in the window; `null` for 'all' (the window is the channel's lifetime). */
   days: number | null;
+}
+
+/**
+ * The synthesis sample: the rows actually serialised into the pass-2 prompt.
+ *
+ * `size` of `of` — when they differ, the model reasoned over a subset (the highest-view
+ * rows, so every watched video is present) while every FACT above it is catalogue-wide.
+ * Saying so is the difference between a sample and a silent lie.
+ */
+export interface InsightsSample {
+  size: number;
+  of: number;
 }
 
 /**
@@ -114,11 +135,41 @@ export interface InsightsNicheReference {
   peerCount: number;
   window: string;
   medianViewsPerVideo: number;
-  medianUploadsPerWeek: number;
+  /**
+   * NULL when the sample could not measure it — one search returns one or two videos
+   * per channel, and a cadence needs two dated uploads from the same channel. Null
+   * travels all the way to the FE, which omits the row. It is never coerced to 0: a
+   * zero here reads as "these creators do not upload", which is a measurement we did
+   * not make.
+   */
+  medianUploadsPerWeek: number | null;
   medianTitleLength: number;
+  /**
+   * Structural patterns whose stated counts have been RE-COUNTED against the supplied
+   * titles in code. A model-written pattern whose count cannot be reproduced is
+   * dropped, not corrected — see NicheReferenceService.
+   */
   commonPatterns: string[];
   disclaimer: string;
 }
+
+/**
+ * Why there is no niche reference this time. Present INSTEAD of `nicheReference`.
+ *
+ * A missing section with no explanation reads as a bug; a stated reason reads as a
+ * measurement we declined to fake.
+ */
+export interface InsightsNicheUnavailable {
+  reason: string;
+}
+
+/**
+ * Peers required before any median is published.
+ *
+ * A "median" of one or two search results is a single number wearing the clothes of a
+ * statistic. Below this we omit the whole section rather than dress up a coincidence.
+ */
+export const NICHE_MIN_PEERS = 5;
 
 /** The FIXED disclaimer. Never model-written, never varied per channel. */
 export const NICHE_REFERENCE_DISCLAIMER =
@@ -141,9 +192,22 @@ export interface ChannelInsightsV2 {
   observations: InsightObservation[];
   hypotheses: InsightHypothesis[];
   experiments: InsightExperiment[];
+  /** Rows the pass-2 model actually saw, against the catalogue size. */
+  sample: InsightsSample;
   nicheReference?: InsightsNicheReference;
+  /** Present instead of `nicheReference` when we declined to publish one. */
+  nicheUnavailable?: InsightsNicheUnavailable;
+  /**
+   * Legs that failed while the rest succeeded, e.g. `['observations']` when the vision
+   * pass was down. The FE says "packaging review unavailable" instead of silently
+   * rendering a report with one section missing and no explanation.
+   */
+  partial?: InsightsPartialLeg[];
   fallback?: InsightsFallback;
 }
+
+/** Sections that can fail independently of the report as a whole. */
+export type InsightsPartialLeg = 'observations' | 'nicheReference';
 
 /** Envelope the route returns alongside `data`. */
 export interface ChannelInsightsMeta {
@@ -155,3 +219,13 @@ export interface ChannelInsightsMeta {
 
 /** Manual `?refresh=1` regenerations allowed per channel per UTC day. */
 export const REFRESH_DAILY_LIMIT = 3;
+
+/**
+ * Generations allowed per USER per UTC day, across every channel they own.
+ *
+ * The per-channel refresh budget caps one dashboard; a creator with eight channels
+ * could still spend twenty-four generations a day by walking across them. This is the
+ * account-level ceiling on paid work, and unlike the refresh budget it counts every
+ * generation, cache miss or manual refresh alike.
+ */
+export const ACCOUNT_DAILY_GENERATION_LIMIT = 20;

@@ -563,42 +563,62 @@ export const getChannelDemographics = async (
 };
 
 /**
+ * The service is still generating this report — another request (usually the creator's
+ * other tab) holds the generation lock. Not an error: the answer is on its way, and
+ * starting a second identical run would just pay for it twice.
+ */
+export interface InsightsGenerating {
+  status: 'generating';
+}
+
+export type InsightsResponse =
+  | { status: 'ready'; data: ChannelInsightsV2; meta: ChannelInsightsMeta }
+  | InsightsGenerating;
+
+/**
  * Creator AI Insights v2 for ONE period.
  *
  * The old endpoint accepted a `periods[]` array, ran a data collection per period and
- * then handed the model only the first one — latency and tokens for nothing. One
- * period per request; each answer is cached on its own key, backend and client alike.
+ * then handed the model only the first one — latency and tokens for nothing. One period
+ * per request; each answer is cached on its own key, backend and client alike.
  *
- * `refresh` bypasses the backend's 24 h cache and is capped at REFRESH_DAILY_LIMIT per
- * channel per day; the remaining budget comes back in `meta.refreshRemaining`, and a
- * 429 means the budget is spent (the last report is still readable).
+ * `refresh` bypasses the backend's 24 h cache and is capped per channel per day AND per
+ * account per day; the remaining channel budget comes back in `meta.refreshRemaining`,
+ * and a 429 means a budget is spent (the last report is still readable). That 429 is
+ * deliberately excluded from the client's generic retry — see `isInsightsRegeneration`
+ * in src/api/index.ts.
  */
 export const getChannelInsights = async (
   channelId: string,
   period: InsightsPeriod = '30d',
   options: { refresh?: boolean } = {}
-): Promise<{ data: ChannelInsightsV2; meta: ChannelInsightsMeta }> => {
+): Promise<InsightsResponse> => {
   const params: Record<string, string> = { period };
   if (options.refresh) params.refresh = '1';
 
   const response = await api.get<{
     success: boolean;
-    data: ChannelInsightsV2;
-    meta: ChannelInsightsMeta;
+    status?: 'generating';
+    data?: ChannelInsightsV2;
+    meta?: ChannelInsightsMeta;
   }>(`/api/v1/creators/channels/${channelId}/analytics/insights`, { params });
 
-  if (!response.data.success) {
+  if (response.status === 202 || response.data.status === 'generating') {
+    return { status: 'generating' };
+  }
+
+  if (!response.data.success || !response.data.data || !response.data.meta) {
     throw new Error(`Failed to fetch insights for channel ${channelId}`);
   }
 
   // A payload from a contract we do not understand is not rendered half-way: the
   // sections have different meanings across versions and a partial read would be a
   // confident misstatement.
-  if (response.data.data?.schemaVersion !== INSIGHTS_SCHEMA_VERSION) {
+  if (response.data.data.schemaVersion !== INSIGHTS_SCHEMA_VERSION) {
     throw new Error('Insights are unavailable: this client does not understand the report format.');
   }
 
-  return { data: response.data.data, meta: response.data.meta };
+  return { status: 'ready', data: response.data.data, meta: response.data.meta };
 };
 
 // ===========================================

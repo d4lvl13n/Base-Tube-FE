@@ -56,9 +56,19 @@ const CoverageStrip: React.FC<{ insights: ChannelInsightsV2 }> = ({ insights }) 
     coverage.days === null ? 'all time' : `${coverage.days} days`
   ];
   return (
-    <p className="text-sm text-gray-400" data-testid="insights-coverage">
-      Based on {parts.join(' · ')}
-    </p>
+    <div className="space-y-1">
+      <p className="text-sm text-gray-400" data-testid="insights-coverage">
+        Based on {parts.join(' · ')}
+      </p>
+      {/* The facts above cover the whole catalogue; the AI sections reasoned over a
+          subset. Saying which is the difference between a sample and a silent lie. */}
+      {insights.sample.size < insights.sample.of && (
+        <p className="text-xs text-gray-500" data-testid="insights-sample">
+          AI sections reviewed your {insights.sample.size} most-viewed videos of{' '}
+          {insights.sample.of}. The measured numbers cover all {insights.sample.of}.
+        </p>
+      )}
+    </div>
   );
 };
 
@@ -210,7 +220,9 @@ const NicheReference: React.FC<{ reference: InsightsNicheReference }> = ({ refer
       </p>
       <ul className="text-sm text-gray-300 space-y-0.5">
         <li>Median views per video: {reference.medianViewsPerVideo.toLocaleString()}</li>
-        {reference.medianUploadsPerWeek > 0 && (
+        {/* Null means we could not measure it from this sample — the row is omitted
+            rather than printed as 0, which would read as "these creators never upload". */}
+        {reference.medianUploadsPerWeek !== null && (
           <li>Median uploads per week: {reference.medianUploadsPerWeek}</li>
         )}
         <li>Median title length: {reference.medianTitleLength} characters</li>
@@ -226,6 +238,34 @@ const NicheReference: React.FC<{ reference: InsightsNicheReference }> = ({ refer
     </div>
   </section>
 );
+
+/** No peers, and the reason why. A stated reason is not a missing section. */
+const NicheUnavailable: React.FC<{ reason: string }> = ({ reason }) => (
+  <section className="space-y-2" data-testid="insights-niche-unavailable">
+    <h4 className={SECTION_TITLE}>
+      <Globe className="w-3.5 h-3.5" />
+      YouTube reference
+    </h4>
+    <p className="text-sm text-gray-500 bg-black/30 border border-gray-800/40 rounded-lg px-3 py-2">
+      No comparison published — {reason}
+    </p>
+  </section>
+);
+
+/** One leg failed while the rest succeeded. Name it; do not just omit the section. */
+const PartialNotice: React.FC<{ legs: ChannelInsightsV2['partial'] }> = ({ legs }) => {
+  if (!legs || legs.length === 0) return null;
+  const labels: Record<string, string> = {
+    observations: 'packaging review',
+    nicheReference: 'YouTube comparison'
+  };
+  const named = legs.map((leg) => labels[leg] || leg).join(' and ');
+  return (
+    <p className="text-xs text-gray-500" data-testid="insights-partial">
+      The {named} could not be produced for this report.
+    </p>
+  );
+};
 
 /** The honest empty state: what we CAN say, and plainly why we stop there. */
 const InsufficientNotice: React.FC = () => (
@@ -251,6 +291,24 @@ const FallbackNotice: React.FC<{ reason: string }> = ({ reason }) => (
   </div>
 );
 
+/**
+ * Turn a failed regeneration into something a creator can act on.
+ *
+ * The backend's 429 body already says which budget ran out and it is the only place
+ * that knows; axios's default ("Request failed with status code 429") says nothing. The
+ * generic client retry is disabled for this request precisely so this message survives
+ * to be shown — see `isInsightsRegeneration` in src/api/index.ts.
+ */
+function regenerationMessage(error: Error): string {
+  const response = (error as { response?: { status?: number; data?: { message?: string } } }).response;
+  const fromBackend = response?.data?.message;
+  if (fromBackend) return fromBackend;
+  if (response?.status === 429) {
+    return 'Regeneration limit reached for today. Your last report is still shown above.';
+  }
+  return error.message || 'Could not regenerate insights.';
+}
+
 export const ChannelInsightsCard: React.FC<{
   channelId: string;
   period: InsightsPeriod;
@@ -259,6 +317,7 @@ export const ChannelInsightsCard: React.FC<{
   const {
     insights,
     meta,
+    isGenerating,
     isLoading,
     error,
     regenerate,
@@ -312,6 +371,13 @@ export const ChannelInsightsCard: React.FC<{
         <div className="mt-4 space-y-5">
           {isLoading && <p className="text-sm text-gray-500">Reading your analytics…</p>}
 
+          {/* Someone else's request is already paying for this exact report. */}
+          {!isLoading && isGenerating && (
+            <p className="text-sm text-gray-500" data-testid="insights-generating">
+              Generating your insights — this usually takes under a minute.
+            </p>
+          )}
+
           {!isLoading && error && (
             <p className="text-sm text-gray-400" data-testid="insights-error">
               Insights are unavailable right now.
@@ -320,7 +386,7 @@ export const ChannelInsightsCard: React.FC<{
 
           {regenerateError && (
             <p className="text-sm text-amber-400/80" data-testid="insights-regenerate-error">
-              {regenerateError.message}
+              {regenerationMessage(regenerateError)}
             </p>
           )}
 
@@ -328,12 +394,16 @@ export const ChannelInsightsCard: React.FC<{
             <>
               <CoverageStrip insights={insights} />
               {insights.fallback && <FallbackNotice reason={insights.fallback.reason} />}
+              <PartialNotice legs={insights.partial} />
               {insights.dataMode === 'insufficient' && <InsufficientNotice />}
               <Facts insights={insights} />
               <Observations insights={insights} />
               <Hypotheses insights={insights} />
               <Experiments insights={insights} />
               {insights.nicheReference && <NicheReference reference={insights.nicheReference} />}
+              {!insights.nicheReference && insights.nicheUnavailable && (
+                <NicheUnavailable reason={insights.nicheUnavailable.reason} />
+              )}
             </>
           )}
         </div>

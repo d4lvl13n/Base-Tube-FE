@@ -122,7 +122,15 @@ const resetApi = () => {
   mockApi.getTopSharedContent.mockReset().mockResolvedValue([]);
   mockApi.getTopComments.mockReset().mockResolvedValue([]);
   mockApi.getChannelInsights.mockReset().mockResolvedValue({
-    data: { schemaVersion: 2, facts: [], observations: [], hypotheses: [], experiments: [] },
+    status: 'ready',
+    data: {
+      schemaVersion: 2,
+      facts: [],
+      observations: [],
+      hypotheses: [],
+      experiments: [],
+      sample: { size: 0, of: 0 }
+    },
     meta: { cached: false, refreshRemaining: 3 }
   });
   mockApi.getChannelVideosPerformance.mockReset().mockResolvedValue({

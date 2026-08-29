@@ -36,6 +36,7 @@ function insights(overrides: Partial<ChannelInsightsV2> = {}): ChannelInsightsV2
     generatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     dataMode: 'ok',
     coverage: { views: 47, videos: 12, watchSeconds: 7200, days: 7 },
+    sample: { size: 12, of: 12 },
     facts: [{ text: '47 counted views in the last 7 days.', metric: 'views', value: 47, source: 'basetube' }],
     observations: [
       {
@@ -59,7 +60,11 @@ function insights(overrides: Partial<ChannelInsightsV2> = {}): ChannelInsightsV2
 }
 
 function prime(data: ChannelInsightsV2, refreshRemaining = 3) {
-  mockGetChannelInsights.mockResolvedValue({ data, meta: { cached: false, refreshRemaining } });
+  mockGetChannelInsights.mockResolvedValue({
+    status: 'ready',
+    data,
+    meta: { cached: false, refreshRemaining }
+  });
 }
 
 beforeEach(() => mockGetChannelInsights.mockReset());
@@ -77,7 +82,12 @@ describe('the coverage strip states what the report was computed from', () => {
   });
 
   it('says "all time" rather than inventing a day count', async () => {
-    prime(insights({ period: 'all', coverage: { views: 47, videos: 12, watchSeconds: 30, days: null } }));
+    prime(
+      insights({
+        period: 'all',
+        coverage: { views: 47, videos: 12, watchSeconds: 30, days: null }
+      })
+    );
     render(wrapper(<ChannelInsightsCard channelId="66" period="all" />));
 
     expect(await screen.findByTestId('insights-coverage')).toHaveTextContent('all time');
@@ -136,7 +146,7 @@ describe('data modes', () => {
           peerCount: 20,
           window: 'this_year',
           medianViewsPerVideo: 15000,
-          medianUploadsPerWeek: 0,
+          medianUploadsPerWeek: null,
           medianTitleLength: 52,
           commonPatterns: [],
           disclaimer: 'YouTube peers found by your topics.'
@@ -163,7 +173,7 @@ describe('the niche reference is labelled as YouTube, never as a target', () => 
           peerCount: 20,
           window: 'this_year',
           medianViewsPerVideo: 15000,
-          medianUploadsPerWeek: 0,
+          medianUploadsPerWeek: null,
           medianTitleLength: 52,
           commonPatterns: ['12 of 20 titles contain a year'],
           disclaimer:
@@ -181,6 +191,62 @@ describe('the niche reference is labelled as YouTube, never as a target', () => 
   });
 });
 
+describe('a sample is labelled as a sample', () => {
+  it('says the AI sections saw fewer videos than the facts cover', async () => {
+    prime(insights({ sample: { size: 40, of: 100 }, coverage: { views: 900, videos: 100, watchSeconds: 60, days: 7 } }));
+    render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
+
+    const note = await screen.findByTestId('insights-sample');
+    expect(note).toHaveTextContent('40 most-viewed videos of 100');
+    expect(note).toHaveTextContent('measured numbers cover all 100');
+  });
+
+  it('says nothing when the model saw everything', async () => {
+    prime(insights({ sample: { size: 12, of: 12 } }));
+    render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
+
+    await screen.findByTestId('insights-coverage');
+    expect(screen.queryByTestId('insights-sample')).not.toBeInTheDocument();
+  });
+});
+
+describe('missing pieces are named, not silently omitted', () => {
+  it('states why there is no niche reference', async () => {
+    prime(
+      insights({
+        nicheReference: undefined,
+        nicheUnavailable: { reason: 'Only 2 comparable videos were found — too few to publish a median.' },
+        partial: ['nicheReference']
+      })
+    );
+    render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
+
+    expect(await screen.findByTestId('insights-niche-unavailable')).toHaveTextContent(
+      'Only 2 comparable videos were found'
+    );
+    expect(screen.getByTestId('insights-partial')).toHaveTextContent('YouTube comparison');
+  });
+
+  it('names a failed packaging review', async () => {
+    prime(insights({ observations: [], partial: ['observations'] }));
+    render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
+
+    expect(await screen.findByTestId('insights-partial')).toHaveTextContent('packaging review');
+  });
+});
+
+describe('generating', () => {
+  it('says the report is on its way rather than showing an error', async () => {
+    mockGetChannelInsights.mockResolvedValue({ status: 'generating' });
+    render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
+
+    expect(await screen.findByTestId('insights-generating')).toHaveTextContent(
+      'Generating your insights'
+    );
+    expect(screen.queryByTestId('insights-error')).not.toBeInTheDocument();
+  });
+});
+
 describe('regenerate', () => {
   it('shows the remaining budget and spends one on click', async () => {
     prime(insights());
@@ -193,6 +259,7 @@ describe('regenerate', () => {
     expect(button).toHaveTextContent('(3 left today)');
 
     mockGetChannelInsights.mockResolvedValueOnce({
+      status: 'ready',
       data: insights({ dataMode: 'ok' }),
       meta: { cached: false, refreshRemaining: 2 }
     });
@@ -220,11 +287,34 @@ describe('regenerate', () => {
 
     await screen.findByTestId('insights-coverage');
     const button = screen.getByTestId('insights-regenerate');
-    mockGetChannelInsights.mockRejectedValueOnce(new Error('Regeneration limit reached (3 per day).'));
+    // Shaped like a real axios error: the useful sentence is in the response BODY, not
+    // in `error.message` ("Request failed with status code 429").
+    const rejection = Object.assign(new Error('Request failed with status code 429'), {
+      response: {
+        status: 429,
+        data: { success: false, message: 'Regeneration limit reached (3 per day).' }
+      }
+    });
+    mockGetChannelInsights.mockRejectedValueOnce(rejection);
     fireEvent.click(button);
 
     expect(await screen.findByTestId('insights-regenerate-error')).toHaveTextContent(
       'Regeneration limit reached (3 per day).'
+    );
+  });
+
+  it('falls back to a plain limit message when the backend sent no body', async () => {
+    prime(insights());
+    render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
+
+    await screen.findByTestId('insights-coverage');
+    mockGetChannelInsights.mockRejectedValueOnce(
+      Object.assign(new Error('Request failed with status code 429'), { response: { status: 429 } })
+    );
+    fireEvent.click(screen.getByTestId('insights-regenerate'));
+
+    expect(await screen.findByTestId('insights-regenerate-error')).toHaveTextContent(
+      'Regeneration limit reached for today.'
     );
   });
 });

@@ -27,11 +27,8 @@ import type {
   TopSharedItem,
   TopComment,
 } from '../types/analytics';
-import type {
-  ChannelInsightsMeta,
-  ChannelInsightsV2,
-  InsightsPeriod
-} from '../types/insights';
+import type { InsightsPeriod } from '../types/insights';
+import type { InsightsResponse } from '../api/analytics';
 import { useCallback, useEffect } from 'react';
 import { queryKeys } from '../utils/queryKeys';
 
@@ -413,18 +410,19 @@ export const useChannelWatchHours = (channelId: string, period: '7d' | '30d' = '
  * reusing one period's answer for another would be the same class of mislabelling the
  * rest of this dashboard was just cleaned of.
  *
- * `regenerate()` is the "Regenerate" button: it bypasses the backend's 24 h cache,
- * costs one of the day's three allowances, and writes the answer straight into the
- * query cache so the card updates without a second round trip.
+ * `regenerate()` is the "Regenerate" button: it bypasses the backend's 24 h cache, costs
+ * one of the day's allowances, and writes the answer straight into the query cache so
+ * the card updates without a second round trip.
+ *
+ * A `generating` response means another request already holds the backend's generation
+ * lock. We poll rather than error: the answer is being paid for right now, and starting
+ * a second identical run is the one thing worse than waiting.
  */
 export const useChannelInsights = (channelId: string | undefined, period: InsightsPeriod) => {
   const queryClient = useQueryClient();
   const queryKey = queryKeys.analytics.channelMetric(channelId, 'insights', period);
 
-  const { data, isLoading, error, refetch } = useQuery<
-    { data: ChannelInsightsV2; meta: ChannelInsightsMeta },
-    Error
-  >({
+  const { data, isLoading, error, refetch } = useQuery<InsightsResponse, Error>({
     queryKey,
     queryFn: () => {
       if (!channelId) throw new Error('Channel ID is required for insights');
@@ -433,6 +431,10 @@ export const useChannelInsights = (channelId: string | undefined, period: Insigh
     enabled: !!channelId,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    // Poll only while someone else's generation is in flight; a finished report is
+    // stable for its whole cache lifetime.
+    refetchInterval: (query) =>
+      (query.state.data as InsightsResponse | undefined)?.status === 'generating' ? 5000 : false,
     // A generation is expensive. Retrying a failure automatically would spend a second
     // one on a backend that has already told us it could not produce a report.
     retry: false
@@ -446,9 +448,12 @@ export const useChannelInsights = (channelId: string | undefined, period: Insigh
     onSuccess: (fresh) => queryClient.setQueryData(queryKey, fresh)
   });
 
+  const ready = data?.status === 'ready' ? data : undefined;
+
   return {
-    insights: data?.data,
-    meta: data?.meta,
+    insights: ready?.data,
+    meta: ready?.meta,
+    isGenerating: data?.status === 'generating',
     isLoading,
     error,
     refetch,
