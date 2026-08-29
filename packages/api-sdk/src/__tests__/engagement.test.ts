@@ -73,4 +73,56 @@ describe('engagement', () => {
     expect(requests[0].method).toBe('post');
     expect(requests[0].url).toBe('/api/v1/channels/cool-creator/subscribe');
   });
+  // --- view tracking (analytics review F1) --------------------------------
+  // `trackView` used to POST `{}`. `validateViewRequest` requires
+  // `watchedDuration`, so every mobile view was a 400 the SDK swallowed and
+  // mobile contributed zero views to every creator number.
+  it('records a view with the watched duration and returns the viewId', async () => {
+    const { adapter, requests } = makeAdapter(() => ({
+      status: 200,
+      data: { success: true, data: { viewId: 'view-1', beaconToken: 'tok' } },
+    }));
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+
+    const viewId = await client.engagement.recordView(42, 31.5);
+
+    expect(requests[0].url).toBe('/api/v1/videos/42/views');
+    expect(requests[0].method).toBe('post');
+    expect(JSON.parse(requests[0].data)).toEqual({ watchedDuration: 31.5 });
+    expect(viewId).toBe('view-1');
+  });
+
+  it('returns null rather than throwing when the backend declines a view', async () => {
+    const { adapter } = makeAdapter(() => ({ status: 400, data: { success: false } }));
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+
+    await expect(client.engagement.recordView(42, 31)).resolves.toBeNull();
+  });
+
+  it('patches an open view row with the running played time', async () => {
+    const { adapter, requests } = makeAdapter(() => ({ status: 200, data: { success: true } }));
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+
+    await client.engagement.updateView(42, 'view-1', 90);
+
+    expect(requests[0].url).toBe('/api/v1/videos/42/views/view-1');
+    expect(requests[0].method).toBe('patch');
+    expect(JSON.parse(requests[0].data)).toEqual({ watchedDuration: 90 });
+  });
+
+  it('never throws out of updateView — tracking must not break playback', async () => {
+    const { adapter } = makeAdapter(() => ({ status: 500 }));
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+
+    await expect(client.engagement.updateView(42, 'view-1', 90)).resolves.toBeUndefined();
+  });
+
+  it('the deprecated trackView now sends a body the backend accepts', async () => {
+    const { adapter, requests } = makeAdapter(() => ({ status: 200, data: { success: true, data: { viewId: 'v' } } }));
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+
+    await client.engagement.trackView(42);
+
+    expect(JSON.parse(requests[0].data)).toEqual({ watchedDuration: 30 });
+  });
 });

@@ -44,3 +44,14 @@ export interface LikeStatusResponse {
 }
 
 export type SharePlatform = 'twitter' | 'facebook' | 'whatsapp' | 'telegram' | 'copy' | 'other';
+
+/** `POST /api/v1/videos/:videoId/views` — the created view row. */
+export interface RecordViewResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    viewId: string;
+    /** Short-lived, single-view credential for a page-teardown beacon (web). */
+    beaconToken?: string;
+  };
+}

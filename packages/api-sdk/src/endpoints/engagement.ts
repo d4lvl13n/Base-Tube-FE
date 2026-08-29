@@ -5,6 +5,7 @@ import type {
   CommentsResponse,
   LikeStatusResponse,
   LikeToggleResponse,
+  RecordViewResponse,
   SharePlatform,
 } from '../types/engagement';
 
@@ -61,10 +62,57 @@ export function createEngagementApi(http: AxiosInstance) {
       await http.post(`/api/v1/videos/${videoId}/share`, { platform });
     },
 
-    /** `POST /api/v1/videos/:videoId/views` (records a view; returns viewId envelope). */
-    async trackView(videoId: string | number): Promise<void> {
+    /**
+     * `POST /api/v1/videos/:videoId/views` — open a view row.
+     *
+     * `watchedDuration` is TIME ACTUALLY PLAYED, in seconds, and it is
+     * REQUIRED: the endpoint's validator rejects a request without it. This
+     * used to post `{}`, so every mobile view was a swallowed 400 and mobile
+     * contributed exactly zero views.
+     *
+     * The caller should only reach here once the same threshold the web uses is
+     * crossed — `min(30 % of the video, 30 s)` of real playback — because the
+     * backend rejects anything below it.
+     *
+     * Returns the new `viewId` (needed by `updateView`), or `null` when the
+     * backend declined: view tracking is best-effort and must never block
+     * playback.
+     */
+    async recordView(videoId: string | number, watchedDuration: number): Promise<string | null> {
       try {
-        await http.post(`/api/v1/videos/${videoId}/views`, {});
+        const res = await http.post<RecordViewResponse>(`/api/v1/videos/${videoId}/views`, {
+          watchedDuration,
+        });
+        return res.data?.data?.viewId ?? null;
+      } catch {
+        return null;
+      }
+    },
+
+    /**
+     * `PATCH /api/v1/videos/:videoId/views/:viewId` — heartbeat for an open
+     * view row. Send the running played time; the server derives completion
+     * from it and clamps it to wall-clock elapsed time. Best-effort.
+     */
+    async updateView(
+      videoId: string | number,
+      viewId: string,
+      watchedDuration: number
+    ): Promise<void> {
+      try {
+        await http.patch(`/api/v1/videos/${videoId}/views/${viewId}`, { watchedDuration });
+      } catch {
+        // Best-effort — never block playback on it.
+      }
+    },
+
+    /**
+     * @deprecated Kept so nothing breaks mid-release; it posts a body the
+     * backend accepts now. Prefer `recordView` / `updateView`.
+     */
+    async trackView(videoId: string | number, watchedDuration = 30): Promise<void> {
+      try {
+        await http.post(`/api/v1/videos/${videoId}/views`, { watchedDuration });
       } catch {
         // View tracking is best-effort — never block playback on it.
       }
