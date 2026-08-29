@@ -187,7 +187,12 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
   // For display strings
   const periodString = period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time';
 
-  const engagementError = errors.engagementTrends; // Check specific error
+  // Per card, not per group: three of these read engagementTrends but the
+  // fourth reads channelWatchPatterns, so gating the whole block on
+  // engagementTrends hid a watch-patterns failure behind a healthy-looking
+  // number (and hid three healthy numbers behind an engagement failure).
+  const engagementError = errors.engagementTrends;
+  const watchPatternsError = errors.channelWatchPatterns;
 
   return (
     <div className="space-y-8">
@@ -215,45 +220,43 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
       </div>
 
       {/* Engagement Overview Cards */}
-      {engagementError ? (
-        <div className="bg-red-900/30 border border-red-500 text-red-300 p-4 rounded-lg text-center">
-          Error loading engagement overview data: {engagementError.message}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatsCard
-            icon={ThumbsUp}
-            title="Total Likes"
-            value={totalLikes.toLocaleString()}
-            loading={isLoading}
-            subtitle={`For ${periodString}`}
-          />
-          
-          <StatsCard
-            icon={MessageCircle}
-            title="Comments"
-            value={totalComments.toLocaleString()}
-            loading={isLoading}
-            subtitle={`For ${periodString}`}
-          />
-          
-          <StatsCard
-            icon={Share2}
-            title="Shares"
-            value={totalShares.toLocaleString()}
-            loading={isLoading}
-            subtitle={`For ${periodString}`}
-          />
-          
-          <StatsCard
-            icon={Clock}
-            title="Avg. % watched"
-            value={formatPercent(avgPercentWatched)}
-            loading={isLoading}
-            subtitle="Share of each video watched, weighted by views"
-          />
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatsCard
+          icon={ThumbsUp}
+          title="Total Likes"
+          value={totalLikes.toLocaleString()}
+          loading={isLoading}
+          subtitle={`For ${periodString}`}
+          error={engagementError ? 'Error loading likes' : undefined}
+        />
+
+        <StatsCard
+          icon={MessageCircle}
+          title="Comments"
+          value={totalComments.toLocaleString()}
+          loading={isLoading}
+          subtitle={`For ${periodString}`}
+          error={engagementError ? 'Error loading comments' : undefined}
+        />
+
+        <StatsCard
+          icon={Share2}
+          title="Shares"
+          value={totalShares.toLocaleString()}
+          loading={isLoading}
+          subtitle={`For ${periodString}`}
+          error={engagementError ? 'Error loading shares' : undefined}
+        />
+
+        <StatsCard
+          icon={Clock}
+          title="Avg. % watched"
+          value={formatPercent(avgPercentWatched)}
+          loading={isLoading}
+          subtitle="Share of each video watched, weighted by views"
+          error={watchPatternsError ? 'Error loading watch depth' : undefined}
+        />
+      </div>
 
       {/* Engagement Growth Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

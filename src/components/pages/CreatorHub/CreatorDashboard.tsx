@@ -33,7 +33,8 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
 
   const {
     channel: activeChannel,
-    isLoading: channelLoading
+    isLoading: channelLoading,
+    error: channelError
   } = useChannelData(selectedChannelId ? parseInt(selectedChannelId) : undefined);
 
   const isLoading = analyticsLoading || channelLoading;
@@ -41,7 +42,9 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
   // A rethrown query error must reach the card that reads it. Without this the
   // dashboard renders "0", "0 hours" and "—" for a failed request, which is the
   // exact all-zeros-on-failure the backend fix was meant to end.
-  const subscribersError = errors.growthMetrics;
+  // The subscriber card's VALUE comes from the channel record and its subtitle
+  // from growthMetrics, so either failing has to show as an error.
+  const subscribersError = channelError || errors.growthMetrics;
   const viewsError = errors.viewMetrics;
   const watchHoursError = errors.allTimeWatchHours || errors.periodWatchHours;
   const interactionError = errors.socialMetrics || errors.detailedViewMetrics;

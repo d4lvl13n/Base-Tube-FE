@@ -35,7 +35,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
     errors,
   } = useCreatorAnalytics(period, channelId);
 
-  const { channel, isLoading: channelLoading } = useChannelData(
+  const { channel, isLoading: channelLoading, error: channelError } = useChannelData(
     channelId ? parseInt(channelId) : undefined
   );
   
@@ -114,8 +114,13 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const commentsError = errors.engagementTrends;
   const interactionError = errors.engagementTrends || errors.detailedViewMetrics;
   const completionRateError = errors.channelWatchPatterns;
-  const subscribersError = errors.growthMetrics;
-  const viewsError = errors.detailedViewMetrics;
+  // 'all' reads the channel record for the subscriber total; every other period
+  // reads growthMetrics for "new in <period>".
+  const subscribersError = period === 'all' ? channelError : errors.growthMetrics;
+  // The Views card shows a detailedViewMetrics number with a growthMetrics
+  // trend badge, so either failing must show as an error rather than a number
+  // with a missing badge.
+  const viewsError = errors.detailedViewMetrics || errors.growthMetrics;
   const watchHoursError = errors.allTimeWatchHours || errors.periodWatchHours;
 
   return (

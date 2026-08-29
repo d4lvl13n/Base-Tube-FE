@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { OverviewTab } from '../tabs/OverviewTab';
 
 const noErrors = {
@@ -59,12 +59,22 @@ jest.mock('../../../../../hooks/useAnalyticsData', () => ({
   useCreatorAnalytics: () => mockAnalytics
 }));
 
+const mockChannel: { channel: unknown; isLoading: boolean; error: Error | null } = {
+  channel: { subscribers_count: 4 },
+  isLoading: false,
+  error: null
+};
+
 jest.mock('../../../../../hooks/useChannelData', () => ({
-  useChannelData: () => ({ channel: { subscribers_count: 4 }, isLoading: false })
+  useChannelData: () => mockChannel
 }));
+
+const selectPeriod = (value: string) =>
+  fireEvent.change(screen.getByRole('combobox'), { target: { value } });
 
 beforeEach(() => {
   mockAnalytics.errors = { ...noErrors };
+  mockChannel.error = null;
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
@@ -118,5 +128,35 @@ describe('OverviewTab', () => {
     const { container } = render(<OverviewTab channelId="1" />);
     expect(container.textContent).not.toContain('Infinity');
     expect(container.textContent).not.toContain('NaN');
+  });
+
+  it('blames growthMetrics for the subscriber card at 7d, and the channel record at all-time', () => {
+    // 7d: the card's value is growthMetrics' "new in period".
+    mockAnalytics.errors = { ...noErrors, growthMetrics: new Error('boom') };
+    const view = render(<OverviewTab channelId="1" />);
+    expect(view.container.textContent).toContain('Error loading subscribers');
+    view.unmount();
+
+    // 7d with only the channel record failing: that query is not read here.
+    mockAnalytics.errors = { ...noErrors };
+    mockChannel.error = new Error('boom');
+    const utils = render(<OverviewTab channelId="1" />);
+    expect(utils.container.textContent).not.toContain('Error loading subscribers');
+
+    // All time: the value comes from the channel record, so now it must show.
+    selectPeriod('all');
+    expect(utils.container.textContent).toContain('Error loading subscribers');
+  });
+
+  it('shows a views error when either the value or its trend badge fails', () => {
+    // The card renders a detailedViewMetrics number with a growthMetrics badge.
+    mockAnalytics.errors = { ...noErrors, growthMetrics: new Error('boom') };
+    const view = render(<OverviewTab channelId="1" />);
+    expect(view.container.textContent).toContain('Error loading views');
+    view.unmount();
+
+    mockAnalytics.errors = { ...noErrors, detailedViewMetrics: new Error('boom') };
+    const utils = render(<OverviewTab channelId="1" />);
+    expect(utils.container.textContent).toContain('Error loading views');
   });
 });

@@ -2,6 +2,8 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useCreatorAnalytics, invalidateChannelAnalytics } from '../useAnalyticsData';
+import { useDetailedVideoPerformance } from '../useDetailedVideoPerformance';
+import { useChannelData } from '../useChannelData';
 
 // Each mock resolves with a shape the hook can consume, and counts its calls so
 // we can assert exactly which queries a period change re-issues.
@@ -16,8 +18,13 @@ const mockApi = {
   getTopLikedContent: jest.fn(),
   getTopSharedContent: jest.fn(),
   getTopComments: jest.fn(),
-  getChannelAnalyticsInsights: jest.fn()
+  getChannelAnalyticsInsights: jest.fn(),
+  getChannelVideosPerformance: jest.fn()
 };
+
+// Non-analytics: the channel detail record. invalidateChannelAnalytics must
+// leave it alone.
+const mockGetChannelById = jest.fn();
 
 jest.mock('../../api/analytics', () => ({
   getSocialMetrics: (...a: unknown[]) => mockApi.getSocialMetrics(...a),
@@ -31,7 +38,13 @@ jest.mock('../../api/analytics', () => ({
   getTopSharedContent: (...a: unknown[]) => mockApi.getTopSharedContent(...a),
   getTopComments: (...a: unknown[]) => mockApi.getTopComments(...a),
   getChannelAnalyticsInsights: (...a: unknown[]) => mockApi.getChannelAnalyticsInsights(...a),
+  getChannelVideosPerformance: (...a: unknown[]) => mockApi.getChannelVideosPerformance(...a),
   isDetailedViewMetrics: (m: Record<string, unknown>) => 'viewsByPeriod' in m
+}));
+
+jest.mock('../../api/channel', () => ({
+  getChannelById: (...a: unknown[]) => mockGetChannelById(...a),
+  getChannelByHandle: jest.fn()
 }));
 
 /** Queries whose key does NOT contain the period — they must not refetch. */
@@ -104,6 +117,11 @@ const resetApi = () => {
   mockApi.getTopSharedContent.mockReset().mockResolvedValue([]);
   mockApi.getTopComments.mockReset().mockResolvedValue([]);
   mockApi.getChannelAnalyticsInsights.mockReset().mockResolvedValue({});
+  mockApi.getChannelVideosPerformance.mockReset().mockResolvedValue({
+    videos: [],
+    pagination: { total: 0, page: 1, limit: 10, totalPages: 0 }
+  });
+  mockGetChannelById.mockReset().mockResolvedValue({ channel: { id: 1, subscribers_count: 3 } });
 };
 
 const totalCalls = () =>
@@ -150,11 +168,11 @@ describe('useCreatorAnalytics — period changes', () => {
       expect(mockApi[name]).toHaveBeenCalledTimes(2);
     }
 
-    // Exactly seven requests for one click on the selector:
-    //   5 period-bearing queries
-    // + detailedViewMetrics (period is in its key; the period-free basic
-    //   viewMetrics query is NOT refetched, so getChannelViewMetrics goes 2 -> 3)
-    // + the period watch-hours query (the all-time one keeps its key).
+    // Exactly six requests for one click on the selector: the 5 period-bearing
+    // queries plus the period watch-hours query (the all-time one keeps its
+    // key). detailedViewMetrics is NOT among them — one response carries
+    // last24h/last7d/last30d, so it is period-invariant and its key no longer
+    // contains the period.
     const after = callCounts();
     const delta = Object.fromEntries(
       Object.keys(after)
@@ -167,10 +185,30 @@ describe('useCreatorAnalytics — period changes', () => {
       getTopComments: 1,
       getChannelWatchPatterns: 1,
       getChannelDemographics: 1,
-      getChannelViewMetrics: 1,
       getChannelWatchHours: 1
     });
-    expect(totalCalls() - callsAfterMount).toBe(7);
+    expect(totalCalls() - callsAfterMount).toBe(6);
+  });
+
+  it('does not refetch the period-invariant view metrics', async () => {
+    const { wrapper } = makeWrapper();
+    const { result, rerender } = renderHook<
+      ReturnType<typeof useCreatorAnalytics>,
+      { period: '7d' | '30d' | 'all' }
+    >(({ period }) => useCreatorAnalytics(period, '1'), {
+      wrapper,
+      initialProps: { period: '7d' }
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const before = mockApi.getChannelViewMetrics.mock.calls.length;
+
+    rerender({ period: '30d' });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockApi.getChannelViewMetrics).toHaveBeenCalledTimes(before);
+    // and the numbers the tab reads out of it are still there
+    expect(result.current.detailedViewMetrics?.viewsByPeriod?.last30d).toBe(10);
   });
 
   it('does not re-request anything when the period is set to its current value', async () => {
@@ -232,5 +270,53 @@ describe('useCreatorAnalytics — failures surface as errors, not zeros', () => 
     expect(result.current.growthMetrics).toBeUndefined();
     // ...and it must not take the healthy queries down with it.
     expect(result.current.errors.socialMetrics).toBeNull();
+  });
+});
+
+describe('invalidateChannelAnalytics — namespace boundaries', () => {
+  it('reaches the Video Performance table', async () => {
+    const { queryClient, wrapper } = makeWrapper();
+    const { result } = renderHook(
+      () => useDetailedVideoPerformance('1', { initialLimit: 10 }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockApi.getChannelVideosPerformance).toHaveBeenCalledTimes(1);
+
+    // It used to live on its own ['channelVideoPerformance', ...] key with a
+    // 5 minute staleTime, so a video mutation left it serving stale rows the
+    // longest of anything on the dashboards.
+    await act(async () => {
+      await invalidateChannelAnalytics(queryClient, '1');
+    });
+
+    await waitFor(() =>
+      expect(mockApi.getChannelVideosPerformance.mock.calls.length).toBeGreaterThan(1)
+    );
+  });
+
+  it('leaves the non-analytics channel-detail query alone', async () => {
+    const { queryClient, wrapper } = makeWrapper();
+    const { result } = renderHook(
+      () => ({
+        analytics: useCreatorAnalytics('7d', '1'),
+        channel: useChannelData(1)
+      }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.analytics.isLoading).toBe(false));
+    await waitFor(() => expect(mockGetChannelById).toHaveBeenCalledTimes(1));
+    const analyticsCallsBefore = totalCalls();
+
+    await act(async () => {
+      await invalidateChannelAnalytics(queryClient, '1');
+    });
+
+    await waitFor(() => expect(totalCalls()).toBeGreaterThan(analyticsCallsBefore));
+    // useChannelData sits on ['channel', id]; the analytics namespace must not
+    // sweep it up as collateral.
+    expect(mockGetChannelById).toHaveBeenCalledTimes(1);
   });
 });

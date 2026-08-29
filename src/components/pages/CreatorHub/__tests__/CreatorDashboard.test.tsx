@@ -45,12 +45,19 @@ jest.mock('../../../../hooks/useAnalyticsData', () => ({
   useCreatorAnalytics: () => mockAnalytics
 }));
 
+const mockChannel: { channel: unknown; isLoading: boolean; error: Error | null } = {
+  channel: { subscribers_count: 3 },
+  isLoading: false,
+  error: null
+};
+
 jest.mock('../../../../hooks/useChannelData', () => ({
-  useChannelData: () => ({ channel: { subscribers_count: 3 }, isLoading: false })
+  useChannelData: () => mockChannel
 }));
 
 beforeEach(() => {
   mockAnalytics.errors = { ...noErrors };
+  mockChannel.error = null;
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
@@ -142,5 +149,13 @@ describe('CreatorDashboard error states', () => {
   it('renders no error text when every query succeeds', () => {
     const { container } = renderDashboard();
     expect(container.textContent).not.toContain('Error loading');
+  });
+
+  it('shows a subscriber error when the channel record fails, not just growth', () => {
+    // The card's VALUE is activeChannel.subscribers_count; only its subtitle
+    // comes from growthMetrics, so a channel-record failure has to surface.
+    mockChannel.error = new Error('boom');
+    const { container } = renderDashboard();
+    expect(container.textContent).toContain('Error loading subscribers');
   });
 });
