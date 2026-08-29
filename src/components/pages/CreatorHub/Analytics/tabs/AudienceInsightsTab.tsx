@@ -47,7 +47,6 @@ const DemographicBarChart: React.FC<{
 
 export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
-  const [isChangingPeriod, setIsChangingPeriod] = useState(false);
   
   const { 
     channelWatchPatterns,
@@ -55,22 +54,15 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
     demographics,
     isLoading,
     errors,
-    invalidateAnalytics
   } = useCreatorAnalytics(period, channelId);
 
   // Handle period change with cache invalidation
-  const handlePeriodChange = async (newPeriod: '7d' | '30d' | 'all') => {
-    if (newPeriod !== period) {
-      setIsChangingPeriod(true);
-      // Invalidate cache to force fresh data load
-      await invalidateAnalytics();
-      setPeriod(newPeriod);
-      
-      // Give some time for the UI to show loading state
-      setTimeout(() => {
-        setIsChangingPeriod(false);
-      }, 1000);
-    }
+  // Just switch the period. Every period-sensitive query has the period in
+  // its key, so React Query fetches the new key by itself. Invalidating the
+  // whole channel first (what this used to do) also refetched the OLD
+  // period's queries — ~19 requests for one click on the selector.
+  const handlePeriodChange = (newPeriod: '7d' | '30d' | 'all') => {
+    if (newPeriod !== period) setPeriod(newPeriod);
   };
 
   // Map weekday patterns for a weekly view chart
@@ -126,7 +118,7 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
           <p className="text-gray-400">Understand who is watching your content</p>
         </div>
         <div className="flex items-center gap-2">
-          {(isLoading || isChangingPeriod) && (
+          {isLoading && (
             <div className="animate-spin">
               <Users className="w-4 h-4 text-[#fa7517]" />
             </div>

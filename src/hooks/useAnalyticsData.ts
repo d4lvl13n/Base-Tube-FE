@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   getSocialMetrics, 
   getGrowthMetrics, 
@@ -28,7 +28,7 @@ import type {
   TopComment,
   ChannelAnalyticsInsight
 } from '../types/analytics';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 // A creator dashboard tab mounts ~12 queries at once. With staleTime: 0 and
 // refetchOnWindowFocus: true every tab switch (and every alt-tab back to the
@@ -40,6 +40,35 @@ const ANALYTICS_QUERY_DEFAULTS = {
   refetchOnWindowFocus: false,
   retry: 2
 } as const;
+
+/**
+ * Drop every cached analytics query for a channel.
+ *
+ * This is for MUTATIONS ONLY — publishing, editing, deleting or changing the
+ * visibility of a video changes numbers the server already returned, and
+ * nothing else will tell React Query about it.
+ *
+ * It is NOT for period changes. Every period-sensitive query carries the period
+ * in its key, so selecting a new period fetches the new key on its own; forcing
+ * a broad invalidation first also refetched the OLD period's queries, which is
+ * where ~19 requests per selector change came from.
+ *
+ * NOTE for the Videos Management screen: video create/update/delete there does
+ * not currently invalidate analytics at all, so the dashboards keep serving
+ * pre-mutation numbers for up to `staleTime`. That screen should call this
+ * helper after a successful mutation.
+ */
+export const invalidateChannelAnalytics = async (
+  queryClient: QueryClient,
+  channelId?: string
+): Promise<void> => {
+  if (!channelId) return;
+  await queryClient.invalidateQueries({
+    queryKey: ['channel', channelId],
+    exact: false,
+    refetchType: 'active'
+  });
+};
 
 // ===========================================
 // ANALYTICS CONTEXT (SHARED)
@@ -125,20 +154,12 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
   const validPeriod = validatePeriod(period);
   const demographicsPeriod = mapPeriodToDemographics(validPeriod);
   
-  // Period changes are the only reason to force a refetch. This used to
-  // resetQueries + invalidateQueries + refetchQueries over the same key space,
-  // which is where the ~14 requests per tab mount came from
-  // (docs/ANALYTICS_REVIEW_2026-08-29.md finding 22). A single prefix
-  // invalidation is enough: every period-sensitive query carries the period in
-  // its key, so React Query refetches exactly the ones that changed.
-  const invalidateAnalytics = async () => {
-    if (!channelId) return;
-    await queryClient.invalidateQueries({
-      queryKey: ['channel', channelId],
-      exact: false,
-      refetchType: 'active'
-    });
-  };
+  // Mutation-only. Do not call this when the period selector changes — see
+  // invalidateChannelAnalytics above.
+  const invalidateAnalytics = useCallback(
+    () => invalidateChannelAnalytics(queryClient, channelId),
+    [queryClient, channelId]
+  );
 
   // Basic view metrics - Channel-focused
   const viewMetrics = useQuery<BasicViewMetrics, Error>({

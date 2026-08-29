@@ -27,7 +27,8 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
     viewMetrics,
     detailedViewMetrics,
     socialMetrics,
-    isLoading: analyticsLoading 
+    isLoading: analyticsLoading,
+    errors
   } = useCreatorAnalytics('7d', selectedChannelId);
 
   const {
@@ -36,6 +37,14 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
   } = useChannelData(selectedChannelId ? parseInt(selectedChannelId) : undefined);
 
   const isLoading = analyticsLoading || channelLoading;
+
+  // A rethrown query error must reach the card that reads it. Without this the
+  // dashboard renders "0", "0 hours" and "—" for a failed request, which is the
+  // exact all-zeros-on-failure the backend fix was meant to end.
+  const subscribersError = errors.growthMetrics;
+  const viewsError = errors.viewMetrics;
+  const watchHoursError = errors.allTimeWatchHours || errors.periodWatchHours;
+  const interactionError = errors.socialMetrics || errors.detailedViewMetrics;
 
   // socialMetrics.recentEngagement covers the last 30 days; viewMetrics.totalViews
   // is all-time. Dividing one by the other produced "Infinity%" on a channel with
@@ -78,6 +87,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
           change={formatMetrics.subscribersTrend}
           loading={isLoading}
           subtitle={`${formatMetrics.newSubscribers} new in last 7 days`}
+          error={subscribersError ? 'Error loading subscribers' : undefined}
         />
         <StatsCard 
           icon={Play} 
@@ -86,6 +96,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
           change={formatMetrics.viewsTrend}
           loading={isLoading}
           subtitle={`Growth over 7 days`}
+          error={viewsError ? 'Error loading views' : undefined}
         />
         {/* No badge on watch time: `periodTotal` is a number of HOURS, and it
             used to be handed to `change` and rendered as "↑12%". */}
@@ -95,6 +106,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
           value={formatMetrics.watchTime}
           loading={isLoading}
           subtitle="Total hours watched, all time"
+          error={watchHoursError ? 'Error loading watch time' : undefined}
         />
         <StatsCard
           icon={MessageCircle}
@@ -102,6 +114,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
           value={formatMetrics.interactionRate}
           loading={isLoading}
           subtitle={`${formatMetrics.interactions30d.toLocaleString()} likes + comments / views, last 30 days`}
+          error={interactionError ? 'Error loading interactions' : undefined}
         />
       </div>
     </motion.div>

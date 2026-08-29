@@ -23,7 +23,6 @@ import {
 
 export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
-  const [isChangingPeriod, setIsChangingPeriod] = useState(false);
   const [videoThumbnails, setVideoThumbnails] = useState<Record<string, string>>({});
   
   const {
@@ -31,7 +30,6 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
     detailedViewMetrics,
     isLoading: metricsLoading,
     errors,
-    invalidateAnalytics
   } = useCreatorAnalytics(period, channelId);
 
   const watchPatternsError = errors.channelWatchPatterns;
@@ -40,18 +38,12 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
   const isLoading = metricsLoading;
 
   // Handle period change with cache invalidation
-  const handlePeriodChange = async (newPeriod: '7d' | '30d' | 'all') => {
-    if (newPeriod !== period) {
-      setIsChangingPeriod(true);
-      // Invalidate cache to force fresh data load
-      await invalidateAnalytics();
-      setPeriod(newPeriod);
-      
-      // Give some time for the UI to show loading state
-      setTimeout(() => {
-        setIsChangingPeriod(false);
-      }, 1000);
-    }
+  // Just switch the period. Every period-sensitive query has the period in
+  // its key, so React Query fetches the new key by itself. Invalidating the
+  // whole channel first (what this used to do) also refetched the OLD
+  // period's queries — ~19 requests for one click on the selector.
+  const handlePeriodChange = (newPeriod: '7d' | '30d' | 'all') => {
+    if (newPeriod !== period) setPeriod(newPeriod);
   };
 
   // For display strings
@@ -134,7 +126,7 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Content Overview</h2>
         <div className="flex items-center gap-2">
-          {(isLoading || isChangingPeriod) && (
+          {isLoading && (
             <div className="animate-spin">
               <Play className="w-4 h-4 text-[#fa7517]" />
             </div>

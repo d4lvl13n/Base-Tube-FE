@@ -24,7 +24,6 @@ import {
 
 export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
-  const [isChangingPeriod, setIsChangingPeriod] = useState(false);
   
   const { 
     growthMetrics, 
@@ -34,7 +33,6 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
     engagementTrends,
     isLoading: analyticsLoading,
     errors,
-    invalidateAnalytics
   } = useCreatorAnalytics(period, channelId);
 
   const { channel, isLoading: channelLoading } = useChannelData(
@@ -44,18 +42,12 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const isLoading = analyticsLoading || channelLoading;
 
   // Handle period change with cache invalidation
-  const handlePeriodChange = async (newPeriod: '7d' | '30d' | 'all') => {
-    if (newPeriod !== period) {
-      setIsChangingPeriod(true);
-      // Invalidate cache to force fresh data load
-      await invalidateAnalytics();
-      setPeriod(newPeriod);
-      
-      // Give some time for the UI to show loading state
-      setTimeout(() => {
-        setIsChangingPeriod(false);
-      }, 1000);
-    }
+  // Just switch the period. Every period-sensitive query has the period in
+  // its key, so React Query fetches the new key by itself. Invalidating the
+  // whole channel first (what this used to do) also refetched the OLD
+  // period's queries — ~19 requests for one click on the selector.
+  const handlePeriodChange = (newPeriod: '7d' | '30d' | 'all') => {
+    if (newPeriod !== period) setPeriod(newPeriod);
   };
 
   // Average share of each video actually watched, weighted by the views in each
@@ -115,10 +107,16 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const interactionsThisPeriod = totalLikes + totalComments;
   const periodInteractionRate = interactionRate(interactionsThisPeriod, periodViews);
 
-  // Check for relevant errors
+  // Each card names the queries it actually reads. Getting this wrong is how a
+  // rethrown backend error still renders as a confident number: the interaction
+  // card used to be gated on growthMetrics while its inputs are engagementTrends
+  // (likes + comments) and detailedViewMetrics (views).
   const commentsError = errors.engagementTrends;
-  const engagementError = errors.growthMetrics; 
-  const completionRateError = errors.channelWatchPatterns; 
+  const interactionError = errors.engagementTrends || errors.detailedViewMetrics;
+  const completionRateError = errors.channelWatchPatterns;
+  const subscribersError = errors.growthMetrics;
+  const viewsError = errors.detailedViewMetrics;
+  const watchHoursError = errors.allTimeWatchHours || errors.periodWatchHours;
 
   return (
     <div className="space-y-8">
@@ -128,7 +126,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           <p className="text-gray-400">Key performance metrics for your channel</p>
         </div>
         <div className="flex items-center gap-2">
-          {(isLoading || isChangingPeriod) && (
+          {isLoading && (
             <div className="animate-spin">
               <Clock className="w-4 h-4 text-[#fa7517]" />
             </div>
@@ -155,9 +153,10 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
             : (growthMetrics?.metrics.subscribers.total || 0).toLocaleString()}
           change={trendBadgeValue(growthMetrics?.metrics.subscribers.trend)}
           loading={isLoading}
-          subtitle={period === 'all' 
-            ? "Total subscriber count" 
+          subtitle={period === 'all'
+            ? "Total subscriber count"
             : `New in ${periodString}`}
+          error={subscribersError ? 'Error loading subscribers' : undefined}
         />
         
         <StatsCard
@@ -167,6 +166,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           change={trendBadgeValue(growthMetrics?.metrics.views.trend)}
           loading={isLoading}
           subtitle={`For ${periodString}`}
+          error={viewsError ? 'Error loading views' : undefined}
         />
         
         <StatsCard
@@ -175,6 +175,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           value={getPeriodWatchHours().value}
           loading={isLoading}
           subtitle={getPeriodWatchHours().subtitle}
+          error={watchHoursError ? 'Error loading watch time' : undefined}
         />
         
         <StatsCard
@@ -195,7 +196,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           value={formatPercent(periodInteractionRate)}
           loading={analyticsLoading}
           subtitle={`${interactionsThisPeriod.toLocaleString()} likes + comments / ${periodViews.toLocaleString()} views, ${periodString}`}
-          error={engagementError ? "Error loading engagement" : undefined}
+          error={interactionError ? "Error loading interactions" : undefined}
         />
 
         <StatsCard

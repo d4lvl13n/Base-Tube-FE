@@ -22,8 +22,24 @@ const mockAnalytics: any = {
     },
     community: { subscriberCount: 0, recentSubscribers: 0 }
   },
-  isLoading: false
+  isLoading: false,
+  errors: {
+    viewMetrics: null,
+    detailedViewMetrics: null,
+    channelWatchPatterns: null,
+    demographics: null,
+    socialMetrics: null,
+    growthMetrics: null,
+    allTimeWatchHours: null,
+    periodWatchHours: null,
+    engagementTrends: null,
+    topLikedContent: null,
+    topSharedContent: null,
+    topComments: null
+  }
 };
+
+const noErrors = { ...mockAnalytics.errors };
 
 jest.mock('../../../../hooks/useAnalyticsData', () => ({
   useCreatorAnalytics: () => mockAnalytics
@@ -34,6 +50,7 @@ jest.mock('../../../../hooks/useChannelData', () => ({
 }));
 
 beforeEach(() => {
+  mockAnalytics.errors = { ...noErrors };
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
@@ -79,5 +96,51 @@ describe('CreatorDashboard', () => {
     );
 
     expect(container.textContent).not.toMatch(/[↑↓]\s*12%/);
+  });
+});
+
+describe('CreatorDashboard error states', () => {
+  const renderDashboard = () =>
+    render(
+      <CreatorDashboard
+        channels={[]}
+        userProfile={{ username: 'dami' }}
+        clerkUser={null}
+        selectedChannelId="1"
+      />
+    );
+
+  it('shows an error on the cards fed by a rejected query, not a confident 0', () => {
+    mockAnalytics.errors = {
+      ...noErrors,
+      growthMetrics: new Error('boom'),
+      allTimeWatchHours: new Error('boom'),
+      socialMetrics: new Error('boom')
+    };
+
+    const { container } = renderDashboard();
+
+    expect(container.textContent).toContain('Error loading subscribers');
+    expect(container.textContent).toContain('Error loading watch time');
+    expect(container.textContent).toContain('Error loading interactions');
+
+    // The failing cards must not still be showing their fallback values.
+    expect(container.textContent).not.toContain('0 hours');
+    expect(container.textContent).not.toContain('—');
+  });
+
+  it('leaves healthy cards alone when one query fails', () => {
+    mockAnalytics.errors = { ...noErrors, growthMetrics: new Error('boom') };
+
+    const { container } = renderDashboard();
+
+    expect(container.textContent).toContain('Error loading subscribers');
+    expect(container.textContent).not.toContain('Error loading watch time');
+    expect(container.textContent).toContain('0 hours');
+  });
+
+  it('renders no error text when every query succeeds', () => {
+    const { container } = renderDashboard();
+    expect(container.textContent).not.toContain('Error loading');
   });
 });

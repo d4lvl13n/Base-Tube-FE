@@ -133,56 +133,28 @@ export const getGrowthMetrics = async (period: '7d' | '30d' | 'all', channelId: 
   }
 };
 
-// Cache for view metrics to reduce API calls
-const metricsCache = new Map<string, {
-  data: any;
-  timestamp: number;
-}>();
-
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
 /**
- * Get view metrics for a specific channel, with optional detailed time period breakdowns
- * @param channelId The ID of the channel to get view metrics for
- * @param detailed Whether to include detailed time period breakdowns
+ * Get view metrics for a specific channel, with optional detailed time period
+ * breakdowns.
+ *
+ * There used to be a 5 s module-level cache in front of this. React Query is
+ * the cache: a second store the query client cannot see means an
+ * invalidateQueries after a mutation refetches and gets served the stale value
+ * anyway. Removed.
  */
 export const getChannelViewMetrics = async (
   channelId: string,
   detailed: boolean = false
 ): Promise<BasicViewMetrics | DetailedViewMetrics> => {
-  const cacheKey = `views-${channelId}-${detailed}`;
-  const cached = metricsCache.get(cacheKey);
-  
-  // Always get fresh data on each call to prevent stale data issues
-  // when switching between periods
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    // Only use cached data if it's very recent (within 5 seconds)
-    if (Date.now() - cached.timestamp < 5000) {
-      return cached.data;
-    }
-  }
+  // `_t` defeats the browser HTTP cache (the endpoint does not send no-store);
+  // React Query decides when we actually call this at all.
+  const endpoint =
+    `/api/v1/analytics/channels/${channelId}/views` +
+    `${detailed ? '?withTimePeriods=true&' : '?'}_t=${Date.now()}`;
 
-  // Add a cache-busting timestamp to prevent 304 responses
-  const timestamp = new Date().getTime();
-  const endpoint = `/api/v1/analytics/channels/${channelId}/views${detailed ? '?withTimePeriods=true' : ''}${detailed ? '&' : '?'}_t=${timestamp}`;
-  
-  const retryWithBackoffLocal = async <T>(
-    fn: () => Promise<T>,
-    retries: number = 3,
-    delay: number = 1000
-  ): Promise<T> => {
-    try {
-      return await fn();
-    } catch (error) {
-      if (retries === 0) throw error;
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return retryWithBackoffLocal(fn, retries - 1, delay * 2);
-    }
-  };
-
-  const data = await retryWithBackoffLocal(async () => {
-    const response = await api.get<{ 
-      success: boolean; 
+  const fetchMetrics = async () => {
+    const response = await api.get<{
+      success: boolean;
       data: BasicViewMetrics | DetailedViewMetrics;
     }>(endpoint);
 
@@ -191,15 +163,18 @@ export const getChannelViewMetrics = async (
     }
 
     return response.data.data;
-  });
+  };
 
-  // Update cache with fresh data
-  metricsCache.set(cacheKey, {
-    data,
-    timestamp: Date.now()
-  });
-
-  return data;
+  try {
+    return await retryWithBackoff(fetchMetrics, 2, 1000);
+  } catch (error) {
+    // Never substitute zeros for a failure (ANALYTICS_REVIEW P-F9).
+    throw handleError(error, {
+      action: 'fetch channel view metrics',
+      component: 'analytics',
+      additionalData: { channelId, detailed }
+    });
+  }
 };
 
 /**
