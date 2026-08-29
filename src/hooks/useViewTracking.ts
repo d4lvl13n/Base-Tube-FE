@@ -8,12 +8,16 @@ interface UseViewTrackingProps {
 }
 
 /**
- * Largest slice of playback a single `timeupdate` may contribute.
+ * Largest gap between two `timeupdate` events that can still be playback.
  *
- * `timeupdate` fires roughly 4×/s, so a real tick is ~0.25 s. A bigger jump is
- * a seek, a stall recovery, or a backgrounded tab catching up — none of which
- * is time the viewer watched. Capping instead of dropping keeps an honest tick
- * that arrived late (slow main thread) from being thrown away.
+ * `timeupdate` fires roughly 4×/s, so a real tick is ~0.25 s — 0.5 s at the 2×
+ * the player offers. A bigger jump is a seek, a stall recovery, or a throttled
+ * tab catching up, and it is DROPPED.
+ *
+ * Dropping, not capping. Capping looks like the safe option and is not: it
+ * quietly credits the cap's worth of watch time to every scrub, so dragging
+ * through a video manufactures watch time out of nothing. The `seeking` flag
+ * from the player catches most scrubs; this catches the rest.
  */
 const MAX_TICK_SECONDS = 1.5;
 
@@ -168,10 +172,11 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
 
       if (previous !== null && !seeking) {
         const delta = currentTime - previous;
-        // Negative (rewind) or oversized (seek / stall) deltas contribute nothing.
-        if (delta > 0) {
+        // Negative (rewind) and oversized (seek / stall / throttle) deltas are
+        // both worth nothing — not "worth the cap".
+        if (delta > 0 && delta <= MAX_TICK_SECONDS) {
           playedSecondsRef.current = Math.min(
-            playedSecondsRef.current + Math.min(delta, MAX_TICK_SECONDS),
+            playedSecondsRef.current + delta,
             videoDurationRef.current || playedSecondsRef.current + delta
           );
         }
@@ -218,6 +223,14 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!isMountedRef.current) return;
+
+      // Accounting stops while the tab is hidden, in both directions. A hidden
+      // tab throttles `timeupdate` to roughly 1/s, which turns honest playback
+      // into deltas indistinguishable from a seek — and the first tick after
+      // coming back would otherwise carry the entire hidden stretch. Dropping
+      // the anchor means neither is credited.
+      lastPositionRef.current = null;
+
       if (document.visibilityState === 'hidden') {
         void sendUpdate(true);
       }
@@ -242,14 +255,23 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
     return () => {
       // Fire the last flush BEFORE the mounted flag drops, or `sendUpdate`
       // returns early and the tail of the session is lost.
-      void sendUpdate(true);
+      //
+      // If a heartbeat is already in flight, `sendUpdate` refuses to overlap it
+      // and would drop this one silently — and the in-flight request is
+      // carrying a STALER number than we have now. Fall through to the beacon,
+      // which has no such constraint and survives whatever teardown follows.
+      if (inFlightRef.current) {
+        flushWithBeacon();
+      } else {
+        void sendUpdate(true);
+      }
       isMountedRef.current = false;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     };
-  }, [sendUpdate]);
+  }, [sendUpdate, flushWithBeacon]);
 
   return {
     startTracking: useCallback(() => {

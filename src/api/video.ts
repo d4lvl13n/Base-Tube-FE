@@ -376,7 +376,8 @@ export const initializeVideoView = async (
         }
       }
     );
-    console.debug('View initialization response:', response.data);
+    // Deliberately NOT logging the response: it carries `beaconToken`, a
+    // credential that can flush this session's watch time.
     return response.data;
   } catch (error) {
     console.error('Failed to initialize view:', error);

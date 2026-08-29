@@ -16,6 +16,9 @@ export * from './upload';
 export type { BasetubeClientConfig, TokenProvider } from './config';
 export { createHttpClient } from './client';
 export { buildSearchQuery } from './endpoints/discovery';
+export { DEFAULT_VIEW_TRACKING_CONFIG } from './endpoints/engagement';
+export type { RecordViewOutcome } from './endpoints/engagement';
+export * from './viewTracking/session';
 
 export interface BasetubeClient {
   videos: ReturnType<typeof createVideosApi>;

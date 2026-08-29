@@ -12,7 +12,7 @@ import { AccentHairline, Card, GlassCircleButton } from '../../../src/components
 import { ErrorState, LoadingState } from '../../../src/components/media';
 import { channelAvatarUrl, formatCount, imageUrl, thumbnailUrl, timeAgo } from '../../../src/lib/format';
 import { haptics } from '../../../src/lib/haptics';
-import { useViewTracking } from '../../../src/hooks/useViewTracking';
+import { STATUS_INTERVAL_MS, useViewTracking } from '../../../src/hooks/useViewTracking';
 
 function playableUrl(video: any): string | null {
   if (video?.video_url) return video.video_url;
@@ -214,7 +214,7 @@ export default function VideoScreen() {
               resizeMode={ResizeMode.CONTAIN}
               posterSource={{ uri: thumbnailUrl(v) }}
               usePoster
-              progressUpdateIntervalMillis={500}
+              progressUpdateIntervalMillis={STATUS_INTERVAL_MS}
               onPlaybackStatusUpdate={onPlaybackStatusUpdate}
             />
           ) : (

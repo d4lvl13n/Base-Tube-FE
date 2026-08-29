@@ -100,7 +100,7 @@ describe('watched duration is time actually played', () => {
     expect(result.current.getPlayedSeconds()).toBeCloseTo(13, 0);
   });
 
-  it('caps an oversized tick (stall / backgrounded tab catching up)', () => {
+  it('DROPS an oversized tick rather than crediting the cap', () => {
     const { result } = render();
     act(() => result.current.startTracking());
 
@@ -109,7 +109,35 @@ describe('watched duration is time actually played', () => {
       result.current.updateWatchedDuration(120); // 2-minute jump in one event
     });
 
-    expect(result.current.getPlayedSeconds()).toBeLessThanOrEqual(1.5);
+    // Capping would have quietly credited 1.5 s of "watch time" to a scrub.
+    expect(result.current.getPlayedSeconds()).toBe(0);
+  });
+
+  it('drops a whole scrub, not just its first jump', () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 5);
+    const before = result.current.getPlayedSeconds();
+
+    act(() => {
+      // Dragging the scrubber emits a run of large jumps, none flagged as a
+      // seek if the player's `seeking` event is missed.
+      [60, 120, 240, 480, 30, 90].forEach((t) => result.current.updateWatchedDuration(t));
+    });
+
+    expect(result.current.getPlayedSeconds()).toBe(before);
+  });
+
+  it('accepts a 2x tick as playback', () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+
+    act(() => {
+      result.current.updateWatchedDuration(0);
+      result.current.updateWatchedDuration(0.5); // 0.25 s of wall time at 2x
+    });
+
+    expect(result.current.getPlayedSeconds()).toBeCloseTo(0.5, 2);
   });
 
   it('counts nothing while paused', () => {
@@ -264,5 +292,186 @@ describe('pagehide flush', () => {
     });
 
     expect(beacon).not.toHaveBeenCalled();
+  });
+});
+
+describe('a hidden tab is not credited', () => {
+  const hide = () => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'hidden',
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+  const show = () => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'visible',
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+
+  afterEach(() => show());
+
+  it('does not credit the stretch spent hidden when the tab comes back', async () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 31);
+    await waitFor(() => expect(initView).toHaveBeenCalled());
+    await settle();
+
+    const beforeHide = result.current.getPlayedSeconds();
+
+    act(() => hide());
+    act(() => show());
+    // The first tick back reports a playhead five minutes further on.
+    act(() => result.current.updateWatchedDuration(331));
+
+    expect(result.current.getPlayedSeconds()).toBeCloseTo(beforeHide, 1);
+  });
+
+  it('flushes what it had before going hidden', async () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 31);
+    await waitFor(() => expect(initView).toHaveBeenCalled());
+    await settle();
+    play(result, 31, 45);
+
+    await act(async () => {
+      hide();
+    });
+
+    await waitFor(() => expect(updateView).toHaveBeenCalledTimes(1));
+    expect(updateView.mock.calls[0][2]).toBeCloseTo(45, 0);
+  });
+
+  it('skips the heartbeat while hidden', async () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 31);
+    await waitFor(() => expect(initView).toHaveBeenCalled());
+    await settle();
+
+    await act(async () => {
+      hide();
+    });
+    updateView.mockClear();
+    play(result, 31, 61);
+
+    await act(async () => {
+      jest.advanceTimersByTime(DEFAULT_VIEW_CONFIG.updateInterval * 2);
+    });
+
+    expect(updateView).not.toHaveBeenCalled();
+  });
+});
+
+describe('unmount while a heartbeat is still in flight', () => {
+  it('falls back to the beacon instead of dropping the tail', async () => {
+    let releaseHeartbeat: () => void = () => {};
+    updateView.mockImplementation(
+      () => new Promise((resolve) => {
+        releaseHeartbeat = () => resolve({ success: true, message: 'ok' } as any);
+      })
+    );
+
+    const { result, unmount } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 31);
+    await waitFor(() => expect(initView).toHaveBeenCalled());
+    await settle();
+
+    // Start a heartbeat and leave it hanging.
+    play(result, 31, 61);
+    await act(async () => {
+      jest.advanceTimersByTime(DEFAULT_VIEW_CONFIG.updateInterval);
+    });
+    await waitFor(() => expect(updateView).toHaveBeenCalledTimes(1));
+
+    // More playback lands, then the component goes away.
+    play(result, 61, 95);
+    await act(async () => {
+      unmount();
+    });
+
+    expect(beacon).toHaveBeenCalledTimes(1);
+    expect(beacon.mock.calls[0][2]).toBeCloseTo(95, 0);
+
+    releaseHeartbeat();
+  });
+});
+
+describe('cleanup', () => {
+  it('stops the heartbeat on unmount', async () => {
+    const { result, unmount } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 31);
+    await waitFor(() => expect(initView).toHaveBeenCalled());
+    await settle();
+
+    await act(async () => {
+      unmount();
+    });
+    updateView.mockClear();
+
+    await act(async () => {
+      jest.advanceTimersByTime(DEFAULT_VIEW_CONFIG.updateInterval * 5);
+    });
+
+    expect(updateView).not.toHaveBeenCalled();
+  });
+
+  it('stops listening for pagehide on unmount', async () => {
+    const { result, unmount } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 31);
+    await waitFor(() => expect(initView).toHaveBeenCalled());
+    await settle();
+
+    await act(async () => {
+      unmount();
+    });
+    beacon.mockClear();
+
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+
+    expect(beacon).not.toHaveBeenCalled();
+  });
+
+  it('sends one beacon per pagehide, not one per fired event', async () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 31);
+    await waitFor(() => expect(initView).toHaveBeenCalled());
+    await settle();
+    play(result, 31, 75);
+
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+      window.dispatchEvent(new Event('pagehide'));
+      window.dispatchEvent(new Event('pagehide'));
+    });
+
+    // The first beacon banks the value; the repeats have nothing new to say.
+    expect(beacon).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends a fresh beacon when more was played between two pagehides', async () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 31);
+    await waitFor(() => expect(initView).toHaveBeenCalled());
+    await settle();
+
+    play(result, 31, 50);
+    act(() => window.dispatchEvent(new Event('pagehide')));
+    play(result, 50, 70);
+    act(() => window.dispatchEvent(new Event('pagehide')));
+
+    expect(beacon).toHaveBeenCalledTimes(2);
+    expect(beacon.mock.calls[1][2]).toBeCloseTo(70, 0);
   });
 });

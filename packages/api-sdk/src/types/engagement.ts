@@ -55,3 +55,20 @@ export interface RecordViewResponse {
     beaconToken?: string;
   };
 }
+
+/** `GET /api/v1/config/view-config` — the rules the backend enforces on views. */
+export interface ViewTrackingConfig {
+  thresholds: {
+    /** Percent of the video that counts as a view. */
+    percentage: number;
+    /** Absolute seconds that count as a view, whichever comes first. */
+    seconds: number;
+  };
+  /** Heartbeat cadence, in milliseconds. */
+  updateInterval: number;
+}
+
+export interface ViewConfigResponse {
+  success: boolean;
+  data: ViewTrackingConfig;
+}
