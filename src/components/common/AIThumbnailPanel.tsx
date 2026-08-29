@@ -25,8 +25,13 @@ export function describeThumbnailError(error: any): string {
   if (status === 402 || code === 'INSUFFICIENT_CREDITS') {
     return "You're out of thumbnail credits. Top up on the AI Thumbnails page, then try again.";
   }
-  if (status === 429 || code === 'RATE_LIMIT_EXCEEDED') {
-    return 'Too many generations in a row — give it a minute and try again.';
+  if (status === 429) {
+    // Creator-hub generation is governed by a DAILY quota (free 10 / pro 50),
+    // not credits; the middleware sends the limit and the UTC reset time.
+    const limit = error?.response?.data?.error?.limit;
+    const resetsAt = error?.response?.data?.error?.resetsAt;
+    const when = resetsAt ? ` It resets at ${new Date(resetsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.` : '';
+    return `You've used today's ${limit ? `${limit} ` : ''}AI thumbnail generations.${when}`;
   }
   if (message) return message;
   if (!error?.response) return 'Could not reach the thumbnail service. Check your connection and try again.';
@@ -504,7 +509,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                     </div>
                     <h2 className="text-xl font-semibold bg-gradient-to-r from-white to-gray-400 text-transparent bg-clip-text">AI Thumbnail Studio</h2>
                   </div>
-                  <motion.button
+                  <motion.button type="button"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
@@ -525,7 +530,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                   { id: 'video', label: 'From Video', icon: Video },
                   { id: 'custom', label: 'Custom Creator', icon: Sparkles }
                 ].map(tab => (
-                  <button
+                  <button type="button"
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as GenerationTab)}
                     className={`
@@ -564,7 +569,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                         <p className="text-white font-medium">Error</p>
                         <p className="text-gray-300 text-sm mt-1">{error}</p>
                       </div>
-                      <button 
+                      <button type="button" 
                         onClick={() => setError(null)}
                         className="ml-auto p-1 hover:bg-black/20 rounded"
                       >
@@ -643,7 +648,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                                     alt="Reference" 
                                     className="mx-auto max-h-48 rounded shadow-md"
                                   />
-                                  <button
+                                  <button type="button"
                                     onClick={() => {
                                       setReferenceImage(null);
                                       setReferenceImagePreview(null);
@@ -658,7 +663,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                                   <Upload className="w-12 h-12 text-gray-500 mx-auto mb-3 opacity-75" />
                                   <p className="text-gray-400 mb-2">
                                     Drag & drop an image or{" "}
-                                    <button
+                                    <button type="button"
                                       onClick={() => document.getElementById('reference-image-input')?.click()}
                                       className="text-[#fa7517] hover:text-[#ff8c3a] font-medium"
                                     >
@@ -697,7 +702,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                             <label className="text-sm text-gray-400 mb-2 block">Style Presets</label>
                             <div className="grid grid-cols-2 gap-3">
                               {stylePresets.map(preset => (
-                                <button
+                                <button type="button"
                                   key={preset.id}
                                   onClick={() => handleStylePresetClick(preset)}
                                   className="p-4 bg-gray-900/50 border border-gray-800/30 hover:border-[#fa7517]/50 rounded-lg text-white text-sm transition-all hover:bg-gray-900/80 hover:shadow-md text-left"
@@ -818,7 +823,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                             )}
                             
                             {/* View in new window button */}
-                            <motion.button
+                            <motion.button type="button"
                               initial={{ opacity: 0 }}
                               whileHover={{ opacity: 1 }}
                               className="absolute bottom-2 right-2 bg-black/60 p-2 rounded-full hover:bg-black/80 transition-colors"
@@ -888,7 +893,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                       )}
 
                       {/* Regenerate Option */}
-                      <motion.button
+                      <motion.button type="button"
                         whileHover={isRegenerating ? {} : { y: -2 }}
                         whileTap={isRegenerating ? {} : { scale: 0.98 }}
                         onClick={handleRegenerateThumbnail}
@@ -951,7 +956,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
               {/* Footer with Generate Button */}
               <div className="p-6 border-t border-gray-800/30 bg-black/40">
                 {selectedThumbnail ? (
-                  <motion.button
+                  <motion.button type="button"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleApplyThumbnail}
@@ -963,7 +968,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                     <span>Apply Selected Thumbnail</span>
                   </motion.button>
                 ) : (
-                  <motion.button
+                  <motion.button type="button"
                     whileHover={isGenerating ? {} : { scale: 1.02 }}
                     whileTap={isGenerating ? {} : { scale: 0.98 }}
                     onClick={() => handleGenerateThumbnail(false)}

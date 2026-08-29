@@ -17,7 +17,6 @@ import {
   Sparkles,
   Tag,
   Upload,
-  Wand2,
   X
 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -429,10 +428,6 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
                 <p className={styles.eyebrow}>Artwork</p>
                 <h2 className={styles.panelTitle}>Thumbnail</h2>
               </div>
-              <button type="button" onClick={() => setIsAIThumbnailPanelOpen(true)} className={styles.toolButton}>
-                <Wand2 className="w-4 h-4" />
-                AI
-              </button>
             </div>
 
             <div className={styles.thumbnailFrame}>
