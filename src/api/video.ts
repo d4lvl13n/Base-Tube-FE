@@ -1,4 +1,5 @@
 import api from './index';
+import { retryUnlessCancelled, wasCancelled } from '../utils/requestCancelled';
 import { RecommendedVideo, PaginationResponse, TrendingVideoResponse, Video, RecommendedVideosResponse } from '../types/video';
 import { LikeResponse, BatchLikeStatusResponse, LikedVideosResponse, LikeStatusResponse } from '../types/like';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
@@ -226,12 +227,22 @@ export const getTrendingVideos = async ({
 export const getVideos = (category: string, limit: number = 4) => 
   api.get<Video[]>(`/api/v1/videos?category=${category}&limit=${limit}`);
 
-export const updateVideo = async (id: string, formData: FormData): Promise<UpdateVideoResponse> => {
+export const updateVideo = async (
+  id: string,
+  formData: FormData,
+  /**
+   * Lets the caller put a ceiling on how long it will wait. Without one, a
+   * request that never answers is only bounded by the axios timeout times the
+   * retries — half an hour, during which the row it belongs to is stuck.
+   */
+  signal?: AbortSignal
+): Promise<UpdateVideoResponse> => {
   const executeUpdate = async () => {
     const response = await api.put<UpdateVideoResponse>(
       `/api/v1/videos/${id}`,
       formData,
       {
+        signal,
         headers: { 'Content-Type': 'multipart/form-data' },
       }
     );
@@ -239,8 +250,11 @@ export const updateVideo = async (id: string, formData: FormData): Promise<Updat
   };
 
   try {
-    return await retryWithBackoff(executeUpdate, 2, 1000);
+    return await retryWithBackoff(executeUpdate, 2, 1000, retryUnlessCancelled);
   } catch (error) {
+    // An abort is the caller giving up on purpose, not a server failure to be
+    // dressed up as one.
+    if (wasCancelled(error)) throw error;
     const userError = handleApiError(error, {
       action: 'update video',
       component: 'videoAPI',
@@ -251,15 +265,19 @@ export const updateVideo = async (id: string, formData: FormData): Promise<Updat
   }
 };
 
-export const deleteVideo = async (id: string): Promise<DeleteVideoResponse> => {
+export const deleteVideo = async (
+  id: string,
+  signal?: AbortSignal
+): Promise<DeleteVideoResponse> => {
   const executeDelete = async () => {
-    const response = await api.delete<DeleteVideoResponse>(`/api/v1/videos/${id}`);
+    const response = await api.delete<DeleteVideoResponse>(`/api/v1/videos/${id}`, { signal });
     return response.data;
   };
 
   try {
-    return await retryWithBackoff(executeDelete, 2, 1000);
+    return await retryWithBackoff(executeDelete, 2, 1000, retryUnlessCancelled);
   } catch (error) {
+    if (wasCancelled(error)) throw error;
     const userError = handleApiError(error, {
       action: 'delete video',
       component: 'videoAPI',

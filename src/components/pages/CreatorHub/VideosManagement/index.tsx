@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { useSearchParams } from 'react-router-dom';
 import { ChannelVideoQuery, getChannelVideos } from '../../../../api/channel';
@@ -15,12 +15,26 @@ import {
 import { VideoList } from './components/VideoList/videolist';
 import { VideosToolbar } from './components/VideosToolbar';
 import { BulkActionBar } from './components/BulkActionBar';
+import { isPlayable } from './components/VideoList/utils';
+import {
+  ChannelVideoPage,
+  ChannelVideoPages,
+  channelVideosKey,
+  dropInactiveChannelVideos,
+  matchesChannelVideoQuery,
+  mergeDefined,
+  patchCachedChannelVideos,
+  refetchActiveChannelVideos,
+  removeCachedChannelVideos,
+} from './videoCache';
+import { WriteQueue, createWriteQueue } from './writeQueue';
+import { styles } from './components/VideoList/styles';
 import EditVideoModal from './EditVideoModal';
 import DeleteConfirmationDialog from '../../../common/DeleteConfirmationDialog';
-import { Video } from '../../../../types/video';
+import { Video, VideoStatus } from '../../../../types/video';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
 import { useUploadQueueContext } from '../../../../contexts/UploadQueueContext';
-import { useVideoProcessing } from '../../../../hooks/useVideoProcessing';
+import { ProcessingVideo, useVideoProcessing } from '../../../../hooks/useVideoProcessing';
 
 /**
  * How long we keep watching the upload queue for `?highlight=<uploadId>`.
@@ -37,18 +51,6 @@ function isVideoId(value: string): boolean {
   return /^\d+$/.test(value);
 }
 
-interface PaginatedResponse {
-  data: Video[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
-
-type VideoPages = InfiniteData<PaginatedResponse, number>;
-
 const VISIBILITY_VALUES: VideoVisibilityFilter[] = ['all', 'public', 'private', 'processing'];
 const SORT_VALUES: VideoSortOption[] = ['newest', 'oldest', 'most_viewed', 'most_liked'];
 
@@ -64,11 +66,38 @@ function readSort(value: string | null): VideoSortOption {
     : DEFAULT_FILTERS.sort;
 }
 
+/**
+ * The status the progress poll has settled on, if it has.
+ *
+ * The poll is the only thing that learns a transcode finished, and the list's
+ * own `status` is whatever the server said when the page was fetched. Without
+ * copying this back, a video that finished five minutes ago still reads
+ * `processing` to everything that asks the list: Watch stayed disabled, the
+ * visibility switch stayed locked, and the row sat under the Processing filter
+ * for as long as the tab was open.
+ */
+export function settledStatus(row: ProcessingVideo): VideoStatus | null {
+  if (row.status === 'processed' || row.status === 'completed' || row.status === 'failed') {
+    return row.status;
+  }
+  return null;
+}
+
+export interface BulkTally {
+  done: number;
+  failed: number;
+  /** Rows the action could not apply to — a video that is not ready to publish. */
+  skipped: number;
+  verb: string;
+}
+
 /** The one sentence a bulk run gets, whatever happened inside it. */
-export function bulkSummary(done: number, total: number, verb: string): string {
-  if (done === total) return `${total} ${verb}`;
+export function bulkSummary({ done, failed, skipped, verb }: BulkTally): string {
+  const stillProcessing = skipped > 0 ? ` · ${skipped} still processing` : '';
+  if (failed === 0) return `${done} ${verb}${stillProcessing}`;
+  const attempted = done + failed;
   const past = verb === 'deleted' ? 'deleted' : 'updated';
-  return `${done} of ${total} ${past} — ${total - done} failed`;
+  return `${done} of ${attempted} ${past} — ${failed} failed${stillProcessing}`;
 }
 
 /** A success toast that offers to put things back. */
@@ -92,10 +121,28 @@ const UndoToast: React.FC<{ message: string; onUndo: () => void; closeToast?: ()
   </span>
 );
 
+type FlipOutcome =
+  | { status: 'ok'; prior: boolean; generation: number }
+  | { status: 'noop' }
+  | { status: 'missing' }
+  | { status: 'not_ready' }
+  | { status: 'failed'; message: string };
+
 const VideosManagement: React.FC = () => {
   const queryClient = useQueryClient();
   const { selectedChannelId, channels, selectedChannel, isLoading: isChannelsLoading } =
     useChannelSelection();
+
+  // Nothing may touch component state after the creator has navigated away —
+  // a request that lands into an unmounted tree is a React warning at best and
+  // a toast for a page nobody is on at worst.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // ── Filters live in the URL ──────────────────────────────────────────────
   // Not in component state: a creator who filters to "Private", opens a video
@@ -171,17 +218,20 @@ const VideosManagement: React.FC = () => {
   }, [filters]);
 
   // The filters are part of the key: two different filtered lists are two
-  // different cache entries, and switching back to one the creator has looked at
-  // shows it immediately instead of a spinner.
+  // different cache entries, and switching back to one the creator has looked
+  // at shows it immediately instead of a spinner.
   const queryKey = useMemo(
-    () => ['channelVideos', selectedChannelId, apiQuery] as const,
+    () => channelVideosKey(selectedChannelId, apiQuery),
     [selectedChannelId, apiQuery],
   );
 
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, error, refetch } =
-    useInfiniteQuery<PaginatedResponse, Error, VideoPages, typeof queryKey, number>({
+    useInfiniteQuery<ChannelVideoPage, Error, ChannelVideoPages, typeof queryKey, number>({
       queryKey,
-      queryFn: ({ pageParam }) => getChannelVideos(selectedChannelId, pageParam, apiQuery),
+      // The signal aborts a search the moment the next keystroke supersedes it,
+      // instead of letting three overlapping answers race to land last.
+      queryFn: ({ pageParam, signal }) =>
+        getChannelVideos(selectedChannelId, pageParam, apiQuery, signal),
       initialPageParam: 1,
       getNextPageParam: (last) =>
         last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined,
@@ -191,8 +241,8 @@ const VideosManagement: React.FC = () => {
       // window regained focus (or a component remounted) hands back a brand-new
       // array of brand-new video objects, which rebuilt every row on screen —
       // rows re-animated, the "Ready" chip flashed again. The row's news comes
-      // from the progress poll; the list is invalidated explicitly, by a retry
-      // or by `?highlight=` resolving to a video we have not fetched yet.
+      // from the progress poll; the list is refetched explicitly, when a
+      // mutation has moved rows and the pagination underneath needs it.
       refetchOnWindowFocus: false,
       refetchOnMount: false,
       refetchOnReconnect: false,
@@ -201,7 +251,7 @@ const VideosManagement: React.FC = () => {
   // A video can move between pages while the creator pages (a fresh upload
   // pushes the last row of page 1 onto page 2), so the same id can arrive
   // twice. Two rows with one key is a React warning and a duplicated action.
-  const videos = useMemo(() => {
+  const rawVideos = useMemo(() => {
     const pages = data?.pages ?? [];
     const seen = new Set<number>();
     const flat: Video[] = [];
@@ -215,73 +265,118 @@ const VideosManagement: React.FC = () => {
     return flat;
   }, [data]);
 
+  /**
+   * Verdicts the progress poll has reached, held until the list agrees.
+   *
+   * This has to be an overlay applied to every list that arrives, not a
+   * one-shot patch. The list endpoint can still be saying `processing` after
+   * the poll has said `processed` — the worker updates the row a moment
+   * later — so a refetch used to hand back the stale status, nothing
+   * re-applied the verdict, and the poll had already stopped for that id.
+   * Watch went back to disabled and the row sat under Processing until the
+   * page was reloaded. The map is only forgotten once the server itself says
+   * the same thing.
+   */
+  const [settledStatuses, setSettledStatuses] = useState<ReadonlyMap<number, VideoStatus>>(
+    () => new Map(),
+  );
+
+  const videos = useMemo(() => {
+    if (settledStatuses.size === 0) return rawVideos;
+    const overlaid = rawVideos.map((video) => {
+      const settled = settledStatuses.get(video.id);
+      return settled && video.status !== settled ? { ...video, status: settled } : video;
+    });
+    // A video the poll says is finished does not belong under "Processing",
+    // whatever the list still claims.
+    return overlaid.filter(
+      (video) => !settledStatuses.has(video.id) || matchesChannelVideoQuery(video, apiQuery),
+    );
+  }, [apiQuery, rawVideos, settledStatuses]);
+
+  const videosRef = useRef<Video[]>(videos);
+  videosRef.current = videos;
+
   /** The channel's video count as the server counts it, not the rows loaded. */
   const total = data?.pages[0]?.pagination.total ?? null;
 
   // ── Cache writes ─────────────────────────────────────────────────────────
   // Every mutation edits the cache in place rather than refetching the list:
   // a refetch would hand back new objects for every row and rebuild the whole
-  // table to report one switch flipping.
+  // table to report one switch flipping. What it cannot do in place is
+  // pagination — see `reconcile`.
 
   const patchVideos = useCallback(
-    (patch: (video: Video) => Video | null, ids: ReadonlySet<number>) => {
-      queryClient.setQueryData<VideoPages>(queryKey, (old) => {
-        if (!old) return old;
-        let touched = false;
-        const pages = old.pages.map((page) => {
-          if (!page.data.some((video) => ids.has(video.id))) return page;
-          touched = true;
-          const next: Video[] = [];
-          for (const video of page.data) {
-            if (!ids.has(video.id)) {
-              next.push(video);
-              continue;
-            }
-            const replacement = patch(video);
-            if (replacement) next.push(replacement);
-          }
-          return { ...page, data: next };
-        });
-        return touched ? { ...old, pages } : old;
-      });
+    (ids: ReadonlySet<number>, patch: (video: Video) => Video): boolean =>
+      patchCachedChannelVideos(queryClient, selectedChannelId, ids, patch),
+    [queryClient, selectedChannelId],
+  );
+
+  /**
+   * What every membership-changing mutation owes the cache.
+   *
+   * Two different debts. A patch can only edit rows a cache already HOLDS, so
+   * it says nothing about the lists a video should now have joined — publish a
+   * private video and the cached Public list still does not contain it. Those
+   * lists are therefore dropped, always, whether or not anything visibly
+   * moved; the next visit asks the server, which is the only thing that knows
+   * where in a sorted page the row belongs.
+   *
+   * The visible list is a separate question: it is only re-read when rows have
+   * actually left it, because its offsets have then shifted. A flip that
+   * leaves a video where it was refetches nothing and the rows on screen do
+   * not so much as re-render.
+   */
+  const reconcile = useCallback(
+    (moved: boolean) => {
+      dropInactiveChannelVideos(queryClient, selectedChannelId);
+      if (moved) refetchActiveChannelVideos(queryClient, selectedChannelId);
     },
-    [queryClient, queryKey],
-  );
-
-  const setVisibilityInCache = useCallback(
-    (ids: ReadonlySet<number>, isPublic: boolean) =>
-      patchVideos((video) => (video.is_public === isPublic ? video : { ...video, is_public: isPublic }), ids),
-    [patchVideos],
-  );
-
-  const replaceVideoInCache = useCallback(
-    (updated: Video) => patchVideos(() => updated, new Set([updated.id])),
-    [patchVideos],
-  );
-
-  const removeVideosFromCache = useCallback(
-    (ids: ReadonlySet<number>) => patchVideos(() => null, ids),
-    [patchVideos],
-  );
-
-  const setStatusInCache = useCallback(
-    (videoId: number, status: Video['status']) =>
-      patchVideos((video) => ({ ...video, status }), new Set([videoId])),
-    [patchVideos],
+    [queryClient, selectedChannelId],
   );
 
   // ── Selection ────────────────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(() => new Set());
-  const [busyIds, setBusyIds] = useState<ReadonlySet<number>>(() => new Set());
+  /**
+   * How many mutations are in flight per video, not whether one is.
+   *
+   * With a plain set, the first of two overlapping flips to finish would clear
+   * the flag while the second was still running, and the row would offer a
+   * control that was about to be overwritten.
+   */
+  const [busyCounts, setBusyCounts] = useState<ReadonlyMap<number, number>>(() => new Map());
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  // A selection is about the rows on screen. Change the filter or the channel
-  // and those rows are gone — acting on ids the creator can no longer see is
-  // the one thing a bulk bar must never do.
-  const selectionScope = `${selectedChannelId}|${filters.q}|${filters.visibility}`;
+  // A selection is about the rows on screen. Change the channel, the filter or
+  // the order and those rows are gone or reshuffled — acting on ids the
+  // creator can no longer see is the one thing a bulk bar must never do, and
+  // "Delete" is where that stops being theoretical.
+  const selectionScope = `${selectedChannelId}|${filters.q}|${filters.visibility}|${filters.sort}`;
   useEffect(() => {
     setSelectedIds(new Set());
   }, [selectionScope]);
+
+  /**
+   * A selection may only ever name rows that are loaded.
+   *
+   * Resetting on a filter change is not enough: a row can leave the list on
+   * its own — made public while the Private filter is on, finished
+   * transcoding under Processing, deleted in another tab and dropped by a
+   * refetch — and it stayed ticked, invisible, and inside the next bulk
+   * action. The count in the bar was wrong and the delete dialog said "this
+   * video" about a video nobody could see.
+   */
+  useEffect(() => {
+    setSelectedIds((previous) => {
+      if (previous.size === 0) return previous;
+      const loaded = new Set(videos.map((video) => video.id));
+      const next = new Set<number>();
+      previous.forEach((id) => {
+        if (loaded.has(id)) next.add(id);
+      });
+      return next.size === previous.size ? previous : next;
+    });
+  }, [videos]);
 
   const handleSelect = useCallback((videoId: number, selected: boolean) => {
     setSelectedIds((previous) => {
@@ -292,19 +387,18 @@ const VideosManagement: React.FC = () => {
     });
   }, []);
 
-  const videosRef = useRef<Video[]>(videos);
-  videosRef.current = videos;
-
   const handleSelectAll = useCallback((selected: boolean) => {
     setSelectedIds(selected ? new Set(videosRef.current.map((video) => video.id)) : new Set());
   }, []);
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  const markBusy = useCallback((videoId: number, busy: boolean) => {
-    setBusyIds((previous) => {
-      const next = new Set(previous);
-      if (busy) next.add(videoId);
+  const markBusy = useCallback((videoId: number, delta: 1 | -1) => {
+    if (!mountedRef.current) return;
+    setBusyCounts((previous) => {
+      const next = new Map(previous);
+      const count = (next.get(videoId) ?? 0) + delta;
+      if (count > 0) next.set(videoId, count);
       else next.delete(videoId);
       return next;
     });
@@ -313,52 +407,124 @@ const VideosManagement: React.FC = () => {
   // ── Visibility ───────────────────────────────────────────────────────────
 
   /**
+   * Which mutation is the current owner of each video's visibility.
+   *
+   * Optimistic updates only survive contact with a creator who clicks twice.
+   * Every flip takes a number; a flip that fails only rolls back if it still
+   * holds the latest number, and an Undo offered by an older flip does nothing
+   * at all. Without this, a slow failing request could undo a newer successful
+   * one several seconds after the creator had moved on.
+   */
+  const generationsRef = useRef<Map<number, number>>(new Map());
+
+  /**
+   * One request at a time per video, in the order the creator asked for them.
+   *
+   * The generation counter decides who owns the *optimistic* value, but the
+   * server has its own opinion about order: two overlapping writes can land in
+   * either sequence, and if the older one lands last the database keeps the
+   * value the creator changed their mind about while the screen shows the
+   * newer one. The switch locks itself mid-flight, but the bulk bar does not
+   * go through the switch and will happily include a row that is already
+   * flipping. Queuing the requests per video makes "last asked" and "last
+   * written" the same thing.
+   */
+  const writeQueueRef = useRef<WriteQueue | null>(null);
+  if (writeQueueRef.current === null) writeQueueRef.current = createWriteQueue();
+  const enqueueWrite = writeQueueRef.current.enqueue;
+  const claim = useCallback((videoId: number): number => {
+    const generation = (generationsRef.current.get(videoId) ?? 0) + 1;
+    generationsRef.current.set(videoId, generation);
+    return generation;
+  }, []);
+  const stillOwns = useCallback(
+    (videoId: number, generation: number) => generationsRef.current.get(videoId) === generation,
+    [],
+  );
+
+  const writeVisibility = useCallback(
+    (videoId: number, isPublic: boolean) =>
+      patchVideos(new Set([videoId]), (video) =>
+        video.is_public === isPublic ? video : { ...video, is_public: isPublic },
+      ),
+    [patchVideos],
+  );
+
+  /**
    * Flip one video's `is_public`, optimistically.
    *
    * The switch moves before the request leaves, because the creator's own
    * click is the best evidence we will ever have of what they meant; if the
-   * server disagrees the row goes back exactly where it was. The caller owns
-   * the announcement, so this is equally the undo path and the bulk path.
+   * server disagrees the row goes back to the value it actually had — not to
+   * `!next`, which is the same thing only when the click was not a no-op. The
+   * caller owns the announcement, so this is equally the undo path and the
+   * bulk path.
    */
   const flipVisibility = useCallback(
-    async (videoId: number, next: boolean): Promise<{ ok: true } | { ok: false; message: string }> => {
-      const ids = new Set([videoId]);
-      markBusy(videoId, true);
-      setVisibilityInCache(ids, next);
+    async (videoId: number, next: boolean): Promise<FlipOutcome> => {
+      const current = videosRef.current.find((video) => video.id === videoId);
+      if (!current) return { status: 'missing' };
+      // Writing a value a video already has would still bump the generation
+      // and could roll a *different*, real change back on failure.
+      if (current.is_public === next) return { status: 'noop' };
+      if (next && !isPlayable(current.status)) return { status: 'not_ready' };
+
+      const prior = current.is_public;
+      const generation = claim(videoId);
+
+      markBusy(videoId, 1);
+      const movedOptimistically = writeVisibility(videoId, next);
       try {
         const formData = new FormData();
         formData.append('is_public', String(next));
-        const result = await updateVideo(String(videoId), formData);
+        const result = await enqueueWrite(videoId, (signal) =>
+          updateVideo(String(videoId), formData, signal),
+        );
         if (!result.success) {
-          setVisibilityInCache(ids, !next);
-          return { ok: false, message: result.message || 'Failed to update visibility' };
+          if (stillOwns(videoId, generation)) reconcile(writeVisibility(videoId, prior));
+          return { status: 'failed', message: result.message || 'Failed to update visibility' };
         }
-        return { ok: true };
+        reconcile(movedOptimistically);
+        return { status: 'ok', prior, generation };
       } catch (caught) {
-        setVisibilityInCache(ids, !next);
+        // Only put it back if nothing newer has claimed this video since: a
+        // later flip's value is the creator's latest word, not ours.
+        if (stillOwns(videoId, generation)) reconcile(writeVisibility(videoId, prior));
         return {
-          ok: false,
+          status: 'failed',
           message: caught instanceof Error ? caught.message : 'Failed to update visibility',
         };
       } finally {
-        markBusy(videoId, false);
+        markBusy(videoId, -1);
       }
     },
-    [markBusy, setVisibilityInCache],
+    [claim, enqueueWrite, markBusy, reconcile, stillOwns, writeVisibility],
   );
 
   const handleToggleVisibility = useCallback(
     async (videoId: number, next: boolean) => {
       const result = await flipVisibility(videoId, next);
-      if (!result.ok) {
+      if (!mountedRef.current) return;
+      if (result.status === 'not_ready') {
+        toast.error('This video is still processing — it can go public once it is ready');
+        return;
+      }
+      if (result.status === 'failed') {
         toast.error(result.message);
         return;
       }
+      if (result.status !== 'ok') return;
+
+      const { prior, generation } = result;
       const undo = () => {
-        void flipVisibility(videoId, !next).then((undone) => {
-          if (!undone.ok) toast.error(undone.message);
+        // An Undo from a flip the creator has already superseded is not an
+        // undo, it is an overwrite.
+        if (!stillOwns(videoId, generation)) return;
+        void flipVisibility(videoId, prior).then((undone) => {
+          if (undone.status === 'failed' && mountedRef.current) toast.error(undone.message);
         });
       };
+
       toast.success(
         ((props: { closeToast?: () => void }) => (
           <UndoToast
@@ -370,7 +536,7 @@ const VideosManagement: React.FC = () => {
         { autoClose: 6000 },
       );
     },
-    [flipVisibility],
+    [flipVisibility, stillOwns],
   );
 
   // ── Row actions ──────────────────────────────────────────────────────────
@@ -387,9 +553,9 @@ const VideosManagement: React.FC = () => {
     const url = `${window.location.origin}/video/${videoId}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast.success('Link copied');
+      if (mountedRef.current) toast.success('Link copied');
     } catch {
-      toast.error('Could not copy the link');
+      if (mountedRef.current) toast.error('Could not copy the link');
     }
   }, []);
 
@@ -397,17 +563,25 @@ const VideosManagement: React.FC = () => {
     async (videoId: string, formData: FormData) => {
       try {
         const result = await updateVideo(videoId, formData);
+        if (!mountedRef.current) return;
         if (result.success && result.data) {
-          replaceVideoInCache(result.data);
+          // Merge, do not replace: the edit response is built from the model
+          // row and carries no signed `thumbnail_url`, so swapping the whole
+          // object in blanked the artwork of every row it touched.
+          const returned = result.data;
+          reconcile(
+            patchVideos(new Set([Number(videoId)]), (video) => mergeDefined(video, returned)),
+          );
           toast.success('Video updated successfully');
         } else {
           toast.error(result.message || 'Failed to update video');
         }
       } catch (caught) {
+        if (!mountedRef.current) return;
         toast.error(caught instanceof Error ? caught.message : 'Failed to update video');
       }
     },
-    [replaceVideoInCache],
+    [patchVideos, reconcile],
   );
 
   // ── Deletion ─────────────────────────────────────────────────────────────
@@ -417,14 +591,22 @@ const VideosManagement: React.FC = () => {
 
   const handleDelete = useCallback((videoId: number) => setPendingDelete([videoId]), []);
 
-  const deleteOne = useCallback(async (videoId: number): Promise<boolean> => {
-    try {
-      const result = await deleteVideo(String(videoId));
-      return Boolean(result.success);
-    } catch {
-      return false;
-    }
-  }, []);
+  // Deleting goes through the same per-video queue as a visibility flip: a
+  // delete that overtakes an in-flight edit of the same row would have the
+  // server applying them in whichever order the network chose.
+  const deleteOne = useCallback(
+    async (videoId: number): Promise<boolean> => {
+      try {
+        const result = await enqueueWrite(videoId, (signal) =>
+          deleteVideo(String(videoId), signal),
+        );
+        return Boolean(result.success);
+      } catch {
+        return false;
+      }
+    },
+    [enqueueWrite],
+  );
 
   const confirmDelete = useCallback(async () => {
     const ids = pendingDelete ?? [];
@@ -437,25 +619,32 @@ const VideosManagement: React.FC = () => {
         const result = results[index];
         return result.status === 'fulfilled' && result.value;
       });
-      if (removed.length > 0) removeVideosFromCache(new Set(removed));
+      if (removed.length > 0) {
+        removeCachedChannelVideos(queryClient, selectedChannelId, new Set(removed));
+        // A delete always shifts every offset after it, so the pages already
+        // loaded have to be re-read: otherwise the next "Load more" silently
+        // skips exactly one video, forever.
+        reconcile(true);
+      }
       setSelectedIds((previous) => {
         const next = new Set(previous);
         removed.forEach((id) => next.delete(id));
         return next;
       });
-      if (removed.length === 0) {
-        toast.error(ids.length === 1 ? 'Failed to delete video' : `Could not delete any of the ${ids.length}`);
-      } else if (ids.length === 1) {
-        toast.success('Video deleted successfully');
-      } else {
-        const summary = bulkSummary(removed.length, ids.length, 'deleted');
-        if (removed.length === ids.length) toast.success(summary);
-        else toast.error(summary);
+      if (!mountedRef.current) return;
+      const failed = ids.length - removed.length;
+      if (ids.length === 1) {
+        if (failed === 0) toast.success('Video deleted successfully');
+        else toast.error('Failed to delete video');
+        return;
       }
+      const summary = bulkSummary({ done: removed.length, failed, skipped: 0, verb: 'deleted' });
+      if (failed === 0) toast.success(summary);
+      else toast.error(summary);
     } finally {
-      setBulkBusy(false);
+      if (mountedRef.current) setBulkBusy(false);
     }
-  }, [deleteOne, pendingDelete, removeVideosFromCache]);
+  }, [deleteOne, pendingDelete, queryClient, reconcile, selectedChannelId]);
 
   // ── Bulk ─────────────────────────────────────────────────────────────────
   // There is no bulk endpoint, so this is N requests. `allSettled`, not `all`:
@@ -468,23 +657,51 @@ const VideosManagement: React.FC = () => {
         setPendingDelete(ids);
         return;
       }
+
       const next = action === 'make_public';
+      // A video that is still transcoding cannot be published — the server
+      // refuses it, and asking anyway would spend a request to be told so.
+      // These are set aside and named in the summary rather than counted as
+      // failures the creator could do something about.
+      const eligible = next
+        ? ids.filter((id) => {
+            const video = videosRef.current.find((candidate) => candidate.id === id);
+            return video ? isPlayable(video.status) : false;
+          })
+        : ids;
+      const skipped = ids.length - eligible.length;
+
       setBulkBusy(true);
       try {
-        const results = await Promise.allSettled(ids.map((id) => flipVisibility(id, next)));
-        const done = results.filter(
-          (result) => result.status === 'fulfilled' && result.value.ok,
-        ).length;
-        const summary = bulkSummary(done, ids.length, next ? 'made public' : 'made private');
-        if (done === 0) toast.error(`Could not update any of the ${ids.length}`);
-        else if (done === ids.length) toast.success(summary);
+        const results = await Promise.allSettled(eligible.map((id) => flipVisibility(id, next)));
+        const failedIds: number[] = [];
+        let done = 0;
+        eligible.forEach((id, index) => {
+          const result = results[index];
+          const outcome = result.status === 'fulfilled' ? result.value.status : 'failed';
+          // A row that was already where the creator wants it is not a failure.
+          if (outcome === 'ok' || outcome === 'noop') done += 1;
+          else failedIds.push(id);
+        });
+
+        if (!mountedRef.current) return;
+        const summary = bulkSummary({
+          done,
+          failed: failedIds.length,
+          skipped,
+          verb: next ? 'made public' : 'made private',
+        });
+        if (failedIds.length === 0 && skipped === 0) toast.success(summary);
         else toast.error(summary);
-        if (done > 0) clearSelection();
+
+        // Whatever failed stays ticked, so "try again" is one click and does
+        // not re-send the requests that already worked.
+        setSelectedIds(new Set(failedIds));
       } finally {
-        setBulkBusy(false);
+        if (mountedRef.current) setBulkBusy(false);
       }
     },
-    [clearSelection, flipVisibility, selectedIds],
+    [flipVisibility, selectedIds],
   );
 
   // ── Processing ───────────────────────────────────────────────────────────
@@ -501,6 +718,49 @@ const VideosManagement: React.FC = () => {
 
   const { processingVideos, restart: restartProcessingPoll } = useVideoProcessing(processingVideoIds);
 
+  // The poll is the only thing that learns a transcode finished. Recording its
+  // verdict is what unlocks Watch and the visibility switch, and what takes a
+  // finished video out of the Processing filter — none of which used to happen
+  // until the page was reloaded. The verdict is held, not applied once: see
+  // `settledStatuses`.
+  useEffect(() => {
+    let added = false;
+    const next = new Map(settledStatuses);
+    for (const row of Object.values(processingVideos)) {
+      const status = settledStatus(row);
+      if (!status) continue;
+      if (next.get(row.videoId) === status) continue;
+      next.set(row.videoId, status);
+      added = true;
+    }
+    if (!added) return;
+    setSettledStatuses(next);
+    // Other cached filters — Processing above all — are now wrong about this
+    // video. The visible list is not refetched: the overlay already tells it
+    // the truth, and refetching would only invite the stale answer back.
+    dropInactiveChannelVideos(queryClient, selectedChannelId);
+  }, [processingVideos, queryClient, selectedChannelId, settledStatuses]);
+
+  /**
+   * Forget a verdict once the server says the same thing.
+   *
+   * Until then the overlay stands, however many times the list is re-read.
+   */
+  useEffect(() => {
+    setSettledStatuses((previous) => {
+      if (previous.size === 0) return previous;
+      const next = new Map(previous);
+      let dropped = false;
+      for (const video of rawVideos) {
+        if (next.get(video.id) === video.status) {
+          next.delete(video.id);
+          dropped = true;
+        }
+      }
+      return dropped ? next : previous;
+    });
+  }, [rawVideos]);
+
   // Handle a failed transcode. The backend owns the retry; this only asks.
   //
   // The retry reuses the video id, so both caches of "this one failed" have to
@@ -510,18 +770,29 @@ const VideosManagement: React.FC = () => {
     async (videoId: number) => {
       try {
         const result = await retryVideoProcessing(videoId);
+        if (!mountedRef.current) return;
         if (result.success) {
-          setStatusInCache(videoId, 'pending');
+          // The same id is about to be transcoded again, so the verdict we are
+          // holding is void — the row is `pending` until the poll says
+          // otherwise.
+          setSettledStatuses((previous) => {
+            if (!previous.has(videoId)) return previous;
+            const next = new Map(previous);
+            next.delete(videoId);
+            return next;
+          });
+          reconcile(patchVideos(new Set([videoId]), (video) => ({ ...video, status: 'pending' })));
           restartProcessingPoll([videoId]);
           toast.success('Processing restarted');
         } else {
           toast.error(result.message || 'Failed to restart processing');
         }
       } catch (caught) {
+        if (!mountedRef.current) return;
         toast.error(caught instanceof Error ? caught.message : 'Failed to restart processing');
       }
     },
-    [restartProcessingPoll, setStatusInCache],
+    [patchVideos, reconcile, restartProcessingPoll],
   );
 
   // ── `?highlight=` resolution ─────────────────────────────────────────────
@@ -598,7 +869,7 @@ const VideosManagement: React.FC = () => {
 
   return (
     <div className="relative pt-24 pb-8">
-      <div className="px-4 md:px-6 space-y-4 max-w-[1920px] mx-auto">
+      <div className="mx-auto max-w-[1600px] space-y-4 px-4 md:px-6">
         <VideosToolbar
           filters={filters}
           total={total}
@@ -607,7 +878,7 @@ const VideosManagement: React.FC = () => {
           onSortChange={handleSortChange}
         />
 
-        <div className="overflow-hidden rounded-lg border border-gray-800/30">
+        <div className={styles.panel}>
           <VideoList
             videos={videos}
             processingVideos={processingVideos}
@@ -620,7 +891,8 @@ const VideosManagement: React.FC = () => {
             sort={filters.sort}
             onSort={handleSortChange}
             selectedIds={selectedIds}
-            busyIds={busyIds}
+            busyIds={busyCounts}
+            selecting={selectedIds.size > 0}
             onSelect={handleSelect}
             onSelectAll={handleSelectAll}
             onEdit={handleEdit}

@@ -398,7 +398,17 @@ export const createErrorResponse = (
 export const retryWithBackoff = async <T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
-  baseDelay: number = 1000
+  baseDelay: number = 1000,
+  /**
+   * Is this failure worth trying again?
+   *
+   * Defaults to "yes", which is what every existing caller relies on. A caller
+   * whose request can be *cancelled* — a search superseded by the next
+   * keystroke — passes a predicate, because retrying a request nobody is
+   * waiting for costs three round trips and seven seconds of backoff to
+   * produce an answer that is thrown away.
+   */
+  shouldRetry: (error: unknown) => boolean = () => true
 ): Promise<T> => {
   let lastError: unknown;
   
@@ -408,7 +418,7 @@ export const retryWithBackoff = async <T>(
     } catch (error) {
       lastError = error;
       
-      if (attempt === maxRetries) {
+      if (attempt === maxRetries || !shouldRetry(error)) {
         throw error;
       }
       

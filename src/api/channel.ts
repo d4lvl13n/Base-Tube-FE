@@ -25,6 +25,7 @@ import axios from 'axios';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
 import { getChannelErrorMessage } from '../utils/channelErrorMessages';
+import { retryUnlessCancelled, wasCancelled } from '../utils/requestCancelled';
 
 export class ChannelApiError extends Error {
   readonly code: string | null;
@@ -301,10 +302,16 @@ export interface ChannelVideoQuery {
 export const getChannelVideos = async (
   channelId: string | number,
   page: number = 1,
-  query: ChannelVideoQuery = {}
+  query: ChannelVideoQuery = {},
+  /**
+   * React Query's per-request signal. A search superseded by the next
+   * keystroke is aborted rather than left to land out of order.
+   */
+  signal?: AbortSignal
 ) => {
   const fetchVideos = async () => {
     const response = await api.get(`/api/v1/channels/${channelId}/videos`, {
+      signal,
       params: {
         page,
         include_private: true,
@@ -320,8 +327,11 @@ export const getChannelVideos = async (
   };
 
   try {
-    return await retryWithBackoff(fetchVideos, 2, 1000);
+    // A cancelled request is not a failure: retrying it would spend three
+    // round trips and seven seconds of backoff on an answer nobody wants.
+    return await retryWithBackoff(fetchVideos, 2, 1000, retryUnlessCancelled);
   } catch (error) {
+    if (wasCancelled(error)) throw error;
     const userError = handleApiError(error, {
       action: 'fetch channel videos',
       component: 'channelAPI',

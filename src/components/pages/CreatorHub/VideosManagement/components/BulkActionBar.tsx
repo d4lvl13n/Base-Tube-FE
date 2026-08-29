@@ -10,6 +10,12 @@ interface BulkActionBarProps {
   onClear: () => void;
 }
 
+const ACTION =
+  'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-gray-300 ' +
+  'transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed ' +
+  'disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 ' +
+  'focus-visible:ring-[#fa7517]/40';
+
 /**
  * The bar that appears once anything is ticked.
  *
@@ -24,36 +30,21 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ count, busy, onAct
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 8 }}
-        className="sticky bottom-4 z-20 flex flex-wrap items-center gap-2 rounded-xl border
-                   border-gray-800/50 bg-black/80 px-4 py-3 backdrop-blur-md"
+        transition={{ duration: 0.15, ease: 'easeOut' }}
+        className="sticky bottom-4 z-20 flex flex-wrap items-center gap-1 rounded-xl border
+                   border-gray-800/60 bg-[#0f0f0f]/95 px-3 py-2 shadow-2xl backdrop-blur-md"
         role="region"
         aria-label="Bulk actions"
       >
-        <span className="text-sm font-medium text-white">
-          {count} selected
+        <span className="px-1.5 text-sm text-gray-100">{count} selected</span>
+        <span className="px-1 text-gray-700" aria-hidden="true">
+          ·
         </span>
-        <span className="text-gray-700" aria-hidden="true">·</span>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onAction('make_public')}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-300
-                     transition-colors hover:bg-gray-800/60 hover:text-white
-                     disabled:cursor-not-allowed disabled:opacity-50
-                     focus:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60"
-        >
+        <button type="button" disabled={busy} onClick={() => onAction('make_public')} className={ACTION}>
           <Eye className="h-4 w-4" aria-hidden="true" />
           Make public
         </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onAction('make_private')}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-300
-                     transition-colors hover:bg-gray-800/60 hover:text-white
-                     disabled:cursor-not-allowed disabled:opacity-50
-                     focus:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60"
-        >
+        <button type="button" disabled={busy} onClick={() => onAction('make_private')} className={ACTION}>
           <EyeOff className="h-4 w-4" aria-hidden="true" />
           Make private
         </button>
@@ -61,10 +52,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ count, busy, onAct
           type="button"
           disabled={busy}
           onClick={() => onAction('delete')}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-red-400
-                     transition-colors hover:bg-red-500/10 hover:text-red-300
-                     disabled:cursor-not-allowed disabled:opacity-50
-                     focus:outline-none focus-visible:ring-1 focus-visible:ring-red-500/60"
+          className={`${ACTION} text-red-400 hover:bg-red-500/10 hover:text-red-300`}
         >
           <Trash2 className="h-4 w-4" aria-hidden="true" />
           Delete
@@ -73,8 +61,9 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ count, busy, onAct
           type="button"
           onClick={onClear}
           aria-label="Clear selection"
-          className="ml-auto rounded-lg p-1.5 text-gray-500 transition-colors hover:text-white
-                     focus:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60"
+          className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500
+                     transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none
+                     focus-visible:ring-2 focus-visible:ring-[#fa7517]/40"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>

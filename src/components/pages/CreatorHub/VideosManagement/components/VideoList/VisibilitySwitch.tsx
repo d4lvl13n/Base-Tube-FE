@@ -40,22 +40,23 @@ export const VisibilitySwitch: React.FC<VisibilitySwitchProps> = ({
       aria-label={`${title || 'Untitled'} is ${isPublic ? 'public' : 'private'}`}
       disabled={disabled}
       onClick={handleClick}
-      className={`group flex items-center gap-2 rounded-lg px-1 py-1 text-xs transition-colors
-                  focus:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60
-                  ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:text-white'}`}
+      className={`inline-flex items-center gap-2 rounded-md py-1 text-xs transition-colors
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/40
+                  ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
     >
-      <span className={isPublic ? 'text-[#fa7517]' : 'text-gray-400'}>
+      <span className={isPublic ? 'text-gray-300' : 'text-gray-500'}>
         {isPublic ? 'Public' : 'Private'}
       </span>
+      {/* 34 × 18 — a switch, not a button pretending to be one. */}
       <span
         aria-hidden="true"
-        className={`relative h-4 w-8 shrink-0 rounded-full transition-colors ${
-          isPublic ? 'bg-[#fa7517]/70' : 'bg-gray-700'
+        className={`relative h-[18px] w-[34px] shrink-0 rounded-full transition-colors duration-200 ${
+          isPublic ? 'bg-[#fa7517]' : 'bg-gray-700'
         }`}
       >
         <span
-          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
-            isPublic ? 'left-[1.125rem]' : 'left-0.5'
+          className={`absolute top-[3px] h-3 w-3 rounded-full bg-white transition-all duration-200 ${
+            isPublic ? 'left-[19px]' : 'left-[3px]'
           }`}
         />
       </span>
@@ -72,9 +73,9 @@ export const VisibilitySwitch: React.FC<VisibilitySwitchProps> = ({
         <span className="inline-flex">{control}</span>
       </Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content className={styles.tooltip} sideOffset={5}>
+        <Tooltip.Content className={styles.tooltip} sideOffset={6}>
           Still processing — it can go public once it is ready
-          <Tooltip.Arrow className="fill-gray-900" />
+          <Tooltip.Arrow className="fill-[#0f0f0f]" />
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
