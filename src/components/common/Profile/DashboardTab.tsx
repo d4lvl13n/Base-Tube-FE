@@ -67,32 +67,33 @@ const DashboardTab: React.FC<DashboardTabProps> = ({
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <StatsCard 
-          icon={Eye} 
-          title="Total Views" 
+        {/* No `change` on any of these: nothing here is measured over two
+            periods, so there is no trend to show. They used to carry the
+            hardcoded literals 12.5 / 5.2 / 8.1 / 15.3 %
+            (docs/ANALYTICS_REVIEW_2026-08-29.md finding 1, P-F5). */}
+        <StatsCard
+          icon={Eye}
+          title="Views on your uploads"
           value={metrics?.totalViews?.toLocaleString() || '0'}
-          change={12.5}
           loading={isMetricsLoading}
+          subtitle="All time"
         />
-        <StatsCard 
-          icon={Video} 
-          title="Videos Watched" 
+        <StatsCard
+          icon={Video}
+          title="Videos Watched"
           value={metrics?.videosWatched.toString() || '0'}
-          change={5.2}
           loading={isMetricsLoading}
         />
-        <StatsCard 
-          icon={ThumbsUp} 
-          title="Likes Given" 
+        <StatsCard
+          icon={ThumbsUp}
+          title="Likes Given"
           value={metrics?.likesGiven.toString() || '0'}
-          change={8.1}
           loading={isMetricsLoading}
         />
-        <StatsCard 
-          icon={MessageCircle} 
-          title="Comments" 
+        <StatsCard
+          icon={MessageCircle}
+          title="Comments"
           value={metrics?.commentsCount.toString() || '0'}
-          change={15.3}
           loading={isMetricsLoading}
         />
       </div>

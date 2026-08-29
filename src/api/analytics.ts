@@ -1,14 +1,11 @@
 import api from './index';
 import { 
-  WatchPatterns, 
   SocialMetrics, 
   GrowthMetrics,
-  CreatorWatchHours,
   BasicViewMetrics,
   DetailedViewMetrics,
   LikeGrowthTrends,
   TopLikedVideos,
-  LikeViewRatio,
   ChannelWatchPatterns,
   ChannelDemographics,
   EngagementTrends, 
@@ -30,19 +27,6 @@ interface WatchTimeData {
 }
 
 // ===========================================
-// VIEWER-FOCUSED ANALYTICS ENDPOINTS
-// ===========================================
-
-/**
- * Get general watch patterns focused on viewer behavior across the platform
- * This is not specific to any creator or channel
- */
-export const getWatchPatterns = async (): Promise<WatchPatterns> => {
-  const response = await api.get<{ success: boolean; data: WatchPatterns }>('/api/v1/analytics/watch-patterns');
-  return response.data.data;
-};
-
-// ===========================================
 // CREATOR-FOCUSED ANALYTICS ENDPOINTS
 // ===========================================
 
@@ -50,10 +34,14 @@ export const getWatchPatterns = async (): Promise<WatchPatterns> => {
  * Get channel-specific watch patterns focused on how viewers interact with a specific channel
  * @param channelId The ID of the channel to get watch patterns for
  */
-export const getChannelWatchPatterns = async (channelId: string): Promise<ChannelWatchPatterns> => {
+export const getChannelWatchPatterns = async (
+  channelId: string,
+  period?: '7d' | '30d' | '90d' | 'all'
+): Promise<ChannelWatchPatterns> => {
   const fetchPatterns = async () => {
     const response = await api.get<{ success: boolean; data: ChannelWatchPatterns }>(
-      `/api/v1/creators/channels/${channelId}/watch-patterns`
+      `/api/v1/creators/channels/${channelId}/watch-patterns`,
+      { params: period ? { period } : {} }
     );
     
     if (!response.data.success) {
@@ -72,24 +60,8 @@ export const getChannelWatchPatterns = async (channelId: string): Promise<Channe
       additionalData: { channelId }
     });
     
-    // For analytics, return empty data structure instead of throwing
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE || 
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Analytics unavailable, returning empty data:', userError.message);
-      return {
-        hourlyPatterns: [],
-        weekdayPatterns: [],
-        durationStats: {
-          averageWatchDuration: 0,
-          maxWatchDuration: 0,
-          totalViews: 0,
-          uniqueViewers: 0
-        },
-        retentionByDuration: [],
-        topRetainedVideos: []
-      };
-    }
-    
+    // A failed request must surface as an error state, not as a dashboard
+    // full of confident zeros — see docs/ANALYTICS_REVIEW_2026-08-29.md P-F9.
     throw userError;
   }
 };
@@ -120,30 +92,7 @@ export const getSocialMetrics = async (channelId: string): Promise<SocialMetrics
       additionalData: { channelId }
     });
 
-    // For social metrics, return default structure on analytics errors or network issues
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR ||
-        userError.code === ErrorCode.NETWORK_ERROR ||
-        userError.code === ErrorCode.INTERNAL_SERVER_ERROR) {
-      console.warn('Social metrics unavailable, returning empty data:', userError.message);
-      return {
-        interactions: {
-          commentsReceived: 0,
-          responseRate: 0,
-          averageResponseTime: 0,
-          recentEngagement: {
-            total: 0,
-            likes: 0,
-            comments: 0
-          }
-        },
-        community: {
-          subscriberCount: 0,
-          recentSubscribers: 0
-        }
-      };
-    }
-
+    // Never substitute zeros for a failure (ANALYTICS_REVIEW P-F9).
     throw userError;
   }
 };
@@ -179,87 +128,33 @@ export const getGrowthMetrics = async (period: '7d' | '30d' | 'all', channelId: 
       additionalData: { channelId, period }
     });
 
-    // For growth metrics, return empty structure on analytics errors or network issues
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR ||
-        userError.code === ErrorCode.NETWORK_ERROR ||
-        userError.code === ErrorCode.INTERNAL_SERVER_ERROR) {
-      console.warn('Growth metrics unavailable, returning empty data:', userError.message);
-      return {
-        metrics: {
-          subscribers: {
-            total: 0,
-            trend: 0,
-            data: []
-          },
-          views: {
-            total: 0,
-            trend: 0,
-            data: []
-          },
-          engagement: {
-            total: 0,
-            trend: 0,
-            data: []
-          }
-        }
-      };
-    }
-
+    // Never substitute zeros for a failure (ANALYTICS_REVIEW P-F9).
     throw userError;
   }
 };
 
-// Cache for view metrics to reduce API calls
-const metricsCache = new Map<string, {
-  data: any;
-  timestamp: number;
-}>();
-
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
 /**
- * Get view metrics for a specific channel, with optional detailed time period breakdowns
- * @param channelId The ID of the channel to get view metrics for
- * @param detailed Whether to include detailed time period breakdowns
+ * Get view metrics for a specific channel, with optional detailed time period
+ * breakdowns.
+ *
+ * There used to be a 5 s module-level cache in front of this. React Query is
+ * the cache: a second store the query client cannot see means an
+ * invalidateQueries after a mutation refetches and gets served the stale value
+ * anyway. Removed.
  */
 export const getChannelViewMetrics = async (
   channelId: string,
   detailed: boolean = false
 ): Promise<BasicViewMetrics | DetailedViewMetrics> => {
-  const cacheKey = `views-${channelId}-${detailed}`;
-  const cached = metricsCache.get(cacheKey);
-  
-  // Always get fresh data on each call to prevent stale data issues
-  // when switching between periods
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    // Only use cached data if it's very recent (within 5 seconds)
-    if (Date.now() - cached.timestamp < 5000) {
-      return cached.data;
-    }
-  }
+  // `_t` defeats the browser HTTP cache (the endpoint does not send no-store);
+  // React Query decides when we actually call this at all.
+  const endpoint =
+    `/api/v1/analytics/channels/${channelId}/views` +
+    `${detailed ? '?withTimePeriods=true&' : '?'}_t=${Date.now()}`;
 
-  // Add a cache-busting timestamp to prevent 304 responses
-  const timestamp = new Date().getTime();
-  const endpoint = `/api/v1/analytics/channels/${channelId}/views${detailed ? '?withTimePeriods=true' : ''}${detailed ? '&' : '?'}_t=${timestamp}`;
-  
-  const retryWithBackoffLocal = async <T>(
-    fn: () => Promise<T>,
-    retries: number = 3,
-    delay: number = 1000
-  ): Promise<T> => {
-    try {
-      return await fn();
-    } catch (error) {
-      if (retries === 0) throw error;
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return retryWithBackoffLocal(fn, retries - 1, delay * 2);
-    }
-  };
-
-  const data = await retryWithBackoffLocal(async () => {
-    const response = await api.get<{ 
-      success: boolean; 
+  const fetchMetrics = async () => {
+    const response = await api.get<{
+      success: boolean;
       data: BasicViewMetrics | DetailedViewMetrics;
     }>(endpoint);
 
@@ -268,15 +163,18 @@ export const getChannelViewMetrics = async (
     }
 
     return response.data.data;
-  });
+  };
 
-  // Update cache with fresh data
-  metricsCache.set(cacheKey, {
-    data,
-    timestamp: Date.now()
-  });
-
-  return data;
+  try {
+    return await retryWithBackoff(fetchMetrics, 2, 1000);
+  } catch (error) {
+    // Never substitute zeros for a failure (ANALYTICS_REVIEW P-F9).
+    throw handleError(error, {
+      action: 'fetch channel view metrics',
+      component: 'analytics',
+      additionalData: { channelId, detailed }
+    });
+  }
 };
 
 /**
@@ -344,18 +242,7 @@ export const getChannelWatchHours = async (
       additionalData: { channelId, period }
     });
 
-    // For watch time data, return zero values on analytics errors
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Watch hours unavailable, returning empty data:', userError.message);
-      return {
-        channelId,
-        totalWatchHours: 0,
-        period: period ?? 'all',
-        formattedHours: '0h'
-      };
-    }
-
+    // Never substitute zeros for a failure (ANALYTICS_REVIEW P-F9).
     throw userError;
   }
 };
@@ -396,17 +283,7 @@ export const getEngagementTrends = async (
       additionalData: { channelId, period }
     });
 
-    // For engagement trends, return empty structure on analytics errors
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Engagement trends unavailable, returning empty data:', userError.message);
-      return {
-        likeGrowth: [],
-        commentGrowth: [],
-        shareGrowth: []
-      };
-    }
-
+    // Never substitute zeros for a failure (ANALYTICS_REVIEW P-F9).
     throw userError;
   }
 };

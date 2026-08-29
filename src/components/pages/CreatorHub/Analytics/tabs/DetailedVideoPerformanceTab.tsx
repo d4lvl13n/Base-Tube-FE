@@ -135,15 +135,20 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
     }
   };
 
-  // Calculate average metrics for filtered videos
-  const avgRetention = filteredVideos.length > 0 
-    ? (filteredVideos.reduce((sum, video) => sum + video.average_percentage_viewed, 0) / filteredVideos.length).toFixed(1) 
-    : '0';
-  
-  const engagementRate = filteredVideos.length > 0 
-    ? ((filteredVideos.reduce((sum, video) => sum + video.likes, 0) / filteredVideos.reduce((sum, video) => sum + video.views, 0)) * 100).toFixed(1)
-    : '0';
-    
+  // These summaries cover the rows CURRENTLY ON SCREEN (this page, after the
+  // title filter) — not the whole channel. The labels say so; see
+  // docs/ANALYTICS_REVIEW_2026-08-29.md finding 10. `Total Videos` is the only
+  // server-side aggregate here, and it now honours the period selector.
+  //
+  // A dead `engagementRate` (likes / views across the page, with no zero guard,
+  // so Infinity% on a page of unviewed videos) used to be computed here and
+  // never rendered. Deleted.
+  const pageViews = filteredVideos.reduce((sum, video) => sum + (video.views || 0), 0);
+
+  const avgRetention = filteredVideos.length > 0
+    ? (filteredVideos.reduce((sum, video) => sum + video.average_percentage_viewed, 0) / filteredVideos.length).toFixed(1)
+    : null;
+
   const avgWatchDuration = filteredVideos.length > 0
     ? filteredVideos.reduce((sum, video) => sum + video.average_watch_duration_seconds, 0) / filteredVideos.length
     : 0;
@@ -181,33 +186,29 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
           icon={Play}
           title="Total Videos"
           value={pagination?.total.toLocaleString() ?? '0'}
-          change={0}
           loading={isLoading}
           subtitle={`${getPeriodDescription(period)}`}
         />
         <StatsCard
           icon={Eye}
-          title="Total Views"
-          value={filteredVideos.reduce((sum, video) => sum + video.views, 0).toLocaleString()}
-          change={0}
+          title="Views"
+          value={pageViews.toLocaleString()}
           loading={isLoading}
-          subtitle={`Across all videos`}
+          subtitle="On this page"
         />
         <StatsCard
           icon={Timer}
           title="Avg. Watch Time"
           value={formatWatchTime(avgWatchDuration)}
-          change={0}
           loading={isLoading}
-          subtitle={`Average session duration`}
+          subtitle="On this page"
         />
         <StatsCard
           icon={Percent}
-          title="Avg. Retention"
-          value={`${avgRetention}%`}
-          change={0}
+          title="Avg. % watched"
+          value={avgRetention === null ? '—' : `${avgRetention}%`}
           loading={isLoading}
-          subtitle={`Video completion rate`}
+          subtitle="On this page"
         />
       </div>
 

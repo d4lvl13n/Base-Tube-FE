@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  Users, 
-  Play, 
-  Clock, 
-  MessageCircle, 
-  TrendingUp, 
+import {
+  Users,
+  Play,
+  Clock,
+  MessageCircle,
+  TrendingUp,
   ThumbsUp,
-  DollarSign,
-  BarChart2
+  DollarSign
 } from 'lucide-react';
 import { useCreatorAnalytics } from '../../../../../hooks/useAnalyticsData';
 import StatsCard from '../../../CreatorHub/StatsCard';
@@ -15,24 +14,16 @@ import { Select } from '../../../../ui/Select';
 import { GrowthChart } from '../charts/GrowthChart';
 import { useChannelData } from '../../../../../hooks/useChannelData';
 import { WatchTimeChart } from '../charts/WatchTimeChart';
-
-// Helper function (can be shared or kept local if only used here)
-const getLatestCount = (trendData?: { date: string; count: number }[]) => {
-  return trendData && trendData.length > 0 ? trendData[trendData.length - 1].count : 0;
-};
-
-// Helper function (can be shared or kept local)
-const calculateTrend = (trendData?: { date: string; count: number }[]) => {
-  if (!trendData || trendData.length < 2) return 0;
-  const latestCount = trendData[trendData.length - 1].count;
-  const startCount = trendData[0].count;
-  if (startCount === 0) return latestCount > 0 ? 100 : 0; 
-  return ((latestCount / startCount) - 1) * 100;
-};
+import {
+  formatPercent,
+  interactionRate,
+  sumCounts,
+  trendBadgeValue,
+  weightedPercentWatched
+} from '../metrics';
 
 export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
-  const [isChangingPeriod, setIsChangingPeriod] = useState(false);
   
   const { 
     growthMetrics, 
@@ -42,36 +33,27 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
     engagementTrends,
     isLoading: analyticsLoading,
     errors,
-    invalidateAnalytics
   } = useCreatorAnalytics(period, channelId);
 
-  const { channel, isLoading: channelLoading } = useChannelData(
+  const { channel, isLoading: channelLoading, error: channelError } = useChannelData(
     channelId ? parseInt(channelId) : undefined
   );
   
   const isLoading = analyticsLoading || channelLoading;
 
   // Handle period change with cache invalidation
-  const handlePeriodChange = async (newPeriod: '7d' | '30d' | 'all') => {
-    if (newPeriod !== period) {
-      setIsChangingPeriod(true);
-      // Invalidate cache to force fresh data load
-      await invalidateAnalytics();
-      setPeriod(newPeriod);
-      
-      // Give some time for the UI to show loading state
-      setTimeout(() => {
-        setIsChangingPeriod(false);
-      }, 1000);
-    }
+  // Just switch the period. Every period-sensitive query has the period in
+  // its key, so React Query fetches the new key by itself. Invalidating the
+  // whole channel first (what this used to do) also refetched the OLD
+  // period's queries — ~19 requests for one click on the selector.
+  const handlePeriodChange = (newPeriod: '7d' | '30d' | 'all') => {
+    if (newPeriod !== period) setPeriod(newPeriod);
   };
 
-  // Calculate average retention rate
-  const averageRetentionRate = 
-    channelWatchPatterns?.retentionByDuration?.reduce(
-      (avg, item) => avg + (item.retentionRate / (channelWatchPatterns.retentionByDuration.length || 1)), 
-      0
-    ) ?? 0;
+  // Average share of each video actually watched, weighted by the views in each
+  // duration bucket (the old flat average gave a bucket with 1 view the same
+  // weight as one with 1,000).
+  const averagePercentWatched = weightedPercentWatched(channelWatchPatterns?.retentionByDuration);
 
   // Map hourly patterns for the watch time chart
   const watchTimeData = channelWatchPatterns?.hourlyPatterns?.map(pattern => ({
@@ -79,21 +61,10 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
     viewCount: pattern.viewCount
   })) ?? [];
 
-  // Get the top performing video
-  const topRetainedVideo = channelWatchPatterns?.topRetainedVideos?.[0];
-
-  // Monetization stats (placeholder for future implementation)
-  const monetizationStats = {
-    estimatedRevenue: (detailedViewMetrics?.totalViews || 0) * 0.001, // $0.001 per view (placeholder)
-    projectedEarnings: (detailedViewMetrics?.totalViews || 0) * 0.001 * (period === '7d' ? 4 : 1), // projected monthly
-    topCategory: 'Gaming',
-    revenueTrend: growthMetrics?.metrics.views.trend ?? 0,
-  };
-
-  // --- Direct comment calculation from engagementTrends ---
-  const totalComments = getLatestCount(engagementTrends?.commentGrowth);
-  const commentGrowthTrend = calculateTrend(engagementTrends?.commentGrowth);
-  // --- End direct comment calculation ---
+  // Totals over the whole window. These used to read the LAST data point of the
+  // series, so "Comments, 7 days" showed the count on the most recent active day.
+  const totalComments = sumCounts(engagementTrends?.commentGrowth);
+  const totalLikes = sumCounts(engagementTrends?.likeGrowth);
 
   // For display strings
   const periodString = period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time';
@@ -130,16 +101,27 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
     }
   };
 
-  // Period-specific engagement rate
-  const getPeriodEngagementRate = () => {
-    return `${(growthMetrics?.metrics.engagement.total ?? 0).toFixed(1)}%`;
-  };
+  // (likes + comments) / views over the SAME window. The card used to print the
+  // raw interaction COUNT with a '%' sign appended.
+  const periodViews = getPeriodViews();
+  const interactionsThisPeriod = totalLikes + totalComments;
+  const periodInteractionRate = interactionRate(interactionsThisPeriod, periodViews);
 
-  // Check for relevant errors
+  // Each card names the queries it actually reads. Getting this wrong is how a
+  // rethrown backend error still renders as a confident number: the interaction
+  // card used to be gated on growthMetrics while its inputs are engagementTrends
+  // (likes + comments) and detailedViewMetrics (views).
   const commentsError = errors.engagementTrends;
-  const engagementError = errors.growthMetrics; 
-  const completionRateError = errors.channelWatchPatterns; 
-  const growthData = growthMetrics?.metrics;
+  const interactionError = errors.engagementTrends || errors.detailedViewMetrics;
+  const completionRateError = errors.channelWatchPatterns;
+  // 'all' reads the channel record for the subscriber total; every other period
+  // reads growthMetrics for "new in <period>".
+  const subscribersError = period === 'all' ? channelError : errors.growthMetrics;
+  // The Views card shows a detailedViewMetrics number with a growthMetrics
+  // trend badge, so either failing must show as an error rather than a number
+  // with a missing badge.
+  const viewsError = errors.detailedViewMetrics || errors.growthMetrics;
+  const watchHoursError = errors.allTimeWatchHours || errors.periodWatchHours;
 
   return (
     <div className="space-y-8">
@@ -149,7 +131,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           <p className="text-gray-400">Key performance metrics for your channel</p>
         </div>
         <div className="flex items-center gap-2">
-          {(isLoading || isChangingPeriod) && (
+          {isLoading && (
             <div className="animate-spin">
               <Clock className="w-4 h-4 text-[#fa7517]" />
             </div>
@@ -174,36 +156,37 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           value={period === 'all' 
             ? (channel?.subscribers_count || 0).toLocaleString()
             : (growthMetrics?.metrics.subscribers.total || 0).toLocaleString()}
-          change={Math.round(growthMetrics?.metrics.subscribers.trend ?? 0)}
+          change={trendBadgeValue(growthMetrics?.metrics.subscribers.trend)}
           loading={isLoading}
-          subtitle={period === 'all' 
-            ? "Total subscriber count" 
+          subtitle={period === 'all'
+            ? "Total subscriber count"
             : `New in ${periodString}`}
+          error={subscribersError ? 'Error loading subscribers' : undefined}
         />
         
         <StatsCard
           icon={Play}
           title="Views"
-          value={getPeriodViews().toLocaleString()}
-          change={Math.round(growthMetrics?.metrics.views.trend ?? 0)}
+          value={periodViews.toLocaleString()}
+          change={trendBadgeValue(growthMetrics?.metrics.views.trend)}
           loading={isLoading}
           subtitle={`For ${periodString}`}
+          error={viewsError ? 'Error loading views' : undefined}
         />
         
         <StatsCard
           icon={Clock}
           title="Watch Time"
           value={getPeriodWatchHours().value}
-          change={0}
           loading={isLoading}
           subtitle={getPeriodWatchHours().subtitle}
+          error={watchHoursError ? 'Error loading watch time' : undefined}
         />
         
         <StatsCard
           icon={DollarSign}
           title="Est. Revenue"
           value="Coming Soon"
-          change={0}
           loading={isLoading}
           subtitle="Monetization features in development"
           className="opacity-70"
@@ -214,43 +197,38 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
           icon={ThumbsUp}
-          title="Engagement Rate"
-          value={getPeriodEngagementRate()}
-          change={period === 'all' || growthData?.engagement.trend == null || growthData?.engagement.trend === 0 
-            ? 0 
-            : Math.round(growthData.engagement.trend)}
+          title="Interaction rate"
+          value={formatPercent(periodInteractionRate)}
           loading={analyticsLoading}
-          subtitle={`For ${periodString}`}
-          error={engagementError ? "Error loading engagement" : undefined}
+          subtitle={`${interactionsThisPeriod.toLocaleString()} likes + comments / ${periodViews.toLocaleString()} views, ${periodString}`}
+          error={interactionError ? "Error loading interactions" : undefined}
         />
-        
+
         <StatsCard
           icon={TrendingUp}
-          title="Completion Rate"
-          value={`${averageRetentionRate.toFixed(1)}%`}
-          change={0}
+          title="Avg. % watched"
+          value={formatPercent(averagePercentWatched)}
           loading={analyticsLoading}
-          subtitle="Average completion rate"
-          error={completionRateError ? "Error loading completion rate" : undefined}
+          subtitle="Share of each video watched, weighted by views"
+          error={completionRateError ? "Error loading watch depth" : undefined}
         />
-        
-        <StatsCard
-          icon={BarChart2}
-          title="Top Performing"
-          value={topRetainedVideo?.title ? (topRetainedVideo.title.length > 15 ? topRetainedVideo.title.substring(0, 15) + '...' : topRetainedVideo.title) : 'N/A'}
-          change={0}
-          loading={isLoading}
-          subtitle={topRetainedVideo ? `${topRetainedVideo.retentionRate.toFixed(1)}% completion rate` : 'No data available'}
-        />
-        
+
         <StatsCard
           icon={MessageCircle}
           title="Comments"
           value={totalComments.toLocaleString()}
-          change={Math.round(commentGrowthTrend)}
           loading={analyticsLoading}
           subtitle={`For ${periodString}`}
           error={commentsError ? "Error loading comments" : undefined}
+        />
+
+        <StatsCard
+          icon={ThumbsUp}
+          title="Likes"
+          value={totalLikes.toLocaleString()}
+          loading={analyticsLoading}
+          subtitle={`For ${periodString}`}
+          error={commentsError ? "Error loading likes" : undefined}
         />
       </div>
 

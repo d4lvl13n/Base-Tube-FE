@@ -3,8 +3,7 @@ import {
   ThumbsUp, 
   MessageCircle, 
   Share2, 
-  Clock, 
-  BarChart2,
+  Clock,
   Award,
   Loader
 } from 'lucide-react';
@@ -14,6 +13,7 @@ import { Select } from '../../../../ui/Select';
 import { format, parseISO } from 'date-fns';
 import { LineChart } from '../charts/LineChart';
 import { getVideoById } from '../../../../../api/video';
+import { formatPercent, sumCounts, weightedPercentWatched } from '../metrics';
 
 // Video card component
 const TopVideoCard: React.FC<{
@@ -149,7 +149,6 @@ const safeFormatDate = (dateString: string | undefined | null, index: number): s
 
 export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
-  const [isChangingPeriod, setIsChangingPeriod] = useState(false);
   
   const { 
     channelWatchPatterns, 
@@ -159,60 +158,41 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
     topComments,
     isLoading,
     errors,
-    invalidateAnalytics 
   } = useCreatorAnalytics(period, channelId);
   
   // Handle period change with cache invalidation
-  const handlePeriodChange = async (newPeriod: '7d' | '30d' | 'all') => {
-    if (newPeriod !== period) {
-      setIsChangingPeriod(true);
-      // Invalidate cache to force fresh data load
-      await invalidateAnalytics();
-      setPeriod(newPeriod);
-      
-      // Give some time for the UI to show loading state
-      setTimeout(() => {
-        setIsChangingPeriod(false);
-      }, 1000);
-    }
+  // Just switch the period. Every period-sensitive query has the period in
+  // its key, so React Query fetches the new key by itself. Invalidating the
+  // whole channel first (what this used to do) also refetched the OLD
+  // period's queries — ~19 requests for one click on the selector.
+  const handlePeriodChange = (newPeriod: '7d' | '30d' | 'all') => {
+    if (newPeriod !== period) setPeriod(newPeriod);
   };
   
-  // Debug log to check data (will be removed in production)
-  console.log('engagementTrends:', engagementTrends);
-  
-  // --- Direct calculation from engagementTrends ---
-  const getLatestCount = (trendData?: { date: string; count: number }[]) => {
-    return trendData && trendData.length > 0 ? trendData[trendData.length - 1].count : 0;
-  };
+  // Totals are the SUM over the selected window. They used to read the last
+  // point of the series, so "Total Likes, 7 days" showed the likes on the most
+  // recent active day (docs/ANALYTICS_REVIEW_2026-08-29.md finding 3).
+  //
+  // No trend badges here: the endpoint only returns the current window, so a
+  // real period-over-period comparison is not available. A badge computed from
+  // the first vs. last point of the same window (what this used to do) is not a
+  // trend, so nothing is shown rather than something wrong.
+  const totalLikes = sumCounts(engagementTrends?.likeGrowth);
+  const totalComments = sumCounts(engagementTrends?.commentGrowth);
+  const totalShares = sumCounts(engagementTrends?.shareGrowth);
 
-  const calculateTrend = (trendData?: { date: string; count: number }[]) => {
-    if (!trendData || trendData.length < 2) return 0;
-    const latestCount = trendData[trendData.length - 1].count;
-    const startCount = trendData[0].count;
-    if (startCount === 0) return latestCount > 0 ? 100 : 0; // Avoid division by zero, show 100% if starting from 0
-    return ((latestCount / startCount) - 1) * 100;
-  };
-
-  const totalLikes = getLatestCount(engagementTrends?.likeGrowth);
-  const totalComments = getLatestCount(engagementTrends?.commentGrowth);
-  const totalShares = getLatestCount(engagementTrends?.shareGrowth);
-
-  const likeGrowthTrend = calculateTrend(engagementTrends?.likeGrowth);
-  const commentGrowthTrend = calculateTrend(engagementTrends?.commentGrowth);
-  const shareGrowthTrend = calculateTrend(engagementTrends?.shareGrowth);
-  // --- End Direct calculation ---
-  
-  // Calculate average completion/retention rate
-  const avgRetentionRate = 
-    channelWatchPatterns?.retentionByDuration?.reduce(
-      (avg, item) => avg + (item.retentionRate / (channelWatchPatterns.retentionByDuration.length || 1)), 
-      0
-    ) ?? 0;
+  // Weighted by the views in each duration bucket, not a flat average.
+  const avgPercentWatched = weightedPercentWatched(channelWatchPatterns?.retentionByDuration);
 
   // For display strings
   const periodString = period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time';
 
-  const engagementError = errors.engagementTrends; // Check specific error
+  // Per card, not per group: three of these read engagementTrends but the
+  // fourth reads channelWatchPatterns, so gating the whole block on
+  // engagementTrends hid a watch-patterns failure behind a healthy-looking
+  // number (and hid three healthy numbers behind an engagement failure).
+  const engagementError = errors.engagementTrends;
+  const watchPatternsError = errors.channelWatchPatterns;
 
   return (
     <div className="space-y-8">
@@ -222,7 +202,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           <p className="text-gray-400">Track how viewers interact with your content</p>
         </div>
         <div className="flex items-center gap-2">
-          {(isLoading || isChangingPeriod) && (
+          {isLoading && (
             <div className="animate-spin">
               <Loader className="w-4 h-4 text-[#fa7517]" />
             </div>
@@ -240,49 +220,43 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
       </div>
 
       {/* Engagement Overview Cards */}
-      {engagementError ? (
-        <div className="bg-red-900/30 border border-red-500 text-red-300 p-4 rounded-lg text-center">
-          Error loading engagement overview data: {engagementError.message}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatsCard
-            icon={ThumbsUp}
-            title="Total Likes"
-            value={totalLikes.toLocaleString()}
-            change={Math.round(likeGrowthTrend)}
-            loading={isLoading}
-            subtitle={`For ${periodString}`}
-          />
-          
-          <StatsCard
-            icon={MessageCircle}
-            title="Comments"
-            value={totalComments.toLocaleString()}
-            change={Math.round(commentGrowthTrend)}
-            loading={isLoading}
-            subtitle={`For ${periodString}`}
-          />
-          
-          <StatsCard
-            icon={Share2}
-            title="Shares"
-            value={totalShares.toLocaleString()}
-            change={Math.round(shareGrowthTrend)}
-            loading={isLoading}
-            subtitle={`For ${periodString}`}
-          />
-          
-          <StatsCard
-            icon={Clock}
-            title="Completion Rate"
-            value={`${avgRetentionRate.toFixed(1)}%`}
-            change={0}
-            loading={isLoading}
-            subtitle="Average video completion"
-          />
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatsCard
+          icon={ThumbsUp}
+          title="Total Likes"
+          value={totalLikes.toLocaleString()}
+          loading={isLoading}
+          subtitle={`For ${periodString}`}
+          error={engagementError ? 'Error loading likes' : undefined}
+        />
+
+        <StatsCard
+          icon={MessageCircle}
+          title="Comments"
+          value={totalComments.toLocaleString()}
+          loading={isLoading}
+          subtitle={`For ${periodString}`}
+          error={engagementError ? 'Error loading comments' : undefined}
+        />
+
+        <StatsCard
+          icon={Share2}
+          title="Shares"
+          value={totalShares.toLocaleString()}
+          loading={isLoading}
+          subtitle={`For ${periodString}`}
+          error={engagementError ? 'Error loading shares' : undefined}
+        />
+
+        <StatsCard
+          icon={Clock}
+          title="Avg. % watched"
+          value={formatPercent(avgPercentWatched)}
+          loading={isLoading}
+          subtitle="Share of each video watched, weighted by views"
+          error={watchPatternsError ? 'Error loading watch depth' : undefined}
+        />
+      </div>
 
       {/* Engagement Growth Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
