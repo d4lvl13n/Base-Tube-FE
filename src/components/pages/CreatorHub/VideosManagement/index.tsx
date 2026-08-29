@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { invalidateChannelAnalytics } from '../../../../hooks/useAnalyticsData';
 import { toast } from 'react-toastify';
 import { useSearchParams } from 'react-router-dom';
 import { ChannelVideoQuery, getChannelVideos } from '../../../../api/channel';
@@ -331,6 +332,10 @@ const VideosManagement: React.FC = () => {
     (moved: boolean) => {
       dropInactiveChannelVideos(queryClient, selectedChannelId);
       if (moved) refetchActiveChannelVideos(queryClient, selectedChannelId);
+      // Every membership-changing mutation (visibility, delete) changes what
+      // the creator's analytics count, so the analytics namespace is marked
+      // stale here — it is the only place that knows a mutation succeeded.
+      void invalidateChannelAnalytics(queryClient, selectedChannelId);
     },
     [queryClient, selectedChannelId],
   );
