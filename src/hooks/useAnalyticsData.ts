@@ -29,6 +29,7 @@ import type {
   ChannelAnalyticsInsight
 } from '../types/analytics';
 import { useCallback, useEffect } from 'react';
+import { queryKeys } from '../utils/queryKeys';
 
 // A creator dashboard tab mounts ~12 queries at once. With staleTime: 0 and
 // refetchOnWindowFocus: true every tab switch (and every alt-tab back to the
@@ -72,7 +73,7 @@ export const invalidateChannelAnalytics = async (
 ): Promise<void> => {
   if (!channelId) return;
   await queryClient.invalidateQueries({
-    queryKey: ['analytics', channelId],
+    queryKey: queryKeys.analytics.channel(channelId),
     exact: false,
     refetchType: 'active'
   });
@@ -91,43 +92,43 @@ export const useAnalyticsContext = () => {
 
     await Promise.all([
       queryClient.prefetchQuery({
-        queryKey: ['analytics', channelId, 'channelWatchPatterns', period],
+        queryKey: queryKeys.analytics.channelMetric(channelId, 'channelWatchPatterns', period),
         queryFn: () => getChannelWatchPatterns(channelId, period)
       }),
       queryClient.prefetchQuery({ 
-        queryKey: ['analytics', channelId, 'socialMetrics'], 
+        queryKey: queryKeys.analytics.channelMetric(channelId, 'socialMetrics'), 
         queryFn: () => getSocialMetrics(channelId) 
       }),
       queryClient.prefetchQuery({ 
-        queryKey: ['analytics', channelId, 'growthMetrics', period], 
+        queryKey: queryKeys.analytics.channelMetric(channelId, 'growthMetrics', period), 
         queryFn: () => getGrowthMetrics(period, channelId) 
       }),
       queryClient.prefetchQuery({ 
-        queryKey: ['analytics', channelId, 'watchHours', period], 
+        queryKey: queryKeys.analytics.channelMetric(channelId, 'watchHours', period), 
         queryFn: () => getChannelWatchHours(channelId, period)
       }),
       queryClient.prefetchQuery({
-        queryKey: ['analytics', channelId, 'detailedViewMetrics'],
+        queryKey: queryKeys.analytics.channelMetric(channelId, 'detailedViewMetrics'),
         queryFn: () => getChannelViewMetrics(channelId, true)
       }),
       queryClient.prefetchQuery({
-        queryKey: ['analytics', channelId, 'demographics', mapPeriodToDemographics(period)],
+        queryKey: queryKeys.analytics.channelMetric(channelId, 'demographics', mapPeriodToDemographics(period)),
         queryFn: () => getChannelDemographics(channelId, mapPeriodToDemographics(period))
       }),
       queryClient.prefetchQuery({
-        queryKey: ['analytics', channelId, 'engagementTrends', period],
+        queryKey: queryKeys.analytics.channelMetric(channelId, 'engagementTrends', period),
         queryFn: () => getEngagementTrends(channelId, period)
       }),
       queryClient.prefetchQuery({
-        queryKey: ['analytics', channelId, 'topLikedContent'],
+        queryKey: queryKeys.analytics.channelMetric(channelId, 'topLikedContent'),
         queryFn: () => getTopLikedContent(channelId, 5)
       }),
       queryClient.prefetchQuery({
-        queryKey: ['analytics', channelId, 'topSharedContent'],
+        queryKey: queryKeys.analytics.channelMetric(channelId, 'topSharedContent'),
         queryFn: () => getTopSharedContent(channelId, 5)
       }),
       queryClient.prefetchQuery({
-        queryKey: ['analytics', channelId, 'topComments', period],
+        queryKey: queryKeys.analytics.channelMetric(channelId, 'topComments', period),
         queryFn: () => getTopComments(channelId, period, 5)
       })
     ]);
@@ -171,7 +172,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
 
   // Basic view metrics - Channel-focused
   const viewMetrics = useQuery<BasicViewMetrics, Error>({
-    queryKey: ['analytics', channelId, 'viewMetrics'],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'viewMetrics'),
     queryFn: async () => {
       const result = await getChannelViewMetrics(channelId!, false);
       if (isDetailedViewMetrics(result)) {
@@ -190,7 +191,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
   // already hold. Keying it by period re-fetched the same bytes on every
   // selector change.
   const detailedViewMetrics = useQuery<DetailedViewMetrics, Error>({
-    queryKey: ['analytics', channelId, 'detailedViewMetrics'],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'detailedViewMetrics'),
     queryFn: async () => {
       const result = await getChannelViewMetrics(channelId!, true);
       if (!isDetailedViewMetrics(result)) {
@@ -204,7 +205,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
 
   // Channel watch patterns - Channel specific
   const channelWatchPatterns = useQuery<ChannelWatchPatterns, Error>({
-    queryKey: ['analytics', channelId, 'channelWatchPatterns', validPeriod],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'channelWatchPatterns', validPeriod),
     queryFn: () => getChannelWatchPatterns(channelId!, validPeriod),
     enabled: !!channelId,
     ...ANALYTICS_QUERY_DEFAULTS
@@ -212,7 +213,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
 
   // Channel demographics - Channel specific
   const demographics = useQuery<ChannelDemographics, Error>({
-    queryKey: ['analytics', channelId, 'demographics', demographicsPeriod],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'demographics', demographicsPeriod),
     queryFn: () => {
       console.log(`[Analytics] Fetching demographics for period ${demographicsPeriod}`);
       return getChannelDemographics(channelId!, demographicsPeriod);
@@ -223,7 +224,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
 
   // Social metrics - Channel-focused
   const socialMetrics = useQuery<SocialMetrics, Error>({
-    queryKey: ['analytics', channelId, 'socialMetrics'],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'socialMetrics'),
     queryFn: () => getSocialMetrics(channelId!),
     enabled: !!channelId,
     ...ANALYTICS_QUERY_DEFAULTS
@@ -231,7 +232,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
 
   // Growth metrics - Channel-focused
   const growthMetrics = useQuery<GrowthMetrics, Error>({
-    queryKey: ['analytics', channelId, 'growthMetrics', validPeriod],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'growthMetrics', validPeriod),
     queryFn: () => {
       // Determine the period to pass to the API
       // NOW: Pass 'all' directly if validPeriod is 'all'
@@ -246,7 +247,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
 
   // Watch hours - Channel-focused with all-time and period data
   const allTimeWatchHours = useQuery<CreatorWatchHours, Error>({
-    queryKey: ['analytics', channelId, 'watchHours', 'all-time'],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'watchHours', 'all-time'),
     queryFn: () => {
       if (!channelId) {
         throw new Error('Channel ID is required for watch hours');
@@ -259,7 +260,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
   });
 
   const periodWatchHours = useQuery<CreatorWatchHours, Error>({
-    queryKey: ['analytics', channelId, 'watchHours', validPeriod],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'watchHours', validPeriod),
     queryFn: () => {
       if (!channelId) {
         throw new Error('Channel ID is required for watch hours');
@@ -276,7 +277,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
 
   // New engagement-related queries
   const engagementTrends = useQuery<EngagementTrends, Error>({
-    queryKey: ['analytics', channelId, 'engagementTrends', validPeriod],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'engagementTrends', validPeriod),
     queryFn: () => {
       console.log(`[Analytics] Fetching engagementTrends for channelId ${channelId} with period ${validPeriod}`);
       return getEngagementTrends(channelId!, validPeriod);
@@ -286,21 +287,21 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
   });
 
   const topLikedContent = useQuery<TopContentItem[], Error>({
-    queryKey: ['analytics', channelId, 'topLikedContent'],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'topLikedContent'),
     queryFn: () => getTopLikedContent(channelId!, 5),
     enabled: !!channelId,
     ...ANALYTICS_QUERY_DEFAULTS
   });
 
   const topSharedContent = useQuery<TopSharedItem[], Error>({
-    queryKey: ['analytics', channelId, 'topSharedContent'],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'topSharedContent'),
     queryFn: () => getTopSharedContent(channelId!, 5),
     enabled: !!channelId,
     ...ANALYTICS_QUERY_DEFAULTS
   });
 
   const topComments = useQuery<TopComment[], Error>({
-    queryKey: ['analytics', channelId, 'topComments', validPeriod],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'topComments', validPeriod),
     queryFn: () => {
       console.log(`[Analytics] Fetching topComments for period ${validPeriod}`);
       return getTopComments(channelId!, validPeriod, 5);
@@ -374,7 +375,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
  */
 export const useChannelWatchHours = (channelId: string, period: '7d' | '30d' = '7d') => {
   const query = useQuery<CreatorWatchHours, Error>({
-    queryKey: ['analytics', channelId, 'watchHours', period],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'watchHours', period),
     queryFn: () => {
       if (!channelId) {
         throw new Error('Channel ID is required for watch hours');
@@ -408,7 +409,7 @@ export const useAnalyticsInsights = (
   channelId?: string
 ) => {
   const { data, isLoading, error, refetch } = useQuery<ChannelAnalyticsInsight, Error>({
-    queryKey: ['analytics', channelId, 'insights', Array.isArray(periods) ? periods.join(',') : periods],
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'insights', Array.isArray(periods) ? periods.join(',') : periods),
     queryFn: () => {
       if (!channelId) {
         throw new Error('Channel ID is required for AI analytics insights');

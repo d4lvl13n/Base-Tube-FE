@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getChannelVideosPerformance } from '../api/analytics';
 import type { VideoPerformanceResponse } from '../types/analytics';
+import { queryKeys } from '../utils/queryKeys';
 
 // Define valid sortable fields based on the API options
 type SortableField = 'views' | 'likes' | 'comments' | 'average_watch_duration_seconds' | 'average_percentage_viewed' | 'createdAt';
@@ -46,7 +47,7 @@ export const useDetailedVideoPerformance = (
     // invalidateChannelAnalytics reaches it after a video mutation. On its own
     // ['channelVideoPerformance', ...] key it was missed, and with a 5 minute
     // staleTime it served pre-mutation rows longer than anything else.
-    queryKey: ['analytics', channelId, 'videoPerformance', queryOptions], 
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'videoPerformance', queryOptions), 
     queryFn: () => {
       if (!channelId) {
         // Should not happen if enabled is set correctly, but good practice

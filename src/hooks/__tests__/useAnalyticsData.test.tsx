@@ -1,9 +1,14 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useCreatorAnalytics, invalidateChannelAnalytics } from '../useAnalyticsData';
+import {
+  invalidateChannelAnalytics,
+  useAnalyticsInsights,
+  useCreatorAnalytics
+} from '../useAnalyticsData';
 import { useDetailedVideoPerformance } from '../useDetailedVideoPerformance';
 import { useChannelData } from '../useChannelData';
+import { invalidationHelpers, queryKeys } from '../../utils/queryKeys';
 
 // Each mock resolves with a shape the hook can consume, and counts its calls so
 // we can assert exactly which queries a period change re-issues.
@@ -318,5 +323,82 @@ describe('invalidateChannelAnalytics — namespace boundaries', () => {
     // useChannelData sits on ['channel', id]; the analytics namespace must not
     // sweep it up as collateral.
     expect(mockGetChannelById).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('queryKeys.analytics is the single source of truth', () => {
+  /** Every analytics key currently registered in the cache. */
+  const analyticsKeys = (queryClient: QueryClient) =>
+    queryClient
+      .getQueryCache()
+      .getAll()
+      .map((q) => q.queryKey as unknown[])
+      .filter((key) => key[0] === 'analytics');
+
+  const startsWith = (key: unknown[], prefix: readonly unknown[]) =>
+    prefix.every((segment, i) => key[i] === segment);
+
+  it('produces the prefix the hooks actually register', async () => {
+    const { queryClient, wrapper } = makeWrapper();
+    const { result } = renderHook(
+      () => ({
+        creator: useCreatorAnalytics('7d', '1'),
+        videos: useDetailedVideoPerformance('1', { initialLimit: 10 }),
+        insights: useAnalyticsInsights('7d', '1')
+      }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.creator.isLoading).toBe(false));
+    await waitFor(() => expect(analyticsKeys(queryClient).length).toBeGreaterThan(10));
+
+    const prefix = queryKeys.analytics.channel('1');
+    expect(prefix).toEqual(['analytics', '1']);
+
+    // Every registered analytics key must sit under that prefix — including
+    // the Video Performance table and the AI insights query.
+    for (const key of analyticsKeys(queryClient)) {
+      expect(startsWith(key, prefix)).toBe(true);
+    }
+    const metrics = analyticsKeys(queryClient).map((key) => key[2]);
+    expect(metrics).toEqual(expect.arrayContaining(['videoPerformance', 'insights', 'socialMetrics']));
+
+    // And the factory reproduces a real key exactly.
+    expect(queryKeys.analytics.channelMetric('1', 'growthMetrics', '7d')).toEqual([
+      'analytics',
+      '1',
+      'growthMetrics',
+      '7d'
+    ]);
+    expect(
+      analyticsKeys(queryClient).some((key) =>
+        JSON.stringify(key) ===
+        JSON.stringify(queryKeys.analytics.channelMetric('1', 'growthMetrics', '7d'))
+      )
+    ).toBe(true);
+  });
+
+  it('invalidationHelpers.invalidateAnalytics actually matches those keys', async () => {
+    const { queryClient, wrapper } = makeWrapper();
+    const { result } = renderHook(() => useCreatorAnalytics('7d', '1'), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const before = totalCalls();
+
+    // This used to build ['analytics', 'channel', '1', ''] — a key nothing has
+    // ever registered — so it silently invalidated nothing.
+    await act(async () => {
+      invalidationHelpers.invalidateAnalytics(queryClient, 'channel', '1');
+    });
+
+    await waitFor(() => expect(totalCalls()).toBeGreaterThan(before));
+  });
+
+  it('does not put channel analytics under the channel-record namespace', () => {
+    // queryKeys.channel.analytics() used to emit ['channel', 'analytics', id],
+    // which matched nothing and sat in the namespace useChannelData owns.
+    expect('analytics' in queryKeys.channel).toBe(false);
+    expect(queryKeys.channel.byId('1')).toEqual(['channel', '1']);
+    expect(queryKeys.analytics.channel('1')[0]).not.toBe('channel');
   });
 });

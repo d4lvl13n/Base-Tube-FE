@@ -66,27 +66,40 @@ export const queryKeys = {
     
     // Channel subscribers
     subscribers: (channelId: string) => [...queryKeys.channel.all, 'subscribers', channelId] as const,
-    
-    // Channel analytics
-    analytics: (channelId: string, period?: string) => 
-      [...queryKeys.channel.all, 'analytics', channelId, period] as const,
+
+    // NOTE: channel analytics do NOT live here. They are a separate namespace
+    // (queryKeys.analytics.channel) so that invalidating analytics does not
+    // also drop the channel detail record that useChannelData keeps on
+    // ['channel', id]. There used to be a channel.analytics() factory emitting
+    // ['channel', 'analytics', id, period], which matched nothing.
   },
 
-  // Analytics-related queries
+  // Analytics-related queries.
+  //
+  // THE hierarchy is ['analytics', channelId, <metric>, ...params]. Every
+  // creator-analytics hook builds its key through these factories, and
+  // invalidateChannelAnalytics invalidates queryKeys.analytics.channel(id), so
+  // there is exactly one definition of the prefix. Do not hand-write an
+  // analytics query key.
   analytics: {
     // Analytics root key
     all: ['analytics'] as const,
-    
-    // Channel analytics
-    channel: (channelId: string, period: string) => 
-      [...queryKeys.analytics.all, 'channel', channelId, period] as const,
-    
+
+    // Everything recorded for one channel — the invalidation prefix.
+    channel: (channelId?: string) => [...queryKeys.analytics.all, channelId] as const,
+
+    // One metric for a channel, plus whatever params key it (the period, the
+    // pagination/sort options, ...). Params that are absent are simply omitted,
+    // so channelMetric(id, 'socialMetrics') is ['analytics', id, 'socialMetrics'].
+    channelMetric: (channelId: string | undefined, metric: string, ...params: unknown[]) =>
+      [...queryKeys.analytics.channel(channelId), metric, ...params] as const,
+
     // Video analytics
-    video: (videoId: string, period: string) => 
+    video: (videoId: string, period?: string) =>
       [...queryKeys.analytics.all, 'video', videoId, period] as const,
-    
+
     // Dashboard analytics
-    dashboard: (timeRange: string) => 
+    dashboard: (timeRange: string) =>
       [...queryKeys.analytics.all, 'dashboard', timeRange] as const,
   },
 
@@ -164,23 +177,27 @@ export const invalidationHelpers = {
     queryClient.invalidateQueries({ queryKey: queryKeys.videos.all });
   },
 
-  // Invalidate channel data
+  // Invalidate channel data (the record itself AND its analytics)
   invalidateChannel: (queryClient: any, channelId?: string) => {
     if (channelId) {
       queryClient.invalidateQueries({ queryKey: queryKeys.channel.byId(channelId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.channel.analytics(channelId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.analytics.channel(channelId) });
     } else {
       queryClient.invalidateQueries({ queryKey: queryKeys.channel.all });
     }
   },
 
-  // Invalidate analytics data
+  // Invalidate analytics data.
+  //
+  // The 'channel' scope used to build ['analytics', 'channel', id, ''] — a key
+  // no query has ever registered, so this silently invalidated nothing. It now
+  // goes through the same factory the hooks use.
   invalidateAnalytics: (queryClient: any, scope?: 'channel' | 'video', id?: string) => {
     if (scope && id) {
       if (scope === 'channel') {
-        queryClient.invalidateQueries({ queryKey: queryKeys.analytics.channel(id, '') });
+        queryClient.invalidateQueries({ queryKey: queryKeys.analytics.channel(id) });
       } else {
-        queryClient.invalidateQueries({ queryKey: queryKeys.analytics.video(id, '') });
+        queryClient.invalidateQueries({ queryKey: queryKeys.analytics.video(id) });
       }
     } else {
       queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all });
