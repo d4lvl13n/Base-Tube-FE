@@ -1468,3 +1468,29 @@ describe('VideosManagement paging', () => {
     expect(screen.getByText('2 selected')).toBeInTheDocument();
   });
 });
+
+describe('VideosManagement edit screen', () => {
+  /**
+   * The edit screen replaces the list rather than sitting over it, so the
+   * confirmation dialog has to be rendered from that branch too — otherwise
+   * "Delete video…" opened nothing at all.
+   */
+  it('deletes from the edit screen through the same dialog as the list', async () => {
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 5, title: 'Clip one' })]));
+
+    renderManagement();
+    fireEvent.click(await screen.findByRole('button', { name: 'Clip one' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: /Delete video/ }));
+
+    expect(await screen.findByText('Delete Video')).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete "Clip one"/)).toBeInTheDocument();
+
+    mockGetChannelVideos.mockResolvedValue(page([]));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(mockDeleteVideo.mock.calls[0]?.[0]).toBe('5'));
+    // The video is gone, so the screen that was editing it goes with it.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Back' })).toBeNull());
+  });
+});

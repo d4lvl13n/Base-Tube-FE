@@ -854,23 +854,43 @@ const VideosManagement: React.FC = () => {
     return <div className="p-6 text-red-500">Failed to load videos</div>;
   }
 
+  const deleteCount = pendingDelete?.length ?? 0;
+  const deleteTitle = videos.find((video) => video.id === pendingDelete?.[0])?.title;
+
+  // One confirmation, wherever the delete was asked for — the row's overflow
+  // menu, the bulk bar, or the edit screen. The edit screen replaces the list
+  // rather than sitting over it, so the dialog has to be rendered in both
+  // branches or it would never appear from there.
+  const deleteDialog = deleteCount > 0 && (
+    <DeleteConfirmationDialog
+      isOpen
+      onClose={() => setPendingDelete(null)}
+      onConfirm={() => void confirmDelete()}
+      title={deleteCount === 1 ? 'Delete Video' : `Delete ${deleteCount} videos`}
+      message={
+        deleteCount === 1
+          ? `Are you sure you want to delete "${deleteTitle ?? 'this video'}"? This action cannot be undone.`
+          : `Are you sure you want to delete ${deleteCount} videos? This action cannot be undone.`
+      }
+    />
+  );
+
   if (editingVideo) {
     return (
       <div className="relative pt-24">
-        <div className="px-4 md:px-6 max-w-[1920px] mx-auto">
+        <div className="mx-auto max-w-[1600px] px-4 md:px-6">
           <EditVideoModal
             video={editingVideo}
             isOpen
             onClose={() => setEditingVideoId(null)}
             onUpdate={handleUpdateVideo}
+            onDelete={handleDelete}
           />
         </div>
+        {deleteDialog}
       </div>
     );
   }
-
-  const deleteCount = pendingDelete?.length ?? 0;
-  const deleteTitle = videos.find((video) => video.id === pendingDelete?.[0])?.title;
 
   return (
     <div className="relative pt-24 pb-8">
@@ -916,19 +936,7 @@ const VideosManagement: React.FC = () => {
           onClear={clearSelection}
         />
 
-        {deleteCount > 0 && (
-          <DeleteConfirmationDialog
-            isOpen
-            onClose={() => setPendingDelete(null)}
-            onConfirm={() => void confirmDelete()}
-            title={deleteCount === 1 ? 'Delete Video' : `Delete ${deleteCount} videos`}
-            message={
-              deleteCount === 1
-                ? `Are you sure you want to delete "${deleteTitle ?? 'this video'}"? This action cannot be undone.`
-                : `Are you sure you want to delete ${deleteCount} videos? This action cannot be undone.`
-            }
-          />
-        )}
+        {deleteDialog}
       </div>
     </div>
   );
