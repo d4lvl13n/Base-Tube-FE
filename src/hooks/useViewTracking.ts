@@ -7,19 +7,37 @@ interface UseViewTrackingProps {
   videoDuration: number;
 }
 
+/** Fastest the player can advance media time per second of wall time. */
+const MAX_PLAYBACK_RATE = 2;
+/** Room for a late callback before the gap stops looking like playback. */
+const TICK_TOLERANCE = 1.5;
 /**
- * Largest gap between two `timeupdate` events that can still be playback.
- *
- * `timeupdate` fires roughly 4×/s, so a real tick is ~0.25 s — 0.5 s at the 2×
- * the player offers. A bigger jump is a seek, a stall recovery, or a throttled
- * tab catching up, and it is DROPPED.
- *
- * Dropping, not capping. Capping looks like the safe option and is not: it
- * quietly credits the cap's worth of watch time to every scrub, so dragging
- * through a video manufactures watch time out of nothing. The `seeking` flag
- * from the player catches most scrubs; this catches the rest.
+ * Floor for the per-tick allowance, from the nominal `timeupdate` cadence
+ * (~4×/s, so 0.25 s — 0.5 s at 2×). Keeps a burst of events arriving
+ * microseconds apart from rejecting an ordinary tick.
  */
-const MAX_TICK_SECONDS = 1.5;
+const MIN_TICK_SECONDS = 0.25 * MAX_PLAYBACK_RATE * TICK_TOLERANCE;
+
+/**
+ * The largest media-time jump that could still be playback.
+ *
+ * Measured against the WALL CLOCK, not the nominal event cadence: media time
+ * cannot outrun wall time by more than the playback rate, so the gap actually
+ * observed since the previous event is the honest bound. A fixed bound derived
+ * from the nominal interval meant any event more than ~0.5 s late at 2× looked
+ * like a seek — and under main-thread load an honest session recorded nothing.
+ *
+ * Whatever exceeds it is DROPPED, not capped. Capping looks like the safe
+ * option and is not: it quietly credits the cap's worth of watch time to every
+ * scrub, so dragging through a video manufactures watch time out of nothing.
+ */
+const tickAllowanceSeconds = (wallElapsedSeconds: number | null): number => {
+  if (wallElapsedSeconds === null) return MIN_TICK_SECONDS;
+  return Math.max(
+    MIN_TICK_SECONDS,
+    Math.max(0, wallElapsedSeconds) * MAX_PLAYBACK_RATE * TICK_TOLERANCE
+  );
+};
 
 /**
  * Watch-time tracking for the main player.
@@ -52,6 +70,8 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
   const playedSecondsRef = useRef(0);
   /** Playhead position at the previous `timeupdate`, to diff against. */
   const lastPositionRef = useRef<number | null>(null);
+  /** Wall clock at the previous `timeupdate`, to bound the media delta against. */
+  const lastTickAtRef = useRef<number | null>(null);
   /** Largest value already accepted by the server — never re-send it. */
   const lastSentRef = useRef(0);
   const viewIdRef = useRef<string | null>(null);
@@ -165,16 +185,31 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
       if (!isMountedRef.current) return;
       if (!Number.isFinite(currentTime)) return;
 
+      // A hidden tab is not credited, at all. `visibilitychange` drops the
+      // anchor, but the very next tick would otherwise re-anchor and start
+      // accruing again — a backgrounded tab throttles `timeupdate` to ~1/s, so
+      // what it accrues is guesswork either way. Bail before touching any
+      // anchor, so the stretch spent hidden cannot be credited on return.
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+
+      const nowMs = Date.now();
       const previous = lastPositionRef.current;
+      const previousTickAt = lastTickAtRef.current;
       lastPositionRef.current = currentTime;
+      lastTickAtRef.current = nowMs;
 
       if (!isTrackingRef.current) return;
 
       if (previous !== null && !seeking) {
         const delta = currentTime - previous;
+        const allowance = tickAllowanceSeconds(
+          previousTickAt === null ? null : (nowMs - previousTickAt) / 1000
+        );
         // Negative (rewind) and oversized (seek / stall / throttle) deltas are
         // both worth nothing — not "worth the cap".
-        if (delta > 0 && delta <= MAX_TICK_SECONDS) {
+        if (delta > 0 && delta <= allowance) {
           playedSecondsRef.current = Math.min(
             playedSecondsRef.current + delta,
             videoDurationRef.current || playedSecondsRef.current + delta
@@ -195,6 +230,7 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
     isTrackingRef.current = false;
     playedSecondsRef.current = 0;
     lastPositionRef.current = null;
+    lastTickAtRef.current = null;
     lastSentRef.current = 0;
     viewIdRef.current = null;
     beaconTokenRef.current = null;
@@ -230,6 +266,7 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
       // coming back would otherwise carry the entire hidden stretch. Dropping
       // the anchor means neither is credited.
       lastPositionRef.current = null;
+      lastTickAtRef.current = null;
 
       if (document.visibilityState === 'hidden') {
         void sendUpdate(true);
@@ -279,12 +316,14 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
       isTrackingRef.current = true;
       // Do not credit the gap between pause and resume.
       lastPositionRef.current = null;
+      lastTickAtRef.current = null;
     }, []),
 
     pauseTracking: useCallback(() => {
       if (!isMountedRef.current) return;
       isTrackingRef.current = false;
       lastPositionRef.current = null;
+      lastTickAtRef.current = null;
       void sendUpdate(true);
     }, [sendUpdate]),
 

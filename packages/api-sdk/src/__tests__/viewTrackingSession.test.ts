@@ -164,11 +164,44 @@ describe('view creation uses the server threshold', () => {
   });
 });
 
-describe('a failed creation does not silence the session', () => {
+describe('a failed creation does not silence the session — or flood the server', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('retries a transient failure with backoff and recovers', async () => {
+  /** Playback continues at the real callback cadence while time passes. */
+  const playFor = async (session: ViewTrackingSession, ms: number, fromMs: number) => {
+    let position = fromMs;
+    for (let elapsed = 0; elapsed < ms; elapsed += STATUS_INTERVAL_MS) {
+      jest.advanceTimersByTime(STATUS_INTERVAL_MS);
+      position += STATUS_INTERVAL_MS;
+      session.observe({ positionMs: position, isPlaying: true, durationMs: 600_000 });
+      // Let any promise the tick started settle, the way a real event loop does.
+      await Promise.resolve();
+      await Promise.resolve();
+    }
+  };
+
+  it('does not let status callbacks bypass the backoff', async () => {
+    const api = makeApi();
+    api.recordViewResult.mockResolvedValue({ viewId: null, retryable: true });
+    const session = makeSession(api, { retryDelaysMs: [2_000] });
+
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await Promise.resolve();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(1);
+
+    // Ten seconds of ordinary playback = 20 status callbacks, every one of
+    // which used to cancel the pending timer and POST immediately (~2/s, which
+    // hits the interaction limiter in about 15 seconds).
+    await playFor(session, 10_000, 31_000);
+
+    // 10 s at a 2 s backoff is five attempts, not twenty-one.
+    expect(api.recordViewResult.mock.calls.length).toBeLessThanOrEqual(6);
+    expect(api.recordViewResult.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('retries with backoff and recovers', async () => {
     const api = makeApi();
     api.recordViewResult
       .mockResolvedValueOnce({ viewId: null, retryable: true })
@@ -181,7 +214,11 @@ describe('a failed creation does not silence the session', () => {
     await Promise.resolve();
     expect(api.recordViewResult).toHaveBeenCalledTimes(1);
 
-    jest.advanceTimersByTime(1_000);
+    jest.advanceTimersByTime(999);
+    await Promise.resolve();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(1);
     await Promise.resolve();
     await Promise.resolve();
     expect(api.recordViewResult).toHaveBeenCalledTimes(2);
@@ -193,7 +230,48 @@ describe('a failed creation does not silence the session', () => {
     expect(session.viewId).toBe('view-9');
   });
 
-  it('does not retry a verdict — a rejected view stays rejected', async () => {
+  it('waits as long as the server asked when it sent Retry-After', async () => {
+    const api = makeApi();
+    api.recordViewResult.mockResolvedValue({
+      viewId: null,
+      retryable: true,
+      retryAfterMs: 10_000,
+    });
+    const session = makeSession(api, { retryDelaysMs: [1_000] });
+
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await Promise.resolve();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(1);
+
+    // Our own backoff would have fired nine seconds ago; the server's wins.
+    await playFor(session, 9_000, 31_000);
+    expect(api.recordViewResult).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(1_100);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(2);
+  });
+
+  it('never waits less than its own backoff, whatever Retry-After says', async () => {
+    const api = makeApi();
+    api.recordViewResult.mockResolvedValue({
+      viewId: null,
+      retryable: true,
+      retryAfterMs: 1,
+    });
+    const session = makeSession(api, { retryDelaysMs: [5_000] });
+
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+    play(session, 0, 31_000);
+    await Promise.resolve();
+
+    await playFor(session, 4_000, 31_000);
+    expect(api.recordViewResult).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops asking once the backend has given a verdict', async () => {
     const api = makeApi();
     api.recordViewResult.mockResolvedValue({ viewId: null, retryable: false });
     const session = makeSession(api, { retryDelaysMs: [1_000] });
@@ -201,31 +279,30 @@ describe('a failed creation does not silence the session', () => {
     session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
     play(session, 0, 31_000);
     await Promise.resolve();
+    expect(api.recordViewResult).toHaveBeenCalledTimes(1);
 
-    jest.advanceTimersByTime(60_000);
+    // Neither timers nor continued playback may reopen it: the view was
+    // refused on its merits and the same request cannot fare better.
+    jest.advanceTimersByTime(120_000);
     await Promise.resolve();
+    await playFor(session, 10_000, 31_000);
 
     expect(api.recordViewResult).toHaveBeenCalledTimes(1);
   });
 
-  it('re-attempts from later playback rather than latching a one-shot flag', async () => {
+  it('treats an api that throws as a transient failure rather than spinning', async () => {
     const api = makeApi();
-    api.recordViewResult
-      .mockResolvedValueOnce({ viewId: null, retryable: false })
-      .mockResolvedValue({ viewId: 'view-2', retryable: false });
-    // No timer retries: the next status tick is what tries again.
-    const session = makeSession(api, { retryDelaysMs: [999_999] });
+    api.recordViewResult.mockRejectedValue(new Error('boom'));
+    const session = makeSession(api, { retryDelaysMs: [2_000] });
 
     session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
     play(session, 0, 31_000);
     await Promise.resolve();
-    expect(session.viewId).toBeNull();
-
-    play(session, 31_000, 33_000);
     await Promise.resolve();
 
-    expect(api.recordViewResult).toHaveBeenCalledTimes(2);
-    expect(session.viewId).toBe('view-2');
+    await playFor(session, 6_000, 31_000);
+
+    expect(api.recordViewResult.mock.calls.length).toBeLessThanOrEqual(4);
   });
 
   it('never opens two rows for one session', async () => {
@@ -240,6 +317,61 @@ describe('a failed creation does not silence the session', () => {
     await Promise.resolve();
 
     expect(api.recordViewResult).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a late callback is not a seek', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('credits media time that a slow main thread delivered in one lump', () => {
+    const session = makeSession();
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+
+    // The JS thread was blocked for three seconds; at 2x that is six seconds of
+    // media, delivered as a single callback. Judged against the NOMINAL 500 ms
+    // interval this looked like a seek and an honest session recorded nothing.
+    jest.advanceTimersByTime(3_000);
+    session.observe({ positionMs: 6_000, isPlaying: true, durationMs: 600_000 });
+
+    expect(session.playedMs).toBe(6_000);
+  });
+
+  it('still drops a real seek, however late the callback', () => {
+    const session = makeSession();
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+
+    // Half a second of wall time cannot produce nine minutes of media.
+    jest.advanceTimersByTime(500);
+    session.observe({ positionMs: 540_000, isPlaying: true, durationMs: 600_000 });
+
+    expect(session.playedMs).toBe(0);
+  });
+
+  it('drops a seek that happens during a stall', () => {
+    const session = makeSession();
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+
+    // Three seconds of wall time allows at most ~9 s of media; a jump to the
+    // ten-minute mark is still a scrub.
+    jest.advanceTimersByTime(3_000);
+    session.observe({ positionMs: 590_000, isPlaying: true, durationMs: 600_000 });
+
+    expect(session.playedMs).toBe(0);
+  });
+
+  it('accepts the wall-clock bound exactly at its edge', () => {
+    const session = makeSession();
+    session.observe({ positionMs: 0, isPlaying: true, durationMs: 600_000 });
+
+    // allowance = 2 s wall x 2 (rate) x 1.5 (tolerance) = 6 s.
+    jest.advanceTimersByTime(2_000);
+    session.observe({ positionMs: 6_000, isPlaying: true, durationMs: 600_000 });
+    expect(session.playedMs).toBe(6_000);
+
+    jest.advanceTimersByTime(2_000);
+    session.observe({ positionMs: 12_001, isPlaying: true, durationMs: 600_000 });
+    expect(session.playedMs).toBe(6_000);
   });
 });
 

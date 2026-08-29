@@ -313,6 +313,22 @@ describe('a hidden tab is not credited', () => {
 
   afterEach(() => show());
 
+  it('credits nothing at all while the tab is hidden', async () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 31);
+    await waitFor(() => expect(initView).toHaveBeenCalled());
+    await settle();
+
+    const beforeHide = result.current.getPlayedSeconds();
+
+    act(() => hide());
+    // A hidden tab keeps firing `timeupdate`, just throttled. None of it counts.
+    play(result, 31, 120);
+
+    expect(result.current.getPlayedSeconds()).toBe(beforeHide);
+  });
+
   it('does not credit the stretch spent hidden when the tab comes back', async () => {
     const { result } = render();
     act(() => result.current.startTracking());
@@ -323,11 +339,29 @@ describe('a hidden tab is not credited', () => {
     const beforeHide = result.current.getPlayedSeconds();
 
     act(() => hide());
+    play(result, 31, 331);
     act(() => show());
     // The first tick back reports a playhead five minutes further on.
     act(() => result.current.updateWatchedDuration(331));
 
-    expect(result.current.getPlayedSeconds()).toBeCloseTo(beforeHide, 1);
+    expect(result.current.getPlayedSeconds()).toBe(beforeHide);
+  });
+
+  it('resumes counting once the tab is visible again', async () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+    play(result, 0, 31);
+    await waitFor(() => expect(initView).toHaveBeenCalled());
+    await settle();
+
+    act(() => hide());
+    play(result, 31, 120);
+    act(() => show());
+
+    const afterShow = result.current.getPlayedSeconds();
+    play(result, 120, 130);
+
+    expect(result.current.getPlayedSeconds()).toBeCloseTo(afterShow + 10, 0);
   });
 
   it('flushes what it had before going hidden', async () => {
@@ -473,5 +507,44 @@ describe('cleanup', () => {
 
     expect(beacon).toHaveBeenCalledTimes(2);
     expect(beacon.mock.calls[1][2]).toBeCloseTo(70, 0);
+  });
+});
+
+describe('a late timeupdate is not a seek', () => {
+  it('credits media time a blocked main thread delivered in one lump', () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+
+    act(() => result.current.updateWatchedDuration(0));
+    // Three seconds of wall time pass; at 2x that is six seconds of media,
+    // delivered as one late event. Judged against the nominal 0.25 s cadence
+    // this looked like a seek and an honest session recorded nothing.
+    jest.advanceTimersByTime(3_000);
+    act(() => result.current.updateWatchedDuration(6));
+
+    expect(result.current.getPlayedSeconds()).toBeCloseTo(6, 2);
+  });
+
+  it('still drops a real seek, however late the event', () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+
+    act(() => result.current.updateWatchedDuration(0));
+    jest.advanceTimersByTime(500);
+    // Half a second of wall time cannot produce nine minutes of media.
+    act(() => result.current.updateWatchedDuration(540));
+
+    expect(result.current.getPlayedSeconds()).toBe(0);
+  });
+
+  it('drops a seek that happens during a stall', () => {
+    const { result } = render();
+    act(() => result.current.startTracking());
+
+    act(() => result.current.updateWatchedDuration(0));
+    jest.advanceTimersByTime(3_000);
+    act(() => result.current.updateWatchedDuration(590));
+
+    expect(result.current.getPlayedSeconds()).toBe(0);
   });
 });

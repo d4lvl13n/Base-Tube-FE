@@ -38,7 +38,36 @@ export interface RecordViewOutcome {
   viewId: string | null;
   /** False when the backend gave a verdict, true when the attempt just failed. */
   retryable: boolean;
+  /** Server-requested wait before retrying, from `Retry-After`, in ms. */
+  retryAfterMs?: number;
 }
+
+/**
+ * 4xx codes that are NOT a verdict on the view.
+ *
+ * The rest of the 4xx range means the backend considered this view and refused
+ * it (below the threshold, past the daily cap, tripped a fraud guard) — asking
+ * again with the same facts changes nothing. These five say "not now":
+ *   408/425 — the request never really landed;
+ *   409     — a concurrent write conflict, which is exactly what a retry is for;
+ *   429     — slow down, and the server usually says by how much.
+ */
+const TRANSIENT_STATUSES = new Set([408, 409, 425, 429]);
+
+/** `Retry-After` is either delta-seconds or an HTTP date. Accept both. */
+const parseRetryAfterMs = (value: unknown): number | undefined => {
+  if (typeof value !== 'string' && typeof value !== 'number') return undefined;
+
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) {
+    return seconds > 0 ? seconds * 1000 : undefined;
+  }
+
+  const at = Date.parse(String(value));
+  if (!Number.isFinite(at)) return undefined;
+  const delta = at - Date.now();
+  return delta > 0 ? delta : undefined;
+};
 
 /**
  * Video engagement: comments, likes, shares, and view tracking. Endpoints per
@@ -65,12 +94,25 @@ export function createEngagementApi(http: AxiosInstance) {
       });
       return { viewId: res.data?.data?.viewId ?? null, retryable: false };
     } catch (error) {
-      // A 4xx is a verdict — the view was rejected on its merits (threshold,
-      // daily cap, fraud guard) and asking again changes nothing. Anything else
-      // (offline, 5xx, timeout) is worth another go.
-      const status = (error as { response?: { status?: number } })?.response?.status;
-      const isVerdict = typeof status === 'number' && status >= 400 && status < 500;
-      return { viewId: null, retryable: !isVerdict };
+      // Most of the 4xx range is a verdict — the view was refused on its merits
+      // (threshold, daily cap, fraud guard) and asking again changes nothing.
+      // Everything else (offline, 5xx, timeout, and the transient 4xx codes
+      // above) is worth another go.
+      const response = (error as {
+        response?: { status?: number; headers?: Record<string, unknown> };
+      })?.response;
+      const status = response?.status;
+      const isVerdict =
+        typeof status === 'number' &&
+        status >= 400 &&
+        status < 500 &&
+        !TRANSIENT_STATUSES.has(status);
+
+      return {
+        viewId: null,
+        retryable: !isVerdict,
+        retryAfterMs: parseRetryAfterMs(response?.headers?.['retry-after']),
+      };
     }
   };
 

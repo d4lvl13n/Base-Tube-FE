@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import type { AVPlaybackStatus } from 'expo-av';
 import { ViewTrackingSession } from '@basetube/api';
@@ -32,12 +32,19 @@ export function useViewTracking(videoId: string | undefined) {
     });
   }
 
+  // Bumped when server config lands, so the heartbeat below is rescheduled on
+  // the interval the server actually asked for. Without this the timer kept the
+  // cadence it was created with and a server-configured interval never applied.
+  const [configVersion, setConfigVersion] = useState(0);
+
   // Server-published thresholds. The session already holds the documented
   // defaults, so tracking works from the first frame even if this never lands.
   useEffect(() => {
     let cancelled = false;
     void api.engagement.viewConfig().then((config) => {
-      if (!cancelled) sessionRef.current?.setConfig(config);
+      if (cancelled) return;
+      sessionRef.current?.setConfig(config);
+      setConfigVersion((v) => v + 1);
     });
     return () => {
       cancelled = true;
@@ -67,11 +74,17 @@ export function useViewTracking(videoId: string | undefined) {
       void sessionRef.current?.flush();
     }, sessionRef.current?.heartbeatMs ?? 30_000);
 
-    return () => {
-      clearInterval(timer);
+    return () => clearInterval(timer);
+  }, [configVersion]);
+
+  // Separate from the heartbeat: disposing must happen exactly once, when the
+  // player really goes away — not every time the config version changes.
+  useEffect(
+    () => () => {
       void sessionRef.current?.dispose();
-    };
-  }, []);
+    },
+    []
+  );
 
   /** Wire straight to `<Video onPlaybackStatusUpdate={...} />`. */
   const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {

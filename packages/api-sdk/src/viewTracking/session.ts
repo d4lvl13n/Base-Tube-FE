@@ -16,6 +16,16 @@ import type { RecordViewOutcome } from '../endpoints/engagement';
  *     from the background, and is DROPPED. Capping it (the obvious-looking
  *     fix) silently credits the cap's worth of watch time to every scrub, so
  *     dragging through a video manufactures watch time out of nothing;
+ *   - "too large" is measured against the WALL CLOCK, not against the nominal
+ *     callback interval. Media time cannot outrun wall time by more than the
+ *     playback rate, so that is the real bound. Deriving it from the nominal
+ *     interval instead meant a callback more than ~750 ms late at 2x looked
+ *     like a seek — and under main-thread load a perfectly honest session
+ *     recorded nothing at all;
+ *   - a creation that fails cannot be retried faster than its backoff says.
+ *     Every status callback re-entered the open path and cancelled the pending
+ *     timer, so a permanent 400 or an outage produced ~2 POSTs a second and hit
+ *     the interaction limiter within seconds;
  *   - the view-creation threshold comes from the SERVER's config, not a
  *     hardcoded copy that drifts the day anyone changes it;
  *   - a creation that fails for a transient reason is retried with backoff, and
@@ -55,17 +65,25 @@ export interface ViewTrackingSessionOptions {
   /** Extra room for a late callback before a delta is treated as a seek. */
   tickTolerance?: number;
   retryDelaysMs?: number[];
+  /** Clock, injectable for tests. */
+  now?: () => number;
 }
 
 const DEFAULT_STATUS_INTERVAL_MS = 500;
 const DEFAULT_MAX_PLAYBACK_RATE = 2;
 const DEFAULT_TICK_TOLERANCE = 1.5;
 const DEFAULT_RETRY_DELAYS_MS = [2_000, 5_000, 15_000, 30_000];
+/** Never wait longer than this between creation attempts, whatever the server says. */
+const MAX_RETRY_DELAY_MS = 60_000;
 
 export class ViewTrackingSession {
   private readonly api: ViewTrackingApi;
   private readonly retryDelaysMs: number[];
-  private readonly maxTickMs: number;
+  /** Floor for the tick allowance, from the nominal callback cadence. */
+  private readonly minTickMs: number;
+  private readonly maxPlaybackRate: number;
+  private readonly tickTolerance: number;
+  private readonly now: () => number;
 
   private videoId: string;
   private config: ViewTrackingConfig;
@@ -76,21 +94,30 @@ export class ViewTrackingSession {
   private viewIdValue: string | null = null;
   private lastSentMs = 0;
 
+  private lastTickAtMs: number | null = null;
+
   private opening = false;
   private inFlight = false;
   private disposed = false;
   private createAttempt = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  /** No creation attempt may start before this moment. */
+  private nextCreateAttemptAt = 0;
+  /** The backend gave a verdict; there is nothing left to ask. */
+  private createBlocked = false;
 
   constructor(options: ViewTrackingSessionOptions) {
     this.api = options.api;
     this.videoId = options.videoId;
     this.config = options.config ?? DEFAULT_VIEW_TRACKING_CONFIG;
     this.retryDelaysMs = options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
-    this.maxTickMs =
+    this.now = options.now ?? (() => Date.now());
+    this.maxPlaybackRate = options.maxPlaybackRate ?? DEFAULT_MAX_PLAYBACK_RATE;
+    this.tickTolerance = options.tickTolerance ?? DEFAULT_TICK_TOLERANCE;
+    this.minTickMs =
       (options.statusIntervalMs ?? DEFAULT_STATUS_INTERVAL_MS) *
-      (options.maxPlaybackRate ?? DEFAULT_MAX_PLAYBACK_RATE) *
-      (options.tickTolerance ?? DEFAULT_TICK_TOLERANCE);
+      this.maxPlaybackRate *
+      this.tickTolerance;
   }
 
   get playedMs(): number {
@@ -124,11 +151,28 @@ export class ViewTrackingSession {
     this.cancelRetry();
     this.playedMsValue = 0;
     this.lastPositionMs = null;
+    this.lastTickAtMs = null;
     this.durationMs = 0;
     this.viewIdValue = null;
     this.lastSentMs = 0;
     this.createAttempt = 0;
+    this.nextCreateAttemptAt = 0;
+    this.createBlocked = false;
     this.opening = false;
+  }
+
+  /**
+   * The largest media-time jump that could still be playback.
+   *
+   * Media time cannot outrun wall time by more than the playback rate, so the
+   * measured gap since the previous callback — not the interval the player was
+   * ASKED for — is the honest bound. The floor keeps a burst of callbacks
+   * arriving microseconds apart from rejecting an ordinary tick.
+   */
+  private tickAllowanceMs(nowMs: number): number {
+    if (this.lastTickAtMs === null) return this.minTickMs;
+    const wallElapsed = Math.max(0, nowMs - this.lastTickAtMs);
+    return Math.max(this.minTickMs, wallElapsed * this.maxPlaybackRate * this.tickTolerance);
   }
 
   private cancelRetry(): void {
@@ -150,24 +194,30 @@ export class ViewTrackingSession {
   observe(tick: PlaybackTick): void {
     if (this.disposed) return;
 
+    const nowMs = this.now();
+
     if (typeof tick.durationMs === 'number' && tick.durationMs > 0) {
       this.durationMs = tick.durationMs;
     }
 
     const previous = this.lastPositionMs;
+    const allowance = this.tickAllowanceMs(nowMs);
     this.lastPositionMs = tick.positionMs;
+    this.lastTickAtMs = nowMs;
 
     if (tick.isPlaying && previous !== null) {
       const delta = tick.positionMs - previous;
-      // Rewinds are negative; seeks and background catch-up are too large.
-      // Both are worth nothing, not "worth the cap".
-      if (delta > 0 && delta <= this.maxTickMs) {
+      // Rewinds are negative; seeks and background catch-up outrun the wall
+      // clock. Both are worth nothing, not "worth the cap".
+      if (delta > 0 && delta <= allowance) {
         const ceiling = this.durationMs || this.playedMsValue + delta;
         this.playedMsValue = Math.min(this.playedMsValue + delta, ceiling);
       }
     }
 
-    if (!this.viewIdValue && this.hasMetThreshold()) {
+    // The backoff gate lives HERE as well as in `openView`: without it every
+    // status callback walked straight past a pending retry timer.
+    if (this.canAttemptCreate(nowMs) && this.hasMetThreshold()) {
       void this.openView();
     }
 
@@ -179,15 +229,28 @@ export class ViewTrackingSession {
     }
   }
 
+  /** True when a creation attempt is allowed to start right now. */
+  private canAttemptCreate(nowMs: number): boolean {
+    return (
+      !this.disposed &&
+      !this.viewIdValue &&
+      !this.opening &&
+      !this.createBlocked &&
+      nowMs >= this.nextCreateAttemptAt
+    );
+  }
+
   /** Opens the view row, retrying transient failures with backoff. */
   async openView(): Promise<void> {
-    if (this.disposed || this.viewIdValue || this.opening) return;
+    if (!this.canAttemptCreate(this.now())) return;
 
     const videoId = this.videoId;
     this.opening = true;
-    this.cancelRetry();
+    // NOT cancelling the pending retry here. Cancelling was the bug: a status
+    // callback would tear down the timer, fire immediately, and the backoff
+    // never applied.
     try {
-      const { viewId, retryable } = await this.api.recordViewResult(
+      const { viewId, retryable, retryAfterMs } = await this.api.recordViewResult(
         videoId,
         this.playedSeconds
       );
@@ -199,22 +262,48 @@ export class ViewTrackingSession {
         this.viewIdValue = viewId;
         this.lastSentMs = this.playedMsValue;
         this.createAttempt = 0;
+        this.nextCreateAttemptAt = 0;
+        this.cancelRetry();
         return;
       }
 
-      // A 4xx is the backend's verdict on this view; asking again changes
-      // nothing. Only a transient failure earns a retry.
-      if (!retryable) return;
+      if (!retryable) {
+        // The backend considered this view and refused it. Repeating the same
+        // request is pure noise, so the session stops asking entirely.
+        this.createBlocked = true;
+        this.cancelRetry();
+        return;
+      }
 
-      const delay =
-        this.retryDelaysMs[Math.min(this.createAttempt, this.retryDelaysMs.length - 1)];
-      this.createAttempt += 1;
-      this.retryTimer = setTimeout(() => {
-        void this.openView();
-      }, delay);
+      this.scheduleRetry(retryAfterMs);
+    } catch {
+      // `recordViewResult` is contracted not to throw, but a caller-supplied
+      // api could. Back off rather than spin.
+      this.scheduleRetry();
     } finally {
       this.opening = false;
     }
+  }
+
+  /**
+   * Arms the next attempt and — just as importantly — closes the gate until it
+   * is due, so ticks cannot slip past the backoff.
+   */
+  private scheduleRetry(retryAfterMs?: number): void {
+    const backoff =
+      this.retryDelaysMs[Math.min(this.createAttempt, this.retryDelaysMs.length - 1)];
+    // Honour the server's own pacing when it gives one, but never wait less
+    // than our own backoff, and never wait absurdly long.
+    const delay = Math.min(Math.max(backoff, retryAfterMs ?? 0), MAX_RETRY_DELAY_MS);
+
+    this.createAttempt += 1;
+    this.nextCreateAttemptAt = this.now() + delay;
+
+    this.cancelRetry();
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      void this.openView();
+    }, delay);
   }
 
   /** Sends the played time so far. `force` reports even an unchanged value. */
@@ -237,6 +326,7 @@ export class ViewTrackingSession {
   /** Final flush, then no further work. */
   async dispose(): Promise<void> {
     this.cancelRetry();
+    this.createBlocked = true;
     await this.flush(true);
     this.disposed = true;
   }
