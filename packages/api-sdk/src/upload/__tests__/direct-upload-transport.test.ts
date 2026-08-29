@@ -108,3 +108,59 @@ describe('putBlobWithProgress', () => {
     await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
   });
 });
+
+describe('putBlobWithProgress stall watchdog', () => {
+  const originalXhr = (globalThis as { XMLHttpRequest?: unknown }).XMLHttpRequest;
+  const blob = { size: 100 } as Blob;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    FakeXhr.last = null;
+    (globalThis as { XMLHttpRequest?: unknown }).XMLHttpRequest = FakeXhr;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  afterAll(() => {
+    (globalThis as { XMLHttpRequest?: unknown }).XMLHttpRequest = originalXhr;
+  });
+
+  // A hung connection to the bucket fires neither onload nor onerror; before
+  // the watchdog the row sat at "Uploading 0 %" forever and never retried.
+  it('aborts a PUT that makes no progress and reports it as a retryable stall', async () => {
+    const promise = putBlobWithProgress(capability(1, 100), blob, () => {}, undefined, {
+      stallTimeoutMs: 1_000,
+    });
+    jest.advanceTimersByTime(1_001);
+    await expect(promise).rejects.toMatchObject({
+      name: 'DirectUploadError',
+      code: 'STORAGE_STALLED',
+      status: null,
+    });
+  });
+
+  it('is re-armed by progress, so a slow-but-moving upload is left alone', async () => {
+    const promise = putBlobWithProgress(capability(1, 100), blob, () => {}, undefined, {
+      stallTimeoutMs: 1_000,
+    });
+    jest.advanceTimersByTime(800);
+    FakeXhr.last!.upload.onprogress!({ lengthComputable: true, loaded: 10 });
+    jest.advanceTimersByTime(800);
+    FakeXhr.last!.upload.onprogress!({ lengthComputable: true, loaded: 20 });
+    jest.advanceTimersByTime(800);
+    FakeXhr.last!.respondWith({ etag: '"ok"' });
+    FakeXhr.last!.onload!();
+    await expect(promise).resolves.toEqual({ etag: 'ok' });
+  });
+
+  it('still reports a caller abort as AbortError, not as a stall', async () => {
+    const controller = new AbortController();
+    const promise = putBlobWithProgress(capability(1, 100), blob, () => {}, controller.signal, {
+      stallTimeoutMs: 1_000,
+    });
+    controller.abort();
+    await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});

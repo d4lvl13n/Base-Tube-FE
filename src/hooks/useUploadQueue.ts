@@ -363,7 +363,19 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       .list()
       .then(async (records) => {
         if (cancelled) return;
-        const hydratedEntries = hydrateUploadQueue(records);
+        // A page load is a new session: rows whose video is live (or that the
+        // creator cancelled) have nothing left to say. They stayed visible
+        // until now so the outcome could be seen; carrying them into the next
+        // visit made a finished batch look like a permanent backlog.
+        const hydratedEntries: UploadQueueEntry[] = [];
+        for (const entry of hydrateUploadQueue(records)) {
+          if (settledBeforeReload(entry)) {
+            await forget(entry.localId);
+            continue;
+          }
+          hydratedEntries.push(entry);
+        }
+        if (cancelled) return;
         sessionUsedRef.current = hydratedEntries.length;
         setSessionUsedCount(hydratedEntries.length);
         replaceEntries(hydratedEntries);
@@ -783,16 +795,29 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     };
   }, [api, forget, hydrated, persist, pollingWanted, replaceEntries]);
 
-  /** Folds one batch of `/videos/progress` rows into the queue. */
+  /**
+   * Folds one batch of `/videos/progress` rows into the queue.
+   *
+   * `requestedIds` are the ids this batch asked about. An id that was asked
+   * about and is absent from a successful answer is a video the caller no
+   * longer owns — deleted from Videos Management while it transcoded, most
+   * likely. The row is dropped: polling it forever kept a "processing" line on
+   * screen for a video that did not exist.
+   */
   const applyProgressRows = useCallback(
-    async (rows: Record<string, VideoProgressBatchRow>) => {
+    async (rows: Record<string, VideoProgressBatchRow>, requestedIds: readonly number[] = []) => {
       const seen: Record<string, RenditionSummary[]> = {};
       const updates: Array<{ localId: string; patch: Partial<UploadQueueEntry> }> = [];
+      const gone: string[] = [];
+      const requested = new Set(requestedIds);
 
       for (const entry of entriesRef.current) {
         if (entry.videoId === null) continue;
         const row = rows[String(entry.videoId)];
-        if (!row) continue;
+        if (!row) {
+          if (requested.has(entry.videoId) && awaitsProcessing(entry)) gone.push(entry.localId);
+          continue;
+        }
         seen[entry.localId] = (row.renditions ?? []).map((rendition) => ({
           quality: rendition.quality,
           state: rendition.state,
@@ -818,8 +843,19 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         });
       }
       for (const { localId, patch } of updates) await updateEntry(localId, patch);
+
+      if (gone.length > 0) {
+        for (const localId of gone) {
+          pendingThumbnailsRef.current.delete(localId);
+          pendingPatchesRef.current.delete(localId);
+          await forget(localId);
+          releaseSessionSlot();
+        }
+        const dropped = new Set(gone);
+        replaceEntries(entriesRef.current.filter((entry) => !dropped.has(entry.localId)));
+      }
     },
-    [updateEntry],
+    [forget, releaseSessionSlot, replaceEntries, updateEntry],
   );
 
   // ── transcode progress poll ──────────────────────────────────────────────
@@ -842,7 +878,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       try {
         const response = await fetchVideoProgressRef.current(ids);
         if (cancelled) return;
-        await applyProgressRows(response.data ?? {});
+        await applyProgressRows(response.data ?? {}, ids);
       } catch {
         // Keep local state; the next tick tries again.
       } finally {
@@ -1072,6 +1108,15 @@ function applyServerRow(entry: UploadQueueEntry, row: ActiveUploadSummary): Uplo
     progress: status === 'processing' || status === 'ready' ? 100 : entry.progress,
     updatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Rows a fresh page load does not carry over: the video is live, or the
+ * creator cancelled. Failures and holds DO survive a reload — they are the
+ * rows the creator still has to act on (retry, dismiss, reselect).
+ */
+function settledBeforeReload(entry: UploadQueueEntry): boolean {
+  return entry.videoStatus === 'processed' || entry.status === 'aborted';
 }
 
 /** Finished rows drop out of the queue a day after they settled. */

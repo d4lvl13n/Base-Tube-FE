@@ -827,3 +827,52 @@ describe('uploadRowIsTerminal', () => {
     expect(uploadRowIsTerminal({ status: 'ready', videoStatus: null })).toBe(false);
   });
 });
+
+describe('useUploadQueue session hygiene', () => {
+  // A finished batch used to reappear on every visit until the creator hit
+  // "Clear finished"; a reload is a new session.
+  it('forgets rows whose video is already live on reload', async () => {
+    const { api } = harness();
+    const store = await seededStore(persistedRow({ videoStatus: 'processed', status: 'ready' }));
+    const fetchVideoProgress = jest.fn().mockResolvedValue({ success: true, data: {} });
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    expect(result.current.entries).toHaveLength(0);
+    await expect(store.list()).resolves.toHaveLength(0);
+    expect(fetchVideoProgress).not.toHaveBeenCalled();
+  });
+
+  it('keeps a failed row on reload so the creator can act on it', async () => {
+    const { api } = harness();
+    // Failed before the server row existed, so the boot reconciliation (which
+    // forgets rows the active list has retired) has nothing to say about it.
+    const store = await seededStore(
+      persistedRow({ uploadId: null, videoId: null, videoStatus: null, status: 'failed', errorCode: 'X' }),
+    );
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    expect(result.current.entries).toHaveLength(1);
+  });
+
+  // Video deleted from Videos Management while it transcoded: /videos/progress
+  // omits ids the caller no longer owns, and the queue used to poll it forever.
+  it('drops a processing row whose video no longer exists', async () => {
+    const { api } = harness();
+    const store = await seededStore(persistedRow()); // videoId 99, processing
+    const fetchVideoProgress = jest.fn().mockResolvedValue({ success: true, data: {} });
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    await waitFor(() => expect(fetchVideoProgress).toHaveBeenCalledWith([99]));
+    await waitFor(() => expect(result.current.entries).toHaveLength(0));
+    await expect(store.list()).resolves.toHaveLength(0);
+  });
+});

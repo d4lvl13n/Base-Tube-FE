@@ -67,13 +67,32 @@ function exactLength(capability: MultipartPartCapability): number {
   return Number(raw);
 }
 
+/**
+ * How long a part PUT may go without a single upload-progress event before it
+ * is treated as dead.
+ *
+ * A TCP connection to the bucket that silently stalls (seen 2026-08-29 against
+ * R2 from a flaky client network) never fires `onerror`; without this the row
+ * sat at "Uploading 0 %" indefinitely and the queue never retried. A stall is
+ * reported as a network error, which `classifyTransferFailure` turns into
+ * `retry_wait` — the retry renews the capability and re-sends the part.
+ */
+export const PUT_STALL_TIMEOUT_MS = 60_000;
+
+export interface PutBlobOptions {
+  /** Test hook; production uses `PUT_STALL_TIMEOUT_MS`. */
+  stallTimeoutMs?: number;
+}
+
 export function putBlobWithProgress(
   capability: MultipartPartCapability,
   blob: Blob,
   onProgress: (loadedBytes: number) => void,
   signal?: AbortSignal,
+  options: PutBlobOptions = {},
 ): Promise<{ etag: string | null }> {
   const requiredLength = exactLength(capability);
+  const stallTimeoutMs = options.stallTimeoutMs ?? PUT_STALL_TIMEOUT_MS;
   if (blob.size !== requiredLength) {
     throw new DirectUploadError(
       'Selected bytes do not match the signed upload length',
@@ -95,10 +114,29 @@ export function putBlobWithProgress(
     for (const [name, value] of Object.entries(capability.requiredHeaders)) {
       request.setRequestHeader(name, value);
     }
+
+    // Stall watchdog: re-armed by every progress event, disarmed on settle.
+    let stalled = false;
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    const disarm = () => {
+      if (stallTimer !== undefined) clearTimeout(stallTimer);
+      stallTimer = undefined;
+    };
+    const arm = () => {
+      disarm();
+      if (stallTimeoutMs <= 0) return;
+      stallTimer = setTimeout(() => {
+        stalled = true;
+        request.abort();
+      }, stallTimeoutMs);
+    };
+
     request.upload.onprogress = (event) => {
+      arm();
       if (event.lengthComputable) onProgress(Math.min(event.loaded, requiredLength));
     };
     request.onload = () => {
+      disarm();
       if (request.status >= 200 && request.status < 300) {
         onProgress(requiredLength);
         resolve({ etag: normalizeEtag(request.getResponseHeader('etag')) });
@@ -112,10 +150,26 @@ export function putBlobWithProgress(
         );
       }
     };
-    request.onerror = () =>
+    request.onerror = () => {
+      disarm();
       reject(new DirectUploadError('Storage upload failed', null, 'STORAGE_NETWORK_ERROR'));
-    request.onabort = () => reject(new DOMException('Aborted', 'AbortError'));
+    };
+    request.onabort = () => {
+      disarm();
+      if (stalled) {
+        reject(
+          new DirectUploadError(
+            `Storage upload made no progress for ${Math.round(stallTimeoutMs / 1_000)} s`,
+            null,
+            'STORAGE_STALLED',
+          ),
+        );
+        return;
+      }
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
     signal?.addEventListener('abort', () => request.abort(), { once: true });
+    arm();
     request.send(blob);
   });
 }
