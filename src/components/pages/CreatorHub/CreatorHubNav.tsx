@@ -74,6 +74,7 @@ const CreatorHubNav: React.FC = () => {
     <SidebarShell
       label="Creator Hub navigation"
       className="fixed left-0 top-16 bottom-0 z-40"
+      edgeToggle={false}
       top={
         <div className="space-y-2">
           <SidebarSwitcher
