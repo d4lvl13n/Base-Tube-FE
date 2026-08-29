@@ -1,17 +1,17 @@
 /**
- * Insights v2 card — the rendering contract.
+ * Insights v3 card — the rendering contract.
  *
  * The point of these tests is PROVENANCE: a creator must be able to tell, without
- * reading the code, which lines were measured and which were guessed. So they assert
- * the coverage strip, the honest empty state, the low-confidence chip, the distinct
- * fallback styling and the regenerate budget — not the layout.
+ * reading the code, which lines were measured and which were guessed. So they assert the
+ * one coverage sentence, the packaging read, the honest empty state, the low-confidence
+ * chip, the distinct fallback styling and the regenerate budget — not the layout.
  */
 
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ChannelInsightsCard } from '../ChannelInsightsCard';
-import type { ChannelInsightsV2 } from '../../../../../../types/insights';
+import type { ChannelInsightsV3 } from '../../../../../../types/insights';
 
 const mockGetChannelInsights = jest.fn();
 
@@ -28,9 +28,9 @@ function wrapper(children: React.ReactNode) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
-function insights(overrides: Partial<ChannelInsightsV2> = {}): ChannelInsightsV2 {
+function insights(overrides: Partial<ChannelInsightsV3> = {}): ChannelInsightsV3 {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     channelId: 66,
     period: '7d',
     generatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
@@ -38,14 +38,34 @@ function insights(overrides: Partial<ChannelInsightsV2> = {}): ChannelInsightsV2
     coverage: { views: 47, videos: 12, watchSeconds: 7200, days: 7 },
     sample: { size: 12, of: 12 },
     facts: [{ text: '47 counted views in the last 7 days.', metric: 'views', value: 47, source: 'basetube' }],
-    observations: [
-      {
-        videoId: '1',
-        text: 'Title is 4 words.',
-        videoTitle: 'A test video',
-        thumbnailUrl: 'https://cdn.example/1.jpg'
-      }
-    ],
+    packaging: {
+      positioning: 'A channel about software testing, aimed at working developers.',
+      headline: 'Your titles name the tool and your thumbnails name nothing.',
+      gaps: [
+        { text: 'The walkthrough promises a build the image never shows.', videoIds: ['1'] }
+      ],
+      fixes: [
+        {
+          title: 'Put the promise on the image',
+          detail: 'Carry the same short phrase across every thumbnail.',
+          order: 1
+        }
+      ],
+      perVideo: [
+        {
+          videoId: '1',
+          note: 'The title carries the whole promise on its own.',
+          videoTitle: 'A test video',
+          thumbnailUrl: 'https://cdn.example/1.jpg'
+        }
+      ],
+      nicheComparison: {
+        theyDo: ['They lead with the outcome.'],
+        youDo: ['You lead with the tool name.'],
+        tryNext: ['Try naming the result first.']
+      },
+      reviewed: 1
+    },
     hypotheses: [{ text: 'The shared layout may aid recognition.', basedOn: ['views'] }],
     experiments: [
       {
@@ -59,7 +79,7 @@ function insights(overrides: Partial<ChannelInsightsV2> = {}): ChannelInsightsV2
   };
 }
 
-function prime(data: ChannelInsightsV2, refreshRemaining = 3) {
+function prime(data: ChannelInsightsV3, refreshRemaining = 3) {
   mockGetChannelInsights.mockResolvedValue({
     status: 'ready',
     data,
@@ -69,19 +89,19 @@ function prime(data: ChannelInsightsV2, refreshRemaining = 3) {
 
 beforeEach(() => mockGetChannelInsights.mockReset());
 
-describe('the coverage strip states what the report was computed from', () => {
-  it('names views, videos, watch time and the window', async () => {
+describe('one coverage sentence says what the report looked at', () => {
+  it('names the videos and the views, and nothing else', async () => {
     prime(insights());
     render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
 
     const strip = await screen.findByTestId('insights-coverage');
-    expect(strip).toHaveTextContent('47 views');
-    expect(strip).toHaveTextContent('12 videos');
-    expect(strip).toHaveTextContent('2 h watched');
-    expect(strip).toHaveTextContent('7 days');
+    expect(strip).toHaveTextContent('Based on 12 videos · 47 views this week');
+    // The facts GRID is gone: the Overview tab owns the numbers, and restating them
+    // here was half of why the tab read as a paraphrase of the analytics.
+    expect(screen.queryByTestId('insights-facts')).not.toBeInTheDocument();
   });
 
-  it('says "all time" rather than inventing a day count', async () => {
+  it('says "so far" rather than inventing a day count', async () => {
     prime(
       insights({
         period: 'all',
@@ -90,17 +110,35 @@ describe('the coverage strip states what the report was computed from', () => {
     );
     render(wrapper(<ChannelInsightsCard channelId="66" period="all" />));
 
-    expect(await screen.findByTestId('insights-coverage')).toHaveTextContent('all time');
+    expect(await screen.findByTestId('insights-coverage')).toHaveTextContent('so far');
+  });
+});
+
+describe('the packaging read is the page', () => {
+  it('leads with the headline, then the positioning, the fixes and the named gaps', async () => {
+    prime(insights());
+    render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
+
+    const read = await screen.findByTestId('insights-read');
+    expect(read).toHaveTextContent('Your titles name the tool');
+    expect(read).toHaveTextContent('aimed at working developers');
+    expect(screen.getByTestId('insights-fixes')).toHaveTextContent('Put the promise on the image');
+    // A gap names real videos, and the card shows them.
+    const gaps = screen.getByTestId('insights-gaps');
+    expect(gaps).toHaveTextContent('The walkthrough promises a build');
+    expect(gaps).toHaveTextContent('A test video');
+    expect(screen.getByTestId('insights-pervideo')).toHaveTextContent(
+      'The title carries the whole promise on its own.'
+    );
   });
 });
 
 describe('data modes', () => {
-  it('ok: facts, observations, hypotheses and experiments, with no confidence chip', async () => {
+  it('ok: the read, hypotheses and experiments, with no confidence chip', async () => {
     prime(insights());
     render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
 
-    expect(await screen.findByTestId('insights-facts')).toHaveTextContent('47 counted views');
-    expect(screen.getByTestId('insights-observations')).toHaveTextContent('Title is 4 words.');
+    expect(await screen.findByTestId('insights-read')).toBeInTheDocument();
     expect(screen.getByTestId('insights-hypotheses')).toHaveTextContent('may aid recognition');
     expect(screen.getByTestId('insights-experiments')).toHaveTextContent('Try one subject per thumbnail');
     expect(screen.queryByTestId('insights-low-confidence')).not.toBeInTheDocument();
@@ -126,11 +164,13 @@ describe('data modes', () => {
     );
     render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
 
+    // ONE quiet line, not a checklist about our own thresholds — the packaging read
+    // above already gave the creator something to do.
     expect(await screen.findByTestId('insights-insufficient')).toHaveTextContent(
-      "Not enough views yet for hypotheses — here's what we can say."
+      'Performance hypotheses appear once your videos have been watched a few dozen times.'
     );
-    expect(screen.getByTestId('insights-facts')).toHaveTextContent('2 counted views');
-    expect(screen.getByTestId('insights-observations')).toBeInTheDocument();
+    expect(screen.getByTestId('insights-read')).toBeInTheDocument();
+    expect(screen.getByTestId('insights-fixes')).toBeInTheDocument();
     expect(screen.queryByTestId('insights-hypotheses')).not.toBeInTheDocument();
     expect(screen.queryByTestId('insights-experiments')).not.toBeInTheDocument();
   });
@@ -156,16 +196,18 @@ describe('data modes', () => {
     render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
 
     expect(await screen.findByTestId('insights-fallback')).toHaveTextContent(
-      'AI unavailable — showing measured data only.'
+      'AI unavailable — showing what we could produce.'
     );
-    expect(screen.getByTestId('insights-facts')).toBeInTheDocument();
-    expect(screen.getByTestId('insights-niche')).toHaveTextContent('15,000');
+    // The packaging read survived the hypotheses leg failing, and the niche panel shows
+    // CONVENTIONS — never the peers' median view count.
+    expect(screen.getByTestId('insights-read')).toBeInTheDocument();
+    expect(screen.getByTestId('insights-niche')).not.toHaveTextContent('15,000');
     expect(screen.queryByTestId('insights-hypotheses')).not.toBeInTheDocument();
   });
 });
 
-describe('the niche reference is labelled as YouTube, never as a target', () => {
-  it('renders the disclaimer and omits an unmeasurable cadence', async () => {
+describe('the niche panel compares conventions, never medians', () => {
+  it('renders they-do / you-do / try-next and the fixed disclaimer', async () => {
     prime(
       insights({
         nicheReference: {
@@ -176,39 +218,22 @@ describe('the niche reference is labelled as YouTube, never as a target', () => 
           medianUploadsPerWeek: null,
           medianTitleLength: 52,
           commonPatterns: ['12 of 20 titles contain a year'],
-          disclaimer:
-            'YouTube peers found by your topics. Different platform and audience — a reference, not a target.'
+          disclaimer: 'YouTube peers found by your topics — a reference, not a target.'
         }
       })
     );
     render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
 
     const niche = await screen.findByTestId('insights-niche');
-    // The card is titled for the creator, not for the pipeline; it is still labelled
-    // YouTube and still carries the disclaimer below.
     expect(niche).toHaveTextContent('Your niche on YouTube');
     expect(niche).toHaveTextContent('a reference, not a target');
-    expect(niche).toHaveTextContent('12 of 20 titles contain a year');
-    expect(niche).not.toHaveTextContent('Median uploads per week');
-  });
-});
-
-describe('a sample is labelled as a sample', () => {
-  it('says the AI sections saw fewer videos than the facts cover', async () => {
-    prime(insights({ sample: { size: 40, of: 100 }, coverage: { views: 900, videos: 100, watchSeconds: 60, days: 7 } }));
-    render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
-
-    const note = await screen.findByTestId('insights-sample');
-    expect(note).toHaveTextContent('40 most-viewed videos of 100');
-    expect(note).toHaveTextContent('measured numbers cover all 100');
-  });
-
-  it('says nothing when the model saw everything', async () => {
-    prime(insights({ sample: { size: 12, of: 12 } }));
-    render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
-
-    await screen.findByTestId('insights-coverage');
-    expect(screen.queryByTestId('insights-sample')).not.toBeInTheDocument();
+    expect(niche).toHaveTextContent('They lead with the outcome.');
+    expect(niche).toHaveTextContent('You lead with the tool name.');
+    expect(niche).toHaveTextContent('Try naming the result first.');
+    // A median view count about strangers, printed beside a creator with 47 views, is
+    // the comparison the disclaimer spends a sentence forbidding.
+    expect(niche).not.toHaveTextContent('15,000');
+    expect(niche).not.toHaveTextContent('Median');
   });
 });
 
@@ -218,6 +243,7 @@ describe('missing pieces are named, not silently omitted', () => {
       insights({
         nicheReference: undefined,
         nicheUnavailable: { reason: 'Only 2 comparable videos were found — too few to publish a median.' },
+        packaging: { ...insights().packaging!, nicheComparison: undefined },
         partial: ['nicheReference']
       })
     );
@@ -230,7 +256,7 @@ describe('missing pieces are named, not silently omitted', () => {
   });
 
   it('names a failed packaging review', async () => {
-    prime(insights({ observations: [], partial: ['observations'] }));
+    prime(insights({ packaging: undefined, partial: ['packaging'] }));
     render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
 
     expect(await screen.findByTestId('insights-partial')).toHaveTextContent('packaging review');
@@ -263,7 +289,7 @@ describe('a regeneration that loses the race keeps waiting', () => {
     // The regression: the old report used to come back as a normal result, so the card
     // looked settled and the button looked broken.
     expect(await screen.findByTestId('insights-generating')).toBeInTheDocument();
-    expect(screen.getByTestId('insights-facts')).toBeInTheDocument();
+    expect(screen.getByTestId('insights-read')).toBeInTheDocument();
     expect(screen.getByTestId('insights-regenerate')).toBeDisabled();
   });
 
@@ -316,7 +342,7 @@ describe('regenerate', () => {
     // is the conservative zero and the button is correctly disabled.
     await screen.findByTestId('insights-coverage');
     const button = screen.getByTestId('insights-regenerate');
-    expect(button).toHaveTextContent('(3 left today)');
+    expect(button).toHaveTextContent('(3 left)');
 
     mockGetChannelInsights.mockResolvedValueOnce({
       status: 'ready',
@@ -328,7 +354,7 @@ describe('regenerate', () => {
     await waitFor(() =>
       expect(mockGetChannelInsights).toHaveBeenLastCalledWith('66', '7d', { refresh: true })
     );
-    await waitFor(() => expect(screen.getByTestId('insights-regenerate')).toHaveTextContent('(2 left today)'));
+    await waitFor(() => expect(screen.getByTestId('insights-regenerate')).toHaveTextContent('(2 left)'));
   });
 
   it('is disabled once the daily budget is spent, rather than failing with a 429', async () => {
@@ -338,7 +364,7 @@ describe('regenerate', () => {
     await screen.findByTestId('insights-coverage');
     const button = screen.getByTestId('insights-regenerate');
     expect(button).toBeDisabled();
-    expect(button).toHaveTextContent('(0 left today)');
+    expect(button).toHaveTextContent('(0 left)');
   });
 
   it('surfaces the limit message when the backend refuses', async () => {

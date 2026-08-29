@@ -1,26 +1,39 @@
 /*
- * Creator AI Insights — the v2 contract (schemaVersion 2).
+ * Creator AI Insights — the v3 contract (schemaVersion 3).
  *
- * WHY A NEW CONTRACT. v1 (`AnalyticsInsightService` + the `channel_analytics_insight`
- * branch of `aiService.buildPrompt`) serialised three liked videos and a handful of
- * hourly counts into a prompt that then instructed the model to "cite" geography,
- * growth rates and posting-time patterns it had never been given. Everything the tab
- * rendered past the first paragraph was therefore invented, and the fallback prose was
- * word-for-word indistinguishable from model output. See
- * docs/ANALYTICS_REVIEW_2026-08-29.md (base-be) finding 9.
+ * WHY v3. v2 was honest and useless. On a channel with two views it rendered a grid of
+ * measured facts the Overview tab had already shown, a row of descriptive pass-1
+ * observations ("image shows a city scene", "dominant colours pink"), and a set of niche
+ * medians. Every line was true and not one of them told the creator what to do
+ * differently on Monday.
  *
- * THE RULES THIS SHAPE ENCODES:
- *  - `facts[]` are DETERMINISTIC. They are computed in TypeScript from the same
- *    queries the dashboard cards read, never written by a model, and they carry the
- *    number they are about so the FE never has to re-derive it from prose.
- *  - `observations[]` come from the audit's blind PASS 1 (thumbnail + title only,
- *    guard-filtered) run over OUR OWN assets. No performance data reaches that pass.
+ * WHAT CHANGED. The centre of the report is now PACKAGING STRATEGY — the read that is
+ * worth something at zero traffic, because it is about what the channel LOOKS LIKE
+ * rather than about how it performed:
+ *
+ *  - `packaging.positioning` — what the channel looks like it is, from its own titles
+ *    and thumbnails.
+ *  - `packaging.headline` — one sharp, channel-specific sentence.
+ *  - `packaging.gaps[]` — each naming REAL videoIds on this channel.
+ *  - `packaging.fixes[]` — strategic, ordered (1 = do first).
+ *  - `packaging.perVideo[]` — one line per reviewed thumbnail.
+ *  - `packaging.nicheComparison` — what YouTube peers in the same topic DO, what this
+ *    channel does, and what to try next. Conventions, not medians.
+ *
+ * WHAT SURVIVED UNCHANGED. Everything that made v2 trustworthy:
+ *  - `facts[]` are still DETERMINISTIC, computed in TypeScript from the same queries the
+ *    dashboard cards read. They are no longer RENDERED as a grid (the Overview tab owns
+ *    that job) but they stay in the payload, because they are the allow-list the number
+ *    guard checks the model's prose against.
  *  - `hypotheses[]` are HEDGED and only exist when the data can carry them
- *    (`dataMode !== 'insufficient'`).
+ *    (`dataMode !== 'insufficient'`), with the low-confidence prefix applied in code.
  *  - `nicheReference` is a YouTube reference, labelled as such, never a target.
- *  - `fallback` is present IFF the model leg failed. Facts, coverage and the niche
- *    reference survive it, because none of them needed a model. The FE renders this
- *    branch in a visually distinct, muted style — an honest "AI unavailable".
+ *  - `fallback` is present IFF the model leg failed; `partial[]` names a single leg that
+ *    failed while the rest succeeded.
+ *
+ * WHAT WAS DELETED. `observations[]` — the v2 pass-1 tiles. A description of a picture
+ * the creator is looking at is not an insight; `packaging.perVideo[]` replaces it with a
+ * line that says something about the packaging DECISION instead.
  *
  * This file is the FRONTEND MIRROR of `src/types/insights.ts` in base-be. Keep them in
  * step: the backend copy is the source of truth, this one exists so the FE compiles
@@ -28,7 +41,7 @@
  */
 
 /** Bump when a field changes meaning. The FE refuses to render an unknown version. */
-export const INSIGHTS_SCHEMA_VERSION = 2 as const;
+export const INSIGHTS_SCHEMA_VERSION = 3 as const;
 
 export type InsightsPeriod = '7d' | '30d' | '90d' | 'all';
 
@@ -37,8 +50,8 @@ export type InsightsPeriod = '7d' | '30d' | '90d' | 'all';
  *
  * THRESHOLDS ARE CODE, NOT PROMPT. A prompt asking a model to "be careful with thin
  * data" is a request; a branch that refuses to produce hypotheses is a guarantee.
- *  - `insufficient` (< 20 counted views in the period): facts + niche reference +
- *    packaging observations only. No hypotheses, no experiments, and the FE says so.
+ *  - `insufficient` (< 20 counted views in the period): packaging + niche comparison
+ *    only. No hypotheses, no experiments, and NO VIEW COUNTS reach the model at all.
  *  - `thin` (< 200): hypotheses allowed, every one prefixed low-confidence by the guard.
  *  - `ok`: normal.
  */
@@ -57,10 +70,8 @@ export const POSTING_PATTERN_MIN_VIEWS = 30;
  *
  * CATALOGUE-WIDE, NOT THE SAMPLE. `views`, `videos` and `watchSeconds` are aggregates
  * over every analytics-visible video on the channel, from dedicated SQL — they are not
- * sums over the rows we happened to serialise into the prompt. An earlier cut computed
- * them from the 40 highest-viewed rows and labelled the result "your catalogue", which
- * is exactly the mislabelling this rebuild exists to delete. What the MODEL saw is
- * reported separately, in `sample`.
+ * sums over the rows we happened to serialise into a prompt. What the MODEL saw is
+ * reported separately, in `sample` and in `packaging.reviewed`.
  */
 export interface InsightsCoverage {
   /** Counted views (`is_counted = 1`) inside the period, across the whole catalogue. */
@@ -74,11 +85,11 @@ export interface InsightsCoverage {
 }
 
 /**
- * The synthesis sample: the rows actually serialised into the pass-2 prompt.
+ * The synthesis sample: the rows serialised into the hypotheses prompt.
  *
- * `size` of `of` — when they differ, the model reasoned over a subset (the highest-view
- * rows, so every watched video is present) while every FACT above it is catalogue-wide.
- * Saying so is the difference between a sample and a silent lie.
+ * `size` of `of` — when they differ, the model reasoned over a subset while every FACT
+ * above it is catalogue-wide. Saying so is the difference between a sample and a silent
+ * lie.
  */
 export interface InsightsSample {
   size: number;
@@ -88,6 +99,11 @@ export interface InsightsSample {
 /**
  * A measured statement. `text` is generated from `value` in TypeScript, so the number
  * in the sentence and the number in the field can never disagree.
+ *
+ * v3 does NOT render these as a section — the Overview tab already shows them, and
+ * restating measurements was half of what made v2 feel like a paraphrase. They remain
+ * in the payload because they are the ALLOW-LIST the number guard checks model prose
+ * against, and because the header's one coverage sentence is built from `coverage`.
  */
 export interface InsightFact {
   text: string;
@@ -98,13 +114,59 @@ export interface InsightFact {
   source: 'basetube';
 }
 
-/** PASS 1 output: a countable, checkable fact about one of our thumbnails/titles. */
-export interface InsightObservation {
-  videoId?: string;
+/**
+ * A packaging gap, NAMING THE VIDEOS IT IS ABOUT.
+ *
+ * `videoIds` is validated against the set the analyst actually saw before publication —
+ * a gap that points at no real video is an assertion about a catalogue we did not show
+ * it, so it is dropped rather than rendered without its evidence.
+ */
+export interface InsightsPackagingGap {
   text: string;
-  /** Additive, for rendering only — the FE shows the thumbnail beside the line. */
+  videoIds: string[];
+}
+
+/** A strategic fix. `order` is a SEQUENCE (1 = do first), never an impact label. */
+export interface InsightsPackagingFix {
+  title: string;
+  detail: string;
+  order: number;
+}
+
+/** One line about one reviewed thumbnail. Rendering data travels with it. */
+export interface InsightsPerVideoNote {
+  videoId: string;
+  note: string;
   videoTitle?: string;
   thumbnailUrl?: string | null;
+}
+
+/**
+ * The niche read, as CONVENTIONS rather than medians.
+ *
+ * "Peers average 41-character titles" is a statistic about strangers; "they open with
+ * the outcome, you open with the topic" is something a creator can act on this evening.
+ * Every string here is guard-swept exactly like the rest of the packaging read.
+ */
+export interface InsightsNicheComparison {
+  theyDo: string[];
+  youDo: string[];
+  tryNext: string[];
+}
+
+/** THE CENTREPIECE. One vision call over the channel's own packaging (+ its peers). */
+export interface InsightsPackaging {
+  /** 2-3 sentences: what the channel looks like it is, judged from its packaging. */
+  positioning: string;
+  /** One sharp sentence. Rendered first, in the accent colour. */
+  headline: string;
+  gaps: InsightsPackagingGap[];
+  fixes: InsightsPackagingFix[];
+  perVideo: InsightsPerVideoNote[];
+  /** Present only when at least NICHE_MIN_PEERS peers were found and fed to the call. */
+  nicheComparison?: InsightsNicheComparison;
+  /** How many of the channel's own thumbnails the analyst actually saw. */
+  reviewed: number;
 }
 
 /** PASS 2 output: a hedged guess, never a finding. */
@@ -126,9 +188,13 @@ export interface InsightExperiment {
 }
 
 /**
- * YouTube peers found by topic-seeding the creator's own titles. Medians are computed
- * in TypeScript from the provider payload; `commonPatterns` is the only model-written
- * part and is guard-filtered.
+ * YouTube peers found by topic-seeding the creator's own titles.
+ *
+ * v3 keeps this in the PAYLOAD (it is already computed, and `query` / `peerCount` /
+ * `disclaimer` provenance the comparison) but no longer renders the medians:
+ * `medianViewsPerVideo` in particular is a number about other people on another
+ * platform, and putting it beside a creator's own view count invited exactly the
+ * comparison the disclaimer spends a sentence forbidding.
  */
 export interface InsightsNicheReference {
   query: string;
@@ -137,10 +203,7 @@ export interface InsightsNicheReference {
   medianViewsPerVideo: number;
   /**
    * NULL when the sample could not measure it — one search returns one or two videos
-   * per channel, and a cadence needs two dated uploads from the same channel. Null
-   * travels all the way to the FE, which omits the row. It is never coerced to 0: a
-   * zero here reads as "these creators do not upload", which is a measurement we did
-   * not make.
+   * per channel, and a cadence needs two dated uploads from the same channel.
    */
   medianUploadsPerWeek: number | null;
   medianTitleLength: number;
@@ -154,6 +217,19 @@ export interface InsightsNicheReference {
 }
 
 /**
+ * A peer video carried alongside the reference so the packaging analyst can SEE the
+ * conventions rather than be told medians about them.
+ *
+ * Cached with the reference (same 7-day entry, same single billed search), so turning
+ * the comparison on costs nothing beyond the images the vision call already fetches.
+ */
+export interface InsightsNichePeer {
+  title: string;
+  thumbnailUrl?: string;
+  channelTitle?: string;
+}
+
+/**
  * Why there is no niche reference this time. Present INSTEAD of `nicheReference`.
  *
  * A missing section with no explanation reads as a bug; a stated reason reads as a
@@ -164,50 +240,52 @@ export interface InsightsNicheUnavailable {
 }
 
 /**
- * Peers required before any median is published.
+ * Peers required before any comparison is published.
  *
- * A "median" of one or two search results is a single number wearing the clothes of a
- * statistic. Below this we omit the whole section rather than dress up a coincidence.
+ * A "convention" drawn from one or two search results is a coincidence wearing the
+ * clothes of a pattern. Below this we omit the whole section rather than dress it up.
  */
 export const NICHE_MIN_PEERS = 5;
 
 /** The FIXED disclaimer. Never model-written, never varied per channel. */
 export const NICHE_REFERENCE_DISCLAIMER =
-  'YouTube peers found by your topics. Different platform and audience — a reference, not a target.';
+  'YouTube peers found by your topics — a reference, not a target.';
 
 /** Present IFF the model leg failed. Deterministic sections are still populated. */
 export interface InsightsFallback {
   reason: string;
 }
 
-export interface ChannelInsightsV2 {
+export interface ChannelInsightsV3 {
   schemaVersion: typeof INSIGHTS_SCHEMA_VERSION;
   channelId: number;
   period: InsightsPeriod;
-  /** ISO-8601 UTC. The FE renders "Generated 2 h ago" from it. */
+  /** ISO-8601 UTC. The FE renders "Updated 2 h ago" from it. */
   generatedAt: string;
   dataMode: InsightsDataMode;
   coverage: InsightsCoverage;
+  /** Measured, deterministic, NOT rendered as a section. See InsightFact. */
   facts: InsightFact[];
-  observations: InsightObservation[];
+  /** Absent when the vision leg failed (then `partial` names it). */
+  packaging?: InsightsPackaging;
   hypotheses: InsightHypothesis[];
   experiments: InsightExperiment[];
-  /** Rows the pass-2 model actually saw, against the catalogue size. */
+  /** Rows the hypotheses model actually saw, against the catalogue size. */
   sample: InsightsSample;
   nicheReference?: InsightsNicheReference;
   /** Present instead of `nicheReference` when we declined to publish one. */
   nicheUnavailable?: InsightsNicheUnavailable;
   /**
-   * Legs that failed while the rest succeeded, e.g. `['observations']` when the vision
-   * pass was down. The FE says "packaging review unavailable" instead of silently
-   * rendering a report with one section missing and no explanation.
+   * Legs that failed while the rest succeeded, e.g. `['packaging']` when the vision
+   * pass was down. The FE says what is missing instead of silently rendering a report
+   * with one section absent and no explanation.
    */
   partial?: InsightsPartialLeg[];
   fallback?: InsightsFallback;
 }
 
 /** Sections that can fail independently of the report as a whole. */
-export type InsightsPartialLeg = 'observations' | 'nicheReference';
+export type InsightsPartialLeg = 'packaging' | 'nicheReference';
 
 /** Envelope the route returns alongside `data`. */
 export interface ChannelInsightsMeta {

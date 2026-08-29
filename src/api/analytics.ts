@@ -17,7 +17,7 @@ import {
 import {
   INSIGHTS_SCHEMA_VERSION,
   type ChannelInsightsMeta,
-  type ChannelInsightsV2,
+  type ChannelInsightsV3,
   type InsightsPeriod
 } from '../types/insights';
 import { handleApiError as handleError, retryWithBackoff } from '../utils/errorHandler';
@@ -577,11 +577,11 @@ export interface InsightsGenerating {
    * finished and changed nothing, so the client would stop waiting for the answer it is
    * still paying for. Renderable while we wait, and never mistaken for the new one.
    */
-  previous?: ChannelInsightsV2;
+  previous?: ChannelInsightsV3;
 }
 
 export type InsightsResponse =
-  | { status: 'ready'; data: ChannelInsightsV2; meta: ChannelInsightsMeta }
+  | { status: 'ready'; data: ChannelInsightsV3; meta: ChannelInsightsMeta }
   | InsightsGenerating;
 
 /**
@@ -608,9 +608,9 @@ export const getChannelInsights = async (
   const response = await api.get<{
     success: boolean;
     status?: 'generating';
-    data?: ChannelInsightsV2;
+    data?: ChannelInsightsV3;
     meta?: ChannelInsightsMeta;
-    previous?: ChannelInsightsV2;
+    previous?: ChannelInsightsV3;
   }>(`/api/v1/creators/channels/${channelId}/analytics/insights`, { params });
 
   if (response.status === 202 || response.data.status === 'generating') {
