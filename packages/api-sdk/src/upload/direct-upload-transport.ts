@@ -79,9 +79,26 @@ function exactLength(capability: MultipartPartCapability): number {
  */
 export const PUT_STALL_TIMEOUT_MS = 60_000;
 
+/**
+ * How long to wait for the bucket's response once EVERY byte has been handed
+ * to the network stack.
+ *
+ * `upload.onprogress` counts bytes accepted by the OS socket buffer, not bytes
+ * acknowledged by the server. A part smaller than that buffer (a few MB)
+ * reports 100 % almost instantly on any link, and on a slow one the real
+ * transmission then takes minutes with no further progress events — which the
+ * stall timer above read as a dead connection and aborted, restarting the
+ * part from zero every 60 s and never finishing (seen on a phone hotspot with
+ * a 5 MB file, 2026-08-29). After the last progress event the only thing left
+ * to wait for is the response, and that gets its own, much longer deadline.
+ */
+export const PUT_RESPONSE_TIMEOUT_MS = 5 * 60_000;
+
 export interface PutBlobOptions {
   /** Test hook; production uses `PUT_STALL_TIMEOUT_MS`. */
   stallTimeoutMs?: number;
+  /** Test hook; production uses `PUT_RESPONSE_TIMEOUT_MS`. */
+  responseTimeoutMs?: number;
 }
 
 export function putBlobWithProgress(
@@ -93,6 +110,7 @@ export function putBlobWithProgress(
 ): Promise<{ etag: string | null }> {
   const requiredLength = exactLength(capability);
   const stallTimeoutMs = options.stallTimeoutMs ?? PUT_STALL_TIMEOUT_MS;
+  const responseTimeoutMs = options.responseTimeoutMs ?? PUT_RESPONSE_TIMEOUT_MS;
   if (blob.size !== requiredLength) {
     throw new DirectUploadError(
       'Selected bytes do not match the signed upload length',
@@ -115,25 +133,31 @@ export function putBlobWithProgress(
       request.setRequestHeader(name, value);
     }
 
-    // Stall watchdog: re-armed by every progress event, disarmed on settle.
+    // Stall watchdog: re-armed by every progress event while bytes are still
+    // being handed over; once they all are, it becomes the response deadline.
+    // Disarmed on settle.
     let stalled = false;
+    let stalledAfterMs = 0;
     let stallTimer: ReturnType<typeof setTimeout> | undefined;
     const disarm = () => {
       if (stallTimer !== undefined) clearTimeout(stallTimer);
       stallTimer = undefined;
     };
-    const arm = () => {
+    const arm = (milliseconds: number) => {
       disarm();
-      if (stallTimeoutMs <= 0) return;
+      if (milliseconds <= 0) return;
       stallTimer = setTimeout(() => {
         stalled = true;
+        stalledAfterMs = milliseconds;
         request.abort();
-      }, stallTimeoutMs);
+      }, milliseconds);
     };
 
     request.upload.onprogress = (event) => {
-      arm();
-      if (event.lengthComputable) onProgress(Math.min(event.loaded, requiredLength));
+      const loaded = event.lengthComputable ? Math.min(event.loaded, requiredLength) : 0;
+      const everythingHandedOver = event.lengthComputable && event.loaded >= requiredLength;
+      arm(everythingHandedOver ? responseTimeoutMs : stallTimeoutMs);
+      if (event.lengthComputable) onProgress(loaded);
     };
     request.onload = () => {
       disarm();
@@ -159,7 +183,7 @@ export function putBlobWithProgress(
       if (stalled) {
         reject(
           new DirectUploadError(
-            `Storage upload made no progress for ${Math.round(stallTimeoutMs / 1_000)} s`,
+            `Storage upload made no progress for ${Math.round(stalledAfterMs / 1_000)} s`,
             null,
             'STORAGE_STALLED',
           ),
@@ -169,7 +193,7 @@ export function putBlobWithProgress(
       reject(new DOMException('Aborted', 'AbortError'));
     };
     signal?.addEventListener('abort', () => request.abort(), { once: true });
-    arm();
+    arm(stallTimeoutMs);
     request.send(blob);
   });
 }

@@ -164,3 +164,47 @@ describe('putBlobWithProgress stall watchdog', () => {
     await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
   });
 });
+
+describe('putBlobWithProgress response deadline', () => {
+  const originalXhr = (globalThis as { XMLHttpRequest?: unknown }).XMLHttpRequest;
+  const blob = { size: 100 } as Blob;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    FakeXhr.last = null;
+    (globalThis as { XMLHttpRequest?: unknown }).XMLHttpRequest = FakeXhr;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  afterAll(() => {
+    (globalThis as { XMLHttpRequest?: unknown }).XMLHttpRequest = originalXhr;
+  });
+
+  // A small part is buffered by the OS in one go: progress says 100 % at once
+  // and then nothing happens until the bucket answers, which on a slow link
+  // takes far longer than the stall timeout. That silence is not a stall.
+  it('waits the longer response deadline once every byte has been handed over', async () => {
+    const promise = putBlobWithProgress(capability(1, 100), blob, () => {}, undefined, {
+      stallTimeoutMs: 1_000,
+      responseTimeoutMs: 10_000,
+    });
+    FakeXhr.last!.upload.onprogress!({ lengthComputable: true, loaded: 100 });
+    jest.advanceTimersByTime(5_000); // well past the stall timeout
+    FakeXhr.last!.respondWith({ etag: '"late"' });
+    FakeXhr.last!.onload!();
+    await expect(promise).resolves.toEqual({ etag: 'late' });
+  });
+
+  it('still gives up when the response never comes', async () => {
+    const promise = putBlobWithProgress(capability(1, 100), blob, () => {}, undefined, {
+      stallTimeoutMs: 1_000,
+      responseTimeoutMs: 10_000,
+    });
+    FakeXhr.last!.upload.onprogress!({ lengthComputable: true, loaded: 100 });
+    jest.advanceTimersByTime(10_001);
+    await expect(promise).rejects.toMatchObject({ code: 'STORAGE_STALLED' });
+  });
+});
