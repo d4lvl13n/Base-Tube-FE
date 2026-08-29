@@ -144,7 +144,9 @@ describe('ContentStudio', () => {
       }),
     ]);
 
-    expect(screen.getByText('Uploading 42%')).toBeInTheDocument();
+    // Label and percentage are separate nodes (the % must not re-key the cross-fade).
+    expect(screen.getByTitle('Uploading 42%')).toHaveTextContent('Uploading');
+    expect(screen.getByText('42%')).toBeInTheDocument();
     expect(screen.getByText('Processing · transcoding 720p')).toBeInTheDocument();
     expect(screen.getByText('Ready')).toBeInTheDocument();
     expect(screen.getByText('Failed · network gave up')).toBeInTheDocument();

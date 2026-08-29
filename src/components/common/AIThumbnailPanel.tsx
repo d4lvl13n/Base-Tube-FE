@@ -11,6 +11,28 @@ import {
 } from '../../types/thumbnail';
 import type { ThumbnailOutputFormat } from '../../types/thumbnail';
 
+/**
+ * The thumbnail API answers `{ error: { code, message } }`; axios' own
+ * `error.message` is "Request failed with status code 402", which is what the
+ * creator used to see. Credits are the one failure that has a next step, so it
+ * gets its own sentence.
+ */
+export function describeThumbnailError(error: any): string {
+  const status: number | undefined = error?.response?.status;
+  const code: string | undefined = error?.response?.data?.error?.code;
+  const message: string | undefined =
+    error?.response?.data?.error?.message || error?.response?.data?.message;
+  if (status === 402 || code === 'INSUFFICIENT_CREDITS') {
+    return "You're out of thumbnail credits. Top up on the AI Thumbnails page, then try again.";
+  }
+  if (status === 429 || code === 'RATE_LIMIT_EXCEEDED') {
+    return 'Too many generations in a row — give it a minute and try again.';
+  }
+  if (message) return message;
+  if (!error?.response) return 'Could not reach the thumbnail service. Check your connection and try again.';
+  return 'Failed to generate thumbnail. Please try again.';
+}
+
 interface AIThumbnailPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -320,9 +342,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
       }
     } catch (error: any) {
       console.error('Error generating thumbnail:', error);
-      setError(error.response?.data?.message || 
-               error.message || 
-              'Failed to generate thumbnail. Please try again.');
+      setError(describeThumbnailError(error));
     } finally {
       if (isRegeneration) {
         setIsRegenerating(false);
@@ -380,10 +400,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
       setRefinementInstruction('');
     } catch (error: any) {
       console.error('Error refining thumbnail:', error);
-      setError(error.response?.data?.error?.message ||
-               error.response?.data?.message ||
-               error.message ||
-               'Failed to refine thumbnail. Please try again.');
+      setError(describeThumbnailError(error));
     }
   };
   

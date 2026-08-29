@@ -42,14 +42,22 @@ const TONE: Record<SummaryTone, string> = {
  * A percentage is only honest while bytes are moving, so it is glued to the
  * `Uploading` label and nowhere else; every other phase reads `Label · detail`.
  */
-export function phaseText(entry: UploadQueueViewEntry): string {
+export function phaseParts(entry: UploadQueueViewEntry): { label: string; percent: string | null } {
   const phase = uploadPhase(entry);
   const label = phaseLabel(entry);
-  if (phase === 'ready') return label;
+  if (phase === 'ready') return { label, percent: null };
   if (phase === 'uploading') {
-    return entry.status === 'uploading' ? `${label} ${entry.progress}%` : label;
+    return {
+      label,
+      percent: entry.status === 'uploading' ? `${entry.progress}%` : null,
+    };
   }
-  return `${label} · ${phaseDetail(entry)}`;
+  return { label: `${label} · ${phaseDetail(entry)}`, percent: null };
+}
+
+export function phaseText(entry: UploadQueueViewEntry): string {
+  const { label, percent } = phaseParts(entry);
+  return percent ? `${label} ${percent}` : label;
 }
 
 export const ContentStudio: React.FC = () => {
@@ -326,7 +334,8 @@ const UploadRow: React.FC<UploadRowProps> = ({
   onReselect,
 }) => {
   const phase = uploadPhase(entry);
-  const text = phaseText(entry);
+  const { label, percent } = phaseParts(entry);
+  const text = percent ? `${label} ${percent}` : label;
 
   return (
     <motion.li
@@ -422,9 +431,12 @@ const UploadRow: React.FC<UploadRowProps> = ({
       <div className="flex shrink-0 items-center gap-1.5">
         {phase === 'ready' && <Check className="h-3.5 w-3.5 text-green-500" aria-hidden="true" />}
         {phase === 'failed' && <X className="h-3.5 w-3.5 text-red-400" aria-hidden="true" />}
+        {/* The cross-fade is keyed on the LABEL only. The percentage used to be
+            part of the key, which remounted (and faded) the text on every
+            progress tick — a constant orange blink for the whole upload. */}
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
-            key={text}
+            key={label}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -440,9 +452,12 @@ const UploadRow: React.FC<UploadRowProps> = ({
             }`}
             title={text}
           >
-            {text}
+            {label}
           </motion.span>
         </AnimatePresence>
+        {percent !== null && (
+          <span className="w-10 text-right text-xs tabular-nums text-[#fa7517]">{percent}</span>
+        )}
       </div>
 
       {/* Progress is a hairline at the foot of the row, not a chart. Processing
