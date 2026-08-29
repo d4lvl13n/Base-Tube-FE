@@ -25,6 +25,7 @@ import axios from 'axios';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
 import { getChannelErrorMessage } from '../utils/channelErrorMessages';
+import { retryUnlessCancelled, wasCancelled } from '../utils/requestCancelled';
 
 export class ChannelApiError extends Error {
   readonly code: string | null;
@@ -298,20 +299,6 @@ export interface ChannelVideoQuery {
   sort?: 'newest' | 'oldest' | 'most_viewed' | 'most_liked';
 }
 
-/**
- * Did this request stop because someone aborted it?
- *
- * Axios reports its own cancellations through `isCancel`, but an
- * `AbortController` firing during the underlying fetch surfaces as a native
- * `AbortError` that `isCancel` does not recognise — and that one was being
- * retried three times, with backoff, for an answer that had already been
- * thrown away.
- */
-function wasCancelled(error: unknown): boolean {
-  if (axios.isCancel(error)) return true;
-  return typeof error === 'object' && error !== null && (error as { name?: string }).name === 'AbortError';
-}
-
 export const getChannelVideos = async (
   channelId: string | number,
   page: number = 1,
@@ -342,7 +329,7 @@ export const getChannelVideos = async (
   try {
     // A cancelled request is not a failure: retrying it would spend three
     // round trips and seven seconds of backoff on an answer nobody wants.
-    return await retryWithBackoff(fetchVideos, 2, 1000, (error) => !wasCancelled(error));
+    return await retryWithBackoff(fetchVideos, 2, 1000, retryUnlessCancelled);
   } catch (error) {
     if (wasCancelled(error)) throw error;
     const userError = handleApiError(error, {

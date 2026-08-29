@@ -4,6 +4,7 @@ import {
   ChannelVideoPage,
   ChannelVideoPages,
   channelVideosKey,
+  dropInactiveChannelVideos,
   matchesChannelVideoQuery,
   mergeDefined,
   patchCachedChannelVideos,
@@ -213,5 +214,54 @@ describe('mergeDefined', () => {
     const merged = mergeDefined(video(), { description: '' } as Partial<Video>);
 
     expect(merged.description).toBe('');
+  });
+});
+
+describe('dropInactiveChannelVideos', () => {
+  /**
+   * A patch can only edit rows a cache already HOLDS, so nothing it does puts
+   * a newly-public video into a cached Public list that predates it. Those
+   * lists are thrown away instead — but only this channel's.
+   */
+  it('clears this channel\'s cached filters', () => {
+    const cache = client();
+    const all = channelVideosKey(CHANNEL, {});
+    const publicOnly = channelVideosKey(CHANNEL, { visibility: 'public' });
+    cache.setQueryData(all, pages([video({ id: 1 })]));
+    cache.setQueryData(publicOnly, pages([video({ id: 2 })]));
+
+    dropInactiveChannelVideos(cache, CHANNEL);
+
+    expect(cache.getQueryData(all)).toBeUndefined();
+    expect(cache.getQueryData(publicOnly)).toBeUndefined();
+  });
+
+  // A creator with several channels must not have one channel's edit throw
+  // away the list they are looking at on another.
+  it('leaves every other channel alone', () => {
+    const cache = client();
+    const mine = channelVideosKey(CHANNEL, {});
+    const theirs = channelVideosKey('8', {});
+    const alsoTheirs = channelVideosKey('8', { visibility: 'private' });
+    cache.setQueryData(mine, pages([video({ id: 1 })]));
+    cache.setQueryData(theirs, pages([video({ id: 2 })]));
+    cache.setQueryData(alsoTheirs, pages([video({ id: 3 })]));
+
+    dropInactiveChannelVideos(cache, CHANNEL);
+
+    expect(cache.getQueryData(mine)).toBeUndefined();
+    expect(cache.getQueryData<ChannelVideoPages>(theirs)!.pages[0].data[0].id).toBe(2);
+    expect(cache.getQueryData<ChannelVideoPages>(alsoTheirs)!.pages[0].data[0].id).toBe(3);
+  });
+
+  // Channel ids are compared as query-key values, so "7" must not sweep "70".
+  it('does not mistake a channel whose id starts the same', () => {
+    const cache = client();
+    const similar = channelVideosKey('70', {});
+    cache.setQueryData(similar, pages([video({ id: 9 })]));
+
+    dropInactiveChannelVideos(cache, CHANNEL);
+
+    expect(cache.getQueryData(similar)).toBeDefined();
   });
 });

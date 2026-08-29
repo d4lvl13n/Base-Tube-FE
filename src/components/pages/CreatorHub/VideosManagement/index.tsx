@@ -27,6 +27,7 @@ import {
   refetchActiveChannelVideos,
   removeCachedChannelVideos,
 } from './videoCache';
+import { WriteQueue, createWriteQueue } from './writeQueue';
 import { styles } from './components/VideoList/styles';
 import EditVideoModal from './EditVideoModal';
 import DeleteConfirmationDialog from '../../../common/DeleteConfirmationDialog';
@@ -428,21 +429,9 @@ const VideosManagement: React.FC = () => {
    * flipping. Queuing the requests per video makes "last asked" and "last
    * written" the same thing.
    */
-  const writeQueueRef = useRef<Map<number, Promise<unknown>>>(new Map());
-  const enqueueWrite = useCallback(<T,>(videoId: number, task: () => Promise<T>): Promise<T> => {
-    const previous = writeQueueRef.current.get(videoId) ?? Promise.resolve();
-    // Run whether the one before succeeded or failed — a failure ahead of us
-    // must not strand every later write for this video.
-    const next = previous.then(task, task);
-    writeQueueRef.current.set(
-      videoId,
-      next.then(
-        () => undefined,
-        () => undefined,
-      ),
-    );
-    return next;
-  }, []);
+  const writeQueueRef = useRef<WriteQueue | null>(null);
+  if (writeQueueRef.current === null) writeQueueRef.current = createWriteQueue();
+  const enqueueWrite = writeQueueRef.current.enqueue;
   const claim = useCallback((videoId: number): number => {
     const generation = (generationsRef.current.get(videoId) ?? 0) + 1;
     generationsRef.current.set(videoId, generation);
@@ -488,7 +477,9 @@ const VideosManagement: React.FC = () => {
       try {
         const formData = new FormData();
         formData.append('is_public', String(next));
-        const result = await enqueueWrite(videoId, () => updateVideo(String(videoId), formData));
+        const result = await enqueueWrite(videoId, (signal) =>
+          updateVideo(String(videoId), formData, signal),
+        );
         if (!result.success) {
           if (stillOwns(videoId, generation)) reconcile(writeVisibility(videoId, prior));
           return { status: 'failed', message: result.message || 'Failed to update visibility' };
@@ -600,14 +591,22 @@ const VideosManagement: React.FC = () => {
 
   const handleDelete = useCallback((videoId: number) => setPendingDelete([videoId]), []);
 
-  const deleteOne = useCallback(async (videoId: number): Promise<boolean> => {
-    try {
-      const result = await deleteVideo(String(videoId));
-      return Boolean(result.success);
-    } catch {
-      return false;
-    }
-  }, []);
+  // Deleting goes through the same per-video queue as a visibility flip: a
+  // delete that overtakes an in-flight edit of the same row would have the
+  // server applying them in whichever order the network chose.
+  const deleteOne = useCallback(
+    async (videoId: number): Promise<boolean> => {
+      try {
+        const result = await enqueueWrite(videoId, (signal) =>
+          deleteVideo(String(videoId), signal),
+        );
+        return Boolean(result.success);
+      } catch {
+        return false;
+      }
+    },
+    [enqueueWrite],
+  );
 
   const confirmDelete = useCallback(async () => {
     const ids = pendingDelete ?? [];

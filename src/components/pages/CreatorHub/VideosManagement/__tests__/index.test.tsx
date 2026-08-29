@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
@@ -599,7 +599,7 @@ describe('VideosManagement row actions', () => {
     mockGetChannelVideos.mockResolvedValue(page([]));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
-    await waitFor(() => expect(mockDeleteVideo).toHaveBeenCalledWith('5'));
+    await waitFor(() => expect(mockDeleteVideo.mock.calls[0]?.[0]).toBe('5'));
     await waitFor(() => expect(screen.queryByText('Clip one')).toBeNull());
   });
 
@@ -1347,5 +1347,124 @@ describe('VideosManagement checkbox', () => {
     expect(screen.getByLabelText('Select Clip one')).toHaveAttribute('aria-checked', 'false');
     // The bulk bar animates out, so it is still in the DOM for a beat.
     await waitFor(() => expect(screen.queryByText('1 selected')).toBeNull());
+  });
+});
+
+describe('VideosManagement stuck requests', () => {
+  /**
+   * Writes for one video are serialized so they cannot land out of order,
+   * which means one request that never answers is one request that blocks
+   * every later write for that row. Bounded only by axios's own timeout times
+   * its retries, that is about half an hour of a switch that does nothing and
+   * a row that says it is busy.
+   */
+  it('gives up on a request that never answers, and lets the next one through', async () => {
+    jest.useFakeTimers();
+    try {
+      mockUpdateVideo.mockReturnValueOnce(new Promise(() => undefined));
+      mockGetChannelVideos.mockResolvedValue(page([video({ id: 1, is_public: true })]));
+
+      renderManagement();
+      fireEvent.click(await screen.findByRole('switch'));
+      await waitFor(() =>
+        expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false'),
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(21_000);
+      });
+
+      // Said plainly, and the row goes back to what it actually was.
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('The server did not answer in time'),
+      );
+      expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+
+      // …and the row is free again: the next flip is sent, not queued behind
+      // a request nobody is waiting for.
+      fireEvent.click(screen.getByRole('switch'));
+      await waitFor(() => expect(mockUpdateVideo).toHaveBeenCalledTimes(2));
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
+describe('VideosManagement held failure', () => {
+  /**
+   * A `failed` verdict is held like any other, so it survives a refetch that
+   * still calls the video `processing`. A retry has to release it — the same
+   * id is about to be transcoded again, and a row that keeps insisting it
+   * failed is a row the creator cannot get out of that state.
+   */
+  it('releases a held failed verdict when the creator retries', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([video({ id: 9, title: 'Working clip', status: 'processing' })]),
+    );
+    mockUseVideoProcessing.mockReturnValue({
+      processingVideos: { 9: { videoId: 9, status: 'failed', renditions: [] } },
+      restart: mockRestart,
+    });
+    // The real hook forgets the terminal row when it is restarted, which is
+    // what stops the poll re-reporting a failure it has been told to retry.
+    mockRestart.mockImplementation(() => {
+      mockUseVideoProcessing.mockReturnValue({ processingVideos: {}, restart: mockRestart });
+    });
+
+    renderManagement();
+    expect(await screen.findByText(/^Failed/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry processing' }));
+    await waitFor(() => expect(mockRetryVideoProcessing).toHaveBeenCalledWith(9));
+    await waitFor(() => expect(mockRestart).toHaveBeenCalledWith([9]));
+
+    // If the verdict were still held, the row would paint its own "Failed"
+    // line from the video's status even with the poll quiet, and there would
+    // be no way back out of that state.
+    await waitFor(() => expect(screen.queryByText(/^Failed/)).not.toBeInTheDocument());
+  });
+});
+
+describe('VideosManagement paging', () => {
+  // Pruning the selection against the loaded rows must count every page that
+  // is loaded, not the last one fetched — a creator who ticks a row, loads
+  // more, and hits Delete would otherwise find their selection quietly gone.
+  it('keeps a selection made on page one after loading page two', async () => {
+    mockGetChannelVideos
+      .mockResolvedValueOnce(
+        page([video({ id: 1, title: 'Clip one' })], { total: 2, page: 1, limit: 1, totalPages: 2 }),
+      )
+      .mockResolvedValueOnce(
+        page([video({ id: 2, title: 'Clip two' })], { total: 2, page: 2, limit: 1, totalPages: 2 }),
+      );
+
+    renderManagement();
+    fireEvent.click(await screen.findByLabelText('Select Clip one'));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+
+    expect(await screen.findByText('Clip two')).toBeInTheDocument();
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select Clip one')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('can then select every loaded row across both pages', async () => {
+    mockGetChannelVideos
+      .mockResolvedValueOnce(
+        page([video({ id: 1, title: 'Clip one' })], { total: 2, page: 1, limit: 1, totalPages: 2 }),
+      )
+      .mockResolvedValueOnce(
+        page([video({ id: 2, title: 'Clip two' })], { total: 2, page: 2, limit: 1, totalPages: 2 }),
+      );
+
+    renderManagement();
+    await screen.findByText('Clip one');
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    await screen.findByText('Clip two');
+
+    fireEvent.click(screen.getByLabelText('Select all 2 loaded'));
+
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
   });
 });
