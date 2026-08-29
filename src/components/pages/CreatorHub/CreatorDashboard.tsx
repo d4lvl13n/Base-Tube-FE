@@ -5,7 +5,7 @@ import { Users, Play, Clock, MessageCircle } from 'lucide-react';
 import { Channel } from '../../../types/channel';
 import { useCreatorAnalytics } from '../../../hooks/useAnalyticsData';
 import { useChannelData } from '../../../hooks/useChannelData';
-import { Link } from 'react-router-dom';
+import { formatPercent, interactionRate, trendBadgeValue } from './Analytics/metrics';
 
 interface CreatorDashboardProps {
   channels: Channel[];
@@ -25,6 +25,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
     growthMetrics,
     creatorWatchHours,
     viewMetrics,
+    detailedViewMetrics,
     socialMetrics,
     isLoading: analyticsLoading 
   } = useCreatorAnalytics('7d', selectedChannelId);
@@ -36,18 +37,23 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
 
   const isLoading = analyticsLoading || channelLoading;
 
+  // socialMetrics.recentEngagement covers the last 30 days; viewMetrics.totalViews
+  // is all-time. Dividing one by the other produced "Infinity%" on a channel with
+  // no counted views, and a meaningless ratio otherwise. Both sides now come from
+  // the same 30-day window, with an explicit zero guard
+  // (docs/ANALYTICS_REVIEW_2026-08-29.md finding 5).
+  const interactions30d = socialMetrics?.interactions.recentEngagement.total ?? 0;
+  const views30d = detailedViewMetrics?.viewsByPeriod?.last30d;
+
   const formatMetrics = {
     subscribers: activeChannel?.subscribers_count?.toLocaleString() ?? '0',
     newSubscribers: growthMetrics?.metrics.subscribers.total.toLocaleString() ?? '0',
-    subscribersTrend: growthMetrics?.metrics.subscribers.trend ?? 0,
+    subscribersTrend: trendBadgeValue(growthMetrics?.metrics.subscribers.trend),
     views: viewMetrics?.totalViews.toLocaleString() ?? '0',
-    viewsTrend: growthMetrics?.metrics.views.trend ?? 0,
+    viewsTrend: trendBadgeValue(growthMetrics?.metrics.views.trend),
     watchTime: creatorWatchHours.formattedHours,
-    watchTimeTrend: creatorWatchHours.periodTotal,
-    engagement: socialMetrics && viewMetrics
-      ? `${((socialMetrics.interactions.recentEngagement.total / viewMetrics.totalViews) * 100).toFixed(1)}%`
-      : '0%',
-    engagementTrend: growthMetrics?.metrics.engagement.trend ?? 0,
+    interactionRate: formatPercent(interactionRate(interactions30d, views30d)),
+    interactions30d,
     responseRate: socialMetrics?.interactions.responseRate ?? 0,
   };
 
@@ -81,21 +87,21 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
           loading={isLoading}
           subtitle={`Growth over 7 days`}
         />
-        <StatsCard 
-          icon={Clock} 
-          title="Total Watch Time" 
+        {/* No badge on watch time: `periodTotal` is a number of HOURS, and it
+            used to be handed to `change` and rendered as "↑12%". */}
+        <StatsCard
+          icon={Clock}
+          title="Total Watch Time"
           value={formatMetrics.watchTime}
-          change={formatMetrics.watchTimeTrend}
           loading={isLoading}
-          subtitle="Total hours watched (7d growth)"
+          subtitle="Total hours watched, all time"
         />
-        <StatsCard 
-          icon={MessageCircle} 
-          title="Engagement Rate" 
-          value={formatMetrics.engagement}
-          change={formatMetrics.engagementTrend}
+        <StatsCard
+          icon={MessageCircle}
+          title="Interaction rate"
+          value={formatMetrics.interactionRate}
           loading={isLoading}
-          subtitle={`Response Rate: ${formatMetrics.responseRate}%`}
+          subtitle={`${formatMetrics.interactions30d.toLocaleString()} likes + comments / views, last 30 days`}
         />
       </div>
     </motion.div>

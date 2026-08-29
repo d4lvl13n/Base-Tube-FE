@@ -7,7 +7,13 @@ interface StatsCardProps {
   icon: LucideIcon;
   title: string;
   value: string | number;
-  change: number;
+  /**
+   * A REAL period-over-period percentage, or omitted for no badge at all.
+   * Never pass a placeholder: a card with no trend must render no badge rather
+   * than a decorative one (docs/ANALYTICS_REVIEW_2026-08-29.md findings 1, 6, 7).
+   * Non-finite values (Infinity/NaN) are dropped defensively.
+   */
+  change?: number | null;
   loading?: boolean;
   subtitle?: string;
   className?: string;
@@ -24,7 +30,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
   className = '', 
   error
 }) => {
-  const isPositive = change >= 0;
+  const changeValue =
+    typeof change === 'number' && Number.isFinite(change) && change !== 0 ? change : null;
+  const isPositive = (changeValue ?? 0) >= 0;
   const changeColor = isPositive ? 'text-green-500' : 'text-red-500';
   const changeIcon = isPositive ? '↑' : '↓';
   
@@ -44,9 +52,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
     >
       <div className="flex items-center justify-between mb-4">
         <Icon className={error ? "text-red-500" : iconClass} size={24} />
-        {!error && !loading && change !== 0 && (
+        {!error && !loading && changeValue !== null && (
            <div className={`px-2 py-1 rounded ${isPositive ? 'bg-green-500/20' : 'bg-red-500/20'} ${changeColor}`}>
-             {changeIcon} {Math.abs(change)}%
+             {changeIcon} {Math.abs(changeValue)}%
            </div>
         )}
       </div>

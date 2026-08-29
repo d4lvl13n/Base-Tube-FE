@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Clock, 
-  Play, 
-  TrendingUp, 
-  ChevronDown, 
-  ChevronUp, 
-  ExternalLink, 
+import {
+  Clock,
+  Play,
+  TrendingUp,
+  ExternalLink,
   BarChart2,
   Loader as LoaderIcon,
   Star,
@@ -15,37 +13,29 @@ import { useCreatorAnalytics } from '../../../../../hooks/useAnalyticsData';
 import { WatchTimeChart } from '../charts/WatchTimeChart';
 import StatsCard from '../../../CreatorHub/StatsCard';
 import { Select } from '../../../../ui/Select';
-import { getChannelVideos } from '../../../../../api/channel';
 import { getVideoById } from '../../../../../api/video';
-import { useQuery } from '@tanstack/react-query';
-import { formatDuration } from '../../../../../utils/format';
-import { Video } from '../../../../../types/video';
-import Loader from '../../../../common/Loader';
-
-// Helper function to calculate an engagement score based on views and publish date
-const calculateEngagementScore = (video: Video): number => {
-  if (!video.views || !video.createdAt) return 0;
-  
-  const viewCount = video.views;
-  const daysSincePublished = Math.max(1, Math.floor((Date.now() - new Date(video.createdAt).getTime()) / (1000 * 60 * 60 * 24)));
-  
-  // Views per day since published, normalized to a 0-100 scale
-  // Higher numbers indicate more views in a shorter time
-  return Math.min(100, Math.round((viewCount / daysSincePublished) * 0.5));
-};
+import {
+  DURATION_BUCKET_LABELS,
+  DURATION_BUCKET_ORDER,
+  formatPercent,
+  weightedPercentWatched
+} from '../metrics';
 
 export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
   const [isChangingPeriod, setIsChangingPeriod] = useState(false);
   const [videoThumbnails, setVideoThumbnails] = useState<Record<string, string>>({});
   
-  const { 
+  const {
     channelWatchPatterns,
     detailedViewMetrics,
-    engagementTrends,
     isLoading: metricsLoading,
+    errors,
     invalidateAnalytics
   } = useCreatorAnalytics(period, channelId);
+
+  const watchPatternsError = errors.channelWatchPatterns;
+  const viewsError = errors.detailedViewMetrics;
 
   const isLoading = metricsLoading;
 
@@ -67,15 +57,11 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
   // For display strings
   const periodString = period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time';
 
-  // Calculate view growth trend from historical data if available
-  const viewTrend = engagementTrends?.likeGrowth && engagementTrends.likeGrowth.length > 1
-    ? ((engagementTrends.likeGrowth[engagementTrends.likeGrowth.length - 1].count / 
-        engagementTrends.likeGrowth[0].count) - 1) * 100
-    : detailedViewMetrics?.viewsByPeriod 
-      ? ((detailedViewMetrics.viewsByPeriod.last7d / 
-          detailedViewMetrics.viewsByPeriod.last30d) - 1) * 100
-      : 0;
-
+  // There used to be a `viewTrend` here: last-vs-first point of the LIKE series,
+  // falling back to 7d/30d views, a ratio of a window to a window that contains
+  // it and is therefore always <= 0. It rendered as a permanent red "down"
+  // badge on Total Views. Deleted — no trend source exists for this card
+  // (docs/ANALYTICS_REVIEW_2026-08-29.md finding 8).
   const performanceData = {
     watchTime: {
       // Use channel-specific watch hours data from durationStats
@@ -88,38 +74,15 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
             0
           ) ?? 0,
         videosWatched: channelWatchPatterns?.durationStats?.totalViews ?? 0,
-        completionRate: 
-          channelWatchPatterns?.retentionByDuration?.reduce(
-            (avg, item) => avg + (item.retentionRate / (channelWatchPatterns.retentionByDuration.length || 1)), 
-            0
-          ) ?? 0
+        completionRate: weightedPercentWatched(channelWatchPatterns?.retentionByDuration)
       }
     },
     completion: {
-      // Calculate average retention rate from retentionByDuration
-      overall: 
-        channelWatchPatterns?.retentionByDuration?.reduce(
-          (avg, item) => avg + (item.retentionRate / (channelWatchPatterns.retentionByDuration.length || 1)), 
-          0
-        ) ?? 0,
-      byDuration: {
-        short: 
-          channelWatchPatterns?.retentionByDuration?.find(
-            item => item.durationCategory === 'short'
-          )?.retentionRate ?? 0,
-        medium: 
-          channelWatchPatterns?.retentionByDuration?.find(
-            item => item.durationCategory === 'medium'
-          )?.retentionRate ?? 0,
-        long: 
-          channelWatchPatterns?.retentionByDuration?.find(
-            item => item.durationCategory === 'long'
-          )?.retentionRate ?? 0
-      }
+      // Weighted by the views in each bucket.
+      overall: weightedPercentWatched(channelWatchPatterns?.retentionByDuration)
     },
     views: {
-      total: detailedViewMetrics?.totalViews ?? 0,
-      weeklyChange: viewTrend
+      total: detailedViewMetrics?.totalViews ?? 0
     },
     // Use hourlyPatterns for peak hours data
     peakHours: channelWatchPatterns?.hourlyPatterns?.map(pattern => ({
@@ -193,25 +156,25 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
           icon={Clock}
           title="Avg Watch Duration"
           value={`${(performanceData.watchTime.total / 60).toFixed(1)}m`}
-          change={0}
           loading={isLoading}
-          subtitle={`${performanceData.watchTime.timeFrames.videosWatched.toLocaleString()} videos watched`}
+          subtitle={`${performanceData.watchTime.timeFrames.videosWatched.toLocaleString()} views in ${periodString}`}
+          error={watchPatternsError ? 'Error loading watch patterns' : undefined}
         />
         <StatsCard
           icon={Play}
           title="Total Views"
           value={performanceData.views.total.toLocaleString()}
-          change={Math.round(performanceData.views.weeklyChange)}
           loading={isLoading}
-          subtitle={`For ${periodString}`}
+          subtitle="All time"
+          error={viewsError ? 'Error loading views' : undefined}
         />
         <StatsCard
           icon={TrendingUp}
-          title="Completion Rate"
-          value={`${performanceData.completion.overall.toFixed(1)}%`}
-          change={0}
+          title="Avg. % watched"
+          value={formatPercent(performanceData.completion.overall)}
           loading={isLoading}
-          subtitle="Average across all videos"
+          subtitle="Weighted by views, all video lengths"
+          error={watchPatternsError ? 'Error loading watch depth' : undefined}
         />
       </div>
 
@@ -252,7 +215,7 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
             <div>
               <strong>Watch Time Distribution</strong> shows when your audience is most active throughout the day.
               Consider scheduling your new content releases to align with peak viewing hours to maximize initial visibility.
-              Time is displayed in your local timezone.
+              Hours are bucketed server-side in UTC.
             </div>
           </div>
         </div>
@@ -381,45 +344,39 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
       <div className="space-y-4 bg-black/30 rounded-xl p-5 border border-[#fa7517]/20">
         <div className="flex items-center">
           <TrendingUp className="w-5 h-5 mr-2 text-[#fa7517]" />
-          <h3 className="text-xl font-semibold">Retention by Video Length</h3>
+          <h3 className="text-xl font-semibold">Avg. % watched by video length</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-black/30 p-4 rounded-lg border border-gray-800/50">
-            <h4 className="text-gray-400 mb-2">Short Videos <span className="text-xs">(under 3 min)</span></h4>
-            <div className="text-2xl font-bold">
-              {performanceData.completion.byDuration.short.toFixed(1)}%
-            </div>
-            <div className="h-2 w-full bg-gray-800 mt-2 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-[#fa7517]" 
-                style={{ width: `${performanceData.completion.byDuration.short}%` }}
-              />
-            </div>
-          </div>
-          <div className="bg-black/30 p-4 rounded-lg border border-gray-800/50">
-            <h4 className="text-gray-400 mb-2">Medium Videos <span className="text-xs">(3-10 min)</span></h4>
-            <div className="text-2xl font-bold">
-              {performanceData.completion.byDuration.medium.toFixed(1)}%
-            </div>
-            <div className="h-2 w-full bg-gray-800 mt-2 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-[#fa7517]" 
-                style={{ width: `${performanceData.completion.byDuration.medium}%` }}
-              />
-            </div>
-          </div>
-          <div className="bg-black/30 p-4 rounded-lg border border-gray-800/50">
-            <h4 className="text-gray-400 mb-2">Long Videos <span className="text-xs">(over 10 min)</span></h4>
-            <div className="text-2xl font-bold">
-              {performanceData.completion.byDuration.long.toFixed(1)}%
-            </div>
-            <div className="h-2 w-full bg-gray-800 mt-2 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-[#fa7517]" 
-                style={{ width: `${performanceData.completion.byDuration.long}%` }}
-              />
-            </div>
-          </div>
+        {/* Bucket boundaries come from creatorAnalyticsService: <=60s, <=300s,
+            <=1200s, above. The labels used to read "under 3 min" / "3-10 min" /
+            "over 10 min" and the very_short bucket was never rendered at all
+            (docs/ANALYTICS_REVIEW_2026-08-29.md finding 12). */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {DURATION_BUCKET_ORDER.map((category) => {
+            const bucket = channelWatchPatterns?.retentionByDuration?.find(
+              (item) => item.durationCategory === category
+            );
+            const rate = bucket && Number.isFinite(bucket.retentionRate)
+              ? Math.min(100, Math.max(0, bucket.retentionRate))
+              : null;
+
+            return (
+              <div key={category} className="bg-black/30 p-4 rounded-lg border border-gray-800/50">
+                <h4 className="text-gray-400 mb-2">
+                  <span className="text-xs">{DURATION_BUCKET_LABELS[category]}</span>
+                </h4>
+                <div className="text-2xl font-bold">{formatPercent(rate)}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {bucket ? `${bucket.viewCount.toLocaleString()} views` : 'No views yet'}
+                </div>
+                <div className="h-2 w-full bg-gray-800 mt-2 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#fa7517]"
+                    style={{ width: `${rate ?? 0}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
         <div className="mt-2 text-sm text-gray-400 bg-black/30 p-3 rounded">
           <div className="flex items-start">
@@ -427,7 +384,7 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
               <Info className="w-4 h-4" />
             </div>
             <div>
-              <strong>Retention by Video Length</strong> shows how well different video durations perform with your audience.
+              <strong>Avg. % watched by video length</strong> shows how much of a video your audience gets through, for each video length.
               Use this data to optimize your future content strategy by focusing on durations that achieve the highest retention rates.
             </div>
           </div>

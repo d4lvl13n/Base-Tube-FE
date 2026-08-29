@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
-  getWatchPatterns, 
   getSocialMetrics, 
   getGrowthMetrics, 
   getChannelWatchHours,
@@ -12,18 +11,14 @@ import {
   getTopLikedContent,
   getTopSharedContent,
   getTopComments,
-  getLikeGrowthTrends,
-  getTopLikedVideos,
   getChannelAnalyticsInsights
 } from '../api/analytics';
 import type { 
-  WatchPatterns, 
   SocialMetrics, 
   GrowthMetrics, 
   CreatorWatchHours,
   BasicViewMetrics,
   DetailedViewMetrics,
-  TopLikedVideos,
   ChannelWatchPatterns,
   ChannelDemographics,
   DemographicsPeriod,
@@ -31,10 +26,20 @@ import type {
   TopContentItem,
   TopSharedItem,
   TopComment,
-  LikeGrowthTrends,
   ChannelAnalyticsInsight
 } from '../types/analytics';
 import { useEffect } from 'react';
+
+// A creator dashboard tab mounts ~12 queries at once. With staleTime: 0 and
+// refetchOnWindowFocus: true every tab switch (and every alt-tab back to the
+// browser) replayed all of them, which is what was tripping the analytics rate
+// limiter — see docs/ANALYTICS_REVIEW_2026-08-29.md (finding 22).
+const ANALYTICS_QUERY_DEFAULTS = {
+  staleTime: 60_000,
+  gcTime: 5 * 60 * 1000,
+  refetchOnWindowFocus: false,
+  retry: 2
+} as const;
 
 // ===========================================
 // ANALYTICS CONTEXT (SHARED)
@@ -48,9 +53,9 @@ export const useAnalyticsContext = () => {
     if (!channelId) return;
 
     await Promise.all([
-      queryClient.prefetchQuery({ 
-        queryKey: ['channel', channelId, 'channelWatchPatterns'], 
-        queryFn: () => getChannelWatchPatterns(channelId) 
+      queryClient.prefetchQuery({
+        queryKey: ['channel', channelId, 'channelWatchPatterns', period],
+        queryFn: () => getChannelWatchPatterns(channelId, period)
       }),
       queryClient.prefetchQuery({ 
         queryKey: ['channel', channelId, 'socialMetrics'], 
@@ -87,26 +92,11 @@ export const useAnalyticsContext = () => {
       queryClient.prefetchQuery({
         queryKey: ['channel', channelId, 'topComments', period],
         queryFn: () => getTopComments(channelId, period, 5)
-      }),
-      queryClient.prefetchQuery({
-        queryKey: ['channel', channelId, 'likeGrowthTrends'],
-        queryFn: () => getLikeGrowthTrends(channelId)
-      }),
-      queryClient.prefetchQuery({
-        queryKey: ['channel', channelId, 'topLikedVideos'],
-        queryFn: () => getTopLikedVideos(channelId)
       })
     ]);
   };
 
-  const prefetchViewerAnalytics = async () => {
-    await queryClient.prefetchQuery({ 
-      queryKey: ['viewer', 'watchPatterns'], 
-      queryFn: () => getWatchPatterns() 
-    });
-  };
-
-  return { prefetchCreatorAnalytics, prefetchViewerAnalytics };
+  return { prefetchCreatorAnalytics };
 };
 
 // Period validation helper
@@ -135,80 +125,19 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
   const validPeriod = validatePeriod(period);
   const demographicsPeriod = mapPeriodToDemographics(validPeriod);
   
-  // Enhanced cache invalidation function with more aggressive cache busting
+  // Period changes are the only reason to force a refetch. This used to
+  // resetQueries + invalidateQueries + refetchQueries over the same key space,
+  // which is where the ~14 requests per tab mount came from
+  // (docs/ANALYTICS_REVIEW_2026-08-29.md finding 22). A single prefix
+  // invalidation is enough: every period-sensitive query carries the period in
+  // its key, so React Query refetches exactly the ones that changed.
   const invalidateAnalytics = async () => {
-    console.log(`[Analytics] Invalidating cache for channelId ${channelId} with period ${validPeriod}`);
-    
-    if (channelId) {
-      // First reset queries to clear any in-memory cache
-      await queryClient.resetQueries({ 
-        queryKey: ['channel', channelId],
-        exact: false 
-      });
-      
-      // Then invalidate all queries to trigger refetching
-      await Promise.all([
-        queryClient.invalidateQueries({ 
-          queryKey: ['channel', channelId, 'growthMetrics'], 
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({ 
-          queryKey: ['channel', channelId, 'watchHours'], 
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({ 
-          queryKey: ['channel', channelId, 'channelWatchPatterns'], 
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({ 
-          queryKey: ['channel', channelId, 'detailedViewMetrics'], 
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({ 
-          queryKey: ['channel', channelId, 'socialMetrics'], 
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({ 
-          queryKey: ['channel', channelId, 'demographics'], 
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({ 
-          queryKey: ['channel', channelId, 'engagementTrends'], 
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({ 
-          queryKey: ['channel', channelId, 'topLikedContent'], 
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({ 
-          queryKey: ['channel', channelId, 'topSharedContent'], 
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({ 
-          queryKey: ['channel', channelId, 'topComments'], 
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['channel', channelId, 'likeGrowthTrends'],
-          refetchType: 'all'
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['channel', channelId, 'topLikedVideos'],
-          refetchType: 'all'
-        })
-      ]);
-
-      // Force a refetch of current period data
-      console.log(`[Analytics] Forced refetch for period ${validPeriod}`);
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['channel', channelId, 'growthMetrics', validPeriod] }),
-        queryClient.refetchQueries({ queryKey: ['channel', channelId, 'watchHours', validPeriod] }),
-        queryClient.refetchQueries({ queryKey: ['channel', channelId, 'demographics', demographicsPeriod] }),
-        queryClient.refetchQueries({ queryKey: ['channel', channelId, 'engagementTrends', validPeriod] }),
-        queryClient.refetchQueries({ queryKey: ['channel', channelId, 'detailedViewMetrics', validPeriod] }),
-        queryClient.refetchQueries({ queryKey: ['channel', channelId, 'topComments', validPeriod] })
-      ]);
-    }
+    if (!channelId) return;
+    await queryClient.invalidateQueries({
+      queryKey: ['channel', channelId],
+      exact: false,
+      refetchType: 'active'
+    });
   };
 
   // Basic view metrics - Channel-focused
@@ -223,10 +152,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       return result;
     },
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   // Detailed view metrics - Channel-focused
@@ -241,21 +167,15 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       return result;
     },
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   // Channel watch patterns - Channel specific
   const channelWatchPatterns = useQuery<ChannelWatchPatterns, Error>({
-    queryKey: ['channel', channelId, 'channelWatchPatterns'],
-    queryFn: () => getChannelWatchPatterns(channelId!),
+    queryKey: ['channel', channelId, 'channelWatchPatterns', validPeriod],
+    queryFn: () => getChannelWatchPatterns(channelId!, validPeriod),
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   // Channel demographics - Channel specific
@@ -266,10 +186,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       return getChannelDemographics(channelId!, demographicsPeriod);
     },
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   // Social metrics - Channel-focused
@@ -277,10 +194,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
     queryKey: ['channel', channelId, 'socialMetrics'],
     queryFn: () => getSocialMetrics(channelId!),
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   // Growth metrics - Channel-focused
@@ -295,10 +209,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       return getGrowthMetrics(apiPeriod, channelId!);
     },
     enabled: !!channelId,
-    staleTime: 0, // Always consider data stale
-    gcTime: 5 * 60 * 1000, // Keep unused data for 5 minutes
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   // Watch hours - Channel-focused with all-time and period data
@@ -312,10 +223,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       return getChannelWatchHours(channelId); // No period means all-time
     },
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   const periodWatchHours = useQuery<CreatorWatchHours, Error>({
@@ -331,10 +239,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
         : getChannelWatchHours(channelId, validPeriod);
     },
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   // New engagement-related queries
@@ -345,30 +250,21 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       return getEngagementTrends(channelId!, validPeriod);
     },
     enabled: !!channelId,
-    staleTime: 0, // Always consider data stale to ensure fresh data on period change
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   const topLikedContent = useQuery<TopContentItem[], Error>({
     queryKey: ['channel', channelId, 'topLikedContent'],
     queryFn: () => getTopLikedContent(channelId!, 5),
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   const topSharedContent = useQuery<TopSharedItem[], Error>({
     queryKey: ['channel', channelId, 'topSharedContent'],
     queryFn: () => getTopSharedContent(channelId!, 5),
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   const topComments = useQuery<TopComment[], Error>({
@@ -378,36 +274,13 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       return getTopComments(channelId!, validPeriod, 5);
     },
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
-  // === Integration of Like-related Queries ===
-  
-  // Like growth trends query
-  const likeGrowthTrends = useQuery<LikeGrowthTrends, Error>({
-    queryKey: ['channel', channelId, 'likeGrowthTrends'],
-    queryFn: () => getLikeGrowthTrends(channelId!),
-    enabled: !!channelId,
-    staleTime: 0, // Match other queries' freshness preference
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    retry: 2
-  });
-  
-  // Top liked videos query (different from TopLikedContent endpoint)
-  const topLikedVideos = useQuery<TopLikedVideos, Error>({
-    queryKey: ['channel', channelId, 'topLikedVideos'],
-    queryFn: () => getTopLikedVideos(channelId!),
-    enabled: !!channelId,
-    staleTime: 0, // Match other queries' freshness preference
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    retry: 2
-  });
-  // === End Integration ===
+  // The likeGrowthTrends / topLikedVideos queries used to live here. They fired
+  // on EVERY analytics tab mount for the sole benefit of LikesAnalyticsTab,
+  // which was never routed. Both are deleted; the API helpers and the routes
+  // behind them are still available if a Likes tab is ever built.
 
   // Add debugging logs
   useEffect(() => {
@@ -434,8 +307,6 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
     topLikedContent: topLikedContent.data,
     topSharedContent: topSharedContent.data,
     topComments: topComments.data,
-    likeGrowthTrends: likeGrowthTrends.data,
-    topLikedVideos: topLikedVideos.data,
     isLoading: viewMetrics.isLoading || 
                detailedViewMetrics.isLoading ||
                channelWatchPatterns.isLoading ||
@@ -447,9 +318,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
                engagementTrends.isLoading ||
                topLikedContent.isLoading ||
                topSharedContent.isLoading ||
-               topComments.isLoading ||
-               likeGrowthTrends.isLoading ||
-               topLikedVideos.isLoading,
+               topComments.isLoading,
     errors: {
       viewMetrics: viewMetrics.error, 
       detailedViewMetrics: detailedViewMetrics.error,
@@ -462,9 +331,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       engagementTrends: engagementTrends.error,
       topLikedContent: topLikedContent.error,
       topSharedContent: topSharedContent.error,
-      topComments: topComments.error,
-      likeGrowthTrends: likeGrowthTrends.error,
-      topLikedVideos: topLikedVideos.error
+      topComments: topComments.error
     },
     invalidateAnalytics
   };
@@ -483,10 +350,7 @@ export const useChannelWatchHours = (channelId: string, period: '7d' | '30d' = '
       return getChannelWatchHours(channelId, period);
     },
     enabled: !!channelId,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
-    retry: 2
+    ...ANALYTICS_QUERY_DEFAULTS
   });
 
   return {
@@ -498,50 +362,9 @@ export const useChannelWatchHours = (channelId: string, period: '7d' | '30d' = '
   };
 };
 
-// ===========================================
-// VIEWER-FOCUSED ANALYTICS
-// ===========================================
-
-/**
- * Hook for viewer-focused analytics data
- */
-export const useViewerAnalytics = () => {
-  // Watch patterns - General (viewers centric)
-  const watchPatterns = useQuery<WatchPatterns, Error>({
-    queryKey: ['viewer', 'watchPatterns'],
-    queryFn: () => getWatchPatterns(),
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
-    retry: 2
-  });
-
-  return {
-    watchPatterns: watchPatterns.data,
-    isLoading: watchPatterns.isLoading,
-    isError: watchPatterns.isError
-  };
-};
-
-// ===========================================
-// LEGACY SUPPORT (DEPRECATED)
-// ===========================================
-
-/**
- * @deprecated Use useCreatorAnalytics or useViewerAnalytics instead
- */
-export const useAnalyticsData = (period: '7d' | '30d' = '7d', channelId?: string) => {
-  const creatorData = useCreatorAnalytics(period, channelId);
-  const viewerData = useViewerAnalytics();
-  
-  return {
-    ...creatorData,
-    watchPatterns: viewerData.watchPatterns,
-    isLoading: creatorData.isLoading || viewerData.isLoading,
-    hasCreatorError: Object.values(creatorData.errors).some(e => e !== null),
-    viewerError: viewerData.isError
-  };
-};
+// The viewer-facing useViewerAnalytics / useAnalyticsData hooks lived here.
+// Their only consumer was AudienceEngagementTab, which was never routed, and
+// the /api/v1/analytics/watch-patterns endpoint behind them has been deleted.
 
 // Add a new hook for AI insights
 

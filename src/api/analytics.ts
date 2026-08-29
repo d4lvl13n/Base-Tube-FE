@@ -1,14 +1,11 @@
 import api from './index';
 import { 
-  WatchPatterns, 
   SocialMetrics, 
   GrowthMetrics,
-  CreatorWatchHours,
   BasicViewMetrics,
   DetailedViewMetrics,
   LikeGrowthTrends,
   TopLikedVideos,
-  LikeViewRatio,
   ChannelWatchPatterns,
   ChannelDemographics,
   EngagementTrends, 
@@ -30,19 +27,6 @@ interface WatchTimeData {
 }
 
 // ===========================================
-// VIEWER-FOCUSED ANALYTICS ENDPOINTS
-// ===========================================
-
-/**
- * Get general watch patterns focused on viewer behavior across the platform
- * This is not specific to any creator or channel
- */
-export const getWatchPatterns = async (): Promise<WatchPatterns> => {
-  const response = await api.get<{ success: boolean; data: WatchPatterns }>('/api/v1/analytics/watch-patterns');
-  return response.data.data;
-};
-
-// ===========================================
 // CREATOR-FOCUSED ANALYTICS ENDPOINTS
 // ===========================================
 
@@ -50,10 +34,14 @@ export const getWatchPatterns = async (): Promise<WatchPatterns> => {
  * Get channel-specific watch patterns focused on how viewers interact with a specific channel
  * @param channelId The ID of the channel to get watch patterns for
  */
-export const getChannelWatchPatterns = async (channelId: string): Promise<ChannelWatchPatterns> => {
+export const getChannelWatchPatterns = async (
+  channelId: string,
+  period?: '7d' | '30d' | '90d' | 'all'
+): Promise<ChannelWatchPatterns> => {
   const fetchPatterns = async () => {
     const response = await api.get<{ success: boolean; data: ChannelWatchPatterns }>(
-      `/api/v1/creators/channels/${channelId}/watch-patterns`
+      `/api/v1/creators/channels/${channelId}/watch-patterns`,
+      { params: period ? { period } : {} }
     );
     
     if (!response.data.success) {
@@ -72,24 +60,8 @@ export const getChannelWatchPatterns = async (channelId: string): Promise<Channe
       additionalData: { channelId }
     });
     
-    // For analytics, return empty data structure instead of throwing
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE || 
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Analytics unavailable, returning empty data:', userError.message);
-      return {
-        hourlyPatterns: [],
-        weekdayPatterns: [],
-        durationStats: {
-          averageWatchDuration: 0,
-          maxWatchDuration: 0,
-          totalViews: 0,
-          uniqueViewers: 0
-        },
-        retentionByDuration: [],
-        topRetainedVideos: []
-      };
-    }
-    
+    // A failed request must surface as an error state, not as a dashboard
+    // full of confident zeros — see docs/ANALYTICS_REVIEW_2026-08-29.md P-F9.
     throw userError;
   }
 };
@@ -120,30 +92,7 @@ export const getSocialMetrics = async (channelId: string): Promise<SocialMetrics
       additionalData: { channelId }
     });
 
-    // For social metrics, return default structure on analytics errors or network issues
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR ||
-        userError.code === ErrorCode.NETWORK_ERROR ||
-        userError.code === ErrorCode.INTERNAL_SERVER_ERROR) {
-      console.warn('Social metrics unavailable, returning empty data:', userError.message);
-      return {
-        interactions: {
-          commentsReceived: 0,
-          responseRate: 0,
-          averageResponseTime: 0,
-          recentEngagement: {
-            total: 0,
-            likes: 0,
-            comments: 0
-          }
-        },
-        community: {
-          subscriberCount: 0,
-          recentSubscribers: 0
-        }
-      };
-    }
-
+    // Never substitute zeros for a failure (ANALYTICS_REVIEW P-F9).
     throw userError;
   }
 };
@@ -179,33 +128,7 @@ export const getGrowthMetrics = async (period: '7d' | '30d' | 'all', channelId: 
       additionalData: { channelId, period }
     });
 
-    // For growth metrics, return empty structure on analytics errors or network issues
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR ||
-        userError.code === ErrorCode.NETWORK_ERROR ||
-        userError.code === ErrorCode.INTERNAL_SERVER_ERROR) {
-      console.warn('Growth metrics unavailable, returning empty data:', userError.message);
-      return {
-        metrics: {
-          subscribers: {
-            total: 0,
-            trend: 0,
-            data: []
-          },
-          views: {
-            total: 0,
-            trend: 0,
-            data: []
-          },
-          engagement: {
-            total: 0,
-            trend: 0,
-            data: []
-          }
-        }
-      };
-    }
-
+    // Never substitute zeros for a failure (ANALYTICS_REVIEW P-F9).
     throw userError;
   }
 };
@@ -344,18 +267,7 @@ export const getChannelWatchHours = async (
       additionalData: { channelId, period }
     });
 
-    // For watch time data, return zero values on analytics errors
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Watch hours unavailable, returning empty data:', userError.message);
-      return {
-        channelId,
-        totalWatchHours: 0,
-        period: period ?? 'all',
-        formattedHours: '0h'
-      };
-    }
-
+    // Never substitute zeros for a failure (ANALYTICS_REVIEW P-F9).
     throw userError;
   }
 };
@@ -396,17 +308,7 @@ export const getEngagementTrends = async (
       additionalData: { channelId, period }
     });
 
-    // For engagement trends, return empty structure on analytics errors
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Engagement trends unavailable, returning empty data:', userError.message);
-      return {
-        likeGrowth: [],
-        commentGrowth: [],
-        shareGrowth: []
-      };
-    }
-
+    // Never substitute zeros for a failure (ANALYTICS_REVIEW P-F9).
     throw userError;
   }
 };

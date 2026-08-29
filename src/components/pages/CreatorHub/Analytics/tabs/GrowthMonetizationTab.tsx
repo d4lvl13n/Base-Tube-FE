@@ -3,14 +3,14 @@ import {
   Users, 
   TrendingUp, 
   Play,
-  Clock,
-  Target
+  Clock
 } from 'lucide-react';
 import { useCreatorAnalytics } from '../../../../../hooks/useAnalyticsData';
 import { useChannelData } from '../../../../../hooks/useChannelData';
 import StatsCard from '../../../CreatorHub/StatsCard';
 import { Select } from '../../../../ui/Select';
 import { GrowthChart } from '../charts/GrowthChart';
+import { formatPercent, interactionRate, trendBadgeValue } from '../metrics';
 
 // Milestone component
 const MilestoneCard: React.FC<{ 
@@ -96,9 +96,14 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const views = detailedViewMetrics?.totalViews ?? 0;
   const watchHours = creatorWatchHours.total;
 
-  // Use growthMetrics directly for engagement rate and trend
-  const engagementRate = growthMetrics?.metrics.engagement.total ?? 0;
-  // Engagement trend will be handled conditionally based on period
+  // (likes + comments) / views over the SAME window. `engagement.total` is a
+  // COUNT of interactions; the card used to print it with a '%' appended
+  // (docs/ANALYTICS_REVIEW_2026-08-29.md finding 2).
+  const interactionsThisPeriod = growthMetrics?.metrics.engagement.total ?? 0;
+  const viewsThisPeriod = period === 'all'
+    ? (detailedViewMetrics?.totalViews ?? 0)
+    : (detailedViewMetrics?.viewsByPeriod?.[period === '7d' ? 'last7d' : 'last30d'] ?? 0);
+  const periodInteractionRate = interactionRate(interactionsThisPeriod, viewsThisPeriod);
 
   // Growth milestones (for platform features and visibility)
   const growthMilestones = {
@@ -152,10 +157,7 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           icon={Users}
           title="Subscribers"
           value={subscribers.toLocaleString()}
-          // Hide change if period is 'all' (trend is 0/null)
-          change={period === 'all' || growthData?.subscribers.trend == null || growthData?.subscribers.trend === 0 
-            ? 0 
-            : Math.round(growthData.subscribers.trend)}
+          change={period === 'all' ? undefined : trendBadgeValue(growthData?.subscribers.trend)}
           loading={isLoading}
           subtitle={period === 'all' 
             ? 'Total Subscribers' // Show total when 'all' is selected
@@ -167,10 +169,7 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           icon={Play}
           title="Video Views"
           value={views.toLocaleString()}
-          // Hide change if period is 'all' (trend is 0/null)
-          change={period === 'all' || growthData?.views.trend == null || growthData?.views.trend === 0 
-            ? 0 
-            : Math.round(growthData.views.trend)}
+          change={period === 'all' ? undefined : trendBadgeValue(growthData?.views.trend)}
           loading={isLoading}
           subtitle={period === 'all'
             ? 'Total Views' // Show total when 'all' is selected
@@ -183,7 +182,6 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           icon={Clock}
           title="Watch Hours"
           value={creatorWatchHours.formattedHours}
-          change={0} // No trend here
           loading={isLoading}
           subtitle={period === 'all' 
             ? 'Total Watch Hours' // Show total when 'all' is selected
@@ -193,15 +191,12 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
         
         <StatsCard
           icon={TrendingUp}
-          title="Engagement"
-          value={`${engagementRate.toFixed(1)}%`}
-          // Hide change if period is 'all' (trend is 0/null)
-          change={period === 'all' || growthData?.engagement.trend == null || growthData?.engagement.trend === 0 
-            ? 0 
-            : Math.round(growthData.engagement.trend)}
+          title="Interaction rate"
+          value={formatPercent(periodInteractionRate)}
+          change={period === 'all' ? undefined : trendBadgeValue(growthData?.engagement.trend)}
           loading={isLoading}
-          subtitle={`For ${periodString}`} // Subtitle reflects selected period
-          error={growthError ? "Error loading engagement" : undefined}
+          subtitle={`${interactionsThisPeriod.toLocaleString()} likes + comments / ${viewsThisPeriod.toLocaleString()} views, ${periodString}`}
+          error={growthError || viewsError ? "Error loading engagement" : undefined}
         />
       </div>
 

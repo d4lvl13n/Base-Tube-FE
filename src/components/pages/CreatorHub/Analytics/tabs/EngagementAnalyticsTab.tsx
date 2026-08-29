@@ -3,8 +3,7 @@ import {
   ThumbsUp, 
   MessageCircle, 
   Share2, 
-  Clock, 
-  BarChart2,
+  Clock,
   Award,
   Loader
 } from 'lucide-react';
@@ -14,6 +13,7 @@ import { Select } from '../../../../ui/Select';
 import { format, parseISO } from 'date-fns';
 import { LineChart } from '../charts/LineChart';
 import { getVideoById } from '../../../../../api/video';
+import { formatPercent, sumCounts, weightedPercentWatched } from '../metrics';
 
 // Video card component
 const TopVideoCard: React.FC<{
@@ -177,37 +177,20 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
     }
   };
   
-  // Debug log to check data (will be removed in production)
-  console.log('engagementTrends:', engagementTrends);
-  
-  // --- Direct calculation from engagementTrends ---
-  const getLatestCount = (trendData?: { date: string; count: number }[]) => {
-    return trendData && trendData.length > 0 ? trendData[trendData.length - 1].count : 0;
-  };
+  // Totals are the SUM over the selected window. They used to read the last
+  // point of the series, so "Total Likes, 7 days" showed the likes on the most
+  // recent active day (docs/ANALYTICS_REVIEW_2026-08-29.md finding 3).
+  //
+  // No trend badges here: the endpoint only returns the current window, so a
+  // real period-over-period comparison is not available. A badge computed from
+  // the first vs. last point of the same window (what this used to do) is not a
+  // trend, so nothing is shown rather than something wrong.
+  const totalLikes = sumCounts(engagementTrends?.likeGrowth);
+  const totalComments = sumCounts(engagementTrends?.commentGrowth);
+  const totalShares = sumCounts(engagementTrends?.shareGrowth);
 
-  const calculateTrend = (trendData?: { date: string; count: number }[]) => {
-    if (!trendData || trendData.length < 2) return 0;
-    const latestCount = trendData[trendData.length - 1].count;
-    const startCount = trendData[0].count;
-    if (startCount === 0) return latestCount > 0 ? 100 : 0; // Avoid division by zero, show 100% if starting from 0
-    return ((latestCount / startCount) - 1) * 100;
-  };
-
-  const totalLikes = getLatestCount(engagementTrends?.likeGrowth);
-  const totalComments = getLatestCount(engagementTrends?.commentGrowth);
-  const totalShares = getLatestCount(engagementTrends?.shareGrowth);
-
-  const likeGrowthTrend = calculateTrend(engagementTrends?.likeGrowth);
-  const commentGrowthTrend = calculateTrend(engagementTrends?.commentGrowth);
-  const shareGrowthTrend = calculateTrend(engagementTrends?.shareGrowth);
-  // --- End Direct calculation ---
-  
-  // Calculate average completion/retention rate
-  const avgRetentionRate = 
-    channelWatchPatterns?.retentionByDuration?.reduce(
-      (avg, item) => avg + (item.retentionRate / (channelWatchPatterns.retentionByDuration.length || 1)), 
-      0
-    ) ?? 0;
+  // Weighted by the views in each duration bucket, not a flat average.
+  const avgPercentWatched = weightedPercentWatched(channelWatchPatterns?.retentionByDuration);
 
   // For display strings
   const periodString = period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time';
@@ -250,7 +233,6 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
             icon={ThumbsUp}
             title="Total Likes"
             value={totalLikes.toLocaleString()}
-            change={Math.round(likeGrowthTrend)}
             loading={isLoading}
             subtitle={`For ${periodString}`}
           />
@@ -259,7 +241,6 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
             icon={MessageCircle}
             title="Comments"
             value={totalComments.toLocaleString()}
-            change={Math.round(commentGrowthTrend)}
             loading={isLoading}
             subtitle={`For ${periodString}`}
           />
@@ -268,18 +249,16 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
             icon={Share2}
             title="Shares"
             value={totalShares.toLocaleString()}
-            change={Math.round(shareGrowthTrend)}
             loading={isLoading}
             subtitle={`For ${periodString}`}
           />
           
           <StatsCard
             icon={Clock}
-            title="Completion Rate"
-            value={`${avgRetentionRate.toFixed(1)}%`}
-            change={0}
+            title="Avg. % watched"
+            value={formatPercent(avgPercentWatched)}
             loading={isLoading}
-            subtitle="Average video completion"
+            subtitle="Share of each video watched, weighted by views"
           />
         </div>
       )}
