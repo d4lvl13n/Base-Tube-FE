@@ -8,13 +8,14 @@ interface InitViewResponse {
   success: boolean;
   message: string;
   data: {
+    /** Short-lived, single-view credential for the `pagehide` beacon. */
+    beaconToken?: string;
     viewId: string;
   };
 }
 
 interface UpdateViewRequest {
   watchedDuration: number;
-  completed?: boolean;
 }
 
 interface UpdateViewResponse {
@@ -375,7 +376,8 @@ export const initializeVideoView = async (
         }
       }
     );
-    console.debug('View initialization response:', response.data);
+    // Deliberately NOT logging the response: it carries `beaconToken`, a
+    // credential that can flush this session's watch time.
     return response.data;
   } catch (error) {
     console.error('Failed to initialize view:', error);
@@ -383,16 +385,22 @@ export const initializeVideoView = async (
   }
 };
 
+/**
+ * `PATCH /api/v1/videos/:videoId/views/:viewId`.
+ *
+ * `watchedDuration` is TIME ACTUALLY PLAYED, not the furthest playhead
+ * position. Completion is derived server-side from it (>= 90 % of the video),
+ * so the client does not send a `completed` flag — it never had the authority
+ * to decide that, and sending it let a scrub to the end read as a full watch.
+ */
 export const updateVideoView = async (
   videoId: string,
   viewId: string,
-  watchedDuration: number,
-  completed?: boolean
+  watchedDuration: number
 ): Promise<UpdateViewResponse> => {
   try {
     const payload: UpdateViewRequest = {
-      watchedDuration,
-      completed
+      watchedDuration
     };
 
     const response = await api.patch<UpdateViewResponse>(
@@ -409,6 +417,45 @@ export const updateVideoView = async (
   } catch (error) {
     console.error('Failed to update view:', error);
     throw error;
+  }
+};
+
+/**
+ * Last-gasp flush of the played time when the page is going away.
+ *
+ * `pagehide` (and a bfcache eviction) kills in-flight XHRs, so the final chunk
+ * of a watch session used to be lost on every navigation and tab close.
+ * `navigator.sendBeacon` survives that, but it cannot set an `Authorization`
+ * header — hence the dedicated endpoint and the `beaconToken` handed out by
+ * `POST /views`.
+ *
+ * The blob is `text/plain` rather than `application/json` on purpose: a JSON
+ * content type makes the POST a non-simple cross-origin request, and the CORS
+ * preflight it then needs rarely completes while the document is being torn
+ * down. The backend reads the body raw and accepts either.
+ *
+ * Returns whether the browser accepted the beacon for delivery.
+ */
+export const sendViewBeacon = (
+  videoId: string,
+  viewId: string,
+  watchedDuration: number,
+  beaconToken: string
+): boolean => {
+  if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') {
+    return false;
+  }
+
+  try {
+    const base = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
+    const url = `${base}/api/v1/videos/${videoId}/views/${viewId}/beacon`;
+    const body = new Blob([JSON.stringify({ watchedDuration, token: beaconToken })], {
+      type: 'text/plain;charset=UTF-8',
+    });
+    return navigator.sendBeacon(url, body);
+  } catch (error) {
+    console.error('Failed to send view beacon:', error);
+    return false;
   }
 };
 

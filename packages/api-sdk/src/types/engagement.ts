@@ -44,3 +44,31 @@ export interface LikeStatusResponse {
 }
 
 export type SharePlatform = 'twitter' | 'facebook' | 'whatsapp' | 'telegram' | 'copy' | 'other';
+
+/** `POST /api/v1/videos/:videoId/views` — the created view row. */
+export interface RecordViewResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    viewId: string;
+    /** Short-lived, single-view credential for a page-teardown beacon (web). */
+    beaconToken?: string;
+  };
+}
+
+/** `GET /api/v1/config/view-config` — the rules the backend enforces on views. */
+export interface ViewTrackingConfig {
+  thresholds: {
+    /** Percent of the video that counts as a view. */
+    percentage: number;
+    /** Absolute seconds that count as a view, whichever comes first. */
+    seconds: number;
+  };
+  /** Heartbeat cadence, in milliseconds. */
+  updateInterval: number;
+}
+
+export interface ViewConfigResponse {
+  success: boolean;
+  data: ViewTrackingConfig;
+}

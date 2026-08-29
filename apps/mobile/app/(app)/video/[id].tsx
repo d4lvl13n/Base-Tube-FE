@@ -12,6 +12,7 @@ import { AccentHairline, Card, GlassCircleButton } from '../../../src/components
 import { ErrorState, LoadingState } from '../../../src/components/media';
 import { channelAvatarUrl, formatCount, imageUrl, thumbnailUrl, timeAgo } from '../../../src/lib/format';
 import { haptics } from '../../../src/lib/haptics';
+import { STATUS_INTERVAL_MS, useViewTracking } from '../../../src/hooks/useViewTracking';
 
 function playableUrl(video: any): string | null {
   if (video?.video_url) return video.video_url;
@@ -53,7 +54,12 @@ export default function VideoScreen() {
   const comments = useQuery({ queryKey: ['comments', id], queryFn: () => api.engagement.listComments(id), enabled: !!id });
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.profile.me(), staleTime: 5 * 60_000, retry: false });
 
-  useEffect(() => { if (id) api.engagement.trackView(id); }, [id]);
+  // View tracking. The old `trackView(id)` on mount posted an empty body, which
+  // the backend rejected with a 400 the SDK swallowed — mobile recorded no
+  // views at all. Now a view row is opened once the same threshold the web uses
+  // is crossed (min(30 %, 30 s) of real playback), and the played time is
+  // flushed on a 30 s heartbeat, on pause, on finish and on unmount.
+  const { onPlaybackStatusUpdate } = useViewTracking(id);
 
   // Optimistic like — flips the heart AND moves the count instantly, rolls back on error.
   const toggleLike = useMutation({
@@ -199,7 +205,18 @@ export default function VideoScreen() {
         <View style={[styles.statusStrip, { height: insets.top }]} />
         <View style={styles.player}>
           {url ? (
-            <ExpoVideo ref={videoRef} source={{ uri: url }} style={styles.video} useNativeControls shouldPlay resizeMode={ResizeMode.CONTAIN} posterSource={{ uri: thumbnailUrl(v) }} usePoster />
+            <ExpoVideo
+              ref={videoRef}
+              source={{ uri: url }}
+              style={styles.video}
+              useNativeControls
+              shouldPlay
+              resizeMode={ResizeMode.CONTAIN}
+              posterSource={{ uri: thumbnailUrl(v) }}
+              usePoster
+              progressUpdateIntervalMillis={STATUS_INTERVAL_MS}
+              onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+            />
           ) : (
             <Image transition={150} source={{ uri: thumbnailUrl(v) }} style={styles.video} contentFit="cover" />
           )}
