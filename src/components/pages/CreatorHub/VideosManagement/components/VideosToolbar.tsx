@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { VideoFilters, VideoSortOption, VideoVisibilityFilter } from '../types';
+import { SortMenu } from './SortMenu';
 
 /**
  * How long we let a creator keep typing before asking the server again.
@@ -16,13 +17,6 @@ const CHIPS: { value: VideoVisibilityFilter; label: string }[] = [
   { value: 'public', label: 'Public' },
   { value: 'private', label: 'Private' },
   { value: 'processing', label: 'Processing' },
-];
-
-const SORTS: { value: VideoSortOption; label: string }[] = [
-  { value: 'newest', label: 'Newest' },
-  { value: 'oldest', label: 'Oldest' },
-  { value: 'most_viewed', label: 'Most viewed' },
-  { value: 'most_liked', label: 'Most liked' },
 ];
 
 interface VideosToolbarProps {
@@ -72,28 +66,31 @@ export const VideosToolbar: React.FC<VideosToolbarProps> = ({
 
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <h1 className="text-lg font-semibold text-white whitespace-nowrap">
+      <h1 className="text-base font-semibold tracking-tight text-white whitespace-nowrap">
         Videos
         {total !== null && (
-          <span className="text-gray-500 font-normal"> · {total.toLocaleString()}</span>
+          <span className="ml-1.5 font-normal tabular-nums text-gray-500">
+            · {total.toLocaleString()}
+          </span>
         )}
       </h1>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap lg:justify-end">
-        <div className="relative sm:w-56">
+      <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:flex-nowrap">
+        <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500"
             aria-hidden="true"
           />
           <input
-            type="search"
+            type="text"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Search…"
             aria-label="Search videos"
-            className="w-full rounded-lg border border-gray-800/50 bg-black/30 py-2 pl-9 pr-8
-                       text-sm text-white placeholder:text-gray-500
-                       focus:border-[#fa7517]/50 focus:outline-none focus:ring-1 focus:ring-[#fa7517]/40"
+            className="w-full rounded-lg border border-gray-800/60 bg-white/5 py-1.5 pl-9 pr-8
+                       text-sm text-gray-100 placeholder:text-gray-500 transition-colors
+                       hover:border-gray-700 focus-visible:border-[#fa7517]/40
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/40"
           />
           {draft !== '' && (
             <button
@@ -101,15 +98,18 @@ export const VideosToolbar: React.FC<VideosToolbarProps> = ({
               onClick={clearSearch}
               aria-label="Clear search"
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-500
-                         hover:text-white focus:outline-none focus-visible:text-white"
+                         transition-colors hover:text-white focus-visible:outline-none
+                         focus-visible:ring-2 focus-visible:ring-[#fa7517]/40"
             >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
         </div>
 
+        {/* A segmented control, not four buttons: exactly one of these is true
+            at a time and the shared trough is what says so. */}
         <div
-          className="flex flex-wrap gap-1 rounded-lg border border-gray-800/50 bg-black/30 p-1"
+          className="flex shrink-0 items-center gap-0.5 rounded-lg border border-gray-800/60 bg-white/5 p-0.5"
           role="group"
           aria-label="Filter videos"
         >
@@ -121,8 +121,9 @@ export const VideosToolbar: React.FC<VideosToolbarProps> = ({
                 type="button"
                 aria-pressed={active}
                 onClick={() => onVisibilityChange(chip.value)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors
-                            focus:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60 ${
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors
+                            focus-visible:outline-none focus-visible:ring-2
+                            focus-visible:ring-[#fa7517]/40 ${
                               active
                                 ? 'bg-[#fa7517]/15 text-[#fa7517]'
                                 : 'text-gray-400 hover:text-white'
@@ -134,22 +135,7 @@ export const VideosToolbar: React.FC<VideosToolbarProps> = ({
           })}
         </div>
 
-        <label className="flex items-center gap-2 text-xs text-gray-500">
-          <span className="hidden sm:inline">Sort</span>
-          <select
-            value={filters.sort}
-            onChange={(event) => onSortChange(event.target.value as VideoSortOption)}
-            aria-label="Sort videos"
-            className="rounded-lg border border-gray-800/50 bg-black/30 px-2 py-2 text-sm text-white
-                       focus:border-[#fa7517]/50 focus:outline-none"
-          >
-            {SORTS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SortMenu value={filters.sort} onChange={onSortChange} />
       </div>
     </div>
   );

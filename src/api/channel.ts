@@ -301,10 +301,16 @@ export interface ChannelVideoQuery {
 export const getChannelVideos = async (
   channelId: string | number,
   page: number = 1,
-  query: ChannelVideoQuery = {}
+  query: ChannelVideoQuery = {},
+  /**
+   * React Query's per-request signal. A search superseded by the next
+   * keystroke is aborted rather than left to land out of order.
+   */
+  signal?: AbortSignal
 ) => {
   const fetchVideos = async () => {
     const response = await api.get(`/api/v1/channels/${channelId}/videos`, {
+      signal,
       params: {
         page,
         include_private: true,
@@ -320,8 +326,11 @@ export const getChannelVideos = async (
   };
 
   try {
-    return await retryWithBackoff(fetchVideos, 2, 1000);
+    // A cancelled request is not a failure: retrying it would spend three
+    // round trips and seven seconds of backoff on an answer nobody wants.
+    return await retryWithBackoff(fetchVideos, 2, 1000, (error) => !axios.isCancel(error));
   } catch (error) {
+    if (axios.isCancel(error)) throw error;
     const userError = handleApiError(error, {
       action: 'fetch channel videos',
       component: 'channelAPI',

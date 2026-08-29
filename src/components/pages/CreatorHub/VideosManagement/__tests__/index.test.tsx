@@ -595,10 +595,39 @@ describe('VideosManagement row actions', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: /Delete/ }));
 
     expect(await screen.findByText('Delete Video')).toBeInTheDocument();
+    // The refetch that repairs the pagination must not resurrect the row.
+    mockGetChannelVideos.mockResolvedValue(page([]));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(mockDeleteVideo).toHaveBeenCalledWith('5'));
     await waitFor(() => expect(screen.queryByText('Clip one')).toBeNull());
+  });
+
+  // Offset pagination cannot be repaired in place: once a row is gone every
+  // page after it is shifted by one, and the next "Load more" would skip
+  // exactly one video, silently and forever.
+  it('corrects the count and re-reads the pages it holds after a delete', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([video({ id: 5, title: 'Clip one' }), video({ id: 6, title: 'Clip two' })], {
+        total: 40,
+        totalPages: 20,
+      }),
+    );
+
+    renderManagement();
+    expect(await screen.findByText('· 40')).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getAllByRole('button', { name: 'More actions' })[0], { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Delete/ }));
+    mockGetChannelVideos.mockResolvedValue(
+      page([video({ id: 6, title: 'Clip two' })], { total: 39, totalPages: 20 }),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+
+    // The header drops immediately, from the cache…
+    expect(await screen.findByText('· 39')).toBeInTheDocument();
+    // …and the loaded pages are re-read, because their offsets have moved.
+    await waitFor(() => expect(mockGetChannelVideos).toHaveBeenCalledTimes(2));
   });
 
   it('invites a description when there is none', async () => {
@@ -756,5 +785,359 @@ describe('VideosManagement row churn', () => {
     // One row repainted three times — busy on, the flip, busy off. If the
     // other two had come along for the ride this would be nine.
     expect(rowPaints() - seen).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('VideosManagement finished processing', () => {
+  const processingRow = (status: string) => ({
+    processingVideos: { 9: { videoId: 9, status, renditions: [] } },
+    restart: mockRestart,
+  });
+
+  // The poll is the only thing that learns a transcode finished. Until its
+  // verdict reached the list's own `status`, Watch stayed disabled and the
+  // visibility switch stayed locked for as long as the tab was open.
+  it('unlocks Watch and the switch when the poll says the video is ready', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([video({ id: 9, title: 'Working clip', status: 'processing', is_public: false })]),
+    );
+    mockUseVideoProcessing.mockReturnValue(processingRow('processing'));
+
+    const { rerender } = renderManagement();
+    await screen.findByText('Working clip');
+    expect(screen.getByRole('button', { name: 'Watch Working clip' })).toBeDisabled();
+    expect(screen.getByRole('switch')).toBeDisabled();
+
+    mockUseVideoProcessing.mockReturnValue(processingRow('processed'));
+    rerender(currentTree());
+
+    expect(await screen.findByRole('link', { name: 'Watch Working clip' })).toHaveAttribute(
+      'href',
+      '/video/9',
+    );
+    await waitFor(() => expect(screen.getByRole('switch')).not.toBeDisabled());
+  });
+
+  // …and the row stops belonging to a list defined by the thing that changed.
+  it('takes the video out of the Processing filter once it is done', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([video({ id: 9, title: 'Working clip', status: 'processing' })]),
+    );
+    mockUseVideoProcessing.mockReturnValue(processingRow('processing'));
+
+    const { rerender } = renderManagement('?visibility=processing');
+    await screen.findByText('Working clip');
+
+    // The refetch that repairs the pagination agrees the row has left.
+    mockGetChannelVideos.mockResolvedValue(page([]));
+    mockUseVideoProcessing.mockReturnValue(processingRow('processed'));
+    rerender(currentTree());
+
+    await waitFor(() => expect(screen.queryByText('Working clip')).toBeNull());
+  });
+
+  it('leaves a failed video where it is — it is still the creator\'s problem', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([video({ id: 9, title: 'Broken clip', status: 'processing' })]),
+    );
+    mockUseVideoProcessing.mockReturnValue(processingRow('processing'));
+
+    const { rerender } = renderManagement('?visibility=processing');
+    await screen.findByText('Broken clip');
+
+    mockUseVideoProcessing.mockReturnValue(processingRow('failed'));
+    rerender(currentTree());
+
+    expect(await screen.findByText(/^Failed/)).toBeInTheDocument();
+    expect(screen.getByText('Broken clip')).toBeInTheDocument();
+  });
+});
+
+describe('VideosManagement membership', () => {
+  // Two filtered lists are two cache entries. Patching only the one on screen
+  // left the other holding a visibility that was a lie for five minutes.
+  it('moves a video out of the Private list when it is made public', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([
+        video({ id: 1, title: 'Clip one', is_public: false }),
+        video({ id: 2, title: 'Clip two', is_public: false }),
+      ]),
+    );
+
+    renderManagement('?visibility=private');
+    await screen.findByText('Clip one');
+
+    // What the server would now answer for this filter.
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 2, title: 'Clip two', is_public: false })]));
+    fireEvent.click(screen.getByRole('switch', { name: 'Clip one is private' }));
+
+    await waitFor(() => expect(screen.queryByText('Clip one')).toBeNull());
+    expect(screen.getByText('Clip two')).toBeInTheDocument();
+  });
+
+  // The common case — the unfiltered list — must not pay for any of that.
+  it('does not refetch when the row still belongs where it is', async () => {
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 1, is_public: false })]));
+
+    renderManagement();
+    fireEvent.click(await screen.findByRole('switch'));
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    expect(mockGetChannelVideos).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('VideosManagement mutation races', () => {
+  /**
+   * Rollback used to assume the previous value was `!next`, and to fire
+   * whenever the request failed.
+   *
+   * The switch locks itself while its own request is in the air, so two
+   * clicks on one row cannot overlap — but the bulk bar does not go through
+   * the switch, and it happily includes a row that is already mid-flip. That
+   * is a genuine overlap, and when the older request then fails its rollback
+   * would overwrite the newer, correct value.
+   */
+  it('does not roll back over a newer choice', async () => {
+    const slow = deferred<{ success: boolean }>();
+    mockUpdateVideo.mockReturnValueOnce(slow.promise);
+    mockGetChannelVideos.mockResolvedValue(
+      page([video({ id: 1, title: 'Clip one', is_public: true })]),
+    );
+
+    renderManagement();
+
+    // Flip one: public -> private, left hanging.
+    fireEvent.click(await screen.findByRole('switch'));
+    await waitFor(() => expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false'));
+
+    // Flip two, over the top of it, from the bulk bar: private -> public.
+    fireEvent.click(screen.getByLabelText('Select Clip one'));
+    fireEvent.click(screen.getByRole('button', { name: /Make public/ }));
+    await waitFor(() => expect(mockUpdateVideo).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true'));
+
+    // The first request finally fails. It no longer owns this video, so its
+    // rollback must not run.
+    slow.settle({ success: false });
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  // The same guard, in the direction where a rollback is exactly right.
+  it('does put the switch back when its own request is the last word', async () => {
+    mockUpdateVideo.mockRejectedValue(new Error('Nope'));
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 1, is_public: true })]));
+
+    renderManagement();
+    fireEvent.click(await screen.findByRole('switch'));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Nope'));
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('ignores an Undo the creator has already overtaken', async () => {
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 1, is_public: true })]));
+
+    renderManagement();
+    fireEvent.click(await screen.findByRole('switch')); // -> private
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    const Body = toast.success.mock.calls[0][0] as React.FC<{ closeToast?: () => void }>;
+
+    // The creator changes their mind before the toast expires.
+    fireEvent.click(screen.getByRole('switch')); // -> public
+    await waitFor(() => expect(mockUpdateVideo).toHaveBeenCalledTimes(2));
+
+    const view = render(<Body closeToast={() => undefined} />);
+    fireEvent.click(within(view.container).getByRole('button', { name: 'Undo' }));
+
+    // The stale Undo would have made it private again.
+    await waitFor(() => expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true'));
+    expect(mockUpdateVideo).toHaveBeenCalledTimes(2);
+  });
+
+  it('spends no request on a flip that changes nothing', async () => {
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 1, is_public: true })]));
+
+    renderManagement();
+    fireEvent.click(await screen.findByRole('switch'));
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    expect(mockUpdateVideo).toHaveBeenCalledTimes(1);
+    const Body = toast.success.mock.calls[0][0] as React.FC<{ closeToast?: () => void }>;
+
+    // Undo returns it to private->public; a second Undo of the same toast has
+    // nothing left to say.
+    const view = render(<Body closeToast={() => undefined} />);
+    fireEvent.click(within(view.container).getByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(mockUpdateVideo).toHaveBeenCalledTimes(2));
+    fireEvent.click(within(view.container).getByRole('button', { name: 'Undo' }));
+
+    await waitFor(() => expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true'));
+    expect(mockUpdateVideo).toHaveBeenCalledTimes(2);
+  });
+
+  // A request that lands into an unmounted tree must not set state or toast at
+  // a page nobody is on.
+  it('says nothing once the creator has left the page', async () => {
+    const request = deferred<{ success: boolean }>();
+    mockUpdateVideo.mockReturnValue(request.promise);
+    mockGetChannelVideos.mockResolvedValue(page([video({ id: 1, is_public: true })]));
+
+    const view = renderManagement();
+    fireEvent.click(await screen.findByRole('switch'));
+    await waitFor(() => expect(mockUpdateVideo).toHaveBeenCalled());
+
+    view.unmount();
+    request.settle({ success: true });
+    await Promise.resolve();
+
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(consoleErrors.filter((line) => line.includes('unmounted'))).toEqual([]);
+  });
+});
+
+describe('VideosManagement bulk eligibility', () => {
+  // The server refuses to publish an unfinished video, so asking would spend a
+  // request to be told so — and reporting it as a failure would suggest the
+  // creator could do something about it.
+  it('sets aside the videos that are not ready and names them', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([
+        video({ id: 1, title: 'Ready clip', status: 'processed', is_public: false }),
+        video({ id: 2, title: 'Working clip', status: 'processing', is_public: false }),
+      ]),
+    );
+
+    renderManagement();
+    fireEvent.click(await screen.findByLabelText('Select Ready clip'));
+    fireEvent.click(screen.getByLabelText('Select Working clip'));
+    fireEvent.click(screen.getByRole('button', { name: /Make public/ }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('1 made public · 1 still processing'),
+    );
+    expect(mockUpdateVideo).toHaveBeenCalledTimes(1);
+    expect(mockUpdateVideo.mock.calls[0][0]).toBe('1');
+  });
+
+  it('makes an unfinished video private without complaint', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([video({ id: 2, title: 'Working clip', status: 'processing', is_public: true })]),
+    );
+
+    renderManagement();
+    fireEvent.click(await screen.findByLabelText('Select Working clip'));
+    fireEvent.click(screen.getByRole('button', { name: /Make private/ }));
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('1 made private'));
+  });
+
+  // "Try again" should be one click, and should not re-send what worked.
+  it('keeps only the failures ticked', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([
+        video({ id: 1, title: 'Clip one', is_public: false }),
+        video({ id: 2, title: 'Clip two', is_public: false }),
+      ]),
+    );
+    mockUpdateVideo
+      .mockResolvedValueOnce({ success: true, data: video() })
+      .mockRejectedValueOnce(new Error('boom'));
+
+    renderManagement();
+    fireEvent.click(await screen.findByLabelText('Select Clip one'));
+    fireEvent.click(screen.getByLabelText('Select Clip two'));
+    fireEvent.click(screen.getByRole('button', { name: /Make public/ }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('1 of 2 updated — 1 failed'));
+    expect(await screen.findByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select Clip two')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByLabelText('Select Clip one')).toHaveAttribute('aria-checked', 'false');
+  });
+});
+
+describe('VideosManagement controls', () => {
+  // The operating system draws a native `<select>` list and a native checkbox
+  // itself, and no stylesheet reaches inside them. On a dark panel they are
+  // the two things that look borrowed from another application.
+  it('draws its own sort menu and tick boxes rather than the browser\'s', async () => {
+    const view = renderManagement();
+    await screen.findByText('Clip one');
+
+    /* eslint-disable testing-library/no-node-access, testing-library/no-container */
+    expect(view.container.querySelector('select')).toBeNull();
+    expect(view.container.querySelector('input[type="checkbox"]')).toBeNull();
+    /* eslint-enable testing-library/no-node-access, testing-library/no-container */
+
+    expect(screen.getByRole('button', { name: 'Sort' })).toBeInTheDocument();
+    expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0);
+  });
+
+  it('opens the sort menu and changes the order from it', async () => {
+    renderManagement();
+    await screen.findByText('Clip one');
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Sort' }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Most viewed' }));
+
+    await waitFor(() => expect(mockGetChannelVideos).toHaveBeenCalledTimes(2));
+    expect(apiQuery(1)).toEqual({ sort: 'most_viewed' });
+    expect(screen.getByRole('button', { name: 'Sort' })).toHaveTextContent('Most viewed');
+  });
+
+  it('carries the whole selection in one header tick box', async () => {
+    mockGetChannelVideos.mockResolvedValue(
+      page([video({ id: 1, title: 'Clip one' }), video({ id: 2, title: 'Clip two' })]),
+    );
+
+    renderManagement();
+    await screen.findByText('Clip one');
+
+    const selectAll = screen.getByLabelText('Select all 2 loaded');
+    expect(selectAll).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(screen.getByLabelText('Select Clip one'));
+    expect(screen.getByLabelText('Select all 2 loaded')).toHaveAttribute('aria-checked', 'mixed');
+
+    fireEvent.click(screen.getByLabelText('Select all 2 loaded'));
+    expect(screen.getByLabelText('Select all 2 loaded')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+  });
+});
+
+describe('VideosManagement desktop layout', () => {
+  // The first pass reflowed `<tr>`/`<td>` from table layout to flex with a
+  // chain of `md:` overrides. When that chain half-applied, the desktop got
+  // the phone's stacked card with no warning at all. jsdom reports no widths,
+  // but it does report structure — and the structure is now decided in one
+  // place, by one media query.
+  it('lays a row out as one table row, cell by cell', async () => {
+    renderManagement();
+    const title = await screen.findByRole('button', { name: 'Clip one' });
+
+    /* eslint-disable testing-library/no-node-access */
+    const titleCell = title.closest('td');
+    const visibilityCell = screen.getByRole('switch').closest('td');
+    expect(titleCell).not.toBeNull();
+    expect(visibilityCell).not.toBeNull();
+    // Siblings in the same `<tr>` — not two stacked blocks.
+    expect(titleCell?.parentElement?.tagName).toBe('TR');
+    expect(visibilityCell?.parentElement).toBe(titleCell?.parentElement);
+    expect(titleCell?.parentElement?.parentElement?.tagName).toBe('TBODY');
+    /* eslint-enable testing-library/no-node-access */
+  });
+
+  it('keeps the column headers a row of th cells', async () => {
+    renderManagement();
+    await screen.findByText('Clip one');
+
+    const header = screen.getByRole('button', { name: 'Sort by Views' });
+    /* eslint-disable testing-library/no-node-access */
+    const cell = header.closest('th');
+    expect(cell).not.toBeNull();
+    expect(cell?.querySelector('th')).toBeNull();
+    expect(cell?.parentElement?.parentElement?.tagName).toBe('THEAD');
+    /* eslint-enable testing-library/no-node-access */
   });
 });
