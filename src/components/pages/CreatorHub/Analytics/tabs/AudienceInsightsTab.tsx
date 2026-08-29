@@ -239,11 +239,3 @@ function getDayName(dayIndex: number): string {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   return days[dayIndex % 7];
 }
-
-function getMaxViewDay(data: { day: string; views: number }[]): { day: string; views: number } {
-  if (!data.length) return { day: 'N/A', views: 0 };
-  
-  return data.reduce((max, current) => {
-    return current.views > max.views ? current : max;
-  }, data[0]);
-} 

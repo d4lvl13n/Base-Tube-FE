@@ -15,12 +15,6 @@ import {
   HandleAvailabilityResponse,
   HandleAvailabilityData,
 } from '../types/channel';
-import { 
-  SocialMetrics, 
-  WatchPatterns, 
-  GrowthMetrics, 
-  CreatorWatchHours 
-} from '../types/analytics';
 import axios from 'axios';
 import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
@@ -302,57 +296,6 @@ export const getChannelVideos = async (channelId: string | number, page: number 
     });
 
     throw userError;
-  }
-};
-
-export const getChannelWatchPatterns = async (channelId: string): Promise<WatchPatterns> => {
-  try {
-    const response = await api.get<{ success: boolean; data: WatchPatterns }>(
-      `/api/v1/analytics/channels/${channelId}/watch-patterns`
-    );
-    return response.data.data;
-  } catch (error) {
-    console.error('Error fetching channel watch patterns:', error);
-    throw error;
-  }
-};
-
-export const getChannelSocialMetrics = async (channelId: string): Promise<SocialMetrics> => {
-  try {
-    const response = await api.get<{ success: boolean; data: SocialMetrics }>(
-      `/api/v1/analytics/channels/${channelId}/social-metrics`
-    );
-    return response.data.data;
-  } catch (error) {
-    console.error('Error fetching channel social metrics:', error);
-    throw error;
-  }
-};
-
-export const getChannelGrowthMetrics = async (
-  channelId: string,
-  period: '7d' | '30d'
-): Promise<GrowthMetrics> => {
-  try {
-    const response = await api.get<{ success: boolean; data: GrowthMetrics }>(
-      `/api/v1/analytics/channels/${channelId}/growth?period=${period}`
-    );
-    return response.data.data;
-  } catch (error) {
-    console.error('Error fetching channel growth metrics:', error);
-    throw error;
-  }
-};
-
-export const getChannelWatchHours = async (channelId: string): Promise<CreatorWatchHours> => {
-  try {
-    const response = await api.get<{ success: boolean; data: CreatorWatchHours }>(
-      `/api/v1/analytics/channels/${channelId}/watch-hours`
-    );
-    return response.data.data;
-  } catch (error) {
-    console.error('Error fetching channel watch hours:', error);
-    throw error;
   }
 };
 

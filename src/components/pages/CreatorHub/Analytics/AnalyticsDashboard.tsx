@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import TabNav from '../../../common/TabNav';
 import { useCreatorAnalytics } from '../../../../hooks/useAnalyticsData';
 import { ContentPerformanceTab } from './tabs/ContentPerformanceTab';
-import { AlertCircle, Sparkles, BarChart2, Users, TrendingUp, BarChart3, Activity } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
 import ChannelPreviewCard from '../../../common/CreatorHub/ChannelPreviewCard';
 import { OverviewTab } from './tabs/OverviewTab';
@@ -53,15 +53,25 @@ const AnalyticsDashboard: React.FC = () => {
     }
   };
 
-  // Define tabs with icons
+  // 'Audience' and 'AI Insights' are intentionally NOT listed.
+  //
+  // Audience: AudienceDemographicsService sums cumulative per-country counters
+  // across days, so the geographic split is multiplied by the number of days in
+  // the window — the numbers on that tab are wrong, not merely sparse.
+  //
+  // AI Insights: the prompt tells the model to cite geography and growth data
+  // that AnalyticsInsightService never puts in the payload (it gets 3 videos
+  // and hourly counts), so the copy it produces is invented.
+  //
+  // Both components are still in the tree and both cases are still routed on the
+  // backend; re-add them here once the underlying data is fixed. See
+  // docs/ANALYTICS_REVIEW_2026-08-29.md (base-be) findings 4 and 9.
   const tabs = [
     'Overview',
     'Content',
-    'Audience',
     'Growth',
     'Engagement',
-    'Video Performance',
-    { id: 'AI Insights', label: 'AI Insights', icon: Sparkles }
+    'Video Performance'
   ];
 
   return (
