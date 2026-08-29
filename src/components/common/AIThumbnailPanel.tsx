@@ -25,13 +25,16 @@ export function describeThumbnailError(error: any): string {
   if (status === 402 || code === 'INSUFFICIENT_CREDITS') {
     return "You're out of thumbnail credits. Top up on the AI Thumbnails page, then try again.";
   }
-  if (status === 429) {
+  if (code === 'QUOTA_EXCEEDED' || code === 'ANONYMOUS_QUOTA_EXCEEDED') {
     // Creator-hub generation is governed by a DAILY quota (free 10 / pro 50),
     // not credits; the middleware sends the limit and the UTC reset time.
     const limit = error?.response?.data?.error?.limit;
     const resetsAt = error?.response?.data?.error?.resetsAt;
     const when = resetsAt ? ` It resets at ${new Date(resetsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.` : '';
     return `You've used today's ${limit ? `${limit} ` : ''}AI thumbnail generations.${when}`;
+  }
+  if (status === 429) {
+    return message || 'The AI image service is busy right now. Try again in a minute.';
   }
   if (message) return message;
   if (!error?.response) return 'Could not reach the thumbnail service. Check your connection and try again.';
