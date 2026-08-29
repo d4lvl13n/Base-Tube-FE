@@ -11,7 +11,6 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import RichTextEditor from '../../../../common/RichTextEditor';
 import AIAssistantPanel from '../../../../common/AIAssistantPanel';
@@ -553,16 +552,6 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
                   ))}
                 </p>
               )}
-
-              {/* The edit endpoint parses a thumbnail and nothing else, so the
-                  page does not pretend it can take a new source file. */}
-              <p className={styles.hint}>
-                To replace the file,{' '}
-                <Link to="/creator-hub/content-studio" className={styles.hintLink}>
-                  upload a new video from Content Studio
-                </Link>
-                .
-              </p>
 
               {detailsError && (
                 <div className={`${styles.errorNote} mt-3`}>

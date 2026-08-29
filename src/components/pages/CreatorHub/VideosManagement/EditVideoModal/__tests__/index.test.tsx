@@ -180,14 +180,11 @@ describe('EditVideoModal saving', () => {
     expect(body.has('video')).toBe(false);
   });
 
-  it('offers no way to replace the source file, only a way to Content Studio', () => {
+  it('offers no way to replace the source file', () => {
     renderEditor();
 
     expect(screen.queryByText(/Replace source video/i)).toBeNull();
-    expect(screen.getByRole('link', { name: /upload a new video from Content Studio/i })).toHaveAttribute(
-      'href',
-      '/creator-hub/content-studio',
-    );
+    expect(screen.queryByText(/To replace the file/i)).toBeNull();
   });
 
   // ⌘S is what anyone with a form in front of them presses.

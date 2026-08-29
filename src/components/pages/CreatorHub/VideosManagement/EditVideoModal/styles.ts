@@ -55,11 +55,6 @@ export const styles = {
 
   frame: 'relative aspect-video overflow-hidden rounded-lg border border-gray-800/60 bg-black',
   metaRow: 'mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500',
-  hint: 'mt-2 text-xs text-gray-600',
-  hintLink: `
-    text-gray-400 underline decoration-dotted underline-offset-2 transition-colors
-    hover:text-[#fa7517] focus-visible:outline-none focus-visible:text-[#fa7517]
-  `,
 
   thumbnailFrame: 'aspect-video overflow-hidden rounded-lg border border-gray-800/60 bg-black',
   secondaryButton: `
