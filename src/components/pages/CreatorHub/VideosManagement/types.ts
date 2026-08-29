@@ -1,46 +1,46 @@
-import { Video } from '../../../../types/video';
 import { ProcessingVideo } from '../../../../hooks/useVideoProcessing';
+import { Video } from '../../../../types/video';
 
+/** The four orders the server knows how to sort a channel's videos by. */
 export type VideoSortOption = 'newest' | 'oldest' | 'most_viewed' | 'most_liked';
-export type VideoVisibilityOption = 'all' | 'public' | 'private' | 'unlisted';
-export type SortField = 'views' | 'likes' | 'date' | 'status';
-export type SortDirection = 'asc' | 'desc';
 
+/**
+ * The single chip group above the list.
+ *
+ * There is no "unlisted": the model has one boolean, `is_public`. `processing`
+ * is a status rather than a visibility, but it belongs in the same group
+ * because a creator picks exactly one of these four at a time — the toolbar
+ * splits it back out into the right query parameter.
+ */
+export type VideoVisibilityFilter = 'all' | 'public' | 'private' | 'processing';
+
+/** Everything the toolbar owns, and everything that lives in the URL. */
 export interface VideoFilters {
-  search?: string;
-  sortBy?: VideoSortOption;
-  visibility?: VideoVisibilityOption;
+  q: string;
+  visibility: VideoVisibilityFilter;
+  sort: VideoSortOption;
 }
 
-export interface VideosManagementProps {
-  selectedChannelId: string;
+export const DEFAULT_FILTERS: VideoFilters = { q: '', visibility: 'all', sort: 'newest' };
+
+/** True when the list the creator is looking at is a filtered one. */
+export function hasActiveFilters(filters: VideoFilters): boolean {
+  return filters.q.trim() !== '' || filters.visibility !== 'all';
 }
+
+/** The stat columns that double as sort shortcuts. */
+export type SortField = 'date' | 'views' | 'likes';
+
+/** What a row's controls ask the page to do. */
+export type VideoAction = 'edit' | 'delete' | 'toggle_visibility';
+
+/** What a bulk action asks the page to do to every selected row. */
+export type BulkAction = 'make_public' | 'make_private' | 'delete';
 
 export interface VideoListProps {
   videos: Video[];
   isLoading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
-  onVideoAction: (videoId: string, action: VideoAction) => void;
-  selectedVideos: string[];
-  onVideoSelect: (videoId: string) => void;
-  onSelectAll: (videoIds: string[]) => void;
-  processingVideos: Record<number, ProcessingVideo>;
+  processingVideos?: Record<number, ProcessingVideo>;
 }
-
-export type VideoAction = 'edit' | 'delete' | 'toggle_visibility';
-
-export interface VideoActionsProps {
-  selectedVideos: string[];
-  onBulkAction: (action: VideoAction) => void;
-}
-
-export interface VideoFiltersProps {
-  filters: VideoFilters;
-  onFilterChange: (filters: VideoFilters) => void;
-}
-
-export interface SortState {
-  field: SortField;
-  direction: SortDirection;
-} 

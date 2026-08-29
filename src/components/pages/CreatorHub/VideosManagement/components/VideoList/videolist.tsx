@@ -1,33 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Edit2, Trash2, Eye, EyeOff, FileVideo, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { VideoAction } from '../../types';
+import { ArrowDown, ArrowUp, ArrowUpDown, FileVideo, RefreshCw, SearchX } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import * as Tooltip from '@radix-ui/react-tooltip';
+import { SortField, VideoSortOption } from '../../types';
 import { Video } from '../../../../../../types/video';
 import { styles } from './styles';
-import { formatDuration, getThumbnailUrl } from './utils';
+import { formatDuration, formatRowDate, getThumbnailUrl, isPlayable } from './utils';
 import { ProcessingVideo } from '../../../../../../hooks/useVideoProcessing';
-import { SortField, SortState } from '../../types';
-import * as Tooltip from '@radix-ui/react-tooltip';
 import { ProcessingStatus } from './processingstatus';
+import { VisibilitySwitch } from './VisibilitySwitch';
+import { RowActions } from './RowActions';
 import { descriptionToPreview } from '../../../../../../utils/descriptionText';
-
-interface VideoListProps {
-  videos: Video[];
-  isLoading: boolean;
-  hasMore: boolean;
-  onLoadMore: () => void;
-  onVideoAction: (videoId: string, action: VideoAction, formData?: FormData) => Promise<void>;
-  processingVideos?: Record<number, ProcessingVideo>;
-  onRetryProcessing?: (videoId: number) => Promise<void>;
-  /** The video id to light up, already resolved from `?highlight=`. */
-  highlightId?: string | null;
-  sort?: SortState;
-  onSort?: (field: SortField) => void;
-}
 
 /** How long the orange edge stays lit after arriving from an upload. */
 const HIGHLIGHT_MS = 1_500;
+
+/** Placeholder rows while the very first page is in flight. */
+const SKELETON_ROWS = 6;
 
 /**
  * A row's status line when the progress poll has not answered yet.
@@ -41,11 +31,18 @@ function fallbackProcessingRow(video: Video): ProcessingVideo | undefined {
   return { videoId: video.id, status: 'failed', renditions: [] };
 }
 
+/** Which sort option a stat column asks for when it is clicked. */
+function sortForField(field: SortField, current: VideoSortOption): VideoSortOption {
+  if (field === 'views') return 'most_viewed';
+  if (field === 'likes') return 'most_liked';
+  return current === 'newest' ? 'oldest' : 'newest';
+}
+
 interface SortableHeaderProps {
   field: SortField;
   label: string;
-  currentSort?: SortState;
-  onSort?: (field: SortField) => void;
+  sort: VideoSortOption;
+  onSort: (value: VideoSortOption) => void;
 }
 
 /**
@@ -55,24 +52,28 @@ interface SortableHeaderProps {
  * in one, which React reported as `validateDOMNesting: <th> cannot appear as a
  * child of <th>` and which the browser then un-nested behind our backs.
  */
-const SortableHeader: React.FC<SortableHeaderProps> = ({ field, label, currentSort, onSort }) => {
-  const isActive = currentSort?.field === field;
+const SortableHeader: React.FC<SortableHeaderProps> = ({ field, label, sort, onSort }) => {
+  const active =
+    (field === 'date' && (sort === 'newest' || sort === 'oldest')) ||
+    (field === 'views' && sort === 'most_viewed') ||
+    (field === 'likes' && sort === 'most_liked');
+  const ascending = field === 'date' && sort === 'oldest';
 
   return (
     <button
       type="button"
-      onClick={() => onSort?.(field)}
-      className="group flex w-full items-center gap-2 text-left uppercase tracking-wider
-                 transition-colors hover:text-[#fa7517] focus:outline-none
+      onClick={() => onSort(sortForField(field, sort))}
+      className="group flex w-full items-center justify-end gap-1.5 text-right uppercase
+                 tracking-wider transition-colors hover:text-[#fa7517] focus:outline-none
                  focus-visible:text-[#fa7517]"
       aria-label={`Sort by ${label}`}
     >
       {label}
       <span className="text-gray-500 transition-colors group-hover:text-[#fa7517]">
-        {isActive ? (
-          currentSort.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
+        {active ? (
+          ascending ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />
         ) : (
-          <ArrowUpDown className="w-4 h-4 opacity-0 group-hover:opacity-100" />
+          <ArrowUpDown className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100" />
         )}
       </span>
     </button>
@@ -83,12 +84,19 @@ interface VideoRowProps {
   video: Video;
   /** The poll's row for this video, or `undefined` while it has nothing to say. */
   processingRow?: ProcessingVideo;
+  selected: boolean;
+  /** True while this row's visibility flip is still in the air. */
+  busy: boolean;
   isHighlighted: boolean;
   highlightLit: boolean;
   /** True only on the render that first shows this row. */
   animateIn: boolean;
   rowRef?: React.Ref<HTMLTableRowElement>;
-  onVideoAction: (videoId: string, action: VideoAction, formData?: FormData) => Promise<void>;
+  onSelect: (videoId: number, selected: boolean) => void;
+  onEdit: (videoId: number) => void;
+  onDelete: (videoId: number) => void;
+  onCopyLink: (videoId: number) => void;
+  onToggleVisibility: (videoId: number, next: boolean) => void;
   onRetryProcessing?: (videoId: number) => Promise<void>;
 }
 
@@ -128,11 +136,17 @@ function sameRow(previous: VideoRowProps, next: VideoRowProps): boolean {
   }
 
   return (
+    previous.selected === next.selected &&
+    previous.busy === next.busy &&
     previous.isHighlighted === next.isHighlighted &&
     previous.highlightLit === next.highlightLit &&
     previous.animateIn === next.animateIn &&
     previous.rowRef === next.rowRef &&
-    previous.onVideoAction === next.onVideoAction &&
+    previous.onSelect === next.onSelect &&
+    previous.onEdit === next.onEdit &&
+    previous.onDelete === next.onDelete &&
+    previous.onCopyLink === next.onCopyLink &&
+    previous.onToggleVisibility === next.onToggleVisibility &&
     previous.onRetryProcessing === next.onRetryProcessing
   );
 }
@@ -140,19 +154,37 @@ function sameRow(previous: VideoRowProps, next: VideoRowProps): boolean {
 const VideoRow: React.FC<VideoRowProps> = ({
   video,
   processingRow,
+  selected,
+  busy,
   isHighlighted,
   highlightLit,
   animateIn,
   rowRef,
-  onVideoAction,
+  onSelect,
+  onEdit,
+  onDelete,
+  onCopyLink,
+  onToggleVisibility,
   onRetryProcessing,
 }) => {
   const row = processingRow ?? fallbackProcessingRow(video);
-  const preview = descriptionToPreview(video.description) || 'No description';
+  const preview = descriptionToPreview(video.description);
+  const playable = isPlayable(video.status);
+
+  const handleEdit = useCallback(() => onEdit(video.id), [onEdit, video.id]);
+  const handleDelete = useCallback(() => onDelete(video.id), [onDelete, video.id]);
+  const handleCopyLink = useCallback(() => onCopyLink(video.id), [onCopyLink, video.id]);
+  const handleToggle = useCallback(
+    (next: boolean) => onToggleVisibility(video.id, next),
+    [onToggleVisibility, video.id],
+  );
   const handleRetry = useCallback(
     () => (onRetryProcessing ? onRetryProcessing(video.id) : Promise.resolve()),
     [onRetryProcessing, video.id],
   );
+  const handleRetryFromMenu = useCallback(() => {
+    void handleRetry();
+  }, [handleRetry]);
 
   return (
     <motion.tr
@@ -163,99 +195,131 @@ const VideoRow: React.FC<VideoRowProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       data-highlighted={isHighlighted && highlightLit ? 'true' : undefined}
-      className={`${styles.table.row} border-l-2 ${
-        isHighlighted && highlightLit ? 'border-l-[#fa7517]' : 'border-l-transparent'
-      }`}
+      // Below `md` the row stops being a table row and becomes a card: the
+      // cells reflow as flex items onto two lines. One DOM either way — a
+      // separate mobile list would duplicate every row and every control.
+      className={`${styles.table.row} group flex flex-wrap items-start gap-x-3 gap-y-2
+                  px-3 py-3 md:table-row md:p-0 border-l-2 ${
+                    isHighlighted && highlightLit ? 'border-l-[#fa7517]' : 'border-l-transparent'
+                  }`}
     >
-      <td className={`${styles.table.cell} w-[600px] min-w-[600px] max-w-[600px]`}>
-        <div className="flex items-start space-x-3">
-          <div className="w-28 flex-shrink-0 relative">
+      <td className="flex items-start pt-1 md:table-cell md:w-10 md:px-3 md:py-4 md:align-top">
+        <input
+          type="checkbox"
+          className={styles.checkbox}
+          checked={selected}
+          onChange={(event) => onSelect(video.id, event.target.checked)}
+          aria-label={`Select ${video.title || 'Untitled'}`}
+        />
+      </td>
+
+      <td
+        className={`min-w-0 grow basis-[calc(100%_-_2.5rem)] md:table-cell md:w-full md:max-w-0
+                    md:basis-auto ${styles.table.cellNext} md:align-top`}
+      >
+        <div className="flex items-start gap-3">
+          <div className="relative w-28 shrink-0 sm:w-32">
             <img
               src={getThumbnailUrl(video)}
-              alt={video.title || 'Video thumbnail'}
-              className="w-full aspect-video object-cover rounded-lg"
+              alt=""
+              className="aspect-video w-full rounded-lg object-cover"
               loading="lazy"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
+              onError={(event) => {
+                const target = event.target as HTMLImageElement;
                 target.src = '/assets/default-thumbnail.jpg';
               }}
             />
-            <div className="absolute bottom-1 right-1 bg-black/80 px-1 py-0.5 rounded text-xs text-white">
+            <div className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[10px] tabular-nums text-white">
               {formatDuration(video.duration)}
             </div>
           </div>
-          <div className="flex flex-col min-w-0 flex-1">
-            <h3 className="text-sm font-medium truncate">{video.title || 'Untitled'}</h3>
-            {/* One line, tags gone, line breaks turned into spaces — the cell
-                must never read "…filmées en 4KAbonnez-vous…". */}
-            <p className="text-xs text-gray-400 mt-1 truncate break-words" title={preview}>
-              {preview}
-            </p>
-            {row && (
-              <div className="mt-2">
+
+          <div className="flex min-w-0 flex-1 flex-col">
+            <button
+              type="button"
+              onClick={handleEdit}
+              title={video.title || 'Untitled'}
+              className="truncate text-left text-sm font-medium text-white transition-colors
+                         hover:text-[#fa7517] focus:outline-none focus-visible:text-[#fa7517]"
+            >
+              {video.title || 'Untitled'}
+            </button>
+
+            {row ? (
+              <div className="mt-1">
                 <ProcessingStatus
                   videoId={video.id}
                   processingStatus={row}
                   onRetry={onRetryProcessing ? handleRetry : undefined}
                 />
               </div>
+            ) : preview ? (
+              // One line, tags gone, line breaks turned into spaces — the cell
+              // must never read "…filmées en 4KAbonnez-vous…".
+              <p className="mt-1 truncate text-xs text-gray-400" title={preview}>
+                {preview}
+              </p>
+            ) : (
+              <p className="mt-1 truncate text-xs text-gray-600">
+                No description ·{' '}
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  className="underline decoration-dotted underline-offset-2 transition-colors
+                             hover:text-[#fa7517] focus:outline-none focus-visible:text-[#fa7517]"
+                >
+                  add one
+                </button>
+              </p>
             )}
           </div>
         </div>
       </td>
-      <td className={`${styles.table.cell} w-[70px]`}>
-        <div className={video.is_public ? styles.status.public : styles.status.private}>
-          {video.is_public ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-          {video.is_public ? 'Public' : 'Private'}
-        </div>
-      </td>
-      <td className={`${styles.table.cell} w-[80px] hidden lg:table-cell text-sm text-gray-400`}>
-        {formatDistanceToNow(new Date(video.createdAt), { addSuffix: true })}
-      </td>
-      <td className={`${styles.table.cell} w-[60px] hidden lg:table-cell text-sm text-gray-400`}>
-        {video.views_count?.toLocaleString() ?? '0'}
-      </td>
-      <td className={`${styles.table.cell} w-[60px] hidden lg:table-cell text-sm text-gray-400`}>
-        {video.likes_count?.toLocaleString() ?? '0'}
-      </td>
-      <td className={`${styles.table.cell} w-[70px]`}>
-        <div className="flex items-center justify-end gap-2">
-          <Tooltip.Provider delayDuration={300}>
-            <Tooltip.Root>
-              <Tooltip.Trigger asChild>
-                <button
-                  className={styles.actionButton}
-                  onClick={() => onVideoAction(video.id.toString(), 'edit')}
-                >
-                  <Edit2 className={styles.actionIcon} />
-                </button>
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content className={styles.tooltip} sideOffset={5}>
-                  Edit video
-                  <Tooltip.Arrow className="fill-gray-900" />
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
 
-            <Tooltip.Root>
-              <Tooltip.Trigger asChild>
-                <button
-                  className={styles.actionButton}
-                  onClick={() => onVideoAction(video.id.toString(), 'delete')}
-                >
-                  <Trash2 className={`${styles.actionIcon} group-hover:text-red-500`} />
-                </button>
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content className={styles.tooltip} sideOffset={5}>
-                  Delete video
-                  <Tooltip.Arrow className="fill-gray-900" />
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-          </Tooltip.Provider>
-        </div>
+      <td className={`self-center ${styles.table.cellNext} md:table-cell md:w-[8.5rem] md:align-top`}>
+        <VisibilitySwitch
+          isPublic={video.is_public}
+          canPublish={playable}
+          busy={busy}
+          title={video.title}
+          onToggle={handleToggle}
+        />
+      </td>
+
+      <td
+        className={`self-center ${styles.table.cellNext} text-xs tabular-nums text-gray-400
+                    md:table-cell md:w-24 md:text-right md:text-sm md:align-top`}
+      >
+        {formatRowDate(video.createdAt)}
+      </td>
+      <td
+        className={`self-center ${styles.table.cellNext} text-xs tabular-nums text-gray-400
+                    md:table-cell md:w-20 md:text-right md:text-sm md:align-top`}
+        title="Views"
+      >
+        {(video.views_count ?? 0).toLocaleString()}
+        <span className="ml-1 text-gray-600 md:hidden">views</span>
+      </td>
+      <td
+        className={`self-center ${styles.table.cellNext} text-xs tabular-nums text-gray-400
+                    md:table-cell md:w-20 md:text-right md:text-sm md:align-top`}
+        title="Likes"
+      >
+        {(video.likes_count ?? 0).toLocaleString()}
+        <span className="ml-1 text-gray-600 md:hidden">likes</span>
+      </td>
+
+      <td className={`ml-auto self-center ${styles.table.cellNext} md:ml-0 md:table-cell md:w-[11rem] md:align-top`}>
+        <RowActions
+          videoId={video.id}
+          title={video.title}
+          playable={playable}
+          failed={video.status === 'failed' || processingRow?.status === 'failed'}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onCopyLink={handleCopyLink}
+          onRetry={onRetryProcessing ? handleRetryFromMenu : undefined}
+        />
       </td>
     </motion.tr>
   );
@@ -263,17 +327,52 @@ const VideoRow: React.FC<VideoRowProps> = ({
 
 const MemoVideoRow = React.memo(VideoRow, sameRow);
 
+interface VideoListProps {
+  videos: Video[];
+  isLoading: boolean;
+  isFetchingMore: boolean;
+  hasMore: boolean;
+  onLoadMore: () => void;
+  processingVideos?: Record<number, ProcessingVideo>;
+  onRetryProcessing?: (videoId: number) => Promise<void>;
+  /** The video id to light up, already resolved from `?highlight=`. */
+  highlightId?: string | null;
+  sort: VideoSortOption;
+  onSort: (value: VideoSortOption) => void;
+  selectedIds: ReadonlySet<number>;
+  busyIds: ReadonlySet<number>;
+  onSelect: (videoId: number, selected: boolean) => void;
+  onSelectAll: (selected: boolean) => void;
+  onEdit: (videoId: number) => void;
+  onDelete: (videoId: number) => void;
+  onCopyLink: (videoId: number) => void;
+  onToggleVisibility: (videoId: number, next: boolean) => void;
+  /** True when the empty list is empty *because of* a filter. */
+  filtered: boolean;
+  onClearFilters: () => void;
+}
+
 export const VideoList: React.FC<VideoListProps> = ({
   videos,
   isLoading,
+  isFetchingMore,
   hasMore,
   onLoadMore,
-  onVideoAction,
   processingVideos,
   onRetryProcessing,
   highlightId,
   sort,
   onSort,
+  selectedIds,
+  busyIds,
+  onSelect,
+  onSelectAll,
+  onEdit,
+  onDelete,
+  onCopyLink,
+  onToggleVisibility,
+  filtered,
+  onClearFilters,
 }) => {
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
   const [highlightLit, setHighlightLit] = useState(false);
@@ -312,84 +411,163 @@ export const VideoList: React.FC<VideoListProps> = ({
     videos.forEach((video) => seenIdsRef.current.add(video.id));
   }, [videos]);
 
+  const allSelected = videos.length > 0 && videos.every((video) => selectedIds.has(video.id));
+  const someSelected = !allSelected && videos.some((video) => selectedIds.has(video.id));
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someSelected;
+  }, [someSelected]);
+
   if (isLoading && !videos.length) {
     return (
-      <motion.div
-        className="flex justify-center items-center h-64"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        >
-          <RefreshCw className="w-8 h-8 text-[#fa7517]" />
-        </motion.div>
-      </motion.div>
+      <div className="divide-y divide-gray-800/20" data-testid="video-list-skeleton">
+        {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
+          <div key={index} className="flex items-center gap-3 px-3 py-4 md:px-6">
+            <div className="h-4 w-4 shrink-0 rounded bg-gray-800/50" />
+            <div className="aspect-video w-28 shrink-0 animate-pulse rounded-lg bg-gray-800/50 sm:w-32" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <div className="h-3.5 w-2/5 animate-pulse rounded bg-gray-800/50" />
+              <div className="h-3 w-3/5 animate-pulse rounded bg-gray-800/30" />
+            </div>
+          </div>
+        ))}
+      </div>
     );
   }
 
   if (!videos.length) {
-    return (
+    return filtered ? (
       <motion.div
         className={styles.emptyState.wrapper}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <FileVideo className="w-12 h-12 text-gray-500 mb-4" />
-        <div className={styles.emptyState.title}>No videos found</div>
-        <div className={styles.emptyState.subtitle}>Try adjusting your filters or upload some videos</div>
+        <SearchX className="mb-4 h-12 w-12 text-gray-600" aria-hidden="true" />
+        <div className={styles.emptyState.title}>Nothing matches</div>
+        <div className={styles.emptyState.subtitle}>No video here fits the current filters.</div>
+        <button
+          type="button"
+          onClick={onClearFilters}
+          className="mt-4 rounded-lg border border-gray-800/50 px-4 py-2 text-sm text-white
+                     transition-colors hover:border-[#fa7517]/40 hover:text-[#fa7517]
+                     focus:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60"
+        >
+          Clear filters
+        </button>
+      </motion.div>
+    ) : (
+      <motion.div
+        className={styles.emptyState.wrapper}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <FileVideo className="mb-4 h-12 w-12 text-gray-600" aria-hidden="true" />
+        <div className={styles.emptyState.title}>No videos yet</div>
+        <div className={styles.emptyState.subtitle}>
+          Everything you upload shows up here, ready to edit and publish.
+        </div>
+        <Link
+          to="/creator-hub/content-studio"
+          className="mt-4 rounded-lg bg-[#fa7517] px-4 py-2 text-sm font-medium text-black
+                     transition-colors hover:bg-[#ff8c3a]"
+        >
+          Upload your first video
+        </Link>
       </motion.div>
     );
   }
 
   return (
-    <div className="overflow-x-auto w-full">
-      <div className="min-w-full inline-block align-middle">
-        <div className="overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-800/30">
-            <thead className={styles.table.header}>
-              <tr>
-                <th className={`${styles.table.headerCell} w-[600px] min-w-[600px] max-w-[600px]`}>Video</th>
-                <th className={`${styles.table.headerCell} w-[70px]`}>
-                  <SortableHeader field="status" label="Visibility" currentSort={sort} onSort={onSort} />
-                </th>
-                <th className={`${styles.table.headerCell} w-[80px] hidden lg:table-cell`}>
-                  <SortableHeader field="date" label="Date" currentSort={sort} onSort={onSort} />
-                </th>
-                <th className={`${styles.table.headerCell} w-[60px] hidden lg:table-cell`}>
-                  <SortableHeader field="views" label="Views" currentSort={sort} onSort={onSort} />
-                </th>
-                <th className={`${styles.table.headerCell} w-[60px] hidden lg:table-cell`}>
-                  <SortableHeader field="likes" label="Likes" currentSort={sort} onSort={onSort} />
-                </th>
-                <th className={`${styles.table.headerCell} w-[70px]`}></th>
-              </tr>
-            </thead>
-            <tbody>
-              <AnimatePresence mode="popLayout">
-                {videos.map((video) => {
-                  const isHighlighted = highlightedVideoId === video.id;
-                  return (
-                    <MemoVideoRow
-                      key={video.id}
-                      video={video}
-                      processingRow={processingVideos?.[video.id]}
-                      isHighlighted={isHighlighted}
-                      highlightLit={highlightLit}
-                      animateIn={animateIds.has(video.id)}
-                      rowRef={isHighlighted ? highlightRowRef : undefined}
-                      onVideoAction={onVideoAction}
-                      onRetryProcessing={onRetryProcessing}
+    <Tooltip.Provider delayDuration={300}>
+      <div className="w-full">
+        <table className="block w-full md:table">
+          <thead className={`${styles.table.header} hidden md:table-header-group`}>
+            <tr>
+              <th className={`${styles.table.headerCell} w-10`}>
+                <Tooltip.Root>
+                  <Tooltip.Trigger asChild>
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      className={styles.checkbox}
+                      checked={allSelected}
+                      onChange={(event) => onSelectAll(event.target.checked)}
+                      aria-label={`Select all ${videos.length} loaded`}
                     />
-                  );
-                })}
-              </AnimatePresence>
-            </tbody>
-          </table>
-        </div>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Tooltip.Content className={styles.tooltip} sideOffset={5}>
+                      Select all {videos.length} loaded
+                      <Tooltip.Arrow className="fill-gray-900" />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
+              </th>
+              <th className={styles.table.headerCell}>Video</th>
+              <th className={`${styles.table.headerCell} w-[8.5rem]`}>Visibility</th>
+              <th className={`${styles.table.headerCell} w-24 text-right`}>
+                <SortableHeader field="date" label="Date" sort={sort} onSort={onSort} />
+              </th>
+              <th className={`${styles.table.headerCell} w-20 text-right`}>
+                <SortableHeader field="views" label="Views" sort={sort} onSort={onSort} />
+              </th>
+              <th className={`${styles.table.headerCell} w-20 text-right`}>
+                <SortableHeader field="likes" label="Likes" sort={sort} onSort={onSort} />
+              </th>
+              <th className={`${styles.table.headerCell} w-[11rem]`}>
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="block md:table-row-group">
+            <AnimatePresence mode="popLayout">
+              {videos.map((video) => {
+                const isHighlighted = highlightedVideoId === video.id;
+                return (
+                  <MemoVideoRow
+                    key={video.id}
+                    video={video}
+                    processingRow={processingVideos?.[video.id]}
+                    selected={selectedIds.has(video.id)}
+                    busy={busyIds.has(video.id)}
+                    isHighlighted={isHighlighted}
+                    highlightLit={highlightLit}
+                    animateIn={animateIds.has(video.id)}
+                    rowRef={isHighlighted ? highlightRowRef : undefined}
+                    onSelect={onSelect}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onCopyLink={onCopyLink}
+                    onToggleVisibility={onToggleVisibility}
+                    onRetryProcessing={onRetryProcessing}
+                  />
+                );
+              })}
+            </AnimatePresence>
+          </tbody>
+        </table>
+
+        {hasMore && (
+          <div className={styles.loadMore.wrapper}>
+            <button
+              type="button"
+              onClick={onLoadMore}
+              disabled={isFetchingMore}
+              className={styles.loadMore.button}
+            >
+              {isFetchingMore ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Loading…
+                </>
+              ) : (
+                'Load more'
+              )}
+            </button>
+          </div>
+        )}
       </div>
-    </div>
+    </Tooltip.Provider>
   );
 };
 
