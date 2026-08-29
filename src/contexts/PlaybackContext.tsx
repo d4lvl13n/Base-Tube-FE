@@ -60,6 +60,22 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
 
+  /**
+   * Pauses the full-size player. This is a PAUSE, not a teardown: the primary
+   * player's `pause` event flushes the played time so far and leaves the view
+   * row open, so restoring picks the same session back up.
+   *
+   * TODO(analytics): mini-player playback is still not counted. `MiniPlayer`
+   * renders its own raw `<video>` with no `useViewTracking` session, and the
+   * primary player (which owns the session) unmounts as soon as the viewer
+   * navigates off the watch page — so every second watched in the mini player
+   * is invisible to watch-time and completion. Fixing it honestly means moving
+   * the tracking session up here, keyed by `videoId` and surviving the page
+   * unmount, rather than living inside `VideoPlayer`. That is a real refactor
+   * of playback ownership, not a patch, and it is deliberately out of scope of
+   * the tracking-tier fixes. Same for gated `PassVideoPlayer` playback, which
+   * runs in a different id space entirely.
+   */
   const pausePrimary = useCallback(() => {
     try {
       primaryRef.current?.pause();

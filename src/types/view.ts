@@ -52,13 +52,15 @@ export interface InitViewResponse {
   success: boolean;
   message: string;
   data: {
+    /** Short-lived, single-view credential for the `pagehide` beacon. */
+    beaconToken?: string;
     viewId: string;
   }
 }
 
+/** Completion is derived server-side from the played time; the client sends none. */
 export interface UpdateViewRequest {
   watchedDuration: number;
-  completed?: boolean;
 }
 
 export interface UpdateViewResponse {

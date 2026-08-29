@@ -1,78 +1,107 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useConfig } from '../contexts/ConfigContext';
-import { initializeVideoView, updateVideoView } from '../api/video';
+import { initializeVideoView, sendViewBeacon, updateVideoView } from '../api/video';
 
 interface UseViewTrackingProps {
   videoId: string;
   videoDuration: number;
 }
 
+/**
+ * Largest slice of playback a single `timeupdate` may contribute.
+ *
+ * `timeupdate` fires roughly 4×/s, so a real tick is ~0.25 s. A bigger jump is
+ * a seek, a stall recovery, or a backgrounded tab catching up — none of which
+ * is time the viewer watched. Capping instead of dropping keeps an honest tick
+ * that arrived late (slow main thread) from being thrown away.
+ */
+const MAX_TICK_SECONDS = 1.5;
+
+/**
+ * Watch-time tracking for the main player.
+ *
+ * WHAT `watchedDuration` MEANS: time actually PLAYED, accumulated from the
+ * deltas between `timeupdate` events while the player is neither paused nor
+ * seeking. It is NOT the furthest position reached — that number made a scrub
+ * to the end look like a complete watch, and made "average watch time" a
+ * measure of how far people dragged the scrubber.
+ *
+ * WHO DECIDES "completed": the server, from the played time we send (>= 90 % of
+ * the video, per src/utils/videoWatchComplete.ts on the backend). The client no
+ * longer sends a `completed` flag at all.
+ *
+ * WHEN IT REPORTS:
+ *   - once on creation, when the view threshold is first crossed;
+ *   - every `viewConfig.updateInterval` ms while playing (a real heartbeat —
+ *     the previous implementation re-armed a debounce on each tick, so the
+ *     periodic send cancelled itself and `durationWatched` stayed pinned at
+ *     whatever it was when the view row was created);
+ *   - on pause, on tab hide, on `ended`, and on unmount;
+ *   - on `pagehide`, via `navigator.sendBeacon` (a normal request does not
+ *     survive the document going away).
+ */
 export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps) => {
   const { viewConfig } = useConfig();
-  
+
   const isTrackingRef = useRef(false);
-  const watchedDurationRef = useRef(0);
+  /** Accumulated seconds ACTUALLY PLAYED in this session. */
+  const playedSecondsRef = useRef(0);
+  /** Playhead position at the previous `timeupdate`, to diff against. */
+  const lastPositionRef = useRef<number | null>(null);
+  /** Largest value already accepted by the server — never re-send it. */
+  const lastSentRef = useRef(0);
   const viewIdRef = useRef<string | null>(null);
+  const beaconTokenRef = useRef<string | null>(null);
   const hasMetThresholdRef = useRef(false);
-  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isMountedRef = useRef<boolean>(true);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inFlightRef = useRef(false);
+  const initializingRef = useRef(false);
+  /** Latest duration, for listeners registered once. */
+  const videoDurationRef = useRef(videoDuration);
+  videoDurationRef.current = videoDuration;
 
-  const hasMetViewThreshold = useCallback((duration: number): boolean => {
-    if (!viewConfig?.thresholds || !videoDuration) return false;
-    
-    const percentageWatched = (duration / videoDuration) * 100;
-    const { percentage, seconds } = viewConfig.thresholds;
-    
-    return (
-      percentageWatched >= percentage ||  // Met percentage threshold
-      duration >= seconds                 // Met seconds threshold
-    );
-  }, [videoDuration, viewConfig?.thresholds]);
+  // `viewConfig` is never null — ConfigContext falls back to documented
+  // defaults when the fetch fails, so a config outage no longer silences tracking.
+  const thresholdsRef = useRef(viewConfig.thresholds);
+  thresholdsRef.current = viewConfig.thresholds;
 
-  const isVideoComplete = useCallback((duration: number): boolean => {
-    if (!videoDuration) return false;
-    const percentageWatched = (duration / videoDuration) * 100;
-    const remainingSeconds = videoDuration - duration;
-    
-    return (
-      percentageWatched >= 90 ||    // Over 90% watched
-      remainingSeconds <= 15         // Or less than 15s remaining
-    );
-  }, [videoDuration]);
+  const hasMetViewThreshold = useCallback((played: number): boolean => {
+    const thresholds = thresholdsRef.current;
+    const duration = videoDurationRef.current;
+    if (!thresholds || !duration) return false;
 
-  const updateView = useCallback(async (force: boolean = false) => {
-    if (!isMountedRef.current || !viewIdRef.current || watchedDurationRef.current <= 0) return;
-    
-    if (!force && updateTimeoutRef.current) {
-      clearTimeout(updateTimeoutRef.current);
-    }
+    const percentageWatched = (played / duration) * 100;
+    const { percentage, seconds } = thresholds;
 
-    const doUpdate = async () => {
-      if (!isMountedRef.current) {
-        console.log('[useViewTracking] Component unmounted, skipping view update');
-        return;
-      }
+    return percentageWatched >= percentage || played >= seconds;
+  }, []);
 
+  /**
+   * Send the current played time. No debounce, no timer: callers decide when.
+   * Skips a no-op send (nothing new played) unless `force`d by a lifecycle
+   * event, and never overlaps itself.
+   */
+  const sendUpdate = useCallback(
+    async (force = false) => {
+      const viewId = viewIdRef.current;
+      const played = playedSecondsRef.current;
+
+      if (!viewId || played <= 0) return;
+      if (inFlightRef.current) return;
+      if (!force && played <= lastSentRef.current) return;
+
+      inFlightRef.current = true;
       try {
-        const isComplete = isVideoComplete(watchedDurationRef.current);
-        await updateVideoView(
-          videoId,
-          viewIdRef.current!,
-          watchedDurationRef.current,
-          isComplete
-        );
+        await updateVideoView(videoId, viewId, played);
+        lastSentRef.current = Math.max(lastSentRef.current, played);
       } catch (error: any) {
         // The backend can 409 on a view-count conflict under concurrency —
-        // one retry recovers the lost view instead of silently dropping it.
+        // one retry recovers the lost heartbeat instead of silently dropping it.
         if (error?.response?.status === 409) {
           try {
-            await updateVideoView(
-              videoId,
-              viewIdRef.current!,
-              watchedDurationRef.current,
-              isVideoComplete(watchedDurationRef.current)
-            );
+            await updateVideoView(videoId, viewId, playedSecondsRef.current);
+            lastSentRef.current = Math.max(lastSentRef.current, playedSecondsRef.current);
             return;
           } catch (retryError) {
             console.error('Failed to update view after 409 retry:', retryError);
@@ -80,103 +109,103 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
           }
         }
         console.error('Failed to update view:', error);
+      } finally {
+        inFlightRef.current = false;
       }
-    };
+    },
+    [videoId]
+  );
 
-    if (force) {
-      await doUpdate();
-    } else {
-      updateTimeoutRef.current = setTimeout(doUpdate, viewConfig?.updateInterval || 1000);
+  /** Synchronous flush for `pagehide` — the only thing that survives teardown. */
+  const flushWithBeacon = useCallback(() => {
+    const viewId = viewIdRef.current;
+    const token = beaconTokenRef.current;
+    const played = playedSecondsRef.current;
+
+    if (!viewId || !token || played <= 0 || played <= lastSentRef.current) return;
+
+    if (sendViewBeacon(videoId, viewId, played, token)) {
+      lastSentRef.current = played;
     }
-  }, [videoId, isVideoComplete, viewConfig?.updateInterval]);
+  }, [videoId]);
 
   const initializeView = useCallback(async () => {
-    if (!isMountedRef.current || viewIdRef.current) return;
-    
-    try {
-      if (!hasMetThresholdRef.current) {
-        console.debug('View threshold not met yet');
-        return;
-      }
+    if (!isMountedRef.current || viewIdRef.current || initializingRef.current) return;
+    if (!hasMetThresholdRef.current) return;
 
-      console.debug('Initializing view with duration:', watchedDurationRef.current);
-      const response = await initializeVideoView(videoId, watchedDurationRef.current);
-      
-      if (!isMountedRef.current) {
-        console.log('[useViewTracking] Component unmounted during view initialization');
-        return;
-      }
-      
-      if (response.success && response.data.viewId) {
+    initializingRef.current = true;
+    try {
+      const played = playedSecondsRef.current;
+      const response = await initializeVideoView(videoId, played);
+
+      if (!isMountedRef.current) return;
+
+      if (response.success && response.data?.viewId) {
         viewIdRef.current = response.data.viewId;
-        void updateView();
+        beaconTokenRef.current = response.data.beaconToken ?? null;
+        lastSentRef.current = played;
       }
     } catch (error) {
       console.error('Failed to initialize view:', error);
+    } finally {
+      initializingRef.current = false;
     }
-  }, [videoId, updateView]);
+  }, [videoId]);
 
-  const updateWatchedDuration = useCallback((currentTime: number) => {
-    if (!isMountedRef.current || !isTrackingRef.current) return;
-    
-    const validatedTime = Math.min(currentTime, videoDuration);
-    
-    watchedDurationRef.current = Math.min(
-      Math.max(watchedDurationRef.current, validatedTime),
-      videoDuration
-    );
-    
-    if (!hasMetThresholdRef.current && hasMetViewThreshold(currentTime)) {
-      console.debug('View threshold met, initializing view');
-      hasMetThresholdRef.current = true;
-      void initializeView();
-    }
+  /**
+   * Fed by the player's `timeupdate`. `seeking` lets the player tell us the
+   * jump was a scrub; without it a large delta is discarded anyway.
+   */
+  const updateWatchedDuration = useCallback(
+    (currentTime: number, seeking = false) => {
+      if (!isMountedRef.current) return;
+      if (!Number.isFinite(currentTime)) return;
 
-    if (viewIdRef.current) {
-      void updateView();
-    }
-  }, [hasMetViewThreshold, initializeView, updateView, videoDuration]);
+      const previous = lastPositionRef.current;
+      lastPositionRef.current = currentTime;
 
+      if (!isTrackingRef.current) return;
+
+      if (previous !== null && !seeking) {
+        const delta = currentTime - previous;
+        // Negative (rewind) or oversized (seek / stall) deltas contribute nothing.
+        if (delta > 0) {
+          playedSecondsRef.current = Math.min(
+            playedSecondsRef.current + Math.min(delta, MAX_TICK_SECONDS),
+            videoDurationRef.current || playedSecondsRef.current + delta
+          );
+        }
+      }
+
+      if (!hasMetThresholdRef.current && hasMetViewThreshold(playedSecondsRef.current)) {
+        hasMetThresholdRef.current = true;
+        void initializeView();
+      }
+    },
+    [hasMetViewThreshold, initializeView]
+  );
+
+  // A new video is a new session.
   useEffect(() => {
     isTrackingRef.current = false;
-    watchedDurationRef.current = 0;
+    playedSecondsRef.current = 0;
+    lastPositionRef.current = null;
+    lastSentRef.current = 0;
     viewIdRef.current = null;
+    beaconTokenRef.current = null;
     hasMetThresholdRef.current = false;
   }, [videoId]);
 
+  // The heartbeat. Fires on a fixed cadence and SENDS — it is not a debounce.
   useEffect(() => {
-    return () => {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-        updateTimeoutRef.current = null;
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (hasMetThresholdRef.current && isMountedRef.current) {
-        void initializeView();
-      }
-    };
-  }, [initializeView]);
-
-  useEffect(() => {
-    if (!viewConfig?.updateInterval) return;
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
+    const interval = viewConfig.updateInterval;
+    if (!interval) return;
 
     intervalRef.current = setInterval(() => {
-      if (isMountedRef.current && 
-          isTrackingRef.current && 
-          viewIdRef.current && 
-          document.visibilityState === 'visible') {
-        void updateView();
-      } else {
-        console.log('[useViewTracking] Skipping periodic update - component unmounted, not tracking, no viewId, or tab hidden');
-      }
-    }, viewConfig.updateInterval);
+      if (!isMountedRef.current || !isTrackingRef.current || !viewIdRef.current) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      void sendUpdate();
+    }, interval);
 
     return () => {
       if (intervalRef.current) {
@@ -184,66 +213,67 @@ export const useViewTracking = ({ videoId, videoDuration }: UseViewTrackingProps
         intervalRef.current = null;
       }
     };
-  }, [updateView, viewConfig?.updateInterval]);
+  }, [sendUpdate, viewConfig.updateInterval]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!isMountedRef.current) return;
-
       if (document.visibilityState === 'hidden') {
-        console.log('[useViewTracking] Tab hidden, pausing tracking');
-        if (isTrackingRef.current && viewIdRef.current) {
-          void updateView(true);
-        }
-      } else {
-        console.log('[useViewTracking] Tab visible, resuming tracking');
+        void sendUpdate(true);
       }
     };
 
+    // `pagehide` covers tab close, navigation and bfcache eviction; `visibilitychange`
+    // to hidden covers a backgrounded tab that may never come back.
+    const handlePageHide = () => flushWithBeacon();
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
     };
-  }, [updateView]);
+  }, [sendUpdate, flushWithBeacon]);
 
   useEffect(() => {
     isMountedRef.current = true;
 
     return () => {
-      console.log('[useViewTracking] Component unmounting, cleaning up');
+      // Fire the last flush BEFORE the mounted flag drops, or `sendUpdate`
+      // returns early and the tail of the session is lost.
+      void sendUpdate(true);
       isMountedRef.current = false;
-      
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-        updateTimeoutRef.current = null;
-      }
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     };
-  }, []);
+  }, [sendUpdate]);
 
   return {
     startTracking: useCallback(() => {
-      if (isMountedRef.current) {
+      if (!isMountedRef.current) return;
       isTrackingRef.current = true;
-      }
+      // Do not credit the gap between pause and resume.
+      lastPositionRef.current = null;
     }, []),
 
     pauseTracking: useCallback(() => {
-      if (isMountedRef.current) {
+      if (!isMountedRef.current) return;
       isTrackingRef.current = false;
-      void updateView(true);
-      }
-    }, [updateView]),
+      lastPositionRef.current = null;
+      void sendUpdate(true);
+    }, [sendUpdate]),
 
     updateWatchedDuration,
-    
+
     finalize: useCallback(async () => {
       if (!isMountedRef.current || !viewIdRef.current) return;
-      await updateView(true);
-    }, [updateView])
+      await sendUpdate(true);
+    }, [sendUpdate]),
+
+    /** Test/debug seam: the played seconds this session has accumulated. */
+    getPlayedSeconds: useCallback(() => playedSecondsRef.current, []),
   };
 };

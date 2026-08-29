@@ -45,6 +45,8 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
      * source's metadata and seek the viewer backwards.
      */
     const resumeHandlerRef = useRef<(() => void) | null>(null);
+    /** True between `seeking` and `seeked`, so scrubbed time is not counted. */
+    const isSeekingRef = useRef(false);
 
     // A rendition can arrive minutes after mount, when the transcoder finishes
     // and the parent refetches. Memoised so the switch effect below fires on a
@@ -59,6 +61,20 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       videoId,
       videoDuration: duration,
     });
+
+    /**
+     * The player's listeners are registered ONCE (the init effect below has an
+     * empty dependency array, on purpose — re-running it would tear down the
+     * player). Those closures therefore captured render 0's `viewTracking`,
+     * whose callbacks were built before the view config had loaded: the very
+     * first visit to a page tracked nothing, because `hasMetViewThreshold`
+     * was permanently reading a `null` config.
+     *
+     * Holding the object in a ref that is refreshed on every render means the
+     * one-time listeners always call today's callbacks.
+     */
+    const viewTrackingRef = useRef(viewTracking);
+    viewTrackingRef.current = viewTracking;
 
     useEffect(() => {
       if (!videoRef.current || playerRef.current) return;
@@ -140,27 +156,39 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       playerRef.current = player;
       loadedSourceRef.current = videoSource;
 
-      // Event listeners for view tracking
+      // Event listeners for view tracking. Every one goes through the ref, so
+      // none of them can pin a stale callback from the first render.
       player.on('playing', () => {
-        console.log('▶️ Starting view tracking');
-        viewTracking.startTracking();
+        viewTrackingRef.current.startTracking();
       });
 
       player.on('pause', () => {
-        console.log('⏸️ Pausing view tracking');
-        viewTracking.pauseTracking();
+        viewTrackingRef.current.pauseTracking();
+      });
+
+      // Played time is accumulated from the deltas between these events, so the
+      // player has to say when a jump was a scrub rather than playback.
+      player.on('seeking', () => {
+        isSeekingRef.current = true;
+      });
+
+      player.on('seeked', () => {
+        const currentTime = player.currentTime();
+        if (typeof currentTime === 'number') {
+          viewTrackingRef.current.updateWatchedDuration(currentTime, true);
+        }
+        isSeekingRef.current = false;
       });
 
       player.on('timeupdate', () => {
         const currentTime = player.currentTime();
         if (typeof currentTime === 'number') {
-          viewTracking.updateWatchedDuration(currentTime);
+          viewTrackingRef.current.updateWatchedDuration(currentTime, isSeekingRef.current);
         }
       });
 
       player.on('ended', () => {
-        console.log('🎬 Video ended');
-        void viewTracking.finalize();
+        void viewTrackingRef.current.finalize();
       });
 
       // Add error event listener
@@ -210,7 +238,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
       return () => {
         console.log('Disposing VideoPlayer');
         if (playerRef.current) {
-          void viewTracking.finalize();
+          void viewTrackingRef.current.finalize();
           playerRef.current.dispose();
           playerRef.current = null;
         }
