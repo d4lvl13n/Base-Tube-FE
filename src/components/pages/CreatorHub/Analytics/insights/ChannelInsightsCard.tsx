@@ -6,10 +6,9 @@ import { InsightsView } from './InsightsView';
 /*
  * The Insights tab, connected.
  *
- * Everything visual lives in InsightsView, which is pure and is what the dev
- * preview route renders from fixtures. This file is only the wiring: the query,
- * the 202 polling, the regeneration budget. Keeping them apart is what lets the
- * layout be reviewed without a backend and without an account.
+ * Everything visual lives in InsightsView, which is pure. This file is only the
+ * wiring: the query, the 202 polling, the regeneration budget. The card reads
+ * its data from useChannelInsights and from nothing else.
  */
 
 export const ChannelInsightsCard: React.FC<{

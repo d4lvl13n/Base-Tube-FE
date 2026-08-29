@@ -51,9 +51,9 @@ import {
  *  - `insufficient` is NOT an empty state. It renders everything measurable and
  *    adds the checklist that says what more data will unlock.
  *
- * This component is PURE: it is given a report and renders it. The network,
- * polling and regeneration budget live in ChannelInsightsCard; the dev preview
- * route at /dev/insights-preview renders this view straight from fixtures.
+ * This component is PURE: it is given a report and renders it. The network, the
+ * polling and the regeneration budget all live in ChannelInsightsCard, which is
+ * the only thing that fetches a report.
  */
 
 const PANEL = 'rounded-xl border border-gray-800/60 bg-[#0f0f0f]';
@@ -583,7 +583,7 @@ export interface InsightsViewProps {
   insights?: ChannelInsightsV2;
   channelName?: string;
   period: InsightsPeriod;
-  /** Omitted by the dev preview and by tests that drive the card directly. */
+  /** Omitted when the caller owns no period control (tests drive the card directly). */
   onPeriodChange?: (period: InsightsPeriod) => void;
   isLoading?: boolean;
   isGenerating?: boolean;

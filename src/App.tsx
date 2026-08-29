@@ -70,10 +70,6 @@ import { UploadQueueProvider } from './contexts/UploadQueueContext';
 // Lazy-loaded components
 const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
 const CreateContentPass = lazy(() => import('./components/pages/CreatorHub/CreateContentPass/index'));
-// Dev-only: the Insights tab rendered from fixtures, so its five data states can be
-// reviewed without a backend or an account. Lazy so it stays out of the prod bundle;
-// the route below is registered only in development.
-const InsightsPreview = lazy(() => import('./components/pages/dev/InsightsPreview'));
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -451,18 +447,6 @@ function App() {
                     path="/dashboard/creator"
                     element={<YouTubeAuthCallback />}
                   />
-
-                  {/* Dev-only design preview. Never registered in a production build. */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <Route
-                      path="/dev/insights-preview"
-                      element={
-                        <Suspense fallback={<div className="min-h-screen bg-black" />}>
-                          <InsightsPreview />
-                        </Suspense>
-                      }
-                    />
-                  )}
 
                   {/* Catch-all redirect to sign-in */}
                   <Route
