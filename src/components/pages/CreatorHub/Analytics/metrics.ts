@@ -98,3 +98,23 @@ export const DURATION_BUCKET_LABELS: Record<string, string> = {
 };
 
 export const DURATION_BUCKET_ORDER = ['very_short', 'short', 'medium', 'long'] as const;
+
+/**
+ * Watch time for a card. Hours to one decimal are right for a channel with an
+ * audience and wrong for one without: the first week of a channel is "1m 19s",
+ * not "0.0 hours". Seconds are preferred when the API sends them; the rounded
+ * hours are the fallback for a response that predates the field.
+ */
+export const formatWatchTime = (seconds: number | null | undefined, hours: number): string => {
+  if (typeof seconds === 'number' && Number.isFinite(seconds)) {
+    const whole = Math.max(0, Math.round(seconds));
+    if (whole < 60) return `${whole}s`;
+    if (whole < 3600) {
+      const m = Math.floor(whole / 60);
+      const s = whole % 60;
+      return s === 0 ? `${m}m` : `${m}m ${s}s`;
+    }
+    return `${(whole / 3600).toFixed(1)} hours`;
+  }
+  return `${(Number.isFinite(hours) ? hours : 0).toFixed(1)} hours`;
+};

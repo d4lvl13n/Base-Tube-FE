@@ -28,6 +28,8 @@ export interface WatchPatterns {
 }
 
 export interface CreatorWatchHours {
+  /** Exact seconds (additive) — see formatWatchTime. */
+  totalWatchSeconds?: number;
   totalWatchHours: number;
   formattedHours: string;
   trend?: number;

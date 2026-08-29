@@ -1,4 +1,4 @@
-import {
+import { formatWatchTime,
   DURATION_BUCKET_LABELS,
   DURATION_BUCKET_ORDER,
   formatPercent,
@@ -112,5 +112,18 @@ describe('duration buckets', () => {
     expect(DURATION_BUCKET_LABELS.long).toBe('over 20 min');
     // The old copy claimed "under 3 min" for the 1-5 min bucket.
     expect(DURATION_BUCKET_LABELS.short).not.toContain('3 min');
+  });
+});
+
+describe('formatWatchTime', () => {
+  it('speaks in seconds and minutes below an hour, hours above', () => {
+    expect(formatWatchTime(0, 0)).toBe('0s');
+    expect(formatWatchTime(79, 0)).toBe('1m 19s');
+    expect(formatWatchTime(120, 0)).toBe('2m');
+    expect(formatWatchTime(5400, 1.5)).toBe('1.5 hours');
+  });
+  it('falls back to the rounded hours when seconds are missing', () => {
+    expect(formatWatchTime(undefined, 2.3)).toBe('2.3 hours');
+    expect(formatWatchTime(null, NaN)).toBe('0.0 hours');
   });
 });

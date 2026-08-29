@@ -10,7 +10,7 @@ import { useChannelData } from '../../../../../hooks/useChannelData';
 import StatsCard from '../../../CreatorHub/StatsCard';
 import { Select } from '../../../../ui/Select';
 import { GrowthChart } from '../charts/GrowthChart';
-import { formatPercent, interactionRate, trendBadgeValue } from '../metrics';
+import { formatPercent, interactionRate, trendBadgeValue, formatWatchTime } from '../metrics';
 
 // Milestone component
 const MilestoneCard: React.FC<{ 
@@ -173,11 +173,11 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
         <StatsCard
           icon={Clock}
           title="Watch Hours"
-          value={creatorWatchHours.formattedHours}
+          value={formatWatchTime(creatorWatchHours.totalSeconds, creatorWatchHours.total)}
           loading={isLoading}
           subtitle={period === 'all' 
-            ? 'Total Watch Hours' // Show total when 'all' is selected
-            : `${creatorWatchHours.periodTotal.toFixed(1)} hours in ${periodString}`}
+            ? 'Watched, all time'
+            : `${formatWatchTime(creatorWatchHours.periodSeconds, creatorWatchHours.periodTotal)} in ${periodString}`}
           error={watchHoursError ? "Error loading watch hours" : undefined}
         />
         

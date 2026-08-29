@@ -5,7 +5,7 @@ import { Users, Play, Clock, MessageCircle } from 'lucide-react';
 import { Channel } from '../../../types/channel';
 import { useCreatorAnalytics } from '../../../hooks/useAnalyticsData';
 import { useChannelData } from '../../../hooks/useChannelData';
-import { formatPercent, interactionRate, trendBadgeValue } from './Analytics/metrics';
+import { formatPercent, interactionRate, trendBadgeValue, formatWatchTime } from './Analytics/metrics';
 
 interface CreatorDashboardProps {
   channels: Channel[];
@@ -63,7 +63,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
     subscribersTrend: trendBadgeValue(growthMetrics?.metrics.subscribers.trend),
     views: viewMetrics?.totalViews.toLocaleString() ?? '0',
     viewsTrend: trendBadgeValue(growthMetrics?.metrics.views.trend),
-    watchTime: creatorWatchHours.formattedHours,
+    watchTime: formatWatchTime(creatorWatchHours.totalSeconds, creatorWatchHours.total),
     interactionRate: formatPercent(interactionRate(interactions30d, views30d)),
     interactions30d,
     responseRate: socialMetrics?.interactions.responseRate ?? 0,
@@ -108,7 +108,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
           title="Total Watch Time"
           value={formatMetrics.watchTime}
           loading={isLoading}
-          subtitle="Total hours watched, all time"
+          subtitle="Watched, all time"
           error={watchHoursError ? 'Error loading watch time' : undefined}
         />
         <StatsCard

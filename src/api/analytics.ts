@@ -22,6 +22,8 @@ import { ErrorCode } from '../types/error';
 interface WatchTimeData {
   channelId: string;
   totalWatchHours: number;
+  /** Exact seconds (additive); lets the UI say "1m 19s" instead of "0.0 hours". */
+  totalWatchSeconds?: number;
   period: string;
   formattedHours: string;
 }

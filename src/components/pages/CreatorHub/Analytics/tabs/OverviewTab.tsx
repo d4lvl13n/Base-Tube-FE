@@ -19,8 +19,7 @@ import {
   interactionRate,
   sumCounts,
   trendBadgeValue,
-  weightedPercentWatched
-} from '../metrics';
+  weightedPercentWatched, formatWatchTime } from '../metrics';
 
 export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
@@ -83,19 +82,12 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const getPeriodWatchHours = () => {
     if (period === 'all') {
       return {
-        value: creatorWatchHours?.formattedHours || '0',
-        subtitle: `${(channelWatchPatterns?.durationStats?.totalViews ?? 0).toLocaleString()} videos watched`
+        value: formatWatchTime(creatorWatchHours?.totalSeconds, creatorWatchHours?.total ?? 0),
+        subtitle: `${(channelWatchPatterns?.durationStats?.totalViews ?? 0).toLocaleString()} views`
       };
     } else {
-      // Fix: Use the correct period-specific data from periodTotal 
-      const periodHours = creatorWatchHours?.periodTotal ?? 0;
-      // For 7 days, show the actual period total; for 30 days adjust if needed
-      const formattedValue = period === '7d' 
-        ? periodHours.toFixed(1)  
-        : periodHours.toFixed(1);
-        
       return {
-        value: `${formattedValue} hours`,
+        value: formatWatchTime(creatorWatchHours?.periodSeconds, creatorWatchHours?.periodTotal ?? 0),
         subtitle: `For ${periodString}`
       };
     }

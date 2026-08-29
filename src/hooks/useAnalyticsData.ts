@@ -332,8 +332,10 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
     growthMetrics: growthMetrics.data,
     creatorWatchHours: {
       total: allTimeWatchHours.data?.totalWatchHours ?? 0,
+      totalSeconds: allTimeWatchHours.data?.totalWatchSeconds,
       formattedHours: allTimeWatchHours.data?.formattedHours ?? '0 hours',
       periodTotal: periodWatchHours.data?.totalWatchHours ?? 0,
+      periodSeconds: periodWatchHours.data?.totalWatchSeconds,
       trend: periodWatchHours.data?.trend ?? 0
     },
     engagementTrends: engagementTrends.data,
