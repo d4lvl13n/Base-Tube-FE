@@ -12,9 +12,14 @@ import {
   TopContentItem, 
   TopSharedItem, 
   TopComment,
-  VideoPerformanceResponse,
-  ChannelAnalyticsInsight
+  VideoPerformanceResponse
 } from '../types/analytics';
+import {
+  INSIGHTS_SCHEMA_VERSION,
+  type ChannelInsightsMeta,
+  type ChannelInsightsV2,
+  type InsightsPeriod
+} from '../types/insights';
 import { handleApiError as handleError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
 
@@ -558,40 +563,42 @@ export const getChannelDemographics = async (
 };
 
 /**
- * Gets AI-generated insights for channel analytics
- * @param channelId The channel ID
- * @param periods One or more time periods to analyze ('7d', '30d', '90d', 'all')
+ * Creator AI Insights v2 for ONE period.
+ *
+ * The old endpoint accepted a `periods[]` array, ran a data collection per period and
+ * then handed the model only the first one — latency and tokens for nothing. One
+ * period per request; each answer is cached on its own key, backend and client alike.
+ *
+ * `refresh` bypasses the backend's 24 h cache and is capped at REFRESH_DAILY_LIMIT per
+ * channel per day; the remaining budget comes back in `meta.refreshRemaining`, and a
+ * 429 means the budget is spent (the last report is still readable).
  */
-export const getChannelAnalyticsInsights = async (
+export const getChannelInsights = async (
   channelId: string,
-  periods: ('7d' | '30d' | '90d' | 'all')[] | '7d' | '30d' | '90d' | 'all' = '30d'
-): Promise<ChannelAnalyticsInsight> => {
-  try {
-    // Add cache-busting timestamp to prevent 304 responses
-    const timestamp = new Date().getTime();
-    const params: Record<string, string | number | string[]> = { _t: timestamp };
-    
-    // Handle both single period and array of periods
-    if (Array.isArray(periods)) {
-      params.periods = periods;
-    } else {
-      params.period = periods;
-    }
-    
-    const response = await api.get<{ success: boolean; data: ChannelAnalyticsInsight }>(
-      `/api/v1/creators/channels/${channelId}/analytics/insights`,
-      { params }
-    );
-    
-    if (!response.data.success) {
-      throw new Error(`Failed to fetch analytics insights for channel ${channelId}`);
-    }
-    
-    return response.data.data;
-  } catch (error) {
-    console.error('Failed to fetch analytics insights:', error);
-    throw error;
+  period: InsightsPeriod = '30d',
+  options: { refresh?: boolean } = {}
+): Promise<{ data: ChannelInsightsV2; meta: ChannelInsightsMeta }> => {
+  const params: Record<string, string> = { period };
+  if (options.refresh) params.refresh = '1';
+
+  const response = await api.get<{
+    success: boolean;
+    data: ChannelInsightsV2;
+    meta: ChannelInsightsMeta;
+  }>(`/api/v1/creators/channels/${channelId}/analytics/insights`, { params });
+
+  if (!response.data.success) {
+    throw new Error(`Failed to fetch insights for channel ${channelId}`);
   }
+
+  // A payload from a contract we do not understand is not rendered half-way: the
+  // sections have different meanings across versions and a partial read would be a
+  // confident misstatement.
+  if (response.data.data?.schemaVersion !== INSIGHTS_SCHEMA_VERSION) {
+    throw new Error('Insights are unavailable: this client does not understand the report format.');
+  }
+
+  return { data: response.data.data, meta: response.data.meta };
 };
 
 // ===========================================

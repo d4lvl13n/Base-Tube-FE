@@ -14,6 +14,7 @@ import { Select } from '../../../../ui/Select';
 import { GrowthChart } from '../charts/GrowthChart';
 import { useChannelData } from '../../../../../hooks/useChannelData';
 import { WatchTimeChart } from '../charts/WatchTimeChart';
+import { ChannelInsightsCard } from '../insights/ChannelInsightsCard';
 import {
   formatPercent,
   interactionRate,
@@ -139,6 +140,11 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           />
         </div>
       </div>
+
+      {/* Insights — deliberately ABOVE the cards. The measured numbers below are what
+          it was computed from, and reading the coverage strip first is what stops a
+          hypothesis from being mistaken for a measurement. */}
+      <ChannelInsightsCard channelId={channelId} period={period} />
 
       {/* Primary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

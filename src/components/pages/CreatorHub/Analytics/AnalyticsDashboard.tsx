@@ -11,7 +11,6 @@ import { AudienceInsightsTab } from './tabs/AudienceInsightsTab';
 import { GrowthTab } from './tabs/GrowthMonetizationTab';
 import { EngagementAnalyticsTab } from './tabs/EngagementAnalyticsTab';
 import { DetailedVideoPerformanceTab } from './tabs/DetailedVideoPerformanceTab';
-import { AIInsightsTab } from './tabs/AIInsightsTab';
 import NoChannelView from '../NoChannelView';
 
 const AnalyticsDashboard: React.FC = () => {
@@ -46,26 +45,21 @@ const AnalyticsDashboard: React.FC = () => {
         return <EngagementAnalyticsTab channelId={selectedChannelId} />;
       case 'Video Performance':
         return <DetailedVideoPerformanceTab channelId={selectedChannelId} />;
-      case 'AI Insights':
-        return <AIInsightsTab channelId={selectedChannelId} />;
       default:
         return null;
     }
   };
 
-  // 'Audience' and 'AI Insights' are intentionally NOT listed.
+  // 'Audience' is intentionally NOT listed: AudienceDemographicsService sums
+  // cumulative per-country counters across days, so the geographic split is
+  // multiplied by the number of days in the window — those numbers are wrong, not
+  // merely sparse. The component is still in the tree and the case is still routed on
+  // the backend; re-add it here once the underlying data is fixed. See
+  // docs/ANALYTICS_REVIEW_2026-08-29.md (base-be) finding 4.
   //
-  // Audience: AudienceDemographicsService sums cumulative per-country counters
-  // across days, so the geographic split is multiplied by the number of days in
-  // the window — the numbers on that tab are wrong, not merely sparse.
-  //
-  // AI Insights: the prompt tells the model to cite geography and growth data
-  // that AnalyticsInsightService never puts in the payload (it gets 3 videos
-  // and hourly counts), so the copy it produces is invented.
-  //
-  // Both components are still in the tree and both cases are still routed on the
-  // backend; re-add them here once the underlying data is fixed. See
-  // docs/ANALYTICS_REVIEW_2026-08-29.md (base-be) findings 4 and 9.
+  // 'AI Insights' is gone as a TAB rather than hidden: Insights v2 is a card group at
+  // the top of Overview, next to the numbers it was computed from, which is the only
+  // place its coverage strip means anything.
   const tabs = [
     'Overview',
     'Content',
