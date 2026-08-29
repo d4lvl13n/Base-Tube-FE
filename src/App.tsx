@@ -1,10 +1,10 @@
-import React, { useState, useMemo, lazy, Suspense } from 'react';
+import React, { useMemo, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Header from './components/common/Header';
-import CreatorHubNav from './components/pages/CreatorHub/CreatorHubNav';
+import CreatorHubShell from './components/pages/CreatorHub/CreatorHubShell';
 import ProtectedRoute from './components/pages/ProtectedRoute';
 import V2HomePage from './components/pages/V2HomePage';
 import SingleVideo from './components/pages/SingleVideo';
@@ -72,30 +72,11 @@ const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
 const CreateContentPass = lazy(() => import('./components/pages/CreatorHub/CreateContentPass/index'));
 
 // Create a layout component for CreatorHub
-const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isNavOpen, setIsNavOpen] = useState(true);
-
-  return (
-    <ChannelSelectionProvider>
-      <div className="min-h-screen bg-[#09090B]">
-        <Header 
-          isNavOpen={isNavOpen} 
-          onNavToggle={() => setIsNavOpen(!isNavOpen)}
-          className="sticky top-0 z-50" 
-        />
-        <div className="flex">
-          <CreatorHubNav 
-            isCollapsed={!isNavOpen} 
-            onToggle={() => setIsNavOpen(!isNavOpen)}
-          />
-          <main className="flex-1 overflow-x-hidden">
-            {children}
-          </main>
-        </div>
-      </div>
-    </ChannelSelectionProvider>
-  );
-};
+const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <ChannelSelectionProvider>
+    <CreatorHubShell>{children}</CreatorHubShell>
+  </ChannelSelectionProvider>
+);
 
 // Create an analytics wrapper for Creator Hub routes
 const AnalyticsRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {

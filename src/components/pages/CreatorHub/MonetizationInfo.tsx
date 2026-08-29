@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Coins, TrendingUp, Users, Repeat, Crown, Lock, Calculator, ChevronDown, ChevronUp, Sparkles, Share2, MessageCircle, Globe, DollarSign, Award, Star } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import Header from '../../common/Header';
-import CreatorHubNav from './CreatorHubNav';
+import CreatorHubShell from './CreatorHubShell';
 import { ChannelSelectionProvider } from '../../../contexts/ChannelSelectionContext';
 import ContentPassAnimation from '../../animations/ContentPassAnimation';
 
@@ -50,7 +49,6 @@ const faqItems = [
 ];
 
 const MonetizationInfo: React.FC = () => {
-  const [isNavCollapsed, setIsNavCollapsed] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showAnimation, setShowAnimation] = useState(false);
   const navigate = useNavigate();
@@ -70,18 +68,14 @@ const MonetizationInfo: React.FC = () => {
 
   return (
     <ChannelSelectionProvider>
-      <div className="min-h-screen bg-black">
-        <Header onNavToggle={() => setIsNavCollapsed(!isNavCollapsed)} />
-        <div className="flex">
-          <CreatorHubNav isCollapsed={isNavCollapsed} onToggle={() => setIsNavCollapsed(!isNavCollapsed)} />
-          
-          {/* Main Content */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex-1 pt-24 max-w-7xl mx-auto"
-          >
+      <CreatorHubShell>
+        {/* Main Content */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mx-auto max-w-7xl pt-24"
+        >
             {/* Premium Hero Section */}
             <div className="relative overflow-hidden rounded-3xl bg-black mx-4 mb-16">
               <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0f0f0f] to-black overflow-hidden">
@@ -448,9 +442,8 @@ const MonetizationInfo: React.FC = () => {
               </Link>
               </section>
             </div>
-          </motion.div>
-        </div>
-      </div>
+        </motion.div>
+      </CreatorHubShell>
     </ChannelSelectionProvider>
   );
 };
