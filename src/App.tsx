@@ -1,4 +1,4 @@
-import React, { useMemo, lazy, Suspense } from 'react';
+import React, { useState, useMemo, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { ToastContainer } from 'react-toastify';
@@ -72,19 +72,30 @@ const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
 const CreateContentPass = lazy(() => import('./components/pages/CreatorHub/CreateContentPass/index'));
 
 // Create a layout component for CreatorHub
-const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <ChannelSelectionProvider>
-    <div className="min-h-screen bg-[#09090B]">
-      <Header className="sticky top-0 z-50" />
-      <div className="flex">
-        <CreatorHubNav />
-        <main className="bt-sidebar-offset min-w-0 flex-1 overflow-x-hidden">
-          {children}
-        </main>
+const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isNavOpen, setIsNavOpen] = useState(true);
+
+  return (
+    <ChannelSelectionProvider>
+      <div className="min-h-screen bg-[#09090B]">
+        <Header 
+          isNavOpen={isNavOpen} 
+          onNavToggle={() => setIsNavOpen(!isNavOpen)}
+          className="sticky top-0 z-50" 
+        />
+        <div className="flex">
+          <CreatorHubNav 
+            isCollapsed={!isNavOpen} 
+            onToggle={() => setIsNavOpen(!isNavOpen)}
+          />
+          <main className="flex-1 overflow-x-hidden">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
-  </ChannelSelectionProvider>
-);
+    </ChannelSelectionProvider>
+  );
+};
 
 // Create an analytics wrapper for Creator Hub routes
 const AnalyticsRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {

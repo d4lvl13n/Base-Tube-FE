@@ -947,7 +947,7 @@ const CreateChannelPage: React.FC = () => {
   return (
     <div className="bg-black text-white min-h-screen">
       <Header />
-      <div className="flex pt-16">
+      <div className="flex">
         <Sidebar />
         <main className="flex-1 p-12 lg:p-16">
           <motion.div

@@ -50,6 +50,7 @@ const faqItems = [
 ];
 
 const MonetizationInfo: React.FC = () => {
+  const [isNavCollapsed, setIsNavCollapsed] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showAnimation, setShowAnimation] = useState(false);
   const navigate = useNavigate();
@@ -70,16 +71,16 @@ const MonetizationInfo: React.FC = () => {
   return (
     <ChannelSelectionProvider>
       <div className="min-h-screen bg-black">
-        <Header />
+        <Header onNavToggle={() => setIsNavCollapsed(!isNavCollapsed)} />
         <div className="flex">
-          <CreatorHubNav />
+          <CreatorHubNav isCollapsed={isNavCollapsed} onToggle={() => setIsNavCollapsed(!isNavCollapsed)} />
           
           {/* Main Content */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="bt-sidebar-offset-pad mx-auto max-w-7xl flex-1 pt-24"
+            className="flex-1 pt-24 max-w-7xl mx-auto"
           >
             {/* Premium Hero Section */}
             <div className="relative overflow-hidden rounded-3xl bg-black mx-4 mb-16">

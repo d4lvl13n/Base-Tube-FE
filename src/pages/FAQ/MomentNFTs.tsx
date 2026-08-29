@@ -58,7 +58,7 @@ const MomentNFTsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#09090B]">
       <Header />
-      <div className="flex pt-16">
+      <div className="flex">
         <Sidebar />
         <motion.div
           initial={{ opacity: 0, y: 20 }}

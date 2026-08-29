@@ -11,6 +11,7 @@ import InfiniteScroll from 'react-infinite-scroll-component';
 import { ChannelCardProps, ChannelPageStylesProps } from './types';
 import { ANIMATIONS } from '../../../constants/animations';
 import { processImageUrl } from '../../../utils/imageUtils';
+import { useNavigation } from '../../../contexts/NavigationContext';
 import { htmlToPlainText } from '../../../utils/html';
 
 export const ChannelPageLayout: React.FC<ChannelPageStylesProps> = memo(({
@@ -24,6 +25,8 @@ export const ChannelPageLayout: React.FC<ChannelPageStylesProps> = memo(({
   handleSortChange,
   navigationOptions,
 }) => {
+  const { navStyle } = useNavigation();
+  const isFloatingNav = navStyle === 'floating';
   const showInitialLoader = loading && channels.length === 0 && !error;
   const activeSortLabel = navigationOptions.find((option) => option.key === sort)?.label || 'Channels';
 
@@ -31,8 +34,10 @@ export const ChannelPageLayout: React.FC<ChannelPageStylesProps> = memo(({
     <div className="min-h-screen overflow-x-hidden bg-black text-white">
       <Header className="fixed top-0 left-0 right-0 z-50" />
       <div className="flex pt-16">
-        <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
-        <main className="bt-sidebar-offset min-h-[calc(100vh-64px)] flex-1 p-4 sm:p-6 md:p-8">
+        <Sidebar className={`${isFloatingNav ? '' : 'fixed left-0 top-16 bottom-0 z-40'}`} />
+        <main
+          className={`min-h-[calc(100vh-64px)] flex-1 p-4 sm:p-6 md:p-8 ${isFloatingNav ? '' : 'ml-16'}`}
+        >
           <div className="mx-auto w-full max-w-[1920px] pb-28">
             <motion.div
               className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"

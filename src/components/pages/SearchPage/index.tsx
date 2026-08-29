@@ -120,7 +120,7 @@ const SearchPage: React.FC = () => {
       <Header className="fixed left-0 right-0 top-0 z-50" />
       <div className="flex pt-16">
         <Sidebar className="fixed bottom-0 left-0 top-16 z-40" />
-        <main className="bt-sidebar-offset flex-1 overflow-auto px-6 py-10">
+        <main className="ml-16 flex-1 overflow-auto px-6 py-10">
           <div className="mx-auto max-w-5xl">
             <header>
               <h1 className="text-2xl font-semibold tracking-tight text-white">

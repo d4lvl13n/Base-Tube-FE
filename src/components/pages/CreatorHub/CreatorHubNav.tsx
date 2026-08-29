@@ -1,138 +1,354 @@
 // src/components/pages/CreatorHub/CreatorHubNav.tsx
 import React from 'react';
-import { useUser } from '@clerk/clerk-react';
-import {
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { 
+  LayoutDashboard, 
+  VideoIcon,
   BarChart2,
   DollarSign,
-  ImageIcon,
-  LayoutDashboard,
-  Plus,
-  Ticket,
   Tv,
   Upload,
-  VideoIcon,
+  LucideIcon,
+  ImageIcon,
+  Shield,
+  Sparkles,
+  Crown,
+  Lock
 } from 'lucide-react';
-import { useAuth } from '../../../contexts/AuthContext';
-import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
-import {
-  SidebarFooter,
-  SidebarGroup,
-  SidebarItem,
-  SidebarPrimaryAction,
-  SidebarSection,
-  SidebarShell,
-  SidebarSwitcher,
-} from '../../navigation';
+import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 
 const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
 
-const STUDIO_PATHS = [
-  '/creator-hub/upload',
-  '/creator-hub/content-studio',
-  '/creator-hub/videos',
-  '/creator-hub/channels',
-];
+interface SubItem {
+  title: string;
+  path: string;
+}
 
-/**
- * The Creator Hub column.
- *
- * One filled button (Upload) and a flat list of rows. "Create channel" moved
- * into the switcher's menu and "Create content pass" into the monetization
- * group: both were full-width blocks competing with Upload for the same
- * attention, and the pass block did it with an animated gold border.
- */
-const CreatorHubNav: React.FC = () => {
-  const { channels, selectedChannelId, setSelectedChannelId, isLoading } = useChannelSelection();
-  const { isSignedIn, user: clerkUser } = useUser();
-  const { isAuthenticated, user: web3User } = useAuth();
+interface NavigationItem {
+  title: string;
+  icon: LucideIcon;
+  path: string;
+  subItems?: SubItem[];
+  badge?: string;
+}
 
-  const options = channels.map((channel) => ({
-    id: channel.id.toString(),
-    name: channel.name,
-    handle: channel.handle,
-    imageUrl: channel.channel_image_url ?? null,
-  }));
+interface NavItemProps {
+  item: NavigationItem;
+  isCollapsed: boolean;
+  isActive: boolean;
+  onClick: () => void;
+  isExpanded: boolean;
+}
 
-  const account = isAuthenticated && web3User
-    ? {
-        name: web3User.username || 'My wallet',
-        handle: null as string | null,
-        imageUrl: web3User.profile_image_url ?? null,
-      }
-    : isSignedIn && clerkUser
-      ? {
-          name: clerkUser.username || clerkUser.firstName || 'Account',
-          handle: clerkUser.username ?? null,
-          imageUrl: clerkUser.imageUrl ?? null,
-        }
-      : null;
+interface ActionButtonProps {
+  icon: LucideIcon;
+  label?: string;
+  badge?: number | string;
+  className?: string;
+  iconClassName?: string;
+  onClick?: () => void;
+  style?: React.CSSProperties;
+  customContent?: React.ReactNode;
+}
+
+interface CreatorHubNavProps {
+  isCollapsed: boolean;
+  onToggle: () => void;
+}
+
+const CreatorHubNav: React.FC<CreatorHubNavProps> = ({ isCollapsed, onToggle }) => {
+  const location = useLocation();
+  const [expandedItem, setExpandedItem] = React.useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const isPathActive = (path: string): boolean => {
+    if (path === '/creator-hub') {
+      return location.pathname === '/creator-hub';
+    }
+    return path !== '/creator-hub' && location.pathname.startsWith(path);
+  };
+
+  const navigationItems: NavigationItem[] = [
+    {
+      title: 'Dashboard',
+      icon: LayoutDashboard,
+      path: '/creator-hub',
+    },
+    {
+      title: 'Content Studio',
+      icon: VideoIcon,
+      path: '/creator-hub/content-studio',
+      subItems: [
+        { title: 'Videos Management', path: '/creator-hub/videos' },
+        { title: 'Content Studio', path: '/creator-hub/content-studio' },
+        { title: 'Playlists', path: '/creator-hub/playlists' },
+        { title: 'Channel Management', path: '/creator-hub/channels' },
+        { title: 'Manage Content Passes', path: '/creator-hub/passes' }
+      ]
+    },
+    {
+      title: 'Analytics',
+      icon: BarChart2,
+      path: '/creator-hub/analytics',
+    },
+    {
+      title: 'Monetization',
+      icon: DollarSign,
+      path: '/creator-hub/monetization',
+      badge: 'Beta'
+    },
+    {
+      title: 'Thumbnail Gallery',
+      icon: ImageIcon,
+      path: '/thumbnail-gallery',
+    }
+  ];
 
   return (
-    <SidebarShell
-      label="Creator Hub navigation"
-      className="fixed left-0 top-16 bottom-0 z-40"
-      top={
-        <div className="space-y-2">
-          <SidebarSwitcher
-            options={options}
-            activeId={selectedChannelId}
-            onSelect={setSelectedChannelId}
-            action={{ label: 'Create channel', to: '/create-channel' }}
-            placeholder="Select channel"
-            loading={isLoading}
-          />
-          <SidebarPrimaryAction icon={Upload} label="Upload" to="/creator-hub/upload" />
-        </div>
-      }
-      footer={
-        account ? (
-          <SidebarFooter
-            name={account.name}
-            handle={account.handle}
-            imageUrl={account.imageUrl}
-          />
-        ) : undefined
-      }
+    <motion.div 
+      initial={false}
+      animate={{ width: isCollapsed ? '80px' : '256px' }}
+      className="h-screen flex flex-col bg-black/50 border-r border-gray-800/30 backdrop-blur-sm overflow-hidden pt-16"
+      style={{
+        boxShadow: `
+          0 0 20px 5px rgba(250, 117, 23, 0.1),
+          0 0 40px 10px rgba(250, 117, 23, 0.05),
+          inset 0 0 60px 15px rgba(250, 117, 23, 0.03)
+        `,
+        position: 'sticky',
+        top: 0,
+        zIndex: 40
+      }}
     >
-      <SidebarSection>
-        <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/creator-hub" end />
-        <SidebarGroup
-          id="content-studio"
-          icon={VideoIcon}
-          label="Content Studio"
-          paths={STUDIO_PATHS}
-          primaryPath="/creator-hub/content-studio"
-        >
-          <SidebarItem icon={Upload} label="Upload" to="/creator-hub/upload" indent />
-          <SidebarItem icon={VideoIcon} label="Studio" to="/creator-hub/content-studio" indent />
-          <SidebarItem icon={ImageIcon} label="Videos" to="/creator-hub/videos" indent />
-          <SidebarItem icon={Tv} label="Channels" to="/creator-hub/channels" indent />
-        </SidebarGroup>
-        <SidebarItem icon={BarChart2} label="Analytics" to="/creator-hub/analytics" />
-        <SidebarItem icon={ImageIcon} label="Thumbnail Gallery" to="/thumbnail-gallery" />
-      </SidebarSection>
+      {/* Primary Actions */}
+      <div className="p-4 border-b border-gray-800/30">
+        <div className="space-y-3">
+          <ActionButton
+            icon={Tv}
+            label={!isCollapsed ? "Create Channel" : undefined}
+            className="w-full bg-gray-700/50 hover:bg-gray-600/50"
+            onClick={() => navigate('/create-channel')}
+          />
+          <ActionButton
+            icon={Upload}
+            label={!isCollapsed ? "Upload Video" : undefined}
+            className="w-full bg-[#fa7517] hover:bg-[#ff8c3a] text-black"
+            onClick={() => navigate('/creator-hub/upload')}
+          />
+          <ActionButton
+            icon={Crown}
+            iconClassName="text-white"
+            label={!isCollapsed ? "Create Content Pass" : undefined}
+            className="w-full relative overflow-hidden text-white font-semibold"
+            style={{
+              background: 'linear-gradient(45deg, rgba(0,0,0,0.8), rgba(30,30,30,0.9))',
+              boxShadow: '0 8px 20px rgba(255, 215, 0, 0.2)',
+              border: '1px solid transparent',
+              borderImageSlice: 1,
+              borderImageSource: 'linear-gradient(135deg, #FFD700, #FFA500, #fa7517)',
+              borderRadius: '0.5rem'
+            }}
+            onClick={() => navigate('/creator-hub/monetization')}
+            customContent={
+              !isCollapsed ? (
+                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-lg">
+                  <div className="absolute -top-1 -left-1 w-[200%] h-1 bg-gradient-to-r from-[#FFD700] via-[#FFA500] to-[#fa7517] opacity-70 animate-pulse"></div>
+                  <div className="absolute -bottom-1 -right-1 w-[200%] h-1 bg-gradient-to-r from-[#fa7517] via-[#FFA500] to-[#FFD700] opacity-70 animate-pulse"></div>
+                  <div className="absolute top-1 right-1 opacity-80">
+                    <Sparkles className="w-4 h-4 text-[#FFD700] animate-pulse" />
+                  </div>
+                  <div 
+                    className="absolute inset-0 bg-gradient-to-r from-[#FFD700]/0 via-[#FFD700]/10 to-[#FFD700]/0 opacity-0 hover:opacity-30 transition-opacity duration-700 animate-shimmer" 
+                    style={{
+                      backgroundSize: "200% 100%",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-lg">
+                  <div className="absolute -top-1 -left-1 w-[200%] h-1 bg-gradient-to-r from-[#FFD700] via-[#FFA500] to-[#fa7517] opacity-70 animate-pulse"></div>
+                  <div className="absolute -bottom-1 -right-1 w-[200%] h-1 bg-gradient-to-r from-[#fa7517] via-[#FFA500] to-[#FFD700] opacity-70 animate-pulse"></div>
+                  <div 
+                    className="absolute inset-0 bg-gradient-to-r from-[#FFD700]/0 via-[#FFD700]/10 to-[#FFD700]/0 opacity-0 hover:opacity-30 transition-opacity duration-700 animate-shimmer" 
+                    style={{
+                      backgroundSize: "200% 100%",
+                    }}
+                  />
+                </div>
+              )
+            }
+          />
+        </div>
+      </div>
 
-      <SidebarSection label="Monetization">
-        <SidebarItem
-          icon={DollarSign}
-          label="Overview"
-          to="/creator-hub/monetization"
-          badge="Beta"
+      {/* Navigation Items */}
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
+        {navigationItems.map((item) => (
+          <NavItem
+            key={item.title}
+            item={item}
+            isCollapsed={isCollapsed}
+            isActive={isPathActive(item.path) || 
+              (item.subItems?.some(subItem => isPathActive(subItem.path)) ?? false)}
+            onClick={() => !isCollapsed && item.subItems && 
+              setExpandedItem(expandedItem === item.title ? null : item.title)}
+            isExpanded={expandedItem === item.title}
+          />
+        ))}
+      </nav>
+
+      {/* Channel Selector */}
+      {!isCollapsed && (
+        <div className="px-4 pb-4 border-t border-gray-800/30 mt-auto">
+          <div className="pt-4">
+            <ChannelSelector />
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+// Helper Components
+const ActionButton = ({ 
+  icon: Icon, 
+  label, 
+  badge, 
+  className = '', 
+  iconClassName = '', 
+  onClick,
+  style = {},
+  customContent
+}: ActionButtonProps & { style?: React.CSSProperties, customContent?: React.ReactNode }) => (
+  <motion.button
+    whileHover={{ 
+      scale: 1.03, 
+      y: -1,
+      boxShadow: Icon === Crown ? '0 10px 25px rgba(255, 215, 0, 0.3)' : undefined
+    }}
+    whileTap={{ scale: 0.97 }}
+    onClick={onClick}
+    className={`
+      relative p-2.5 rounded-lg transition-all duration-300 flex items-center justify-center gap-2
+      ${className || 'hover:bg-gray-800/50'}
+    `}
+    style={style}
+  >
+    <Icon className={`w-5 h-5 ${iconClassName || 'text-gray-400'}`} />
+    {label && <span className="text-sm font-medium whitespace-nowrap flex-1">{label}</span>}
+    {customContent}
+    {badge && (
+      <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold">
+        {badge}
+      </span>
+    )}
+  </motion.button>
+);
+
+const NavItem: React.FC<NavItemProps> = ({ item, isCollapsed, isActive, onClick, isExpanded }) => {
+  const location = useLocation();
+  
+  const isSubItemActive = (path: string): boolean => {
+    return location.pathname === path;
+  };
+
+  return (
+    <motion.div
+      whileHover={{ x: 4 }}
+      className={`
+        relative group cursor-pointer
+        ${isActive ? 'bg-[#fa7517]/10' : 'hover:bg-gray-800/30'}
+        rounded-lg transition-colors
+      `}
+    >
+      <div
+        onClick={onClick}
+        className={`
+          flex items-center px-4 py-2.5
+          ${isActive ? 'text-[#fa7517]' : 'text-gray-400 hover:text-white'}
+        `}
+      >
+        {item.path ? (
+          <Link 
+            to={item.path}
+            className="flex items-center flex-1 overflow-hidden"
+          >
+            <item.icon className="w-5 h-5 min-w-[20px]" />
+            {!isCollapsed && (
+              <span className="ml-3 font-medium whitespace-nowrap">
+                {item.title}
+              </span>
+            )}
+          </Link>
+        ) : (
+          // For items without path (like Content Studio)
+          <div className="flex items-center flex-1 overflow-hidden">
+            <item.icon className="w-5 h-5 min-w-[20px]" />
+            {!isCollapsed && (
+              <span className="ml-3 font-medium whitespace-nowrap">
+                {item.title}
+              </span>
+            )}
+          </div>
+        )}
+        
+        {!isCollapsed && (
+          <>
+            {item.badge && (
+              <span className="px-2 py-0.5 text-xs font-medium bg-[#fa7517] text-black rounded-full">
+                {item.badge}
+              </span>
+            )}
+            {item.subItems && (
+              <svg
+                className={`w-4 h-4 ml-2 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </>
+        )}
+      </div>
+      
+      {/* Active Indicator */}
+      {isActive && (
+        <motion.div
+          layoutId="activeIndicator"
+          className="absolute left-0 top-0 w-1 h-full bg-[#fa7517] rounded-r"
         />
-        <SidebarItem
-          icon={Ticket}
-          label="Content passes"
-          to="/creator-hub/passes"
-          disabled={!PASSES_ENABLED}
-        />
-        <SidebarItem
-          icon={Plus}
-          label="Create pass"
-          to="/creator-hub/create-content-pass"
-          disabled={!PASSES_ENABLED}
-        />
-      </SidebarSection>
-    </SidebarShell>
+      )}
+
+      {/* Subitems */}
+      {!isCollapsed && item.subItems && isExpanded && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="ml-4 mt-1 space-y-1"
+        >
+          {item.subItems.map((subItem) => (
+            <Link
+              key={subItem.title}
+              to={subItem.path}
+              className={`
+                block px-4 py-2 rounded-lg text-sm
+                ${(!PASSES_ENABLED && subItem.title === 'Manage Content Passes')
+                  ? 'text-gray-500 hover:text-gray-500 hover:bg-gray-800/20'
+                  : (isSubItemActive(subItem.path)
+                      ? 'text-[#fa7517] bg-[#fa7517]/10'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800/30')}
+                transition-colors
+              `}
+            >
+              {subItem.title}
+            </Link>
+          ))}
+        </motion.div>
+      )}
+    </motion.div>
   );
 };
 

@@ -42,7 +42,7 @@ const SubscribedChannelPage: React.FC = () => {
         <Header className="fixed top-0 left-0 right-0 z-50" />
         <div className="flex pt-16">
           <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
-          <main className="bt-sidebar-offset flex-1 p-8 overflow-auto">
+          <main className="flex-1 p-8 overflow-auto ml-16">
             <ErrorMessage message={error.message} />
           </main>
         </div>
@@ -56,7 +56,7 @@ const SubscribedChannelPage: React.FC = () => {
       <div className="flex pt-16">
         <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
         <main 
-          className="bt-sidebar-offset flex-1 p-8 overflow-auto" 
+          className="flex-1 p-8 overflow-auto ml-16" 
           id="scrollableDiv"
         >
           <div className="flex justify-between items-center mb-8">

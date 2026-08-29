@@ -23,6 +23,7 @@ import { OnchainKitProvider } from '@coinbase/onchainkit';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
+import { NavigationProvider } from './contexts/NavigationContext';
 import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
 
 const PUBLISHABLE_KEY = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
@@ -67,6 +68,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <PageViewTracker />
         <ChannelSelectionProvider>
+          <NavigationProvider>
             <WagmiProvider config={wagmiConfig}>
               <AuthProvider>
                 <OnchainKitProvider
@@ -100,6 +102,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 </OnchainKitProvider>
               </AuthProvider>
             </WagmiProvider>
+          </NavigationProvider>
         </ChannelSelectionProvider>
       </BrowserRouter>
     </QueryClientProvider>

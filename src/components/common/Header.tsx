@@ -1,31 +1,36 @@
 import React, { useState } from 'react';
-import { PanelLeft, PanelLeftClose, UserCircle, X, Palette, LogIn, Wallet, Shield } from 'lucide-react';
+import { Layout, LayoutDashboard, UserCircle, X, Palette, LogIn, Wallet, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
 import SearchBox from './SearchBox';
 import { Link } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { toggleSidebar, useSidebarIsOpen } from '../navigation';
+import { useNavigation } from '../../contexts/NavigationContext';
 
 
 interface HeaderProps {
   className?: string;
+  isNavOpen?: boolean;
+  onNavToggle?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ className = '' }) => {
+const Header: React.FC<HeaderProps> = ({
+  className = '',
+  isNavOpen = false,
+  onNavToggle
+}) => {
   const { isSignedIn, user: clerkUser } = useUser();
   const { isAuthenticated, user: web3User } = useAuth();
+  const { navStyle, setNavStyle } = useNavigation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showSignInOptions, setShowSignInOptions] = useState(false);
   const [hoveredAvatar, setHoveredAvatar] = useState(false);
 
-  // The panel icon is the one control for the sidebar: it narrows the column on
-  // desktop and opens the drawer on a phone. What it reports has to be the
-  // sidebar you can actually see — `!collapsed` describes a column that does
-  // not exist below `md`, so the button announced "expanded" over a closed
-  // drawer. `[` and `]` follow the same rule.
-  const sidebarIsOpen = useSidebarIsOpen();
+  const handleNavStyleToggle = () => {
+    if (onNavToggle) onNavToggle();
+    setNavStyle(navStyle === 'classic' ? 'floating' : 'classic');
+  };
 
   const SignInPopover = () => (
     <motion.div
@@ -181,15 +186,13 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={toggleSidebar}
-                aria-label={sidebarIsOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-                aria-expanded={sidebarIsOpen}
-                className="text-white/80 hover:text-white hover:bg-white/5"
+                onClick={handleNavStyleToggle}
+                className="hover:rotate-180 transition-transform duration-300 text-white/80 hover:text-white hover:bg-white/5"
               >
-                {sidebarIsOpen ? (
-                  <PanelLeftClose className="w-5 h-5" />
+                {navStyle === 'floating' ? (
+                  <LayoutDashboard className="w-5 h-5" />
                 ) : (
-                  <PanelLeft className="w-5 h-5" />
+                  <Layout className="w-5 h-5" />
                 )}
               </Button>
 

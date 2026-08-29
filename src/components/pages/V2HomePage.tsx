@@ -16,6 +16,7 @@ import {
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 import ErrorBoundary from '../common/ErrorBoundary';
+import { useNavigation } from '../../contexts/NavigationContext';
 import { getFeaturedVideos, getRecommendedVideos } from '../../api/video';
 import { getPopularChannels } from '../../api/channel';
 import { useTrendingVideos } from '../../hooks/useTrendingVideos';
@@ -109,6 +110,8 @@ const formatPrice = (pass?: Pass | null) => {
 const getPassUrl = (pass: Pass) => `/p/${pass.slug || pass.id}`;
 
 const V2HomePage: React.FC = () => {
+  const { navStyle } = useNavigation();
+  const isFloatingNav = navStyle === 'floating';
   const [featuredVideos, setFeaturedVideos] = useState<HomeVideo[]>([]);
   const [recommendedVideos, setRecommendedVideos] = useState<HomeVideo[]>([]);
   const [popularChannels, setPopularChannels] = useState<Channel[]>([]);
@@ -181,8 +184,8 @@ const V2HomePage: React.FC = () => {
       <div className="min-h-screen bg-black text-white">
         <Header />
         <div className="flex pt-16">
-          <Sidebar className="fixed left-0 top-16 bottom-0 z-40" />
-          <main className="bt-sidebar-offset-pad relative flex-1 overflow-hidden">
+          <Sidebar className={`${isFloatingNav ? 'hidden' : 'fixed left-0 top-16 bottom-0 z-40'}`} />
+          <main className={`relative flex-1 overflow-hidden ${isFloatingNav ? '' : 'pl-16'}`}>
             <motion.div
               className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(250,117,23,0.16),rgba(0,0,0,0)_42%)]"
               animate={{ opacity: [0.72, 1, 0.72] }}
