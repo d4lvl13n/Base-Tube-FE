@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { SearchHighlight, SearchResult } from '@basetube/api';
 import Highlight from '../../common/Highlight';
 import { formatDuration, formatNumber } from '../../../utils/format';
+import { editorHtmlToPlainText } from '../../../utils/descriptionText';
 
 interface ResultRowProps {
   result: SearchResult;
@@ -18,7 +19,9 @@ interface ResultRowProps {
  */
 const ResultRow: React.FC<ResultRowProps> = ({ result, highlight }) => {
   const title = highlight?.title || result.title;
-  const description = highlight?.description || result.description || '';
+  // The highlight is a plain-text crop from the index; the hydrated fallback is
+  // editor HTML from the DB, so it has to lose its tags before it is shown.
+  const description = highlight?.description || editorHtmlToPlainText(result.description ?? undefined);
 
   return (
     <article className="flex flex-col gap-4 py-5 sm:flex-row">
