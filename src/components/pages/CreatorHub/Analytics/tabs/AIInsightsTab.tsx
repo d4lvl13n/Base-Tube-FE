@@ -1,34 +1,27 @@
 import React, { useState } from 'react';
-import { Select } from '../../../../ui/Select';
+import { useChannelSelection } from '../../../../../contexts/ChannelSelectionContext';
 import { ChannelInsightsCard } from '../insights/ChannelInsightsCard';
-
-type Period = '7d' | '30d' | 'all';
+import type { InsightsPeriod } from '../../../../../types/insights';
 
 /**
- * Insights v2 as its own tab (the owner's call): the card keeps its coverage
- * strip, so it still says what it was computed from.
+ * Insights v2 as its own tab.
+ *
+ * The tab owns the period only. The title, the coverage sentence and the
+ * regenerate control all belong to the report itself, so they live in the card
+ * where the data that fills them is — a tab header that says "AI Insights" over
+ * a card that says what it measured is one heading too many.
  */
 export const AIInsightsTab: React.FC<{ channelId: string }> = ({ channelId }) => {
-  const [period, setPeriod] = useState<Period>('7d');
+  const [period, setPeriod] = useState<InsightsPeriod>('7d');
+  const { selectedChannel } = useChannelSelection();
+
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold">AI Insights</h2>
-          <p className="text-gray-400">What the data supports, and only that</p>
-        </div>
-        <Select
-          value={period}
-          onValueChange={(value) => setPeriod(value as Period)}
-          options={[
-            { value: '7d', label: 'Last 7 Days' },
-            { value: '30d', label: 'Last 30 Days' },
-            { value: 'all', label: 'All Time' },
-          ]}
-        />
-      </div>
-      <ChannelInsightsCard channelId={channelId} period={period} />
-    </div>
+    <ChannelInsightsCard
+      channelId={channelId}
+      period={period}
+      channelName={selectedChannel?.name}
+      onPeriodChange={setPeriod}
+    />
   );
 };
 

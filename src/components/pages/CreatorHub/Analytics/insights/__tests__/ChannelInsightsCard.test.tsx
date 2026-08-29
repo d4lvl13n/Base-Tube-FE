@@ -184,7 +184,9 @@ describe('the niche reference is labelled as YouTube, never as a target', () => 
     render(wrapper(<ChannelInsightsCard channelId="66" period="7d" />));
 
     const niche = await screen.findByTestId('insights-niche');
-    expect(niche).toHaveTextContent('YouTube reference');
+    // The card is titled for the creator, not for the pipeline; it is still labelled
+    // YouTube and still carries the disclaimer below.
+    expect(niche).toHaveTextContent('Your niche on YouTube');
     expect(niche).toHaveTextContent('a reference, not a target');
     expect(niche).toHaveTextContent('12 of 20 titles contain a year');
     expect(niche).not.toHaveTextContent('Median uploads per week');
