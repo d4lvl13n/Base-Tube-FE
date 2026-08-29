@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Users, Video, Edit3, Trash2 } from 'lucide-react';
@@ -16,6 +16,10 @@ interface ChannelPreviewCardProps {
 const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpdate, onDeleted }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [descriptionOverflows, setDescriptionOverflows] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement | null>(null);
   
   const coverImageUrl = channel.channel_image_url || 
     (channel.channel_image_path
@@ -23,6 +27,34 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
         ? channel.channel_image_path
         : `${process.env.REACT_APP_API_URL}/${channel.channel_image_path}`
       : '/assets/default-cover.jpg');
+
+  useEffect(() => setCoverFailed(false), [coverImageUrl]);
+
+  // Whether the clamp is actually hiding anything. A one-line description with
+  // a "more" link under it is a lie, and this card is shown to a creator who
+  // pasted a wall of text into the field at least once.
+  //
+  // Measured again on resize: collapsing the sidebar widens this card, and text
+  // that needed three lines at 240px may well fit in two at 60px.
+  useLayoutEffect(() => {
+    const node = descriptionRef.current;
+    if (!node) {
+      setDescriptionOverflows(false);
+      return undefined;
+    }
+
+    const measure = () => {
+      if (descriptionExpanded) return;
+      setDescriptionOverflows(node.scrollHeight - node.clientHeight > 1);
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [channel.description, descriptionExpanded]);
 
   // Sanitize the description HTML to prevent XSS attacks
   const sanitizeHTML = (html: string) => {
@@ -46,12 +78,24 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
           className="bg-gray-900/30 rounded-xl border border-gray-800/30 backdrop-blur-sm overflow-hidden"
         >
           {/* Banner Image with Gradient Overlay */}
-          <div className="h-40 relative">
-            <img 
-              src={coverImageUrl}
-              alt={`${channel.name} cover`}
-              className="w-full h-full object-cover"
-            />
+          <div className="h-40 relative bg-gray-900">
+            {/* A cover that fails to load must leave a surface behind, not the
+                words "<name> cover" sitting on top of the channel title. */}
+            {coverFailed ? (
+              <div
+                data-testid="channel-cover-placeholder"
+                aria-hidden="true"
+                className="h-full w-full bg-gradient-to-br from-gray-800 via-gray-900 to-black"
+              />
+            ) : (
+              <img
+                src={coverImageUrl}
+                alt=""
+                aria-hidden="true"
+                onError={() => setCoverFailed(true)}
+                className="w-full h-full object-cover"
+              />
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent">
               {/* Channel Info Overlay */}
               <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
@@ -62,11 +106,29 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
                     
                     {/* Channel description - render HTML safely */}
                     {channel.description && (
-                      <div 
-                        className="text-xs sm:text-sm text-gray-400 mt-1 line-clamp-2 overflow-hidden"
-                        dangerouslySetInnerHTML={sanitizeHTML(channel.description)}
-                        aria-label={createPlainText(channel.description)}
-                      />
+                      <div className="mt-1 max-w-2xl">
+                        <div
+                          ref={descriptionRef}
+                          data-testid="channel-description"
+                          className={`overflow-hidden text-xs text-gray-400 sm:text-sm ${
+                            descriptionExpanded ? 'max-h-40 overflow-y-auto' : 'line-clamp-2'
+                          }`}
+                          dangerouslySetInnerHTML={sanitizeHTML(channel.description)}
+                          aria-label={createPlainText(channel.description)}
+                        />
+                        {(descriptionOverflows || descriptionExpanded) && (
+                          <button
+                            type="button"
+                            onClick={() => setDescriptionExpanded((open) => !open)}
+                            aria-expanded={descriptionExpanded}
+                            className="mt-0.5 text-xs text-[#fa7517] hover:underline
+                                       focus-visible:outline-none focus-visible:ring-2
+                                       focus-visible:ring-[#fa7517]/40"
+                          >
+                            {descriptionExpanded ? 'Less' : 'More'}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   
