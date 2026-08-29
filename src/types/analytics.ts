@@ -325,21 +325,3 @@ export interface VideoPerformanceResponse {
   };
 }
 
-// Add the ChannelAnalyticsInsight interface among the other interfaces
-
-export interface ChannelAnalyticsInsight {
-  insights: string;
-  recommendations: string[];
-  performanceSummary: {
-    overallPerformance: string;
-    strengths: string[];
-    areasForImprovement: string[];
-  };
-  audienceInsights: string;
-  contentStrategySuggestions: string[];
-  periodComparison?: {
-    trends: string[];
-    representativePeriod: '7d' | '30d' | '90d' | 'all';
-    comparativeInsights: string;
-  };
-}

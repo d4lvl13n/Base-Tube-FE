@@ -45,6 +45,26 @@ const isRedeemRequest = (config: AxiosRequestConfig): boolean => {
   return method === 'post' && REDEEM_PATH_PATTERN.test(url);
 };
 
+/**
+ * A manual insights REGENERATION (`?refresh=1`).
+ *
+ * The generic 429 retry exists for shared rate limiters, where waiting and replaying is
+ * the right move. It is exactly the wrong move here: a 429 on this request means the
+ * creator's DAILY regeneration budget is gone, so the replay cannot succeed, and if it
+ * somehow did it would spend a second one. The message from the backend names the
+ * budget, and the card shows it — silently retrying hides both.
+ *
+ * The cached read (no `refresh`) is deliberately NOT excluded: a 429 there is the
+ * ordinary hourly limiter and a retry is appropriate.
+ */
+const isInsightsRegeneration = (config: AxiosRequestConfig): boolean => {
+  const url = config.url || '';
+  if (!/\/analytics\/insights\b/.test(url)) return false;
+  const params = config.params as Record<string, unknown> | undefined;
+  const refresh = params?.refresh;
+  return refresh === '1' || refresh === 1 || refresh === true;
+};
+
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL,
   headers: {
@@ -123,6 +143,9 @@ api.interceptors.response.use(
           !!config &&
           !config.__rateLimitRetried &&
           !isRedeemRequest(config) &&
+          // A spent daily budget cannot be waited out, and replaying it would spend a
+          // second one if it could.
+          !isInsightsRegeneration(config) &&
           // Never auto-replay a binary body: the stream has already been
           // consumed, so a retried upload would re-send gigabytes (or fail).
           !config.__unreplayableBody &&

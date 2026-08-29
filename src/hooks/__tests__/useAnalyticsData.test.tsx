@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import {
   invalidateChannelAnalytics,
-  useAnalyticsInsights,
+  useChannelInsights,
   useCreatorAnalytics
 } from '../useAnalyticsData';
 import { useDetailedVideoPerformance } from '../useDetailedVideoPerformance';
@@ -23,7 +23,7 @@ const mockApi = {
   getTopLikedContent: jest.fn(),
   getTopSharedContent: jest.fn(),
   getTopComments: jest.fn(),
-  getChannelAnalyticsInsights: jest.fn(),
+  getChannelInsights: jest.fn(),
   getChannelVideosPerformance: jest.fn()
 };
 
@@ -42,7 +42,7 @@ jest.mock('../../api/analytics', () => ({
   getTopLikedContent: (...a: unknown[]) => mockApi.getTopLikedContent(...a),
   getTopSharedContent: (...a: unknown[]) => mockApi.getTopSharedContent(...a),
   getTopComments: (...a: unknown[]) => mockApi.getTopComments(...a),
-  getChannelAnalyticsInsights: (...a: unknown[]) => mockApi.getChannelAnalyticsInsights(...a),
+  getChannelInsights: (...a: unknown[]) => mockApi.getChannelInsights(...a),
   getChannelVideosPerformance: (...a: unknown[]) => mockApi.getChannelVideosPerformance(...a),
   isDetailedViewMetrics: (m: Record<string, unknown>) => 'viewsByPeriod' in m
 }));
@@ -121,7 +121,18 @@ const resetApi = () => {
   mockApi.getTopLikedContent.mockReset().mockResolvedValue([]);
   mockApi.getTopSharedContent.mockReset().mockResolvedValue([]);
   mockApi.getTopComments.mockReset().mockResolvedValue([]);
-  mockApi.getChannelAnalyticsInsights.mockReset().mockResolvedValue({});
+  mockApi.getChannelInsights.mockReset().mockResolvedValue({
+    status: 'ready',
+    data: {
+      schemaVersion: 2,
+      facts: [],
+      observations: [],
+      hypotheses: [],
+      experiments: [],
+      sample: { size: 0, of: 0 }
+    },
+    meta: { cached: false, refreshRemaining: 3 }
+  });
   mockApi.getChannelVideosPerformance.mockReset().mockResolvedValue({
     videos: [],
     pagination: { total: 0, page: 1, limit: 10, totalPages: 0 }
@@ -344,7 +355,7 @@ describe('queryKeys.analytics is the single source of truth', () => {
       () => ({
         creator: useCreatorAnalytics('7d', '1'),
         videos: useDetailedVideoPerformance('1', { initialLimit: 10 }),
-        insights: useAnalyticsInsights('7d', '1')
+        insights: useChannelInsights('1', '7d')
       }),
       { wrapper }
     );

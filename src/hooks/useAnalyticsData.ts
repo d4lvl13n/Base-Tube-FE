@@ -1,4 +1,4 @@
-import { QueryClient, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   getSocialMetrics, 
   getGrowthMetrics, 
@@ -11,7 +11,7 @@ import {
   getTopLikedContent,
   getTopSharedContent,
   getTopComments,
-  getChannelAnalyticsInsights
+  getChannelInsights
 } from '../api/analytics';
 import type { 
   SocialMetrics, 
@@ -26,9 +26,10 @@ import type {
   TopContentItem,
   TopSharedItem,
   TopComment,
-  ChannelAnalyticsInsight
 } from '../types/analytics';
-import { useCallback, useEffect } from 'react';
+import type { InsightsPeriod } from '../types/insights';
+import type { InsightsResponse } from '../api/analytics';
+import { useCallback, useEffect, useState } from 'react';
 import { queryKeys } from '../utils/queryKeys';
 
 // A creator dashboard tab mounts ~12 queries at once. With staleTime: 0 and
@@ -401,34 +402,107 @@ export const useChannelWatchHours = (channelId: string, period: '7d' | '30d' = '
 // Their only consumer was AudienceEngagementTab, which was never routed, and
 // the /api/v1/analytics/watch-patterns endpoint behind them has been deleted.
 
-// Add a new hook for AI insights
-
 /**
- * Hook for AI-generated analytics insights for a channel
+ * Creator AI Insights v2 — one channel, one period.
+ *
+ * The key includes the period because the report IS period-scoped: the coverage strip
+ * ("based on 47 views over 7 days") and every fact in it describe that window, and
+ * reusing one period's answer for another would be the same class of mislabelling the
+ * rest of this dashboard was just cleaned of.
+ *
+ * `regenerate()` is the "Regenerate" button: it bypasses the backend's 24 h cache, costs
+ * one of the day's allowances, and writes the answer straight into the query cache so
+ * the card updates without a second round trip.
+ *
+ * A `generating` response means another request already holds the backend's generation
+ * lock. We poll rather than error: the answer is being paid for right now, and starting
+ * a second identical run is the one thing worse than waiting.
  */
-export const useAnalyticsInsights = (
-  periods: ('7d' | '30d' | '90d' | 'all')[] | '7d' | '30d' | '90d' | 'all' = ['7d', '30d', '90d', 'all'], 
-  channelId?: string
-) => {
-  const { data, isLoading, error, refetch } = useQuery<ChannelAnalyticsInsight, Error>({
-    queryKey: queryKeys.analytics.channelMetric(channelId, 'insights', Array.isArray(periods) ? periods.join(',') : periods),
+export const useChannelInsights = (channelId: string | undefined, period: InsightsPeriod) => {
+  const queryClient = useQueryClient();
+  const queryKey = queryKeys.analytics.channelMetric(channelId, 'insights', period);
+
+  /**
+   * The `generatedAt` of the report we are waiting to see REPLACED.
+   *
+   * A regeneration that loses the backend's generation lock comes back as 202, and the
+   * cached report on screen is still the old one. Without this marker the hook would see
+   * a perfectly good `ready` payload, stop polling, and the Regenerate button would look
+   * like it had done nothing — while somebody's generation was still running and paid
+   * for. We poll until the stamp moves.
+   */
+  const [awaitingReplacementOf, setAwaitingReplacementOf] = useState<string | null>(null);
+
+  const { data, isLoading, error, refetch } = useQuery<InsightsResponse, Error>({
+    queryKey,
     queryFn: () => {
-      if (!channelId) {
-        throw new Error('Channel ID is required for AI analytics insights');
-      }
-      console.log(`[Analytics] Fetching AI insights for channel ${channelId} with periods ${Array.isArray(periods) ? periods.join(',') : periods}`);
-      return getChannelAnalyticsInsights(channelId, periods);
+      if (!channelId) throw new Error('Channel ID is required for insights');
+      return getChannelInsights(channelId, period);
     },
     enabled: !!channelId,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes 
-    retry: 1, // Only retry once as this is a "nice to have" feature
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchInterval: (query) => {
+      const current = query.state.data as InsightsResponse | undefined;
+      // Someone else's generation is in flight.
+      if (current?.status === 'generating') return 5000;
+      // Our regeneration is in flight and this is still the report it will replace.
+      if (
+        awaitingReplacementOf &&
+        current?.status === 'ready' &&
+        current.data.generatedAt === awaitingReplacementOf
+      ) {
+        return 5000;
+      }
+      return false;
+    },
+    // A generation is expensive. Retrying a failure automatically would spend a second
+    // one on a backend that has already told us it could not produce a report.
+    retry: false
   });
 
+  const ready = data?.status === 'ready' ? data : undefined;
+
+  // Stop waiting the moment a newer report lands.
+  useEffect(() => {
+    if (awaitingReplacementOf && ready && ready.data.generatedAt !== awaitingReplacementOf) {
+      setAwaitingReplacementOf(null);
+    }
+  }, [awaitingReplacementOf, ready]);
+
+  const regenerate = useMutation({
+    mutationFn: () => {
+      if (!channelId) throw new Error('Channel ID is required for insights');
+      return getChannelInsights(channelId, period, { refresh: true });
+    },
+    onSuccess: (fresh) => {
+      if (fresh.status === 'ready') {
+        queryClient.setQueryData(queryKey, fresh);
+        setAwaitingReplacementOf(null);
+        return;
+      }
+      // 202: another request is already generating. Keep the report on screen — writing
+      // `generating` into the query cache would blank the card — and start waiting for a
+      // newer `generatedAt`.
+      setAwaitingReplacementOf(ready?.data.generatedAt ?? fresh.previous?.generatedAt ?? null);
+    }
+  });
+
+  const isGenerating =
+    data?.status === 'generating' ||
+    (!!awaitingReplacementOf && ready?.data.generatedAt === awaitingReplacementOf);
+
   return {
-    insights: data,
+    // While a generation is in flight and we have nothing else, the backend's `previous`
+    // gives a cold tab something true to render rather than an empty card.
+    insights: ready?.data ?? (data?.status === 'generating' ? data.previous : undefined),
+    meta: ready?.meta,
+    isGenerating,
     isLoading,
     error,
-    refreshInsights: refetch
+    refetch,
+    regenerate: regenerate.mutate,
+    isRegenerating: regenerate.isPending || isGenerating,
+    regenerateError: regenerate.error as Error | null
   };
 };
