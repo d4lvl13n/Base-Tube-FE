@@ -8,6 +8,7 @@
 import type { AxiosInstance } from 'axios';
 import type {
   ActiveUploadsData,
+  ActiveUploadSummary,
   ApiErrorEnvelope,
   CompleteUploadBody,
   CompleteUploadData,
@@ -106,6 +107,13 @@ export interface UploadApi {
   patch: (uploadId: string, body: PatchUploadBody) => Promise<void>;
   /** Resolves the `UploadSummary[]` the control plane returns verbatim. */
   listActive: () => Promise<ActiveUploadsData>;
+  /**
+   * One upload's summary. This is the read that still answers after the
+   * active list has dropped a finished row: `listActive` stops returning a
+   * `ready` upload the moment its video is `processed`/`failed`, and a
+   * passthrough video is created already processed.
+   */
+  get: (uploadId: string) => Promise<ActiveUploadSummary>;
 }
 
 export function createUploadApi(http: AxiosInstance): UploadApi {
@@ -179,6 +187,19 @@ export function createUploadApi(http: AxiosInstance): UploadApi {
       } catch (error) {
         throw toUploadApiError(error);
       }
+    },
+
+    async get(uploadId) {
+      const { data } = await call<ActiveUploadSummary>(() => http.get(`${BASE}/${uploadId}`));
+      if (!data || typeof data !== 'object' || typeof (data as { uploadId?: unknown }).uploadId !== 'string') {
+        throw new UploadApiError(
+          'The server returned an unexpected upload response',
+          502,
+          'INVALID_RESPONSE',
+          null,
+        );
+      }
+      return data;
     },
 
     async listActive() {

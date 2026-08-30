@@ -95,6 +95,9 @@ function harness(overrides: Partial<UploadApi> = {}): Harness {
     async listActive(): Promise<ActiveUploadSummary[]> {
       return [];
     },
+    async get(): Promise<ActiveUploadSummary> {
+      throw new UploadApiError('Upload not found', 404, 'UPLOAD_NOT_FOUND', null);
+    },
     ...overrides,
   };
 
@@ -862,6 +865,62 @@ describe('useUploadQueue session hygiene', () => {
 
   // Video deleted from Videos Management while it transcoded: /videos/progress
   // omits ids the caller no longer owns, and the queue used to poll it forever.
+  // A passthrough video is created ALREADY processed, so `listActive` never
+  // returns the row with a videoId; only GET /videos/uploads/:id can say what
+  // became of it.
+  it('resolves a bytes-done row the active list dropped through the single-upload read', async () => {
+    const get = jest.fn().mockResolvedValue({
+      ...activeRow(),
+      uploadState: 'ready',
+      videoId: 250,
+      videoStatus: 'failed',
+    });
+    const { api } = harness({ get });
+    const store = await seededStore(persistedRow({ status: 'ready', videoId: null, videoStatus: null }));
+    const fetchVideoProgress = jest.fn().mockResolvedValue({ success: true, data: {} });
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    expect(get).toHaveBeenCalledWith('upload-9');
+    // A failed video is something the creator still has to act on: kept.
+    expect(result.current.entries).toHaveLength(1);
+    expect(result.current.entries[0]).toMatchObject({ videoId: 250, videoStatus: 'failed' });
+  });
+
+  it('forgets a bytes-done row whose single-upload read says the video is already live', async () => {
+    const get = jest.fn().mockResolvedValue({
+      ...activeRow(),
+      uploadState: 'ready',
+      videoId: 250,
+      videoStatus: 'processed',
+    });
+    const { api } = harness({ get });
+    const store = await seededStore(persistedRow({ status: 'ready', videoId: null, videoStatus: null }));
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    expect(get).toHaveBeenCalledWith('upload-9');
+    expect(result.current.entries).toHaveLength(0);
+    await expect(store.list()).resolves.toHaveLength(0);
+  });
+
+  it('forgets a bytes-done row the server no longer knows (404)', async () => {
+    const { api } = harness(); // get() → 404
+    const store = await seededStore(persistedRow({ status: 'ready', videoId: null, videoStatus: null }));
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    expect(result.current.entries).toHaveLength(0);
+  });
+
   it('drops a processing row whose video no longer exists', async () => {
     const { api } = harness();
     const store = await seededStore(persistedRow()); // videoId 99, processing

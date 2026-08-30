@@ -177,6 +177,31 @@ describe('createUploadApi', () => {
     expect(uploads[0]).not.toHaveProperty('clientAttemptId');
   });
 
+  // The single-upload read is the only endpoint that reports an upload whose
+  // video finished — `listActive` has dropped it by then.
+  it('reads one upload from GET /videos/uploads/:id and unwraps the envelope', async () => {
+    const { http, calls } = httpStub(async () => ({
+      status: 200,
+      data: {
+        success: true,
+        data: { uploadId: 'u1', uploadState: 'ready', videoId: 250, videoStatus: 'processed' },
+      },
+    }));
+
+    const upload = await createUploadApi(http).get('u1');
+
+    expect(calls[0]).toMatchObject({ method: 'get', url: '/api/v1/videos/uploads/u1' });
+    expect(upload).toMatchObject({ uploadId: 'u1', videoId: 250, videoStatus: 'processed' });
+  });
+
+  it('refuses a single-upload payload without an uploadId', async () => {
+    const { http } = httpStub(async () => ({ status: 200, data: { success: true, data: [] } }));
+    await expect(createUploadApi(http).get('u1')).rejects.toMatchObject({
+      name: 'UploadApiError',
+      code: 'INVALID_RESPONSE',
+    });
+  });
+
   it('refuses a non-array active-uploads payload instead of reading it as empty', async () => {
     const { http } = httpStub(async () => ({
       status: 200,

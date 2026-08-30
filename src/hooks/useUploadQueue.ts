@@ -14,6 +14,7 @@ import {
   replaceQueueAttempt,
   selectQueueCandidates,
   statusFromServer,
+  UploadApiError,
   validateFileSelection,
   type ActiveUploadSummary,
   type PatchUploadBody,
@@ -394,7 +395,21 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
             // as the video reaches `processed`/`failed`, so absence there means
             // "finished", not "vanished". The progress poll finishes the story.
             if (entry.uploadId && !byId.has(entry.uploadId) && entry.videoId === null) {
-              await forget(entry.localId);
+              // Unless the bytes are all in: then the row may simply have
+              // finished while nobody was polling, and only the single-upload
+              // read can say which (see `resolveAbsentRow`).
+              const resolved = await resolveAbsentRow(api, entry);
+              if (resolved === 'forget' || resolved === 'keep') {
+                await forget(entry.localId);
+                continue;
+              }
+              const merged = applyServerRow(entry, resolved);
+              if (settledBeforeReload(merged)) {
+                await forget(entry.localId);
+                continue;
+              }
+              survivors.push(merged);
+              await persist(merged);
               continue;
             }
             const row = entry.uploadId ? byId.get(entry.uploadId) : undefined;
@@ -761,7 +776,15 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         const next: UploadQueueEntry[] = [];
         const touched: UploadQueueEntry[] = [];
         for (const entry of entriesRef.current) {
-          const row = entry.uploadId ? byId.get(entry.uploadId) : undefined;
+          let row = entry.uploadId ? byId.get(entry.uploadId) : undefined;
+          if (!row && entry.videoId === null) {
+            const resolved = await resolveAbsentRow(api, entry);
+            if (resolved === 'forget') {
+              void forget(entry.localId);
+              continue;
+            }
+            if (resolved !== 'keep') row = resolved;
+          }
           const merged = row ? applyServerRow(entry, row) : entry;
           if (isRetired(merged, now)) {
             void forget(merged.localId);
@@ -1082,6 +1105,35 @@ export function uploadRowIsTerminal(entry: {
 }): boolean {
   if (entry.videoStatus === 'failed' || entry.videoStatus === 'processed') return true;
   return ['failed', 'held', 'aborted'].includes(entry.status);
+}
+
+/** Statuses in which every byte has been accepted and only the server's verdict is missing. */
+const BYTES_DONE_STATUSES: readonly string[] = ['uploaded', 'processing', 'ready'];
+
+/**
+ * What to make of a row the active list does not return.
+ *
+ * `GET /videos/uploads?active=true` drops a `ready` upload the moment its video
+ * is `processed`/`failed`. A passthrough video (an upload that already plays in
+ * a browser) is CREATED processed, so no poll ever sees that row with its
+ * `videoId`: the entry sat at "Uploaded · waiting for processing" for the whole
+ * session while the video was live (extlook-720p, 2026-08-30). The single-upload
+ * read is the one endpoint that still answers — `applyServerRow` on its summary
+ * finishes the story. A 404 means the upload really is gone.
+ */
+async function resolveAbsentRow(
+  api: UploadApi,
+  entry: UploadQueueEntry,
+): Promise<ActiveUploadSummary | 'forget' | 'keep'> {
+  if (!entry.uploadId || entry.videoId !== null || !BYTES_DONE_STATUSES.includes(entry.status)) {
+    return 'keep';
+  }
+  try {
+    return await api.get(entry.uploadId);
+  } catch (error) {
+    if (error instanceof UploadApiError && error.status === 404) return 'forget';
+    return 'keep';
+  }
 }
 
 /** Folds a server row into a local entry, leaving the local one alone if equal. */

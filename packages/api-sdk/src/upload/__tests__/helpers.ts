@@ -5,7 +5,7 @@ import type {
   MultipartPartCapability,
   UploadStateData,
 } from '../contracts';
-import type { UploadApi } from '../endpoints';
+import { UploadApiError, type UploadApi } from '../endpoints';
 import type { UploadQueueEntry } from '../types';
 import type { UploadTransferDependencies } from '../upload-transfer';
 
@@ -145,6 +145,9 @@ export function stubApi(overrides: Partial<UploadApi> = {}): StubApi {
     async patch() {},
     async listActive() {
       return [];
+    },
+    async get(): Promise<never> {
+      throw new UploadApiError('Upload not found', 404, 'UPLOAD_NOT_FOUND', null);
     },
     ...overrides,
   } as StubApi;
