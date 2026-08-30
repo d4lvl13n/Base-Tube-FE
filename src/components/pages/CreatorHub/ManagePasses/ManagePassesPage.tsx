@@ -1,9 +1,10 @@
 // src/components/pages/CreatorHub/ManagePasses/ManagePassesPage.tsx
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import TabNav from '../../../../components/common/TabNav';
 import PassesOverview from './PassesOverview';
 import PassesList from './PassesList';
-import { BarChart2, PackageOpen } from 'lucide-react';
+import { BarChart2, PackageOpen, Plus } from 'lucide-react';
 
 const ManagePassesPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('passes');
@@ -22,6 +23,13 @@ const ManagePassesPage: React.FC = () => {
             View and manage your premium content passes
           </p>
         </div>
+        <Link
+          to="/creator-hub/create-content-pass"
+          className="mt-4 md:mt-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          Create pass
+        </Link>
       </div>
 
       <div className="mb-6">

@@ -41,7 +41,7 @@ const PassesList: React.FC = () => {
           You haven't created any content passes yet. Start monetizing your content by creating your first pass!
         </p>
         {PASSES_ENABLED ? (
-          <Link to="/creator-hub/monetization">
+          <Link to="/creator-hub/create-content-pass">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.98 }}

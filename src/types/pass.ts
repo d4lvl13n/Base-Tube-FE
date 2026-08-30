@@ -57,8 +57,26 @@ export interface AddVideoRequest {
 
 export type PurchaseBlockReasonCode =
   | 'PASS_NOT_ONCHAIN'
+  | 'PASS_NOT_PUBLISHED'
   | 'PASS_SALE_INACTIVE'
   | 'PASS_SOLD_OUT';
+
+export type PassPublishStatus = 'draft' | 'publishing' | 'published' | 'publish_failed';
+export type CreatorSettlementPreference = 'fiat' | 'crypto';
+
+export interface UpdateDraftPassRequest {
+  title?: string;
+  description?: string | null;
+  price_cents?: number;
+  currency?: string;
+  supply_cap?: number | null;
+  creator_settlement_preference?: CreatorSettlementPreference | null;
+}
+
+export interface PublishPassRequest {
+  payout_address?: string;
+  creator_settlement_preference?: CreatorSettlementPreference;
+}
 
 export interface Pass {
   id: string;
@@ -77,6 +95,8 @@ export interface Pass {
   minted_count?: number; // Number of passes minted on-chain
   /** Aggregate sold count (minted + pending reservations) — the backend never exposes raw reserved_count */
   sold_count?: number;
+  publish_status?: PassPublishStatus;
+  creator_settlement_preference?: CreatorSettlementPreference | null;
   /** Unlock Lock contract address (public chain data needed to purchase with crypto) */
   lock_address?: string | null;
   /** ERC-20 the Lock is priced in (USDC) */

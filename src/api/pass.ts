@@ -5,6 +5,8 @@ import {
   DiscoverPassesResponse,
   DiscoverPassesParams,
   CreatePassRequest,
+  UpdateDraftPassRequest,
+  PublishPassRequest,
   AddVideoRequest,
   CheckoutSessionResponse,
   SignedUrlResponse,
@@ -282,6 +284,24 @@ export const passApi = {
   getCreatorPasses: async (): Promise<Pass[]> => {
     const response = await api.get<Pass[]>('/api/v1/passes/creator/all');
     return response.data;
+  },
+
+  updateDraftPass: async (passId: string, data: UpdateDraftPassRequest): Promise<Pass> => {
+    try {
+      const response = await api.patch<PassCreateApiResponse>(`/api/v1/passes/${passId}`, data);
+      return normalizePassCreateResponse(response.data);
+    } catch (error: unknown) {
+      throw new PassApiError(getPassErrorMessage(error));
+    }
+  },
+
+  publishPass: async (passId: string, data: PublishPassRequest = {}): Promise<Pass> => {
+    try {
+      const response = await api.post<PassCreateApiResponse>(`/api/v1/passes/${passId}/publish`, data);
+      return normalizePassCreateResponse(response.data);
+    } catch (error: unknown) {
+      throw new PassApiError(getPassErrorMessage(error));
+    }
   },
   
   /**

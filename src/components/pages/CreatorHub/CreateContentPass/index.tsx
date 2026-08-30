@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useForm, UseFormReturn } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,24 +11,28 @@ import {
   Shield,
   Check,
   Info,
+  Rocket,
   Copy,
   Twitter,
   Facebook,
   Lock
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { useCreatePass } from '../../../../hooks/usePass';
+import { useCreatePass, usePublishPass, usePassDetails } from '../../../../hooks/usePass';
+import { useWallet } from '../../../../hooks/useWallet';
 import { getPassErrorMessage } from '../../../../utils/passErrorMessages';
 import * as S from './styles';
 import { FormData, transformFormToApiFormat } from './types';
 import { useYouTubeAuth } from '../../../../hooks/useYouTubeAuth';
 import TestnetModeBadge from '../../../pass/TestnetModeBadge';
+import type { CreatorSettlementPreference } from '../../../../types/pass';
 
 // Import step components
 import StepBasic from './steps/StepBasic';
 import StepDescription from './steps/StepDescription';
 import StepVideos from './steps/StepVideos';
 import StepReview from './steps/StepReview';
+import StepPublish from './steps/StepPublish';
 
 // Import the common StepIndicator
 import StepIndicator from '../../../common/StepIndicator';
@@ -62,11 +66,21 @@ const CreateContentPass: React.FC = () => {
   const [submitErrorAction, setSubmitErrorAction] = useState<'link-youtube' | 'verify-channel' | 'link-wallet' | null>(null);
   const [createdPassId, setCreatedPassId] = useState<string | null>(null);
   const [createdPassSlug, setCreatedPassSlug] = useState<string | null>(null);
+  const [settlementPreference, setSettlementPreference] = useState<CreatorSettlementPreference | ''>('');
+  const [payoutAddress, setPayoutAddress] = useState('');
+  const [publishError, setPublishError] = useState<string | null>(null);
   const createPass = useCreatePass();
+  const publishPass = usePublishPass();
+  const { data: wallet } = useWallet();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const youtubeAuth = useYouTubeAuth();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const resumeDraftId = searchParams.get('draft');
+  const { data: resumeDraft } = usePassDetails(resumeDraftId, {
+    enabled: Boolean(resumeDraftId),
+  });
   
   // Use react-hook-form for form handling
   const formMethods: UseFormReturn<FormData> = useForm<FormData>({
@@ -101,10 +115,35 @@ const CreateContentPass: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['youtube', 'creator-videos'] });
     }
   }, [location.search, youtubeAuth, queryClient]);
+
+  useEffect(() => {
+    if (!resumeDraft) return;
+    setCreatedPassId(resumeDraft.id);
+    setCreatedPassSlug(resumeDraft.slug || resumeDraft.id);
+    setValue('title', resumeDraft.title || '');
+    setValue('description', resumeDraft.description || '');
+    setValue('price_cents', resumeDraft.price_cents);
+    setValue('currency', resumeDraft.currency || 'USD');
+    if (resumeDraft.supply_cap != null) {
+      setValue('supply_cap', resumeDraft.supply_cap);
+    }
+    if (resumeDraft.creator_settlement_preference) {
+      setSettlementPreference(resumeDraft.creator_settlement_preference);
+    }
+    if (resumeDraft.publish_status === 'published') {
+      setSuccess(true);
+      return;
+    }
+    setStep(5);
+  }, [resumeDraft, setValue]);
   
   // Handle form submission
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const onSubmit = async (data: FormData) => {
+    if (createdPassId) {
+      setStep(5);
+      return;
+    }
     if (hasSubmitted) return; // guard against double-submit
     setHasSubmitted(true);
     setIsLoading(true);
@@ -135,11 +174,8 @@ const CreateContentPass: React.FC = () => {
       
       setCreatedPassId(result.id);
       setCreatedPassSlug(result.slug || result.id);
-      
-      // Set isSubmitSuccess to trigger animation in StepReview
-      setIsSubmitSuccess(true);
-      
-      // No toast here, the animation is the feedback
+      setStep(5);
+      setIsLoading(false);
     } catch (error: any) {
       console.error('Error creating pass:', error);
 
@@ -149,6 +185,26 @@ const CreateContentPass: React.FC = () => {
       setSubmitErrorAction(parsed.action);
       setIsLoading(false);
       setHasSubmitted(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!createdPassId || !settlementPreference) return;
+    setPublishError(null);
+    try {
+      const result = await publishPass.mutateAsync({
+        passId: createdPassId,
+        data: {
+          creator_settlement_preference: settlementPreference,
+          ...(payoutAddress.trim() ? { payout_address: payoutAddress.trim() } : {}),
+        },
+      });
+      setCreatedPassSlug(result.slug || createdPassSlug || result.id);
+      setSuccess(true);
+    } catch (error: unknown) {
+      const parsed = getPassErrorMessage(error);
+      toast.error(parsed.message);
+      setPublishError(parsed.message);
     }
   };
   
@@ -210,7 +266,8 @@ const CreateContentPass: React.FC = () => {
     { id: 1, label: 'Basic Info', icon: Shield },
     { id: 2, label: 'Description', icon: Info },
     { id: 3, label: 'Content', icon: Video },
-    { id: 4, label: 'Review', icon: Check }
+    { id: 4, label: 'Review', icon: Check },
+    { id: 5, label: 'Publish', icon: Rocket }
   ];
   
   const renderStepContent = () => {
@@ -238,6 +295,18 @@ const CreateContentPass: React.FC = () => {
         onStartOAuth={youtubeAuth.startOAuth}
         onBackToVideos={handleGoToVideosStep}
       />;
+      case 5: return (
+        <StepPublish
+          settlementPreference={settlementPreference}
+          onSettlementChange={setSettlementPreference}
+          payoutAddress={payoutAddress}
+          onPayoutAddressChange={setPayoutAddress}
+          linkedWallet={wallet?.walletAddress}
+          isPublishing={publishPass.isPending}
+          publishError={publishError}
+          onPublish={handlePublish}
+        />
+      );
       default: return null;
     }
   };
@@ -265,8 +334,8 @@ const CreateContentPass: React.FC = () => {
                   <Check size={40} />
                 </S.SuccessIcon>
                 
-                <S.Title>Content Pass Created!</S.Title>
-            <S.SubTitle>Your exclusive content is now ready to be shared</S.SubTitle>
+                <S.Title>Your pass is live</S.Title>
+            <S.SubTitle>Fans can buy it now. Share the link when you are ready.</S.SubTitle>
                 
                 <S.Card className="mt-8 max-w-xl mx-auto">
                   <S.SummaryRow>
@@ -343,6 +412,9 @@ const CreateContentPass: React.FC = () => {
                       setHasSubmitted(false);
                       setIsSubmitSuccess(false);
                       setSubmitError(null);
+                      setPublishError(null);
+                      setSettlementPreference('');
+                      setPayoutAddress('');
                       setStep(1);
                       setCreatedPassId(null);
                       setCreatedPassSlug(null);
@@ -441,12 +513,15 @@ const CreateContentPass: React.FC = () => {
               if (targetStep < step) {
                 setStep(targetStep);
               }
+              if (targetStep === 5 && createdPassId) {
+                setStep(5);
+              }
             }}
           />
                 </div>
             
             <form onSubmit={(e) => {
-              if (step < 4) {
+              if (step !== 4) {
                 e.preventDefault();
                 return false;
               }
@@ -483,7 +558,7 @@ const CreateContentPass: React.FC = () => {
                     </S.Button>
                   )}
                   
-              {step < stepsMeta.length ? (
+              {step < 4 ? (
                     <S.Button
                       type="button"
                       variant="primary"
@@ -505,7 +580,7 @@ const CreateContentPass: React.FC = () => {
           </S.Container>
       
       <AnimatePresence>
-        {isLoading && (
+        {(isLoading || publishPass.isPending) && (
           <S.LoaderOverlay
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -515,7 +590,9 @@ const CreateContentPass: React.FC = () => {
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
             />
-            <S.LoaderText>Creating your content pass...</S.LoaderText>
+            <S.LoaderText>
+              {step >= 5 ? 'Publishing your pass…' : 'Saving your draft…'}
+            </S.LoaderText>
           </S.LoaderOverlay>
         )}
       </AnimatePresence>

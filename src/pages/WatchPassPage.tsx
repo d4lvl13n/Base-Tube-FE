@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, Link, Navigate, useNavigate } from 'react-router-dom';
-import { usePassDetails, usePurchasedPasses } from '../hooks/usePass';
+import { useParams, Navigate } from 'react-router-dom';
+import { usePassDetails } from '../hooks/usePass';
 import { usePlayToken, getPlaybackErrorMessage, PlaybackError, StorageTier } from '../hooks/usePlayToken';
 import PassVideoPlayer from '../components/pass/PassVideoPlayer';
 import { motion } from 'framer-motion';
-import { AlertTriangle, ArrowLeft, Play, Info, Lock, Loader2 } from 'lucide-react';
+import { AlertTriangle, Play, Info, Lock, Loader2 } from 'lucide-react';
 import PremiumHeader from '../components/pass/PremiumHeader';
 import VideoDescriptionPanel from '../components/pass/VideoDescriptionPanel';
 import { PassVideo, PlayTokenData } from '../types/pass';
@@ -12,7 +12,6 @@ import { toast } from 'react-toastify';
 
 const WatchPassPage: React.FC = () => {
   const { passId } = useParams<{ passId: string }>();
-  const navigate = useNavigate();
 
   // Fetch pass details
   const {
@@ -21,9 +20,8 @@ const WatchPassPage: React.FC = () => {
     error: passError,
   } = usePassDetails(passId);
 
-  // Purchased passes check
-  const { data: purchasedPasses } = usePurchasedPasses();
-  const ownsPass = useMemo(() => purchasedPasses?.some(p => p.id === passId), [purchasedPasses, passId]);
+  const passPagePath = pass ? `/p/${pass.slug || pass.id}` : `/p/${passId}`;
+  const canWatch = pass?.has_access === true;
 
   // Current video selection state
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
@@ -56,7 +54,7 @@ const WatchPassPage: React.FC = () => {
 
   // Fetch play token when video is selected
   useEffect(() => {
-    if (!selectedVideoId) {
+    if (!selectedVideoId || !canWatch) {
       setCurrentPlayToken(null);
       return;
     }
@@ -84,7 +82,7 @@ const WatchPassPage: React.FC = () => {
     };
 
     fetchPlayToken();
-  }, [selectedVideoId, selectedVideoStorageTier, getToken]);
+  }, [selectedVideoId, selectedVideoStorageTier, getToken, canWatch]);
 
   // Function to handle playing the next video
   const handleNextVideo = useCallback(() => {
@@ -150,33 +148,8 @@ const WatchPassPage: React.FC = () => {
     );
   }
 
-  // If user doesn't have access (based on playback error)
-  if (playbackError && (playbackError.code === 'NO_ACCESS' || playbackError.code === 'UNAUTHORIZED')) {
-    const { message, action } = getPlaybackErrorMessage(playbackError);
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white p-8 text-center">
-        <div>
-          {playbackError.code === 'UNAUTHORIZED' ? (
-            <Lock className="w-12 h-12 text-orange-500 mx-auto mb-4" />
-          ) : (
-            <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          )}
-          <p className="mb-6">{message}</p>
-          {action === 'login' ? (
-            <button
-              onClick={() => navigate('/sign-in')}
-              className="px-6 py-3 bg-orange-500 rounded-lg inline-flex items-center gap-2"
-            >
-              Sign In
-            </button>
-          ) : (
-            <Link to={`/p/${passId ?? ''}`} className="px-6 py-3 bg-orange-500 rounded-lg inline-flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" />Back to Pass Page
-            </Link>
-          )}
-        </div>
-      </div>
-    );
+  if (!canWatch) {
+    return <Navigate to={passPagePath} replace />;
   }
 
   // --- Main Render --- 

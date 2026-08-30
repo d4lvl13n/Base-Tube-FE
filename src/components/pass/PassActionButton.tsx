@@ -21,6 +21,7 @@ interface PassActionButtonProps {
     minted_count?: number;
     sold_count?: number;
     can_purchase?: boolean;
+    publish_status?: string;
     purchase_block_reason_code?: string | null;
     purchase_block_reason?: string | null;
   };
@@ -29,7 +30,8 @@ interface PassActionButtonProps {
 }
 
 const BLOCK_REASON_FALLBACKS: Record<string, string> = {
-  PASS_NOT_ONCHAIN: 'Crypto unavailable for this pass yet.',
+  PASS_NOT_PUBLISHED: 'This pass is not for sale yet.',
+  PASS_NOT_ONCHAIN: 'This pass is not for sale yet.',
   PASS_SALE_INACTIVE: 'This pass is not currently on sale.',
   PASS_SOLD_OUT: 'This pass is sold out.',
 };
@@ -93,7 +95,9 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [quantity] = useState(1);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const canPurchase = pass.can_purchase !== false;
+  const canPurchase =
+    pass.can_purchase === true &&
+    (pass.publish_status === undefined || pass.publish_status === 'published');
   const blockMessage = getBlockMessage(pass);
 
   // Resume-hook success event may fire while the user is back on a pass page.

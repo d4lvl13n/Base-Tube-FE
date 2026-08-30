@@ -89,6 +89,7 @@ export function isRetryableServiceError(code: string | null): boolean {
     code === 'VIDEO_UPLOAD_FAILED' ||
     code === 'PROFILE_IMAGE_UPLOAD_FAILED' ||
     code === 'PASS_CHAIN_REGISTRATION_FAILED' ||
+    code === 'PASS_PUBLISH_TIMEOUT' ||
     code === 'SERVICE_UNAVAILABLE'
   );
 }

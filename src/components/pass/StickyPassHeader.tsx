@@ -10,6 +10,8 @@ interface StickyPassHeaderProps {
     id: string;
     title: string;
     formatted_price: string;
+    can_purchase?: boolean;
+    publish_status?: string;
     videos?: Array<{ thumbnail_url?: string }>;
   };
   alreadyOwns: boolean;
@@ -52,11 +54,14 @@ const StickyPassHeader: React.FC<StickyPassHeaderProps> = ({
             <PlayCircle className="w-3 h-3" />
             Watch
           </button>
-        ) : (
+        ) : pass.can_purchase === true &&
+          (pass.publish_status === undefined || pass.publish_status === 'published') ? (
           <UnlockButton 
             passId={pass.id} 
             className="text-xs bg-orange-500 text-white px-3 py-1 rounded flex items-center gap-1" 
           />
+        ) : (
+          <span className="text-xs text-[#a1a4a5]">Not for sale yet</span>
         )}
       </div>
     </motion.div>

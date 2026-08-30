@@ -25,9 +25,37 @@ const PASS_ERROR_MAP: Record<
   },
   PASS_CHAIN_REGISTRATION_FAILED: {
     message:
-      'On-chain registration failed and nothing was saved. You can safely try again.',
+      'We could not finish publishing. Your draft is still saved — try again.',
     action: null,
     canRetry: true,
+  },
+  PASS_PUBLISH_TIMEOUT: {
+    message:
+      'Publishing took too long. Your draft is still saved — try again.',
+    action: null,
+    canRetry: true,
+  },
+  PASS_PUBLISH_IN_PROGRESS: {
+    message: 'This pass is already publishing. Wait a moment and try again.',
+    action: null,
+    canRetry: true,
+  },
+  SETTLEMENT_PREFERENCE_REQUIRED: {
+    message: 'Choose how you want to receive payment before publishing.',
+    action: null,
+  },
+  INVALID_PAYOUT_ADDRESS: {
+    message: 'Enter a valid wallet address starting with 0x, or leave it blank if you already linked one.',
+    action: null,
+  },
+  PASS_NOT_PUBLISHED: {
+    message: 'This pass is still a draft and cannot be purchased yet.',
+    action: null,
+    canRetry: false,
+  },
+  PASS_NOT_DRAFT: {
+    message: 'This pass is already live and cannot be edited here.',
+    action: null,
   },
   PASS_CREATE_RATE_LIMIT_EXCEEDED: {
     message:
@@ -75,7 +103,7 @@ const PASS_ERROR_MAP: Record<
   },
   WALLET_NOT_LINKED: {
     message:
-      'Connect your wallet (Base Account) before publishing a paid pass — it receives your 90% revenue share.',
+      'Add a test wallet address, or connect a wallet you already have. We do not create one for you.',
     action: 'link-wallet',
     canRetry: false,
   },

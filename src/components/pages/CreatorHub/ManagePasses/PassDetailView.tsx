@@ -105,6 +105,14 @@ const PassDetailView: React.FC = () => {
           <h1 className="text-2xl font-bold">{pass.title}</h1>
           <p className="text-gray-400">{pass.formatted_price} • {pass.tier} tier</p>
         </div>
+        {pass.publish_status && pass.publish_status !== 'published' && (
+          <button
+            onClick={() => navigate(`/creator-hub/create-content-pass?draft=${pass.id}`)}
+            className="ml-auto px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg text-white font-medium"
+          >
+            Finish publishing
+          </button>
+        )}
       </div>
       
       {/* Main content grid */}
@@ -244,7 +252,11 @@ const PassDetailView: React.FC = () => {
           
           {/* Share section */}
           <div className="pt-4 border-t border-gray-800">
-            <p className="text-sm text-gray-400 mb-3">Share Link</p>
+            <p className="text-sm text-gray-400 mb-3">
+              {pass.publish_status && pass.publish_status !== 'published'
+                ? 'Preview link (not for sale yet)'
+                : 'Share Link'}
+            </p>
             <div className="flex">
               <div className="flex-1 bg-black p-2 rounded-l-lg border border-gray-800 truncate text-sm text-gray-400">
                 {`${window.location.origin}/p/${pass.slug || pass.id}`}

@@ -108,12 +108,14 @@ const PassDetailsPage: React.FC = () => {
 
   const { data: purchasedPasses, isLoading: isPurchasedLoading } = usePurchasedPasses();
   const ownsViaList = purchasedPasses?.some((p) => p.id === pass?.id);
+  const isPublished = pass?.publish_status === 'published';
   const hasAccessFromApi = pass?.has_access === true;
   const { data: accessData, isLoading: isOnchainLoading } = useAccess(pass?.id, {
-    enabled: Boolean(pass?.id),
+    enabled: Boolean(pass?.id) && isPublished,
   });
   const alreadyOwns =
-    hasAccessFromApi || ownsViaList || Boolean(accessData?.data?.hasAccess);
+    isPublished &&
+    (hasAccessFromApi || ownsViaList || Boolean(accessData?.data?.hasAccess));
   const isAccessLoading = isPurchasedLoading || isOnchainLoading;
 
   useEffect(() => {
@@ -456,7 +458,7 @@ const PassDetailsPage: React.FC = () => {
                   className={`text-xs uppercase ${TEXT_TERTIARY}`}
                   style={{ letterSpacing: '0.3em' }}
                 >
-                  {alreadyOwns ? 'Your access' : 'The invitation'}
+                  {alreadyOwns ? 'Your access' : pass.can_purchase === false ? 'Preview' : 'The invitation'}
                 </motion.div>
                 <motion.h2
                   variants={fadeUp}
@@ -469,7 +471,9 @@ const PassDetailsPage: React.FC = () => {
                 >
                   {alreadyOwns
                     ? 'You have access to this collection.'
-                    : 'Access the full collection.'}
+                    : pass.can_purchase === false
+                      ? 'This pass is not for sale yet.'
+                      : 'Access the full collection.'}
                 </motion.h2>
                 <motion.p
                   variants={fadeUpSmall}
@@ -477,7 +481,9 @@ const PassDetailsPage: React.FC = () => {
                 >
                   {alreadyOwns
                     ? 'Stream every video any time. Your pass is an NFT you own on Base L2 — keep it, gift it, or resell it whenever you like.'
-                    : 'One pass unlocks every video in the collection — forever. Pay with a card or crypto. Your ownership lives on-chain as a tradeable NFT.'}
+                    : pass.can_purchase === false
+                      ? 'The creator is still setting it up. Card and crypto checkout stay off until it is published.'
+                      : 'One pass unlocks every video in the collection — forever. Pay with a card or crypto. Your ownership lives on-chain as a tradeable NFT.'}
                 </motion.p>
               </div>
 
@@ -493,6 +499,7 @@ const PassDetailsPage: React.FC = () => {
                     minted_count: pass.minted_count,
                     sold_count: pass.sold_count,
                     can_purchase: pass.can_purchase,
+                    publish_status: pass.publish_status,
                     purchase_block_reason_code: pass.purchase_block_reason_code,
                     purchase_block_reason: pass.purchase_block_reason,
                   }}

@@ -54,8 +54,13 @@ const CreatorPassCard: React.FC<CreatorPassCardProps> = ({ pass }) => {
     }
   };
 
+  const isUnpublished = Boolean(pass.publish_status && pass.publish_status !== 'published');
+  const cardHref = isUnpublished
+    ? `/creator-hub/create-content-pass?draft=${pass.id}`
+    : `/creator-hub/passes/${pass.id}`;
+
   return (
-    <Link to={`/creator-hub/passes/${pass.id}`}>
+    <Link to={cardHref}>
       <motion.div 
         whileHover={{ y: -5, scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
@@ -80,16 +85,21 @@ const CreatorPassCard: React.FC<CreatorPassCardProps> = ({ pass }) => {
             </span>
           </div>
           
-          {/* Copy URL button */}
-          <button 
-            onClick={handleCopyUrl}
-            className="absolute top-3 left-3 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-2 rounded-full transition-colors duration-200"
-          >
-            {copied ? 
-              <Check className="w-4 h-4 text-green-400" /> : 
-              <Copy className="w-4 h-4 text-white" />
-            }
-          </button>
+          {isUnpublished ? (
+            <span className="absolute top-3 left-3 z-10 rounded-full bg-black/60 px-2 py-1 text-xs font-medium uppercase tracking-wide text-amber-200">
+              {pass.publish_status === 'publish_failed' ? 'Publish failed' : 'Draft'}
+            </span>
+          ) : (
+            <button 
+              onClick={handleCopyUrl}
+              className="absolute top-3 left-3 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-2 rounded-full transition-colors duration-200"
+            >
+              {copied ? 
+                <Check className="w-4 h-4 text-green-400" /> : 
+                <Copy className="w-4 h-4 text-white" />
+              }
+            </button>
+          )}
         </div>
         
         {/* Content info */}

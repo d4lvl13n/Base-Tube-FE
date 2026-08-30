@@ -131,8 +131,8 @@ const StepReview: React.FC<StepReviewProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <S.ReviewTitle>Review Your Premium Content Pass</S.ReviewTitle>
-            <S.ReviewSubtitle>You're about to create exclusive content that viewers can purchase access to</S.ReviewSubtitle>
+            <S.ReviewTitle>Review your draft</S.ReviewTitle>
+            <S.ReviewSubtitle>This saves the pass. It is not for sale until you publish on the next step.</S.ReviewSubtitle>
           </motion.div>
         </S.ReviewHeader>
 
@@ -295,7 +295,7 @@ const StepReview: React.FC<StepReviewProps> = ({
                     <AlertTriangle className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="font-medium text-red-200">Could not create pass</p>
+                    <p className="font-medium text-red-200">Could not save draft</p>
                     <p className="mt-1 text-sm text-red-100/90">{submitError}</p>
                   </div>
                 </div>
@@ -365,7 +365,7 @@ const StepReview: React.FC<StepReviewProps> = ({
               whileTap={{ scale: 0.98 }}
               disabled={isLoading}
             >
-              {isLoading ? 'Creating...' : 'Launch Content Pass'}
+              {isLoading ? 'Saving draft…' : 'Save draft'}
               {!isLoading && <ChevronRight size={18} />}
             </S.LaunchButton>
           </S.SummaryCard>
@@ -375,9 +375,9 @@ const StepReview: React.FC<StepReviewProps> = ({
               What Happens Next
             </p>
             <div className="mt-3 space-y-2 text-sm leading-6 text-gray-300">
-              <p>1. We create the pass and attach the videos you selected.</p>
-              <p>2. The backend verifies that every source belongs to your linked channel and is unlisted.</p>
-              <p>3. Buyers then get the pass page and protected access flow.</p>
+              <p>1. We save a draft and attach the videos you selected.</p>
+              <p>2. We check that every video belongs to your linked channel and is unlisted.</p>
+              <p>3. Next you choose how you get paid and publish. Fans cannot buy a draft.</p>
             </div>
           </div>
         </motion.div>
@@ -397,7 +397,7 @@ const StepReview: React.FC<StepReviewProps> = ({
               exit={{ opacity: 0, scale: 0.9 }}
             >
               <S.ModalHeader>
-                <S.ModalTitle>Ready to Launch Your Exclusive Content</S.ModalTitle>
+                <S.ModalTitle>Save this as a draft?</S.ModalTitle>
                 <S.ModalCloseButton onClick={() => setShowConfirmModal(false)}>
                   <X size={20} />
                 </S.ModalCloseButton>
@@ -408,10 +408,10 @@ const StepReview: React.FC<StepReviewProps> = ({
                   <Sparkles size={30} />
                 </S.ConfirmIcon>
                 
-                <S.ConfirmTitle>You're about to create something special!</S.ConfirmTitle>
+                <S.ConfirmTitle>This will not go on sale yet</S.ConfirmTitle>
                 
                 <S.ConfirmText>
-                  Your premium content pass <strong>"{watchedFields.title}"</strong> will be available to an exclusive audience at <strong>{formattedPrice}</strong>.
+                  We will save <strong>"{watchedFields.title}"</strong> at <strong>{formattedPrice}</strong>. You choose how you get paid and publish on the next screen.
                 </S.ConfirmText>
                 
                 <S.ConfirmFeatures>
@@ -439,10 +439,10 @@ const StepReview: React.FC<StepReviewProps> = ({
                     onClick={handleConfirm}
                     disabled={isLoading}
                   >
-                    {isLoading ? 'Creating...' : (
+                    {isLoading ? 'Saving draft…' : (
                       <>
                         <Sparkles size={16} />
-                        Launch My Exclusive Pass
+                        Save draft
                       </>
                     )}
                   </S.ModalButton>

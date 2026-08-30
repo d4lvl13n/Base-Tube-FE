@@ -945,8 +945,14 @@ export const LaunchButton = styled(motion.button)`
   cursor: pointer;
   transition: all 0.2s ease;
 
-  &:hover {
+  &:hover:not(:disabled) {
     box-shadow: 0 8px 25px rgba(250, 117, 23, 0.4);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
   }
 `;
 

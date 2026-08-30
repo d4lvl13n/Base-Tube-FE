@@ -7,6 +7,8 @@ import type {
   DiscoverPassesParams,
   DiscoverPassesResponse,
   CreatePassRequest,
+  UpdateDraftPassRequest,
+  PublishPassRequest,
   AddVideoRequest
 } from '../types/pass';
 import { persistCheckoutContext } from '../utils/checkoutStorage';
@@ -186,6 +188,36 @@ export const useCreatePass = () => {
       queryClient.setQueryData<Pass[]>(['creator-passes'], (oldData) => {
         return oldData ? [...oldData, data] : [data];
       });
+    },
+  });
+};
+
+export const useUpdateDraftPass = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<Pass, Error, { passId: string; data: UpdateDraftPassRequest }>({
+    mutationFn: ({ passId, data }) => passApi.updateDraftPass(passId, data),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['creator-passes'] });
+      queryClient.setQueryData(['pass', data.id], data);
+      if (data.slug) {
+        queryClient.setQueryData(['pass', data.slug], data);
+      }
+    },
+  });
+};
+
+export const usePublishPass = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<Pass, Error, { passId: string; data?: PublishPassRequest }>({
+    mutationFn: ({ passId, data }) => passApi.publishPass(passId, data ?? {}),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['creator-passes'] });
+      queryClient.setQueryData(['pass', data.id], data);
+      if (data.slug) {
+        queryClient.setQueryData(['pass', data.slug], data);
+      }
     },
   });
 };
