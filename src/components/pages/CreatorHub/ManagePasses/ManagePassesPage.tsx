@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react';
 import { useCreatorPasses } from '../../../../hooks/usePass';
 import { cx, form, list, page, segmented } from '../shared/hubStyles';
 import PassesOverview from './PassesOverview';
+import StripeConnectStrip from './StripeConnectStrip';
 import PassesList, { PassFilter } from './PassesList';
 import { isPublished } from './passHelpers';
 
@@ -48,6 +49,8 @@ const ManagePassesPage: React.FC = () => {
             Create pass
           </Link>
         </header>
+
+        <StripeConnectStrip />
 
         <PassesOverview passes={passes} isLoading={isLoading} error={error} />
 
