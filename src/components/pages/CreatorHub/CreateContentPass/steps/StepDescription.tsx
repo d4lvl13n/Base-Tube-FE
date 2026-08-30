@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Control, Controller, FieldErrors, UseFormSetValue, UseFormWatch } from 'react-hook-form';
-import { Info, Sparkles } from 'lucide-react';
-import * as S from '../styles';
+import { Sparkles } from 'lucide-react';
+import { cx, form, page } from '../../shared/hubStyles';
 import { FormData } from '../types';
 import RichTextEditor from '../../../../../components/common/RichTextEditor';
 import AIAssistantPanel from '../../../../../components/common/AIAssistantPanel';
@@ -43,17 +43,14 @@ const StepDescription: React.FC<StepDescriptionProps> = ({ control, errors, setV
   };
 
   return (
-    <>
-      <S.FormGroup>
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <S.Label htmlFor="description" className="mb-0">Description *</S.Label>
-          <button
-            type="button"
-            onClick={() => setIsAIPanelOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-4 py-2 text-sm font-medium text-[#fa7517] transition-all hover:bg-[#fa7517]/15"
-          >
-            <Sparkles className="h-4 w-4" />
-            Write With AI
+    <div className={form.grid}>
+      {/* ── Description ────────────────────────────────────────────────── */}
+      <section className={cx(form.panel, 'space-y-1.5')} aria-label="Description">
+        <div className="flex items-center justify-between gap-3">
+          <span id="description-label" className={form.fieldLabel}>Description</span>
+          <button type="button" onClick={() => setIsAIPanelOpen(true)} className={form.inlineAction}>
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            Write with AI
           </button>
         </div>
         <Controller
@@ -67,46 +64,52 @@ const StepDescription: React.FC<StepDescriptionProps> = ({ control, errors, setV
             }
           }}
           render={({ field }) => (
-            <RichTextEditor
-              content={field.value || ''}
-              onChange={field.onChange}
-              placeholder="Describe your premium content in detail. What will subscribers get? Why is it valuable? Be compelling!"
-              minHeight="300px"
-            />
+            <div id="description" className={form.editorFrame} aria-labelledby="description-label">
+              <RichTextEditor
+                content={field.value || ''}
+                onChange={field.onChange}
+                placeholder="Describe your premium content in detail. What will subscribers get? Why is it valuable? Be compelling!"
+                minHeight="300px"
+              />
+            </div>
           )}
         />
-        {errors.description && (
-          <S.ErrorText>{errors.description.message}</S.ErrorText>
-        )}
-      </S.FormGroup>
-
-      <S.InfoBox>
-        <Info size={24} className="text-[#fa7517]" />
-        <div>
-          <h4 className="mb-2 font-medium">Write a Compelling Description</h4>
-          <S.InfoText>
-            A great description is key to selling your content pass. Be specific about what viewers get, why it is premium, and who this pass is for.
-          </S.InfoText>
-          <S.InfoText>
-            If you want a draft quickly, use the AI assistant and then refine the final version in the editor.
-          </S.InfoText>
+        <div className="flex justify-between">
+          <span className={form.counter}>At least 20 characters</span>
+          {generatedDescription && <span className={form.counter}>AI draft applied</span>}
         </div>
-      </S.InfoBox>
+        {errors.description && (
+          <p className={form.errorText}>{errors.description.message}</p>
+        )}
+      </section>
 
-      <AIAssistantPanel
-        isOpen={isAIPanelOpen}
-        onClose={() => setIsAIPanelOpen(false)}
-        title={watchedTitle}
-        keywords={keywords}
-        additionalInfo={additionalInfo}
-        onKeywordsChange={setKeywords}
-        onAdditionalInfoChange={setAdditionalInfo}
-        onGenerate={handleGenerateDescription}
-        isGenerating={isGeneratingDescription}
-        generatedDescription={generatedDescription}
-        mode="pass"
-      />
-    </>
+      {/* ── Guidance + the AI drawer ───────────────────────────────────── */}
+      <div className="space-y-4">
+        <section className={cx(form.panel, 'space-y-2')} aria-label="Writing tips">
+          <p className={page.eyebrow}>Write a compelling description</p>
+          <p className="text-sm text-gray-400">
+            A great description is key to selling your content pass. Be specific about what viewers get, why it is premium, and who this pass is for.
+          </p>
+          <p className="text-sm text-gray-400">
+            If you want a draft quickly, use the AI assistant and then refine the final version in the editor.
+          </p>
+        </section>
+
+        <AIAssistantPanel
+          isOpen={isAIPanelOpen}
+          onClose={() => setIsAIPanelOpen(false)}
+          title={watchedTitle}
+          keywords={keywords}
+          additionalInfo={additionalInfo}
+          onKeywordsChange={setKeywords}
+          onAdditionalInfoChange={setAdditionalInfo}
+          onGenerate={handleGenerateDescription}
+          isGenerating={isGeneratingDescription}
+          generatedDescription={generatedDescription}
+          mode="pass"
+        />
+      </div>
+    </div>
   );
 };
 

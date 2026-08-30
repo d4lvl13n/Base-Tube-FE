@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Trash, Film, CheckCircle2, Loader, AlertCircle, Youtube, AlertTriangle, Check } from 'lucide-react';
-import { youtubeApi, getYouTubeID } from '../../../../api/youtube';
+// src/components/pages/CreatorHub/ManagePasses/AddVideoDrawer.tsx
+import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { Check, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { getYouTubeID, youtubeApi } from '../../../../api/youtube';
+import { cx, form, list } from '../shared/hubStyles';
 
 interface VideoRow {
   value: string;
@@ -18,17 +20,23 @@ interface AddVideoDrawerProps {
   passTitle?: string;
 }
 
+/**
+ * The right-hand drawer that adds videos to a pass, in the hub's register:
+ * a `#0f0f0f` sheet behind a hairline, a 56 px header bar, the form fields
+ * from the edit page, and orange on the one button that commits.
+ */
 const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
   isOpen,
   onClose,
   onSubmit,
   isLoading,
-  passTitle = 'Content Pass'
+  passTitle = 'Content Pass',
 }) => {
   const [rows, setRows] = useState<VideoRow[]>([{ value: '' }]);
   const processedUrls = useRef<Set<string>>(new Set());
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   // Reset drawer state when opened
   useEffect(() => {
@@ -52,8 +60,9 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
       if (processedUrls.current.has(row.value)) return;
       processedUrls.current.add(row.value);
       updateRow(idx, { loading: true, error: null });
-      youtubeApi.getVideoMetadata(row.value)
-        .then(meta => {
+      youtubeApi
+        .getVideoMetadata(row.value)
+        .then((meta) => {
           updateRow(idx, { title: meta.title || '', loading: false });
         })
         .catch(() => {
@@ -63,13 +72,14 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
   }, [rows]);
 
   const updateRow = (index: number, patch: Partial<VideoRow>) => {
-    setRows(prev => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   };
 
-  const addRow = () => setRows(r => [...r, { value: '' }]);
-  const removeRow = (idx: number) => setRows(r => r.filter((_, i) => i !== idx));
+  const addRow = () => setRows((r) => [...r, { value: '' }]);
+  const removeRow = (idx: number) => setRows((r) => r.filter((_, i) => i !== idx));
 
-  const allValid = rows.some(r => r.value && !r.loading && !r.error);
+  const allValid = rows.some((r) => r.value && !r.loading && !r.error);
+  const pendingCount = rows.filter((r) => r.value).length;
 
   const handlePrimary = () => {
     setShowConfirmation(true);
@@ -78,8 +88,8 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
   const confirmAdd = () => {
     setShowConfirmation(false);
     const payload = rows
-      .filter(r => r.value && !r.loading && !r.error)
-      .map(r => ({ url: r.value, title: r.title }));
+      .filter((r) => r.value && !r.loading && !r.error)
+      .map((r) => ({ url: r.value, title: r.title }));
     if (payload.length) onSubmit(payload);
   };
 
@@ -92,71 +102,195 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
     }
   }, [isLoading]);
 
+  const slide = prefersReducedMotion
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.15 } }
+    : {
+        initial: { x: '100%' },
+        animate: { x: 0 },
+        exit: { x: '100%' },
+        transition: { type: 'tween', duration: 0.25, ease: [0.22, 1, 0.36, 1] },
+      };
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
-          <motion.div className="fixed right-0 top-0 bottom-0 w-full max-w-xl bg-gradient-to-b from-gray-900 to-black z-50 shadow-2xl border-l border-white/10 flex flex-col"
-            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', stiffness: 260, damping: 25 }} onClick={e => e.stopPropagation()}>
+          <motion.div
+            className="fixed inset-0 z-50 bg-black/60"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={onClose}
+            aria-hidden="true"
+          />
+          <motion.div
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-gray-800/60 bg-[#0f0f0f] text-white"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-video-drawer-title"
+            {...slide}
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* header */}
-            <div className="flex items-center justify-between p-6 border-b border-white/10 flex-shrink-0">
-              <div className="flex items-center gap-3"><Film className="w-6 h-6 text-[#fa7517]" /><h2 className="text-xl font-bold">Add Videos</h2></div>
-              <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full"><X className="w-6 h-6 text-gray-400" /></button>
+            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-gray-800/60 px-4 md:px-5">
+              <div className="min-w-0 flex-1">
+                <h2 id="add-video-drawer-title" className={form.panelTitle}>
+                  Add videos
+                </h2>
+                <p className={list.preview}>to {passTitle}</p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className={cx(form.ghostButton, 'w-8 px-0')}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
             </div>
+
             {/* body - scrollable area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div className="bg-white/5 p-4 rounded border border-white/10">Adding to: <span className="font-semibold">{passTitle}</span></div>
+            <div className="flex-1 space-y-5 overflow-y-auto p-4 md:p-5">
               {rows.map((row, idx) => (
-                <div key={idx} className="space-y-2 bg-black/20 p-4 rounded-lg border border-white/10">
-                  <div className="flex items-center gap-2">
-                    <input value={row.value} onChange={e => updateRow(idx, { value: e.target.value, title: undefined, error: null })} placeholder="https://youtube.com/watch?v=..." className="flex-1 p-3 bg-black/40 border border-white/10 rounded focus:outline-none" />
+                <div key={idx} className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor={`add-video-url-${idx}`} className={form.fieldLabel}>
+                      {rows.length > 1 ? `Video ${idx + 1}` : 'Video URL'}
+                    </label>
                     {rows.length > 1 && (
-                      <button type="button" onClick={() => removeRow(idx)} className="p-2 hover:bg-white/5 rounded"><Trash className="w-4 h-4 text-red-500" /></button>
+                      <button
+                        type="button"
+                        onClick={() => removeRow(idx)}
+                        aria-label={`Remove video ${idx + 1}`}
+                        className={cx(list.actionButton, 'h-7 w-7')}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
                     )}
                   </div>
-                  {row.loading && <p className="text-sm text-yellow-400 flex items-center gap-1"><Loader className="animate-spin w-4 h-4" /> Fetching metadata…</p>}
-                  {row.error && <p className="text-sm text-red-500">{row.error}</p>}
+                  <input
+                    id={`add-video-url-${idx}`}
+                    value={row.value}
+                    onChange={(e) => updateRow(idx, { value: e.target.value, title: undefined, error: null })}
+                    placeholder="https://youtube.com/watch?v=…"
+                    className={form.input}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  {row.loading && (
+                    <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                      Fetching details…
+                    </p>
+                  )}
+                  {row.error && <p className={form.errorText}>{row.error}</p>}
                   {row.title && !row.loading && (
-                    <input value={row.title} onChange={e => updateRow(idx, { title: e.target.value })} className="w-full p-2 bg-black/30 border border-white/10 rounded" />
+                    <>
+                      <label htmlFor={`add-video-title-${idx}`} className={cx(form.fieldLabel, 'pt-1')}>
+                        Title
+                      </label>
+                      <input
+                        id={`add-video-title-${idx}`}
+                        value={row.title}
+                        onChange={(e) => updateRow(idx, { title: e.target.value })}
+                        className={form.input}
+                      />
+                    </>
                   )}
                   {row.value && !row.loading && !row.error && (
-                    <div className="aspect-video mt-2">
-                      <iframe src={`https://www.youtube.com/embed/${getYouTubeID(row.value)}`} className="w-full h-full" title="preview" />
+                    <div className={cx(form.frame, 'mt-1')}>
+                      <iframe
+                        src={`https://www.youtube.com/embed/${getYouTubeID(row.value)}`}
+                        className="absolute inset-0 h-full w-full"
+                        title={row.title ? `Preview: ${row.title}` : 'Video preview'}
+                      />
                     </div>
                   )}
                 </div>
               ))}
-              <button type="button" onClick={addRow} className="flex items-center gap-2 text-[#fa7517] hover:text-orange-400"><Plus className="w-4 h-4" /> Add another video</button>
+              <button type="button" onClick={addRow} className={form.inlineAction}>
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                Add another video
+              </button>
             </div>
+
             {/* footer - fixed at bottom */}
-            <div className="p-6 border-t border-white/10 flex gap-4 flex-shrink-0">
-              <button onClick={onClose} className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 rounded">Cancel</button>
-              <button onClick={handlePrimary} disabled={!allValid || isLoading || rows.some(r => r.loading)} className="flex-1 py-3 bg-gradient-to-r from-[#fa7517] to-orange-600 rounded text-white disabled:opacity-50 flex items-center justify-center">
-                {isLoading ? <><Loader className="animate-spin w-5 h-5 mr-2" />Adding…</> : 'Add videos'}
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-800/60 px-4 py-3 md:px-5">
+              <button type="button" onClick={onClose} className={form.ghostButton}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handlePrimary}
+                disabled={!allValid || isLoading || rows.some((r) => r.loading)}
+                className={form.primaryButton}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                    Adding…
+                  </>
+                ) : (
+                  `Add ${pendingCount > 1 ? `${pendingCount} videos` : 'video'}`
+                )}
               </button>
             </div>
 
             {/* Confirmation overlay */}
             <AnimatePresence>
               {showConfirmation && (
-                <motion.div className="absolute inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <motion.div className="bg-gray-900 p-6 rounded-lg border border-gray-700 w-full max-w-md" initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}>
-                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-orange-500" />Confirm add {rows.filter(r=>r.value).length} videos</h3>
-                    <p className="text-sm text-gray-300 mb-6">This will add the following videos to your pass:</p>
-                    <ul className="space-y-2 mb-6 max-h-40 overflow-y-auto pr-2">
-                      {rows.filter(r=>r.value).map((r,i)=>(<li key={i} className="text-sm text-gray-400 truncate">• {r.title||r.value}</li>))}
+                <motion.div
+                  className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 p-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <div
+                    className={cx(form.panel, 'w-full max-w-sm')}
+                    role="alertdialog"
+                    aria-labelledby="add-video-confirm-title"
+                  >
+                    <h3 id="add-video-confirm-title" className={form.panelTitle}>
+                      Add {pendingCount} {pendingCount === 1 ? 'video' : 'videos'} to this pass?
+                    </h3>
+                    <ul className={cx(list.divider, 'mt-3 max-h-40 overflow-y-auto')}>
+                      {rows
+                        .filter((r) => r.value)
+                        .map((r, i) => (
+                          <li key={i} className="truncate py-1.5 text-sm text-gray-400" title={r.title || r.value}>
+                            {r.title || r.value}
+                          </li>
+                        ))}
                     </ul>
-                    <div className="flex gap-3"><button onClick={()=>setShowConfirmation(false)} className="flex-1 py-2 bg-gray-800 rounded">Cancel</button><button onClick={confirmAdd} className="flex-1 py-2 bg-gradient-to-r from-[#fa7517] to-orange-600 rounded text-white">Confirm</button></div>
-                  </motion.div>
+                    <div className="mt-4 flex items-center justify-end gap-2">
+                      <button type="button" onClick={() => setShowConfirmation(false)} className={form.ghostButton}>
+                        Cancel
+                      </button>
+                      <button type="button" onClick={confirmAdd} className={form.primaryButton}>
+                        Confirm
+                      </button>
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Success toast */}
+            {/* Success note */}
             <AnimatePresence>
               {showSuccess && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-green-600/90 px-4 py-3 rounded flex items-center gap-2"><Check className="w-5 h-5" /><span>Videos added!</span></motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: prefersReducedMotion ? 0 : 8 }}
+                  transition={{ duration: 0.15 }}
+                  role="status"
+                  className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-md border border-emerald-500/25 bg-[#0f0f0f] px-3 py-1.5 text-xs text-emerald-400"
+                >
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                  Videos added
+                </motion.div>
               )}
             </AnimatePresence>
           </motion.div>
@@ -166,4 +300,4 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
   );
 };
 
-export default AddVideoDrawer; 
+export default AddVideoDrawer;

@@ -2,26 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useForm, UseFormReturn } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowRight, 
-  ArrowLeft, 
-  Video,
-  Link as LinkIcon,
-  Shield,
-  Check,
-  Info,
-  Rocket,
-  Copy,
-  Twitter,
-  Facebook,
-  Lock
-} from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { ArrowRight, ArrowLeft } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useCreatePass, usePublishPass, usePassDetails } from '../../../../hooks/usePass';
 import { useWallet } from '../../../../hooks/useWallet';
 import { getPassErrorMessage } from '../../../../utils/passErrorMessages';
-import * as S from './styles';
+import { cx, form, motionPresets, page, skeleton } from '../shared/hubStyles';
 import { FormData, transformFormToApiFormat } from './types';
 import { useYouTubeAuth } from '../../../../hooks/useYouTubeAuth';
 import TestnetModeBadge from '../../../pass/TestnetModeBadge';
@@ -34,20 +21,22 @@ import StepVideos from './steps/StepVideos';
 import StepReview from './steps/StepReview';
 import StepPublish from './steps/StepPublish';
 
-// Import the common StepIndicator
-import StepIndicator from '../../../common/StepIndicator';
+// The wizard's own chrome
+import WizardStepper from './WizardStepper';
+import YouTubeGateCard from './YouTubeGateCard';
+import SuccessScreen from './SuccessScreen';
 
 // Helper to format currency
 const formatCurrency = (amount: number | undefined, currency: string | undefined): string => {
   if (amount === undefined) amount = 0;
   if (currency === undefined) currency = 'USD';
-  
+
   const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency,
     minimumFractionDigits: 2,
   });
-  
+
   return formatter.format(amount / 100);
 };
 
@@ -58,6 +47,7 @@ const formatCurrency = (amount: number | undefined, currency: string | undefined
 // ];
 
 const CreateContentPass: React.FC = () => {
+  const prefersReducedMotion = useReducedMotion();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
@@ -81,7 +71,7 @@ const CreateContentPass: React.FC = () => {
   const { data: resumeDraft } = usePassDetails(resumeDraftId, {
     enabled: Boolean(resumeDraftId),
   });
-  
+
   // Use react-hook-form for form handling
   const formMethods: UseFormReturn<FormData> = useForm<FormData>({
     defaultValues: {
@@ -94,20 +84,20 @@ const CreateContentPass: React.FC = () => {
     },
     mode: 'onChange'
   });
-  
-  const { 
-    register, 
-    handleSubmit, 
-    control, 
-    watch, 
-    setValue, 
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    setValue,
     trigger,
     getValues,
-    formState: { errors } 
+    formState: { errors }
   } = formMethods;
-  
+
   // const watchedFields = watch();
-  
+
   // Refetch YouTube status + creator videos when ?ytLinked=1 is present after OAuth callback
   useEffect(() => {
     if (location.search.includes('ytLinked')) {
@@ -136,7 +126,7 @@ const CreateContentPass: React.FC = () => {
     }
     setStep(5);
   }, [resumeDraft, setValue]);
-  
+
   // Handle form submission
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const onSubmit = async (data: FormData) => {
@@ -148,9 +138,9 @@ const CreateContentPass: React.FC = () => {
     setHasSubmitted(true);
     setIsLoading(true);
     setSubmitError(null);
-    
+
     const priceInCents = data.price_cents;
-    
+
     if (priceInCents === undefined || priceInCents < 100) {
       toast.error('Invalid price entered. Minimum is $1.00');
       setIsLoading(false);
@@ -161,7 +151,7 @@ const CreateContentPass: React.FC = () => {
     try {
       // Transform form data to API format
       const payload = transformFormToApiFormat(data);
-      
+
       // Check if we have at least one valid URL
       if (!payload.src_url && (!payload.videos || payload.videos.length === 0)) {
         toast.error('Please provide at least one valid YouTube URL.');
@@ -171,7 +161,7 @@ const CreateContentPass: React.FC = () => {
       }
 
       const result = await createPass.mutateAsync(payload);
-      
+
       setCreatedPassId(result.id);
       setCreatedPassSlug(result.slug || result.id);
       setStep(5);
@@ -207,14 +197,14 @@ const CreateContentPass: React.FC = () => {
       setPublishError(parsed.message);
     }
   };
-  
+
   // Handle animation completion
   const handleSuccessAnimationComplete = () => {
     // After animation completes, move to success state
     setSuccess(true);
     setIsLoading(false);
   };
-  
+
   const handleNextStep = async () => {
     let fieldsToValidate: (keyof FormData)[] = [];
     switch (step) {
@@ -225,7 +215,7 @@ const CreateContentPass: React.FC = () => {
         fieldsToValidate = ['description'];
         break;
       case 3:
-        fieldsToValidate = ['src_urls']; 
+        fieldsToValidate = ['src_urls'];
         break;
       default:
         break;
@@ -251,7 +241,7 @@ const CreateContentPass: React.FC = () => {
       setStep(step + 1);
     }
   };
-  
+
   const handlePrevStep = () => {
     setSubmitError(null);
     setStep(Math.max(1, step - 1));
@@ -261,22 +251,26 @@ const CreateContentPass: React.FC = () => {
     setSubmitError(null);
     setStep(3);
   };
-  
+
   const stepsMeta = [
-    { id: 1, label: 'Basic Info', icon: Shield },
-    { id: 2, label: 'Description', icon: Info },
-    { id: 3, label: 'Content', icon: Video },
-    { id: 4, label: 'Review', icon: Check },
-    { id: 5, label: 'Publish', icon: Rocket }
+    { id: 1, label: 'Basics' },
+    { id: 2, label: 'Description' },
+    { id: 3, label: 'Content' },
+    { id: 4, label: 'Review' },
+    { id: 5, label: 'Publish' }
   ];
-  
+
+  const stepSlide = prefersReducedMotion
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : motionPresets.stepSlide;
+
   const renderStepContent = () => {
     const props = { register, control, errors, watch, setValue, getValues };
     switch (step) {
       case 1: return <StepBasic {...props} />;
       case 2: return <StepDescription control={control} errors={errors} setValue={setValue} watch={watch} />;
       case 3: return (
-        <StepVideos 
+        <StepVideos
           register={register}
           errors={errors}
           control={control}
@@ -295,305 +289,194 @@ const CreateContentPass: React.FC = () => {
         onStartOAuth={youtubeAuth.startOAuth}
         onBackToVideos={handleGoToVideosStep}
       />;
-      case 5: return (
-        <StepPublish
-          settlementPreference={settlementPreference}
-          onSettlementChange={setSettlementPreference}
-          payoutAddress={payoutAddress}
-          onPayoutAddressChange={setPayoutAddress}
-          linkedWallet={wallet?.walletAddress}
-          isPublishing={publishPass.isPending}
-          publishError={publishError}
-          onPublish={handlePublish}
-        />
-      );
+      case 5: {
+        const values = getValues();
+        const videoCount = (values.src_urls || []).filter(
+          u => u?.value?.trim()?.length > 0 && /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/.test(u.value)
+        ).length;
+        return (
+          <StepPublish
+            settlementPreference={settlementPreference}
+            onSettlementChange={setSettlementPreference}
+            payoutAddress={payoutAddress}
+            onPayoutAddressChange={setPayoutAddress}
+            linkedWallet={wallet?.walletAddress}
+            isPublishing={publishPass.isPending}
+            publishError={publishError}
+            onPublish={handlePublish}
+            onBack={handlePrevStep}
+            summary={{
+              title: values.title,
+              priceLabel: formatCurrency(values.price_cents, values.currency || 'USD'),
+              supplyCap: values.supply_cap,
+              videoCount,
+            }}
+          />
+        );
+      }
       default: return null;
     }
   };
-  
+
   if (success && createdPassId) {
     const passUrl = `/p/${createdPassSlug}`;
     const currentValues = getValues();
-    
+
     return (
-      <main className="flex-1 pt-4 md:pt-8 px-4 md:px-6">
-            <S.Container 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }}
-            >
-              <S.SuccessContainer
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <S.SuccessIcon
-                  initial={{ scale: 0.8, rotate: -10 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 0.4, type: 'spring' }}
-                >
-                  <Check size={40} />
-                </S.SuccessIcon>
-                
-                <S.Title>Your pass is live</S.Title>
-            <S.SubTitle>Fans can buy it now. Share the link when you are ready.</S.SubTitle>
-                
-                <S.Card className="mt-8 max-w-xl mx-auto">
-                  <S.SummaryRow>
-                    <S.SummaryLabel>Pass Title</S.SummaryLabel>
-                <S.SummaryValue>{currentValues.title}</S.SummaryValue>
-                  </S.SummaryRow>
-                  <S.SummaryRow>
-                    <S.SummaryLabel>Price</S.SummaryLabel>
-                <S.SummaryPrice>{formatCurrency(currentValues.price_cents, currentValues.currency || 'USD')}</S.SummaryPrice>
-                  </S.SummaryRow>
-                  <S.SummaryRow>
-                    <S.SummaryLabel>Pass URL</S.SummaryLabel>
-                    <div className="flex items-center gap-2">
-                      <S.SummaryValue className="text-blue-400">{window.location.origin}{passUrl}</S.SummaryValue>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(`${window.location.origin}${passUrl}`);
-                          toast.success('URL copied to clipboard!');
-                        }}
-                        className="p-1 hover:bg-gray-800 rounded-full transition-colors"
-                      >
-                        <Copy size={14} />
-                      </button>
-                    </div>
-                  </S.SummaryRow>
-                </S.Card>
-                
-                <S.ShareContainer>
-                  <S.ShareButton
-                    onClick={() => {
-                      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out my exclusive content on Base.Tube: ${window.location.origin}${passUrl}`)}`);
-                    }}
-                  >
-                    <Twitter size={16} />
-                    Share on Twitter
-                  </S.ShareButton>
-                  
-                  <S.ShareButton
-                    onClick={() => {
-                      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}${passUrl}`)}`);
-                    }}
-                  >
-                    <Facebook size={16} />
-                    Share on Facebook
-                  </S.ShareButton>
-                  
-                  <S.ShareButton
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}${passUrl}`);
-                      toast.success('URL copied to clipboard!');
-                    }}
-                  >
-                    <Copy size={16} />
-                    Copy Link
-                  </S.ShareButton>
-                </S.ShareContainer>
-                
-                <div className="mt-8 flex gap-4 justify-center">
-                  <S.Button
-                    variant="secondary"
-                    onClick={() => navigate(passUrl)}
-                    whileHover={{ scale: 1.02 }}
-                  >
-                    <Shield size={16} />
-                    View Pass
-                  </S.Button>
-                  
-                  <S.Button
-                    variant="primary"
-                    onClick={() => {
-                  formMethods.reset();
-                      setSuccess(false);
-                      setIsLoading(false);
-                      setHasSubmitted(false);
-                      setIsSubmitSuccess(false);
-                      setSubmitError(null);
-                      setPublishError(null);
-                      setSettlementPreference('');
-                      setPayoutAddress('');
-                      setStep(1);
-                      setCreatedPassId(null);
-                      setCreatedPassSlug(null);
-                    }}
-                    whileHover={{ scale: 1.02 }}
-                  >
-                    <LinkIcon size={16} />
-                    Create Another Pass
-                  </S.Button>
-                </div>
-              </S.SuccessContainer>
-            </S.Container>
-          </main>
+      <SuccessScreen
+        title={currentValues.title}
+        priceLabel={formatCurrency(currentValues.price_cents, currentValues.currency || 'USD')}
+        passUrl={passUrl}
+        onViewPass={() => navigate(passUrl)}
+        onCreateAnother={() => {
+          formMethods.reset();
+          setSuccess(false);
+          setIsLoading(false);
+          setHasSubmitted(false);
+          setIsSubmitSuccess(false);
+          setSubmitError(null);
+          setPublishError(null);
+          setSettlementPreference('');
+          setPayoutAddress('');
+          setStep(1);
+          setCreatedPassId(null);
+          setCreatedPassSlug(null);
+        }}
+      />
     );
   }
-  
+
   // -------- Render gating screens before wizard --------
   if (youtubeAuth.status === 'loading' || youtubeAuth.status === 'unknown') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white pt-16">
-        <div className="text-xl animate-pulse">Checking YouTube verification…</div>
+      <div className={page.frame} aria-busy="true" aria-label="Checking YouTube verification">
+        <div className={page.narrow}>
+          <div className="space-y-2">
+            <div className={cx(skeleton.line, 'h-7 w-48')} />
+            <div className={cx(skeleton.line, 'w-72')} />
+          </div>
+          <div className="flex items-center gap-2 border-b border-gray-800/60 pb-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && <div className="h-px w-6 bg-gray-800/60" />}
+                <div className={cx(skeleton.block, 'h-5 w-20')} />
+              </React.Fragment>
+            ))}
+          </div>
+          <div className={cx(form.panel, 'space-y-3')}>
+            <div className={cx(skeleton.line, 'h-3 w-20')} />
+            <div className={cx(skeleton.block, 'h-9 w-full')} />
+            <div className={cx(skeleton.line, 'w-2/3')} />
+          </div>
+          <div className={cx(form.panel, 'space-y-3')}>
+            <div className={cx(skeleton.line, 'h-3 w-28')} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className={cx(skeleton.block, 'h-9')} />
+              <div className={cx(skeleton.block, 'h-9')} />
+            </div>
+            <div className={cx(skeleton.block, 'h-9 w-1/2')} />
+          </div>
+        </div>
       </div>
     );
   }
 
   if (youtubeAuth.status === 'unlinked') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white p-6 pt-16">
-        <S.Card className="max-w-lg w-full">
-          <div className="flex flex-col items-center gap-6">
-            <Lock size={48} className="text-[#fa7517]" />
-            <h2 className="text-2xl font-semibold text-center">Let's quickly verify your YouTube channel</h2>
-            
-            <div className="text-left space-y-4 w-full">
-              <div>
-                <h3 className="font-medium text-lg text-[#fa7517] mb-1">Why?</h3>
-                <p className="text-gray-300">
-                  We do a quick check with YouTube so everyone knows the videos really belong to you. No surprises, no copyright headaches.
-                </p>
-              </div>
-              
-              <div>
-                <h3 className="font-medium text-lg text-[#fa7517] mb-1">What will happen next?</h3>
-                <ol className="text-gray-300 list-decimal pl-5 space-y-2">
-                  <li>We'll pop you over to Google for a sec</li>
-                  <li>You pick the channel you want to use</li>
-                  <li>Google sends you right back here</li>
-                  <li>That's it — start making passes!</li>
-                </ol>
-              </div>
-              
-              <div>
-                <h3 className="font-medium text-lg text-[#fa7517] mb-1">Important notes:</h3>
-                <ul className="text-gray-300 list-disc pl-5 space-y-1">
-                  <li>We never (and can't) post or edit anything on your channel</li>
-                  <li>Only <strong>unlisted</strong> videos can be added to a pass</li>
-                  <li>Change your mind? Disconnect with one click later</li>
-                </ul>
-              </div>
-            </div>
-            
-            <S.Button
-              variant="primary"
-              onClick={() => youtubeAuth.startOAuth()}
-              whileHover={{ scale: 1.02 }}
-              className="mt-2 px-6 py-3 text-lg"
-            >
-              Verify YouTube Channel
-            </S.Button>
-          </div>
-        </S.Card>
-      </div>
-    );
+    return <YouTubeGateCard onVerify={() => youtubeAuth.startOAuth()} />;
   }
-  
+
   return (
-    <main className="flex-1 pt-4 md:pt-8 px-4 md:px-6">
-          <TestnetModeBadge topOffsetPx={64} />
-          <S.Container 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }}
-          >
-            <S.PageHeader>
-              <S.Title>Create Content Pass</S.Title>
-              <S.SubTitle>
-            Monetize your exclusive content by creating a premium pass
-              </S.SubTitle>
-            </S.PageHeader>
-            
-        <div className="mb-12">
-          <StepIndicator 
-            steps={stepsMeta.map(s => ({ key: s.id.toString(), icon: s.icon, label: s.label }))}
-            activeStep={step.toString()}
-            onStepClick={(stepKey) => {
-              const targetStep = parseInt(stepKey);
-              if (targetStep < step) {
-                setStep(targetStep);
-              }
-              if (targetStep === 5 && createdPassId) {
-                setStep(5);
-              }
-            }}
-          />
-                </div>
-            
-            <form onSubmit={(e) => {
-              if (step !== 4) {
-                e.preventDefault();
-                return false;
-              }
-              return handleSubmit(onSubmit)(e);
-            }}>
-              <S.FormContainer
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <AnimatePresence mode="wait">
-                    <motion.div
-                 key={step}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                 transition={{ duration: 0.3 }}
-              >
-                {renderStepContent()}
-                    </motion.div>
-                </AnimatePresence>
-                
-                <S.NavigationContainer>
-                  {step > 1 && (
-                    <S.Button
-                      type="button"
-                      variant="secondary"
-                  onClick={handlePrevStep}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <ArrowLeft size={16} />
-                      Previous
-                    </S.Button>
-                  )}
-                  
-              {step < 4 ? (
-                    <S.Button
-                      type="button"
-                      variant="primary"
-                      onClick={handleNextStep}
-                      disabled={isLoading || (step === 3 && youtubeAuth.status !== 'linked')}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      style={{ marginLeft: 'auto' }}
-                    >
-                      Next
-                      <ArrowRight size={16} />
-                    </S.Button>
-                  ) : (
-                    <div style={{ marginLeft: 'auto' }}></div>
-                  )}
-                </S.NavigationContainer>
-              </S.FormContainer>
-            </form>
-          </S.Container>
-      
+    <main className={page.frame}>
+      <TestnetModeBadge topOffsetPx={64} />
+      <div className={page.narrow}>
+        <header className={page.header}>
+          <div className="min-w-0">
+            <h1 className={page.title}>Create a pass</h1>
+            <p className={page.subtitle}>
+              Monetize your exclusive content by creating a premium pass.
+            </p>
+          </div>
+        </header>
+
+        <WizardStepper
+          steps={stepsMeta}
+          activeStep={step}
+          isStepNavigable={(id) => id < step || (id === 5 && Boolean(createdPassId))}
+          onStepClick={(targetStep) => {
+            if (targetStep < step) {
+              setStep(targetStep);
+            }
+            if (targetStep === 5 && createdPassId) {
+              setStep(5);
+            }
+          }}
+        />
+
+        <form onSubmit={(e) => {
+          if (step !== 4) {
+            e.preventDefault();
+            return false;
+          }
+          return handleSubmit(onSubmit)(e);
+        }}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              initial={stepSlide.initial}
+              animate={stepSlide.animate}
+              exit={stepSlide.exit}
+              className="pt-2"
+            >
+              {renderStepContent()}
+            </motion.div>
+          </AnimatePresence>
+
+          {step < 5 && (
+            <div className="mt-6 flex items-center justify-between gap-3 border-t border-gray-800/60 pt-4">
+              {step > 1 ? (
+                <button type="button" onClick={handlePrevStep} className={form.ghostButton}>
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  Back
+                </button>
+              ) : (
+                <span />
+              )}
+
+              {step < 4 && (
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  disabled={isLoading || (step === 3 && youtubeAuth.status !== 'linked')}
+                  className={form.primaryButton}
+                >
+                  Continue
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          )}
+        </form>
+      </div>
+
       <AnimatePresence>
         {(isLoading || publishPass.isPending) && (
-          <S.LoaderOverlay
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+            role="status"
+            aria-live="polite"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/60 backdrop-blur-sm"
           >
-            <S.Spinner 
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            <span
+              aria-hidden="true"
+              className="h-6 w-6 animate-spin rounded-full border-2 border-gray-700 border-t-[#fa7517] motion-reduce:animate-none"
             />
-            <S.LoaderText>
+            <p className="text-sm text-gray-300">
               {step >= 5 ? 'Publishing your pass…' : 'Saving your draft…'}
-            </S.LoaderText>
-          </S.LoaderOverlay>
+            </p>
+          </motion.div>
         )}
       </AnimatePresence>
     </main>

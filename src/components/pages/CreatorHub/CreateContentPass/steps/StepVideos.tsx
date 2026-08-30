@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { UseFormRegister, FieldErrors, Control, useFieldArray, UseFormWatch, useWatch } from 'react-hook-form';
-import { Plus, Trash, Lock, Loader, Tag, Clock, RefreshCw, ExternalLink, ChevronDown, Check, AlertTriangle, Youtube } from 'lucide-react';
-import * as S from '../styles';
+import { Plus, Trash, Lock, Loader, RefreshCw, ExternalLink, ChevronDown, Check, AlertTriangle, Youtube } from 'lucide-react';
+import { cx, form, list, page, selectable, skeleton } from '../../shared/hubStyles';
 import { FormData } from '../types';
 import { youtubeApi, getYouTubeID } from '../../../../../api/youtube';
 import { UseYouTubeAuthReturn } from '../../../../../hooks/useYouTubeAuth';
@@ -64,6 +64,9 @@ function getPickerErrorMessage(error: unknown): { code: string | null; message: 
   }
   return { code: null, message: error instanceof Error ? error.message : 'Could not load your videos.' };
 }
+
+/** A quiet note: hairline border, faint fill. For anything that is not an error. */
+const neutralNote = 'flex items-start gap-2 rounded-md border border-gray-800/60 bg-white/5 p-2.5 text-xs text-gray-300';
 
 const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watch, youtubeAuth }) => {
   const { fields, append, remove, update } = useFieldArray({ control, name: 'src_urls' });
@@ -188,38 +191,44 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
     return v && /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/.test(v);
   }).length;
 
+  const selectedPreviews = (srcUrls ?? [])
+    .map((urlObj, idx) => ({ urlObj, idx }))
+    .filter(({ urlObj }) => urlObj?.value && /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/.test(urlObj.value));
+
   return (
-    <>
-      {/* Unlinked banner */}
+    <div className="space-y-4">
+      {/* ── Not linked ─────────────────────────────────────────────────── */}
       {youtubeAuth.status === 'unlinked' && (
-        <S.InfoBox style={{ borderColor: '#fa7517' }}>
-          <Lock size={24} className="text-[#fa7517]" />
-          <div>
-            <h4 className="font-medium mb-2">Connect your YouTube channel</h4>
-            <S.InfoText className="mb-2">Verify a channel before adding videos.</S.InfoText>
-            <S.Button type="button" variant="primary" onClick={() => youtubeAuth.startOAuth()}>
+        <div className={neutralNote} role="status">
+          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-500" aria-hidden="true" />
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium text-gray-200">Connect your YouTube channel</p>
+              <p className="mt-0.5 text-gray-400">Verify a channel before adding videos.</p>
+            </div>
+            <button type="button" onClick={() => youtubeAuth.startOAuth()} className={form.primaryButton}>
               Connect YouTube
-            </S.Button>
+            </button>
           </div>
-        </S.InfoBox>
+        </div>
       )}
 
       {/* ============= VIDEO PICKER (primary UX) ============= */}
       {isLinked && (
-        <S.FormGroup>
-          <div className="flex items-center justify-between mb-1">
-            <S.Label className="mb-0">
+        <section className={cx(form.panel, 'space-y-3')} aria-labelledby="picker-label">
+          <div className="flex items-center justify-between gap-3">
+            <p id="picker-label" className={cx(form.fieldLabel, 'flex items-center gap-2')}>
               {channelTitle ? (
-                <span className="flex items-center gap-2">
-                  <Youtube size={16} className="text-red-500" />
+                <>
+                  <Youtube className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
                   Your unlisted videos on {channelTitle}
-                </span>
+                </>
               ) : (
                 'Your unlisted videos'
               )}
-            </S.Label>
+            </p>
             {validCount > 0 && (
-              <span className="text-sm text-[#fa7517] font-medium">
+              <span className={cx(form.counter, 'text-[#fa7517]')}>
                 {validCount} selected
               </span>
             )}
@@ -227,14 +236,12 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
 
           {/* Loading */}
           {videosQuery.isLoading && (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-busy="true" aria-label="Loading videos">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden animate-pulse">
-                  <div className="aspect-video bg-white/[0.04]" />
-                  <div className="p-3 space-y-2">
-                    <div className="h-3.5 w-3/4 bg-white/[0.06] rounded" />
-                    <div className="h-3 w-1/3 bg-white/[0.04] rounded" />
-                  </div>
+                <div key={i} className="space-y-2">
+                  <div className={skeleton.thumb} />
+                  <div className={cx(skeleton.line, 'w-3/4')} />
+                  <div className={cx(skeleton.line, 'h-3 w-1/3 bg-white/[0.03]')} />
                 </div>
               ))}
             </div>
@@ -242,48 +249,36 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
 
           {/* Error */}
           {pickerError && !videosQuery.isLoading && (
-            <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-4 h-4 mt-0.5 text-red-400 shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm text-red-200">
-                    {pickerError.code === 'YOUTUBE_NOT_LINKED'
-                      ? 'YouTube not connected.'
-                      : pickerError.code === 'YOUTUBE_API_RATE_LIMITED'
-                      ? 'YouTube is temporarily rate-limited. Try again in a minute.'
-                      : pickerError.message}
-                  </p>
-                  <div className="flex gap-2 mt-3">
-                    {pickerError.code === 'YOUTUBE_NOT_LINKED' ? (
-                      <button
-                        type="button"
-                        onClick={() => youtubeAuth.startOAuth()}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-3 py-1.5 text-xs font-medium text-[#fa7517] hover:bg-[#fa7517]/20"
-                      >
-                        Connect YouTube
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => videosQuery.refetch()}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/5"
-                      >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        Retry
-                      </button>
-                    )}
-                  </div>
-                </div>
+            <div className={form.errorNote} role="alert">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  {pickerError.code === 'YOUTUBE_NOT_LINKED'
+                    ? 'YouTube not connected.'
+                    : pickerError.code === 'YOUTUBE_API_RATE_LIMITED'
+                    ? 'YouTube is temporarily rate-limited. Try again in a minute.'
+                    : pickerError.message}
+                </p>
+                {pickerError.code === 'YOUTUBE_NOT_LINKED' ? (
+                  <button type="button" onClick={() => youtubeAuth.startOAuth()} className={form.secondaryButton}>
+                    Connect YouTube
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => videosQuery.refetch()} className={form.secondaryButton}>
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                    Retry
+                  </button>
+                )}
               </div>
             </div>
           )}
 
           {/* Empty */}
           {!videosQuery.isLoading && !pickerError && allPickerVideos.length === 0 && (
-            <div className="mt-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 text-center">
-              <Youtube className="w-8 h-8 mx-auto mb-3 text-gray-500" />
-              <p className="text-sm text-gray-400 mb-1">No unlisted videos found</p>
-              <p className="text-xs text-gray-500">
+            <div className={list.emptyState.wrapper}>
+              <Youtube className="h-8 w-8 text-gray-600" aria-hidden="true" />
+              <p className={cx('mt-4', list.emptyState.title)}>No unlisted videos found</p>
+              <p className={list.emptyState.subtitle}>
                 Upload unlisted videos to YouTube, then come back and they'll appear here.
               </p>
             </div>
@@ -292,47 +287,42 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
           {/* Picker grid */}
           {!videosQuery.isLoading && allPickerVideos.length > 0 && (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3" role="group" aria-label="Your unlisted videos">
                 {allPickerVideos.map((video) => {
                   const isSelected = selectedVideoIds.has(video.videoId);
                   return (
                     <button
                       key={video.videoId}
                       type="button"
+                      aria-pressed={isSelected}
                       onClick={() => toggleVideo(video)}
-                      className={`group relative rounded-xl overflow-hidden border text-left transition-all duration-200 ${
-                        isSelected
-                          ? 'border-[#fa7517]/60 bg-[#fa7517]/5 ring-1 ring-[#fa7517]/30'
-                          : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04]'
-                      }`}
+                      className={cx(selectable.base, isSelected ? selectable.active : selectable.idle)}
                     >
                       {/* Thumbnail */}
-                      <div className="relative aspect-video overflow-hidden">
+                      <div className="relative aspect-video overflow-hidden bg-black">
                         <img
                           src={video.thumbnailUrl}
-                          alt={video.title}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                          alt=""
+                          className="h-full w-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                         {video.durationSeconds > 0 && (
-                          <span className="absolute bottom-2 right-2 text-[10px] px-1.5 py-0.5 bg-black/70 rounded text-white/80 font-mono">
+                          <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-white/80">
                             {formatDuration(video.durationSeconds)}
                           </span>
                         )}
-                        {/* Checkmark overlay */}
                         {isSelected && (
-                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#fa7517] flex items-center justify-center shadow-lg">
-                            <Check className="w-3.5 h-3.5 text-white" />
-                          </div>
+                          <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#fa7517]" aria-hidden="true">
+                            <Check className="h-3 w-3 text-black" />
+                          </span>
                         )}
                       </div>
                       {/* Meta */}
                       <div className="p-3">
-                        <p className="text-sm font-medium text-white line-clamp-2 leading-snug">
+                        <p className="line-clamp-2 text-sm leading-snug text-gray-100">
                           {video.title}
                         </p>
                         {video.publishedAt && (
-                          <p className="text-[11px] text-gray-500 mt-1.5">
+                          <p className="mt-1.5 text-[11px] text-gray-500">
                             {new Date(video.publishedAt).toLocaleDateString(undefined, {
                               year: 'numeric',
                               month: 'short',
@@ -348,17 +338,17 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
 
               {/* Load more */}
               {videosQuery.hasNextPage && (
-                <div className="mt-4 flex justify-center">
+                <div className="flex justify-center border-t border-gray-800/60 pt-3">
                   <button
                     type="button"
                     disabled={videosQuery.isFetchingNextPage}
                     onClick={() => videosQuery.fetchNextPage()}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/5 disabled:opacity-50"
+                    className={list.loadMore.button}
                   >
                     {videosQuery.isFetchingNextPage ? (
-                      <Loader className="w-3.5 h-3.5 animate-spin" />
+                      <Loader className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                     ) : (
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                     )}
                     Load more videos
                   </button>
@@ -366,174 +356,180 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
               )}
             </>
           )}
-        </S.FormGroup>
+        </section>
       )}
 
       {/* ============= MANUAL FALLBACK (collapsed) ============= */}
       {isLinked && (
-        <div className="mt-4">
+        <div>
           <button
             type="button"
             onClick={() => setManualOpen((v) => !v)}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+            aria-expanded={manualOpen}
+            aria-controls="manual-url-fallback"
+            className={form.ghostButton}
           >
             <ChevronDown
-              className={`w-4 h-4 transition-transform ${manualOpen ? 'rotate-180' : ''}`}
+              className={cx('h-4 w-4 transition-transform', manualOpen && 'rotate-180')}
+              aria-hidden="true"
             />
             Or paste a YouTube URL manually
           </button>
 
           {manualOpen && (
-            <div className="mt-3">
-              <S.FormGroup>
-                <S.Label>Video URLs</S.Label>
-                <S.VideoUrlContainer>
-                  {fields.map((field, index) => (
-                    <div key={field.id}>
-                      <S.VideoUrlRow>
-                        <S.Input
-                          id={`src_urls.${index}.value`}
-                          placeholder="https://youtube.com/watch?v=..."
-                          {...register(`src_urls.${index}.value`, {
-                            required: index === 0 && validCount === 0 ? 'At least one video is required' : false,
-                            validate: (value) => {
-                              if (!value && index !== 0) return true;
-                              const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/;
-                              return youtubeRegex.test(value || '') || 'Please enter a valid YouTube URL';
-                            },
-                          })}
-                        />
-                        {loadingStates[index] && (
-                          <div className="flex items-center px-2">
-                            <Loader size={16} className="animate-spin text-[#fa7517]" />
-                          </div>
-                        )}
-                        {fields.length > 1 && (
-                          <S.RemoveButton type="button" onClick={() => remove(index)} title="Remove">
-                            <Trash size={18} />
-                          </S.RemoveButton>
-                        )}
-                      </S.VideoUrlRow>
-
-                      {metadataStatuses[index]?.state === 'unresolved' && (
-                        <div className="mt-2 flex flex-col gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                          <p className="text-sm text-amber-300">{metadataStatuses[index]?.message}</p>
-                          <button type="button" onClick={() => handleRetryMetadata(index)} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/5">
-                            <RefreshCw className="h-3.5 w-3.5 text-[#fa7517]" /> Retry
-                          </button>
-                        </div>
+            <section id="manual-url-fallback" className={cx(form.panel, 'mt-3 space-y-3')} aria-label="Video URLs">
+              <p className={form.fieldLabel}>Video URLs</p>
+              <div className="space-y-3">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        id={`src_urls.${index}.value`}
+                        type="text"
+                        placeholder="https://youtube.com/watch?v=..."
+                        aria-label={`Video URL ${index + 1}`}
+                        className={form.input}
+                        {...register(`src_urls.${index}.value`, {
+                          required: index === 0 && validCount === 0 ? 'At least one video is required' : false,
+                          validate: (value) => {
+                            if (!value && index !== 0) return true;
+                            const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/;
+                            return youtubeRegex.test(value || '') || 'Please enter a valid YouTube URL';
+                          },
+                        })}
+                      />
+                      {loadingStates[index] && (
+                        <Loader className="h-4 w-4 shrink-0 animate-spin text-gray-500" aria-label="Fetching video details" />
                       )}
-                      {metadataStatuses[index]?.state === 'rate_limited' && (
-                        <div className="mt-2 flex flex-col gap-2 rounded-lg border border-[#fa7517]/20 bg-[#fa7517]/[0.06] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                          <p className="text-sm text-orange-200">{metadataStatuses[index]?.message}</p>
-                          <button type="button" onClick={() => handleRetryMetadata(index)} className="inline-flex items-center gap-2 rounded-full border border-[#fa7517]/30 px-3 py-1.5 text-xs font-medium text-white hover:bg-[#fa7517]/10">
-                            <RefreshCw className="h-3.5 w-3.5 text-[#fa7517]" /> Retry
-                          </button>
-                        </div>
-                      )}
-
-                      {srcUrls?.[index]?.title && (
-                        <S.VideoTitleRow>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1.5">
-                              <div className="flex items-center">
-                                <Tag size={14} className="text-[#fa7517] mr-1.5" />
-                                <span className="text-xs font-medium text-[#fa7517]">Title (editable)</span>
-                              </div>
-                              {srcUrls[index]?.duration && (
-                                <div className="flex items-center">
-                                  <Clock size={14} className="text-gray-400 mr-1" />
-                                  <span className="text-xs text-gray-400">{formatDuration(srcUrls[index].duration)}</span>
-                                </div>
-                              )}
-                            </div>
-                            <S.Input
-                              id={`src_urls.${index}.title`}
-                              placeholder="Video title"
-                              {...register(`src_urls.${index}.title`)}
-                            />
-                          </div>
-                        </S.VideoTitleRow>
+                      {fields.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => remove(index)}
+                          title="Remove"
+                          aria-label="Remove video URL"
+                          className={list.actionButton}
+                        >
+                          <Trash className={list.actionIcon} aria-hidden="true" />
+                        </button>
                       )}
                     </div>
-                  ))}
-                </S.VideoUrlContainer>
-                {errors.src_urls && (errors.src_urls as any)[0]?.value?.message && (
-                  <S.ErrorText>{(errors.src_urls as any)[0].value.message}</S.ErrorText>
-                )}
-                {errors.src_urls?.root && <S.ErrorText>{errors.src_urls.root.message}</S.ErrorText>}
-              </S.FormGroup>
 
-              <S.AddVideoButton type="button" variant="secondary" onClick={() => append({ value: '' })}>
-                <Plus size={18} /> Add another video
-              </S.AddVideoButton>
-            </div>
+                    {metadataStatuses[index]?.state === 'unresolved' && (
+                      <div className={cx(neutralNote, 'flex-col gap-2 sm:flex-row sm:items-center sm:justify-between')}>
+                        <p className="text-amber-300">{metadataStatuses[index]?.message}</p>
+                        <button type="button" onClick={() => handleRetryMetadata(index)} className={form.secondaryButton}>
+                          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Retry
+                        </button>
+                      </div>
+                    )}
+                    {metadataStatuses[index]?.state === 'rate_limited' && (
+                      <div className={cx(neutralNote, 'flex-col gap-2 sm:flex-row sm:items-center sm:justify-between')}>
+                        <p className="text-amber-300">{metadataStatuses[index]?.message}</p>
+                        <button type="button" onClick={() => handleRetryMetadata(index)} className={form.secondaryButton}>
+                          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Retry
+                        </button>
+                      </div>
+                    )}
+
+                    {srcUrls?.[index]?.title && (
+                      <div className="space-y-1.5 border-l border-gray-800/60 pl-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <label htmlFor={`src_urls.${index}.title`} className={form.fieldLabel}>Title (editable)</label>
+                          {srcUrls[index]?.duration && (
+                            <span className={form.counter}>{formatDuration(srcUrls[index].duration)}</span>
+                          )}
+                        </div>
+                        <input
+                          id={`src_urls.${index}.title`}
+                          type="text"
+                          placeholder="Video title"
+                          className={form.input}
+                          {...register(`src_urls.${index}.title`)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {errors.src_urls && (errors.src_urls as any)[0]?.value?.message && (
+                <p className={form.errorText}>{(errors.src_urls as any)[0].value.message}</p>
+              )}
+              {errors.src_urls?.root && <p className={form.errorText}>{errors.src_urls.root.message}</p>}
+
+              <button type="button" onClick={() => append({ value: '' })} className={form.secondaryButton}>
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add another video
+              </button>
+            </section>
           )}
         </div>
       )}
 
-      {/* ============= PREVIEW CARDS (from form data) ============= */}
-      {srcUrls?.map((urlObj, idx) =>
-        urlObj?.value && /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/.test(urlObj.value) ? (
-          <S.PreviewContainer key={`preview-${idx}`}>
-            <div className="flex items-center justify-between">
-              <S.CardTitle>{urlObj.title || `Video ${idx + 1}`}</S.CardTitle>
-              <button
-                type="button"
-                onClick={() => remove(idx)}
-                className="text-gray-500 hover:text-red-400 transition-colors p-1"
-                title="Remove video"
-              >
-                <Trash size={14} />
-              </button>
-            </div>
-            <S.VideoPreview>
-              {getPreviewThumbnail(urlObj.value, urlObj.thumbnail_url) ? (
-                <img src={getPreviewThumbnail(urlObj.value, urlObj.thumbnail_url)} alt={urlObj.title || `Video ${idx + 1}`} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full items-center justify-center bg-black/30 px-6 text-center text-sm text-gray-300">
-                  Preview unavailable
-                </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">{urlObj.title || `Video ${idx + 1}`}</p>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-gray-300">
-                    <span>{getSourceLabel(urlObj.value)}</span>
-                    {urlObj.duration ? (
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5 text-[#fa7517]" />
-                        {formatDuration(urlObj.duration)}
-                      </span>
-                    ) : null}
+      {/* ============= SELECTED (from form data) ============= */}
+      {selectedPreviews.length > 0 && (
+        <section className={list.panel} aria-label="Selected videos">
+          <div className="flex items-center justify-between gap-3 border-b border-gray-800/60 px-4 py-2.5">
+            <p className={form.fieldLabel}>Selected</p>
+            <span className={form.counter}>{selectedPreviews.length}</span>
+          </div>
+          <ul className={list.divider}>
+            {selectedPreviews.map(({ urlObj, idx }) => {
+              const thumb = getPreviewThumbnail(urlObj.value, urlObj.thumbnail_url);
+              const label = urlObj.title || `Video ${idx + 1}`;
+              return (
+                <li key={`preview-${idx}`} className={cx(list.table.row, 'flex items-center gap-3 px-4 py-3')}>
+                  <div className="aspect-video w-24 shrink-0 overflow-hidden rounded-md border border-gray-800/60 bg-black">
+                    {thumb ? (
+                      <img src={thumb} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-[10px] text-gray-600">No preview</div>
+                    )}
                   </div>
-                </div>
-                <a href={urlObj.value} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-white hover:bg-black/55">
-                  <ExternalLink className="h-3.5 w-3.5 text-[#fa7517]" /> Source
-                </a>
-              </div>
-            </S.VideoPreview>
-          </S.PreviewContainer>
-        ) : null,
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-gray-100">{label}</p>
+                    <p className={cx(list.preview, 'mt-0.5 tabular-nums')}>
+                      {getSourceLabel(urlObj.value)}
+                      {urlObj.duration ? ` · ${formatDuration(urlObj.duration)}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <a
+                      href={urlObj.value}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open source"
+                      aria-label={`Open ${label} on YouTube`}
+                      className={list.actionButton}
+                    >
+                      <ExternalLink className={list.actionIcon} aria-hidden="true" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => remove(idx)}
+                      title="Remove video"
+                      aria-label={`Remove ${label}`}
+                      className={list.actionButton}
+                    >
+                      <Trash className={list.actionIcon} aria-hidden="true" />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
-      {/* ============= INFO BOX ============= */}
-      <S.InfoBox>
-        <Lock size={24} className="text-[#fa7517]" />
-        <div>
-          <h4 className="font-medium mb-2">Important Notes</h4>
-          <S.InfoText>
-            <ul className="list-disc list-inside space-y-2">
-              <li>Only <strong>unlisted</strong> YouTube videos can be added</li>
-              <li>Make sure your content follows YouTube's terms of service</li>
-              <li>Don't share the direct YouTube link publicly</li>
-              <li>Once purchased, your pass gates this content behind a paywall</li>
-            </ul>
-          </S.InfoText>
-        </div>
-      </S.InfoBox>
-    </>
+      {/* ============= NOTES ============= */}
+      <div className="space-y-1.5 px-1">
+        <p className={page.eyebrow}>Important notes</p>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-gray-400">
+          <li>Only <strong className="font-medium text-gray-200">unlisted</strong> YouTube videos can be added</li>
+          <li>Make sure your content follows YouTube's terms of service</li>
+          <li>Don't share the direct YouTube link publicly</li>
+          <li>Once purchased, your pass gates this content behind a paywall</li>
+        </ul>
+      </div>
+    </div>
   );
 };
 

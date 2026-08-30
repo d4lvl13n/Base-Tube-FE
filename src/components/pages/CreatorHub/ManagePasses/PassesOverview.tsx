@@ -1,92 +1,96 @@
 // src/components/pages/CreatorHub/ManagePasses/PassesOverview.tsx
 import React, { useMemo } from 'react';
-import { DollarSign, Crown, Users, Package } from 'lucide-react';
-import StatsCard from '../StatsCard';
-import { useCreatorPasses } from '../../../../hooks/usePass';
+import type { Pass } from '../../../../types/pass';
+import { cx, list, page, skeleton } from '../shared/hubStyles';
+import { formatMoney, soldCount } from './passHelpers';
 
-const PassesOverview: React.FC = () => {
-  const { data: passes, isLoading, error } = useCreatorPasses();
-  
-  const stats = useMemo(() => {
-    if (!passes) return null;
-    
-    const totalPasses = passes.length;
-    
-    // Calculate total minted vs supply
-    let totalMinted = 0;
-    let totalSupplyCap = 0;
-    let totalRevenue = 0;
-    
-    passes.forEach(pass => {
-      // Count sold passes (minted + reserved for pending Stripe purchases)
-      const passSold = (pass.sold_count ?? (pass.minted_count || 0));
-      totalMinted += passSold;
+interface PassesOverviewProps {
+  passes: Pass[] | undefined;
+  isLoading: boolean;
+  error: unknown;
+}
 
-      // Add to supply cap if finite
+interface Tile {
+  label: string;
+  value: string;
+  hint?: string;
+}
+
+/**
+ * Four numbers above the list, in one panel divided by hairlines — no cards,
+ * no icons, no change arrows. Revenue carries its currency; a creator selling
+ * in two currencies sees one total per currency rather than a meaningless sum.
+ */
+const PassesOverview: React.FC<PassesOverviewProps> = ({ passes, isLoading, error }) => {
+  const tiles = useMemo<Tile[]>(() => {
+    const rows = passes ?? [];
+    let sold = 0;
+    let cappedSold = 0;
+    let supplyCap = 0;
+    const revenueByCurrency = new Map<string, number>();
+
+    rows.forEach((pass) => {
+      const passSold = soldCount(pass);
+      sold += passSold;
       if (pass.supply_cap) {
-        totalSupplyCap += pass.supply_cap;
+        supplyCap += pass.supply_cap;
+        cappedSold += passSold;
       }
-
-      // Calculate revenue (total sold * price_cents)
-      totalRevenue += passSold * pass.price_cents;
+      const currency = (pass.currency || 'EUR').toUpperCase();
+      revenueByCurrency.set(currency, (revenueByCurrency.get(currency) ?? 0) + passSold * pass.price_cents);
     });
-    
-    // Calculate remaining (only for passes with supply caps)
-    const totalRemaining = totalSupplyCap - totalMinted;
-    
-    return {
-      totalPasses,
-      totalMinted,
-      totalRemaining,
-      totalRevenue: (totalRevenue / 100).toFixed(2) // Convert cents to dollars/euros
-    };
+
+    const revenue =
+      revenueByCurrency.size === 0
+        ? formatMoney(0, 'EUR')
+        : Array.from(revenueByCurrency.entries())
+            .map(([currency, cents]) => formatMoney(cents, currency))
+            .join(' · ');
+
+    const hasUnlimited = rows.some((pass) => !pass.supply_cap);
+
+    return [
+      { label: 'Passes', value: rows.length.toLocaleString() },
+      { label: 'Sold', value: sold.toLocaleString() },
+      {
+        label: 'Available supply',
+        value: supplyCap > 0 ? Math.max(0, supplyCap - cappedSold).toLocaleString() : hasUnlimited ? '∞' : '0',
+        hint: supplyCap > 0 && hasUnlimited ? 'capped passes only' : undefined,
+      },
+      { label: 'Gross revenue', value: revenue, hint: 'before fees' },
+    ];
   }, [passes]);
-  
-  const errorMessage = error ? 'Failed to load data' : undefined;
-  
+
   return (
-    <div className="mt-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard
-          icon={Crown}
-          title="Total Passes"
-          value={stats?.totalPasses || 0}
-          change={0} // No change indicator for now
-          loading={isLoading}
-          error={errorMessage}
-          subtitle="Created passes"
-        />
-        
-        <StatsCard
-          icon={Users}
-          title="Total Sold"
-          value={stats?.totalMinted || 0}
-          change={0}
-          loading={isLoading}
-          error={errorMessage}
-          subtitle="Passes purchased"
-        />
-        
-        <StatsCard
-          icon={Package}
-          title="Available Supply"
-          value={stats?.totalRemaining || 0}
-          change={0}
-          loading={isLoading}
-          error={errorMessage}
-          subtitle="Remaining passes"
-        />
-        
-        <StatsCard
-          icon={DollarSign}
-          title="Gross Revenue"
-          value={stats?.totalRevenue ? `$${stats.totalRevenue}` : '$0.00'}
-          change={0}
-          loading={isLoading}
-          error={errorMessage}
-          subtitle="Before platform fees"
-        />
-      </div>
+    <div
+      className={cx(
+        list.panel,
+        'grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-800/60',
+        '[&>*:nth-child(3)]:border-l-0 md:[&>*:nth-child(3)]:border-l',
+        '[&>*:nth-child(n+3)]:border-t md:[&>*:nth-child(n+3)]:border-t-0',
+      )}
+      role="group"
+      aria-label="Pass totals"
+    >
+      {tiles.map((tile) => (
+        <div key={tile.label} className="min-w-0 border-gray-800/60 px-4 py-3 md:px-5">
+          <p className={page.eyebrow}>{tile.label}</p>
+          {isLoading ? (
+            <div className={cx(skeleton.line, 'mt-2 h-5 w-16')} aria-hidden="true" />
+          ) : (
+            <p
+              className={cx(
+                'mt-1 truncate text-xl font-semibold tabular-nums',
+                error ? 'text-gray-600' : 'text-white',
+              )}
+              title={error ? undefined : tile.value}
+            >
+              {error ? '—' : tile.value}
+            </p>
+          )}
+          {tile.hint && !isLoading && !error && <p className="mt-0.5 text-xs text-gray-600">{tile.hint}</p>}
+        </div>
+      ))}
     </div>
   );
 };

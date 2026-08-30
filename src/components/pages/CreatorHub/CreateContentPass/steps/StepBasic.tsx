@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { UseFormRegister, FieldErrors, Control, UseFormSetValue, UseFormWatch, Controller } from 'react-hook-form';
 import { DollarSign, Euro, PoundSterling, Users, Calculator } from 'lucide-react';
-import * as S from '../styles';
+import { cx, form, page, segmented } from '../../shared/hubStyles';
 import { FormData } from '../types';
-import { motion } from 'framer-motion';
 
 interface StepBasicProps {
   register: UseFormRegister<FormData>;
@@ -23,13 +22,16 @@ const suggestedPrices = [5, 10, 25, 50];
 
 const getCurrencySymbol = (currency: string | undefined) => {
   const currencyData = currencies.find(c => c.code === currency) || currencies[0];
-  return <currencyData.symbol size={18} />;
+  return <currencyData.symbol className="h-4 w-4" aria-hidden="true" />;
 };
 
 const centsToDisplayValue = (value?: number) => {
   if (value === undefined || value === null || Number.isNaN(value)) return '';
   return `${value / 100}`.replace(/\.0$/, '');
 };
+
+/** `form.input` with room for a leading icon. */
+const prefixedInput = cx(form.input, 'pl-9');
 
 const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProps): JSX.Element => {
   const watchedFields = watch();
@@ -56,26 +58,34 @@ const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProp
   }, [watchedFields.supply_cap]);
 
   return (
-    <>
-      <S.FormGroup>
-        <S.Label htmlFor="title">Pass Title *</S.Label>
-        <S.Input
+    <div className="space-y-4">
+      {/* ── Title ──────────────────────────────────────────────────────── */}
+      <section className={cx(form.panel, 'space-y-1.5')} aria-labelledby="basic-title-label">
+        <label id="basic-title-label" htmlFor="title" className={form.fieldLabel}>Pass title</label>
+        <input
           id="title"
+          type="text"
           placeholder="E.g., Premium Video Masterclass"
+          aria-invalid={errors.title ? true : undefined}
+          className={cx(form.input, errors.title && 'border-red-500/60')}
           {...register('title', {
             required: 'Title is required'
           })}
         />
         {errors.title && (
-          <S.ErrorText>{errors.title.message}</S.ErrorText>
+          <p className={form.errorText}>{errors.title.message}</p>
         )}
-        <S.InfoText>Choose a catchy title that describes your exclusive content.</S.InfoText>
-      </S.FormGroup>
+        <p className={form.counter}>Choose a catchy title that describes your exclusive content.</p>
+      </section>
 
-      <S.ThreeColumns>
-        <S.FormGroup>
-          <S.Label htmlFor="price">Price *</S.Label>
-          <div className="relative">
+      {/* ── Pricing & supply ───────────────────────────────────────────── */}
+      <section className={cx(form.panel, 'space-y-5')} aria-label="Pricing and supply">
+        <h2 className={form.panelTitle}>Pricing &amp; supply</h2>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_auto]">
+          {/* Price */}
+          <div className="space-y-1.5">
+            <label htmlFor="price" className={form.fieldLabel}>Price</label>
             <Controller
               name="price_cents"
               control={control}
@@ -85,17 +95,19 @@ const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProp
                 validate: value => (value !== undefined && value !== null && !isNaN(value)) || 'Please enter a valid price'
               }}
               render={({ field: { onChange, ref } }) => (
-                <div className="flex items-center">
-                  <S.PremiumInputPrefix>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                     {getCurrencySymbol(watchedFields.currency || 'USD')}
-                  </S.PremiumInputPrefix>
-                  <S.PremiumInput
+                  </span>
+                  <input
                     id="price"
                     type="text"
                     inputMode="decimal"
                     placeholder="5.00"
                     ref={ref}
                     value={priceInput}
+                    aria-invalid={errors.price_cents ? true : undefined}
+                    className={cx(prefixedInput, errors.price_cents && 'border-red-500/60')}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       const nextValue = e.target.value.replace(',', '.');
 
@@ -122,139 +134,143 @@ const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProp
                 </div>
               )}
             />
+            <div className="flex items-center gap-3 pt-1">
+              <span className={page.eyebrow}>Suggested</span>
+              <div className={segmented.trough} role="group" aria-label="Suggested prices">
+                {suggestedPrices.map(price => {
+                  const active = activeSuggestedPrice === price;
+                  return (
+                    <button
+                      key={price}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => {
+                        setPriceInput(price.toFixed(2));
+                        setValue('price_cents', price * 100, { shouldValidate: true, shouldDirty: true });
+                      }}
+                      className={cx(segmented.chip, 'tabular-nums', active ? segmented.chipActive : segmented.chipIdle)}
+                    >
+                      {price.toFixed(0)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {errors.price_cents && (
+              <p className={form.errorText}>{errors.price_cents.message}</p>
+            )}
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {suggestedPrices.map(price => (
-              <button
-                key={price}
-                type="button"
-                onClick={() => {
-                  setPriceInput(price.toFixed(2));
-                  setValue('price_cents', price * 100, { shouldValidate: true, shouldDirty: true });
-                }}
-                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-all ${
-                  activeSuggestedPrice === price
-                    ? 'border-[#fa7517] bg-[#fa7517]/15 text-[#fa7517]'
-                    : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20 hover:text-white'
-                }`}
-              >
-                {price.toFixed(0)}
-              </button>
-            ))}
-          </div>
-          {errors.price_cents && (
-            <S.ErrorText>{errors.price_cents.message}</S.ErrorText>
-          )}
-        </S.FormGroup>
 
-        <S.FormGroup>
-          <S.Label htmlFor="currency">Currency *</S.Label>
-          <S.CurrencySelect>
+          {/* Currency */}
+          <div className="space-y-1.5">
+            <span id="currency-label" className={form.fieldLabel}>Currency</span>
             <Controller
               name="currency"
               control={control}
               rules={{ required: 'Currency is required' }}
               render={({ field: { onChange, value, ref } }) => (
-                <S.PremiumSelect
+                <div
                   id="currency"
-                  ref={ref}
-                  value={value || 'USD'}
-                  onChange={onChange}
+                  className={cx(segmented.trough, 'h-9')}
+                  role="radiogroup"
+                  aria-labelledby="currency-label"
                 >
-                  {currencies.map(currency => (
-                    <option key={currency.code} value={currency.code}>
-                      {currency.code}
-                    </option>
-                  ))}
-                </S.PremiumSelect>
-              )}
-            />
-          </S.CurrencySelect>
-          {errors.currency && (
-            <S.ErrorText>{errors.currency.message}</S.ErrorText>
-          )}
-        </S.FormGroup>
-
-        <S.FormGroup>
-          <S.Label htmlFor="supply_cap">Supply Cap *</S.Label>
-          <div className="relative">
-            <Controller
-              name="supply_cap"
-              control={control}
-              rules={{
-                required: 'Supply cap is required',
-                validate: value => (Number.isInteger(value) && (value ?? 0) >= 1) || 'Supply cap must be a whole number greater than 0'
-              }}
-              render={({ field: { onChange, ref } }) => (
-                <div className="flex items-center">
-                  <S.PremiumInputPrefix>
-                    <Users size={18} />
-                  </S.PremiumInputPrefix>
-                  <S.PremiumInput
-                    id="supply_cap"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="100"
-                    ref={ref}
-                    value={supplyCapInput}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      const digitsOnly = e.target.value.replace(/\D/g, '');
-                      setSupplyCapInput(digitsOnly);
-                      if (digitsOnly === '') {
-                        onChange(undefined);
-                        return;
-                      }
-
-                      onChange(Number.parseInt(digitsOnly, 10));
-                    }}
-                    onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-                      const digitsOnly = e.target.value.replace(/\D/g, '');
-                      if (!digitsOnly) {
-                        setSupplyCapInput('');
-                        onChange(undefined);
-                        return;
-                      }
-
-                      const normalized = Math.max(1, Number.parseInt(digitsOnly, 10));
-                      setSupplyCapInput(String(normalized));
-                      onChange(normalized);
-                    }}
-                  />
+                  {currencies.map(currency => {
+                    const active = (value || 'USD') === currency.code;
+                    return (
+                      <button
+                        key={currency.code}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        aria-label={currency.name}
+                        ref={active ? ref : undefined}
+                        onClick={() => onChange(currency.code)}
+                        className={cx(segmented.chip, active ? segmented.chipActive : segmented.chipIdle)}
+                      >
+                        {currency.code}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             />
+            {errors.currency && (
+              <p className={form.errorText}>{errors.currency.message}</p>
+            )}
           </div>
+        </div>
+
+        {/* Supply cap */}
+        <div className="space-y-1.5 md:max-w-xs">
+          <label htmlFor="supply_cap" className={form.fieldLabel}>Supply cap</label>
+          <Controller
+            name="supply_cap"
+            control={control}
+            rules={{
+              required: 'Supply cap is required',
+              validate: value => (Number.isInteger(value) && (value ?? 0) >= 1) || 'Supply cap must be a whole number greater than 0'
+            }}
+            render={({ field: { onChange, ref } }) => (
+              <div className="relative">
+                <Users className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden="true" />
+                <input
+                  id="supply_cap"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="100"
+                  ref={ref}
+                  value={supplyCapInput}
+                  aria-invalid={errors.supply_cap ? true : undefined}
+                  className={cx(prefixedInput, 'tabular-nums', errors.supply_cap && 'border-red-500/60')}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    const digitsOnly = e.target.value.replace(/\D/g, '');
+                    setSupplyCapInput(digitsOnly);
+                    if (digitsOnly === '') {
+                      onChange(undefined);
+                      return;
+                    }
+
+                    onChange(Number.parseInt(digitsOnly, 10));
+                  }}
+                  onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                    const digitsOnly = e.target.value.replace(/\D/g, '');
+                    if (!digitsOnly) {
+                      setSupplyCapInput('');
+                      onChange(undefined);
+                      return;
+                    }
+
+                    const normalized = Math.max(1, Number.parseInt(digitsOnly, 10));
+                    setSupplyCapInput(String(normalized));
+                    onChange(normalized);
+                  }}
+                />
+              </div>
+            )}
+          />
           {errors.supply_cap && (
-            <S.ErrorText>{errors.supply_cap.message}</S.ErrorText>
+            <p className={form.errorText}>{errors.supply_cap.message}</p>
           )}
-          <S.InfoText>Whole numbers only. This controls how many passes can ever be sold.</S.InfoText>
-        </S.FormGroup>
-      </S.ThreeColumns>
+          <p className={form.counter}>Whole numbers only. This controls how many passes can ever be sold.</p>
+        </div>
 
-      <S.InfoText>
-        Set a competitive price and a realistic supply cap to maximize your earnings. Limited availability creates scarcity and can increase purchase urgency.
-      </S.InfoText>
-
-      <div className="mt-4 rounded-lg border border-gray-800/30 bg-black/50 p-4">
-        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <div>
-            <h4 className="text-lg font-medium text-white">Not sure about pricing?</h4>
-            <p className="text-sm text-gray-400">Use our revenue simulator to compare price points and supply options before you launch.</p>
-          </div>
-          <motion.a
+        <div className="flex flex-col gap-2 border-t border-gray-800/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-gray-500">
+            Set a competitive price and a realistic supply cap to maximize your earnings. Limited availability creates scarcity and can increase purchase urgency.
+          </p>
+          <a
             href="/creator-hub/nft-simulator"
             target="_blank"
             rel="noopener noreferrer"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-gray-700"
+            className={cx(form.inlineAction, 'shrink-0')}
           >
-            <Calculator className="h-4 w-4" />
-            Open Revenue Simulator
-          </motion.a>
+            <Calculator className="h-3.5 w-3.5" aria-hidden="true" />
+            Open revenue simulator
+          </a>
         </div>
-      </div>
-    </>
+      </section>
+    </div>
   );
 };
 

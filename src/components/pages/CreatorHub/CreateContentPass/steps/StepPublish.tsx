@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Banknote, Coins, Wallet } from 'lucide-react';
-import * as S from '../styles';
+import { motion, useReducedMotion } from 'framer-motion';
+import { AlertTriangle, ArrowLeft, Banknote, Coins } from 'lucide-react';
+import { cx, editorial, form, motionPresets, selectable } from '../../shared/hubStyles';
 import type { CreatorSettlementPreference } from '../../../../../types/pass';
+
+export interface PublishSummary {
+  title: string;
+  priceLabel: string;
+  supplyCap?: number;
+  videoCount: number;
+}
 
 interface StepPublishProps {
   settlementPreference: CreatorSettlementPreference | '';
@@ -12,9 +20,17 @@ interface StepPublishProps {
   isPublishing?: boolean;
   publishError?: string | null;
   onPublish: () => void;
+  /** Read-only facts for the masthead strip. */
+  summary: PublishSummary;
+  onBack: () => void;
 }
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
+const STAGGER = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
+};
 
 const StepPublish: React.FC<StepPublishProps> = ({
   settlementPreference,
@@ -25,7 +41,13 @@ const StepPublish: React.FC<StepPublishProps> = ({
   isPublishing,
   publishError,
   onPublish,
+  summary,
+  onBack,
 }) => {
+  const prefersReducedMotion = useReducedMotion();
+  const fadeUp = prefersReducedMotion ? undefined : motionPresets.fadeUp;
+  const fadeUpSmall = prefersReducedMotion ? undefined : motionPresets.fadeUpSmall;
+
   const [touchedAddress, setTouchedAddress] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const trimmed = payoutAddress.trim();
@@ -51,72 +73,113 @@ const StepPublish: React.FC<StepPublishProps> = ({
     onPublish();
   };
 
+  const settlementOptions: Array<{
+    value: CreatorSettlementPreference;
+    label: string;
+    detail: string;
+    Icon: typeof Banknote;
+  }> = [
+    { value: 'fiat', label: 'Bank / card (euros)', detail: 'You receive euros. Card sales use Stripe test payouts.', Icon: Banknote },
+    { value: 'crypto', label: 'Crypto (USDC)', detail: 'You receive test USDC on Base Sepolia.', Icon: Coins },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold text-white">How do you want to get paid?</h2>
-        <p className="mt-2 text-sm leading-6 text-gray-400">
-          Fans can still pay by card or crypto. This only chooses where <em>your</em> share goes.
-        </p>
+    <motion.div
+      initial={prefersReducedMotion ? false : 'hidden'}
+      whileInView="visible"
+      viewport={{ once: true }}
+      variants={prefersReducedMotion ? undefined : STAGGER}
+      className="space-y-10 py-6 text-[#f0f0f0]"
+    >
+      {/* ── Masthead ───────────────────────────────────────────────────── */}
+      <div className="flex flex-col items-center gap-5 text-center">
+        <motion.p variants={fadeUpSmall} className={editorial.eyebrow} style={{ letterSpacing: '0.3em' }}>
+          Publish
+        </motion.p>
+        <motion.h2
+          variants={fadeUp}
+          className={cx(editorial.masthead, '[text-wrap:balance]')}
+          style={editorial.mastheadStyle}
+        >
+          {summary.title || 'Untitled pass'}
+        </motion.h2>
+        <motion.div variants={fadeUpSmall} className={editorial.strip} style={{ letterSpacing: '0.16em' }}>
+          <span className="tabular-nums">{summary.priceLabel}</span>
+          <span aria-hidden className={editorial.textTertiary}>·</span>
+          <span className="tabular-nums">
+            {summary.supplyCap ? `${summary.supplyCap} ${summary.supplyCap === 1 ? 'pass' : 'passes'}` : 'Unlimited'}
+          </span>
+          <span aria-hidden className={editorial.textTertiary}>·</span>
+          <span className="tabular-nums">
+            {summary.videoCount} video{summary.videoCount !== 1 ? 's' : ''}
+          </span>
+        </motion.div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => onSettlementChange('fiat')}
-          className={`rounded-2xl border p-5 text-left transition-colors ${
-            settlementPreference === 'fiat'
-              ? 'border-[#fa7517] bg-[#fa7517]/10'
-              : 'border-white/10 bg-white/[0.03] hover:border-white/20'
-          }`}
-        >
-          <Banknote className={`mb-3 h-6 w-6 ${settlementPreference === 'fiat' ? 'text-[#fa7517]' : 'text-gray-400'}`} />
-          <p className="font-medium text-white">Bank / card (euros)</p>
-          <p className="mt-1 text-sm text-gray-400">
-            You receive euros. Card sales use Stripe test payouts.
-          </p>
-        </button>
+      {/* ── Settlement ─────────────────────────────────────────────────── */}
+      <motion.section variants={fadeUp} className={editorial.panel} aria-labelledby="settlement-title">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-20 left-1/2 h-[200px] w-[500px] -translate-x-1/2"
+          style={editorial.glowStyle}
+        />
 
-        <button
-          type="button"
-          onClick={() => onSettlementChange('crypto')}
-          className={`rounded-2xl border p-5 text-left transition-colors ${
-            settlementPreference === 'crypto'
-              ? 'border-[#fa7517] bg-[#fa7517]/10'
-              : 'border-white/10 bg-white/[0.03] hover:border-white/20'
-          }`}
-        >
-          <Coins className={`mb-3 h-6 w-6 ${settlementPreference === 'crypto' ? 'text-[#fa7517]' : 'text-gray-400'}`} />
-          <p className="font-medium text-white">Crypto (USDC)</p>
-          <p className="mt-1 text-sm text-gray-400">
-            You receive test USDC on Base Sepolia.
-          </p>
-        </button>
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-        <div className="flex items-start gap-3">
-          <Wallet className="mt-0.5 h-5 w-5 text-[#fa7517]" />
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-white">Where should it arrive?</p>
-            <p className="mt-1 text-sm leading-6 text-gray-400">
-              Every published pass is registered on the test network, even if you chose euros.
-              Use a wallet you already control on Base Sepolia. We do not create one for you.
+        <div className="relative space-y-8 p-6 md:p-10">
+          <div className="space-y-2">
+            <p className={editorial.eyebrow} style={{ letterSpacing: '0.3em' }}>Settlement</p>
+            <h3 id="settlement-title" className={cx('text-xl font-medium', editorial.textPrimary)} style={{ letterSpacing: '-0.02em' }}>
+              How do you want to get paid?
+            </h3>
+            <p className={cx('text-sm leading-6', editorial.textSecondary)}>
+              Fans can still pay by card or crypto. This only chooses where <em>your</em> share goes.
             </p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2" role="radiogroup" aria-labelledby="settlement-title">
+            {settlementOptions.map(({ value, label, detail, Icon }) => {
+              const active = settlementPreference === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => onSettlementChange(value)}
+                  className={cx(selectable.base, 'p-5', active ? selectable.active : selectable.idle)}
+                >
+                  <Icon className={cx('mb-3 h-4 w-4', active ? 'text-[#fa7517]' : 'text-gray-500')} aria-hidden="true" />
+                  <p className="text-sm font-medium text-gray-100">{label}</p>
+                  <p className="mt-1 text-sm text-gray-400">{detail}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className={cx('space-y-4 pt-8', editorial.divider)}>
+            <div className="space-y-1">
+              <p className={cx('text-sm font-medium', editorial.textPrimary)}>Where should it arrive?</p>
+              <p className={cx('text-sm leading-6', editorial.textSecondary)}>
+                Every published pass is registered on the test network, even if you chose euros.
+                Use a wallet you already control on Base Sepolia. We do not create one for you.
+              </p>
+            </div>
 
             {linkedWallet ? (
-              <p className="mt-3 truncate rounded-lg bg-black/40 px-3 py-2 font-mono text-xs text-gray-200">
+              <p className="truncate rounded-md border border-gray-800/60 bg-white/5 px-3 py-2 font-mono text-xs text-gray-200">
                 Linked wallet: {linkedWallet}
               </p>
             ) : (
-              <p className="mt-3 text-sm text-gray-400">
+              <p className={cx('text-sm', editorial.textSecondary)}>
                 No wallet is linked yet. Paste a test address below, or connect one in your profile.
               </p>
             )}
 
-            <label className="mt-4 block text-sm text-gray-300">
-              {linkedWallet ? 'Or use a different test address (optional)' : 'Test wallet address'}
+            <div className="space-y-1.5">
+              <label htmlFor="payout-address" className={form.fieldLabel}>
+                {linkedWallet ? 'Or use a different test address (optional)' : 'Test wallet address'}
+              </label>
               <input
+                id="payout-address"
                 type="text"
                 value={payoutAddress}
                 onChange={(e) => {
@@ -127,50 +190,52 @@ const StepPublish: React.FC<StepPublishProps> = ({
                 placeholder="0x…"
                 autoComplete="off"
                 spellCheck={false}
-                className={`mt-2 w-full rounded-xl border bg-black/40 px-4 py-3 font-mono text-sm text-white outline-none focus:border-[#fa7517] ${
-                  touchedAddress && !hasDestination
-                    ? 'border-red-400'
-                    : 'border-white/10'
-                }`}
+                aria-invalid={touchedAddress && !hasDestination ? true : undefined}
+                className={cx(form.input, 'font-mono', touchedAddress && !hasDestination && 'border-red-500/60')}
               />
-            </label>
-            {touchedAddress && !addressValid && (
-              <p className="mt-2 text-sm text-red-300">That does not look like a 0x wallet address.</p>
-            )}
-            {touchedAddress && addressValid && !hasDestination && (
-              <p className="mt-2 text-sm text-red-300">Paste a test wallet address to continue.</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {shownError && (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 text-red-300" />
-            <div>
-              <p className="font-medium text-red-200">Could not publish</p>
-              <p className="mt-1 text-sm text-red-100/90">{shownError}</p>
+              {touchedAddress && !addressValid && (
+                <p className={form.errorText}>That does not look like a 0x wallet address.</p>
+              )}
+              {touchedAddress && addressValid && !hasDestination && (
+                <p className={form.errorText}>Paste a test wallet address to continue.</p>
+              )}
             </div>
           </div>
+
+          {shownError && (
+            <div className={form.errorNote} role="alert">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <div>
+                <p className="font-medium">Could not publish</p>
+                <p className="mt-0.5 text-red-300/90">{shownError}</p>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </motion.section>
 
-      <S.LaunchButton
-        type="button"
-        onClick={handlePublishClick}
-        disabled={isPublishing}
-        style={canPublish || isPublishing ? undefined : { opacity: 0.7 }}
-        whileHover={!isPublishing ? { scale: 1.02 } : undefined}
-        whileTap={!isPublishing ? { scale: 0.98 } : undefined}
-      >
-        {isPublishing ? 'Publishing…' : 'Publish pass'}
-      </S.LaunchButton>
-
-      <p className="text-center text-xs text-gray-500">
-        Publishing registers the pass on the test network. Fans cannot buy it until this succeeds.
-      </p>
-    </div>
+      {/* ── Actions ────────────────────────────────────────────────────── */}
+      <motion.div variants={fadeUpSmall} className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
+          <button type="button" onClick={onBack} className={editorial.secondaryButton}>
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={handlePublishClick}
+            disabled={isPublishing}
+            style={canPublish || isPublishing ? undefined : { opacity: 0.7 }}
+            className={editorial.primaryButton}
+          >
+            {isPublishing ? 'Publishing…' : 'Publish pass'}
+          </button>
+        </div>
+        <p className={cx('text-center text-xs', editorial.textTertiary)}>
+          Publishing registers the pass on the test network. Fans cannot buy it until this succeeds.
+        </p>
+      </motion.div>
+    </motion.div>
   );
 };
 

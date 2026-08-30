@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { UseFormWatch } from 'react-hook-form';
-import * as S from '../styles';
-import { FormData } from '../types'; // Assuming types are defined in a central place or ../index.tsx
-import { DollarSign, Users, Play, Shield, X, ChevronRight, Sparkles, Lock, AlertTriangle, ExternalLink, Clock } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { cx, form, list, page } from '../../shared/hubStyles';
+import { FormData } from '../types';
+import { X, ChevronRight, AlertTriangle, ExternalLink } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import ContentPassSuccessAnimation from '../../../../animations/ContentPassSuccessAnimation';
 
 interface StepReviewProps {
@@ -73,6 +73,16 @@ const getSourceLabel = (url?: string) => {
   }
 };
 
+/** Basic rich-text rendering for the description preview, without a typography plugin. */
+const richText = `
+  max-h-48 overflow-y-auto text-sm leading-6 text-gray-300
+  [&_h1]:text-base [&_h1]:font-medium [&_h1]:text-gray-100 [&_h1]:mt-3 [&_h1]:mb-1
+  [&_h2]:text-base [&_h2]:font-medium [&_h2]:text-gray-100 [&_h2]:mt-3 [&_h2]:mb-1
+  [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-gray-100 [&_h3]:mt-3 [&_h3]:mb-1
+  [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5
+  [&_a]:text-[#fa7517] [&_strong]:text-gray-100
+`;
+
 const StepReview: React.FC<StepReviewProps> = ({
   watch,
   onConfirm,
@@ -84,6 +94,7 @@ const StepReview: React.FC<StepReviewProps> = ({
   onStartOAuth,
   onBackToVideos
 }) => {
+  const prefersReducedMotion = useReducedMotion();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const watchedFields = watch();
@@ -113,343 +124,229 @@ const StepReview: React.FC<StepReviewProps> = ({
     if (onContinue) onContinue();
   };
 
+  const supplyLabel = watchedFields.supply_cap
+    ? `${watchedFields.supply_cap} ${Number(watchedFields.supply_cap) === 1 ? 'pass' : 'passes'}`
+    : 'Unlimited';
+
   return (
     <>
       {/* Show success animation when submission is successful */}
       {showSuccessAnimation && (
-        <ContentPassSuccessAnimation 
+        <ContentPassSuccessAnimation
           onComplete={handleAnimationComplete}
           passTitle={watchedFields.title || 'Premium Content Pass'}
           passPrice={formattedPrice}
         />
       )}
 
-      <S.ReviewContainer>
-        <S.ReviewHeader>
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }} 
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <S.ReviewTitle>Review your draft</S.ReviewTitle>
-            <S.ReviewSubtitle>This saves the pass. It is not for sale until you publish on the next step.</S.ReviewSubtitle>
-          </motion.div>
-        </S.ReviewHeader>
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-base font-medium text-white">Review your draft</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            This saves the pass. It is not for sale until you publish on the next step.
+          </p>
+        </div>
 
-        <S.ReviewGrid>
-          {/* Left Column: Pass Details */}
-          <motion.div 
-            className="space-y-6"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <S.ReviewCard>
-              <S.ReviewCardHeader>
-                <Shield size={24} className="text-[#fa7517]" />
-                <S.ReviewCardTitle>Pass Details</S.ReviewCardTitle>
-              </S.ReviewCardHeader>
-              
-              <S.PassInfo>
-                <S.PassTitle>{watchedFields.title || 'Untitled Pass'}</S.PassTitle>
-              </S.PassInfo>
-              
-              <S.Divider />
-              
-              <S.ReviewDetail>
-                <S.ReviewDetailIcon>
-                  <DollarSign size={18} />
-                </S.ReviewDetailIcon>
-                <S.ReviewDetailContent>
-                  <S.ReviewDetailLabel>Price</S.ReviewDetailLabel>
-                  <S.ReviewDetailValue accent>
-                    {formattedPrice}
-                  </S.ReviewDetailValue>
-                </S.ReviewDetailContent>
-              </S.ReviewDetail>
-              
-              <S.ReviewDetail>
-                <S.ReviewDetailIcon>
-                  <Users size={18} />
-                </S.ReviewDetailIcon>
-                <S.ReviewDetailContent>
-                  <S.ReviewDetailLabel>Supply Cap</S.ReviewDetailLabel>
-                  <S.ReviewDetailValue>
-                    {watchedFields.supply_cap || 'Unlimited'} {Number(watchedFields.supply_cap) === 1 ? 'pass' : 'passes'} available
-                  </S.ReviewDetailValue>
-                </S.ReviewDetailContent>
-              </S.ReviewDetail>
-              
-              <S.ReviewDetail>
-                <S.ReviewDetailIcon>
-                  <Play size={18} />
-                </S.ReviewDetailIcon>
-                <S.ReviewDetailContent>
-                  <S.ReviewDetailLabel>Content</S.ReviewDetailLabel>
-                  <S.ReviewDetailValue>
-                    {validUrls.length} video{validUrls.length !== 1 ? 's' : ''} included
-                  </S.ReviewDetailValue>
-                </S.ReviewDetailContent>
-              </S.ReviewDetail>
-            </S.ReviewCard>
+        <div className={form.grid}>
+          {/* ── Summary ──────────────────────────────────────────────────── */}
+          <div className="space-y-4">
+            <section className={cx(form.panel, 'space-y-4')} aria-label="Pass details">
+              <h3 className={form.panelTitle}>Pass details</h3>
+              <dl className="grid grid-cols-[auto,1fr] gap-x-6 gap-y-2">
+                <dt className={page.eyebrow}>Title</dt>
+                <dd className="text-sm text-gray-100">{watchedFields.title || 'Untitled Pass'}</dd>
+                <dt className={page.eyebrow}>Price</dt>
+                <dd className="text-sm tabular-nums text-gray-100">{formattedPrice}</dd>
+                <dt className={page.eyebrow}>Supply cap</dt>
+                <dd className="text-sm tabular-nums text-gray-100">{supplyLabel}</dd>
+                <dt className={page.eyebrow}>Content</dt>
+                <dd className="text-sm tabular-nums text-gray-100">
+                  {validUrls.length} video{validUrls.length !== 1 ? 's' : ''} included
+                </dd>
+              </dl>
+            </section>
 
             {watchedFields.description && (
-              <S.ReviewCard>
-                <S.ReviewCardHeader>
-                  <S.ReviewCardTitle>Description</S.ReviewCardTitle>
-                </S.ReviewCardHeader>
-                <S.DescriptionContent
+              <section className={cx(form.panel, 'space-y-3')} aria-label="Description">
+                <h3 className={form.panelTitle}>Description</h3>
+                <div
+                  className={richText}
                   dangerouslySetInnerHTML={{ __html: watchedFields.description }}
                 />
-              </S.ReviewCard>
+              </section>
             )}
-          </motion.div>
+          </div>
 
-          {/* Right Column: Video Previews */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <S.ReviewCard className="h-full">
-              <S.ReviewCardHeader>
-                <Play size={24} className="text-[#fa7517]" />
-                <S.ReviewCardTitle>Premium Content</S.ReviewCardTitle>
-              </S.ReviewCardHeader>
-              <p className="mb-4 text-sm text-gray-400">
+          {/* ── Videos ───────────────────────────────────────────────────── */}
+          <section className={list.panel} aria-label="Premium content">
+            <div className="border-b border-gray-800/60 px-4 py-3">
+              <h3 className={form.panelTitle}>Premium content</h3>
+              <p className="mt-1 text-xs text-gray-500">
                 Final review uses lightweight source cards. Ownership and unlisted checks still happen when you launch.
               </p>
+            </div>
+            {validUrls.length > 0 ? (
+              <ul className={list.divider}>
+                {validUrls.map((urlObj, idx) => {
+                  const thumb = getThumbnailUrl(urlObj.value, urlObj.thumbnail_url);
+                  const label = urlObj.title || `Video ${idx + 1}`;
+                  return (
+                    <li key={`preview-${idx}`} className={cx(list.table.row, 'flex items-center gap-3 px-4 py-3')}>
+                      <div className="aspect-video w-24 shrink-0 overflow-hidden rounded-md border border-gray-800/60 bg-black">
+                        {thumb ? (
+                          <img src={thumb} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[10px] text-gray-600">No preview</div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-gray-100">{label}</p>
+                        <p className={cx(list.preview, 'mt-0.5 tabular-nums')}>
+                          {getSourceLabel(urlObj.value)} · {formatDuration(urlObj.duration)}
+                        </p>
+                      </div>
+                      <a
+                        href={urlObj.value}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open source"
+                        aria-label={`Open ${label} on YouTube`}
+                        className={list.actionButton}
+                      >
+                        <ExternalLink className={list.actionIcon} aria-hidden="true" />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className={list.emptyState.wrapper}>
+                <p className={list.emptyState.title}>No valid video URLs provided.</p>
+              </div>
+            )}
+          </section>
+        </div>
 
-              <S.VideosGrid>
-                {validUrls.length > 0 ? (
-                  validUrls.map((urlObj, idx) => (
-                    <motion.div 
-                      key={`preview-${idx}`}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.4 + (idx * 0.1) }}
-                    >
-                      <S.VideoCard>
-                        <S.VideoBadge>Video {idx + 1}</S.VideoBadge>
-                        <S.PremiumVideoPreview>
-                          {getThumbnailUrl(urlObj.value, urlObj.thumbnail_url) ? (
-                            <img
-                              src={getThumbnailUrl(urlObj.value, urlObj.thumbnail_url)}
-                              alt={urlObj.title || `Video ${idx + 1}`}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center bg-black/40 text-sm text-gray-400">
-                              Preview unavailable
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-white">
-                                {urlObj.title || `Video ${idx + 1}`}
-                              </p>
-                              <div className="mt-1 flex items-center gap-3 text-xs text-gray-300">
-                                <span>{getSourceLabel(urlObj.value)}</span>
-                                <span className="inline-flex items-center gap-1">
-                                  <Clock className="h-3.5 w-3.5 text-[#fa7517]" />
-                                  {formatDuration(urlObj.duration)}
-                                </span>
-                              </div>
-                            </div>
-                            <a
-                              href={urlObj.value}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:border-white/20 hover:bg-black/55"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5 text-[#fa7517]" />
-                              Open source
-                            </a>
-                          </div>
-                        </S.PremiumVideoPreview>
-                        <S.VideoUrl>
-                          Launch will verify that this source belongs to your linked channel and is unlisted.
-                        </S.VideoUrl>
-                      </S.VideoCard>
-                    </motion.div>
-                  ))
-                ) : (
-                  <S.NoVideosMessage>No valid video URLs provided.</S.NoVideosMessage>
-                )}
-              </S.VideosGrid>
-            </S.ReviewCard>
-          </motion.div>
-        </S.ReviewGrid>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          {submitError && (
-            <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-full bg-red-500/15 p-2 text-red-300">
-                    <AlertTriangle className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-red-200">Could not save draft</p>
-                    <p className="mt-1 text-sm text-red-100/90">{submitError}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {submitErrorAction === 'link-youtube' && onStartOAuth && (
-                    <button
-                      type="button"
-                      onClick={onStartOAuth}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-4 py-2 text-sm font-medium text-[#fa7517] transition-colors hover:bg-[#fa7517]/20"
-                    >
-                      Connect YouTube
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {submitErrorAction === 'verify-channel' && (
-                    <a
-                      href="/creator-hub/channels"
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-4 py-2 text-sm font-medium text-[#fa7517] transition-colors hover:bg-[#fa7517]/20"
-                    >
-                      Check channel status
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                  {submitErrorAction === 'link-wallet' && (
-                    <a
-                      href="/profile"
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-4 py-2 text-sm font-medium text-[#fa7517] transition-colors hover:bg-[#fa7517]/20"
-                    >
-                      Connect wallet
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={onBackToVideos}
-                    className="inline-flex items-center justify-center rounded-full border border-red-200/15 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/5"
-                  >
-                    Back to videos
+        {submitError && (
+          <div className={form.errorNote} role="alert">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <div className="flex-1 space-y-2">
+              <div>
+                <p className="font-medium">Could not save draft</p>
+                <p className="mt-0.5 text-red-300/90">{submitError}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                {submitErrorAction === 'link-youtube' && onStartOAuth && (
+                  <button type="button" onClick={onStartOAuth} className={form.inlineAction}>
+                    Connect YouTube
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
-                </div>
+                )}
+                {submitErrorAction === 'verify-channel' && (
+                  <a href="/creator-hub/channels" className={form.inlineAction}>
+                    Check channel status
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                )}
+                {submitErrorAction === 'link-wallet' && (
+                  <a href="/profile" className={form.inlineAction}>
+                    Connect wallet
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                )}
+                <button type="button" onClick={onBackToVideos} className={form.ghostButton}>
+                  Back to videos
+                </button>
               </div>
             </div>
-          )}
-
-          <S.SummaryCard>
-            <S.SummaryStat>
-              <S.SummaryStatNumber>{validUrls.length}</S.SummaryStatNumber>
-              <S.SummaryStatLabel>Video{validUrls.length !== 1 ? 's' : ''}</S.SummaryStatLabel>
-            </S.SummaryStat>
-            
-            <S.SummaryStat>
-              <S.SummaryStatNumber>
-                {formattedPrice}
-              </S.SummaryStatNumber>
-              <S.SummaryStatLabel>Price</S.SummaryStatLabel>
-            </S.SummaryStat>
-            
-            <S.SummaryStat>
-              <S.SummaryStatNumber>{watchedFields.supply_cap || '∞'}</S.SummaryStatNumber>
-              <S.SummaryStatLabel>Supply Cap</S.SummaryStatLabel>
-            </S.SummaryStat>
-            
-            <S.LaunchButton 
-              type="button"
-              onClick={() => setShowConfirmModal(true)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Saving draft…' : 'Save draft'}
-              {!isLoading && <ChevronRight size={18} />}
-            </S.LaunchButton>
-          </S.SummaryCard>
-
-          <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#fa7517]">
-              What Happens Next
-            </p>
-            <div className="mt-3 space-y-2 text-sm leading-6 text-gray-300">
-              <p>1. We save a draft and attach the videos you selected.</p>
-              <p>2. We check that every video belongs to your linked channel and is unlisted.</p>
-              <p>3. Next you choose how you get paid and publish. Fans cannot buy a draft.</p>
-            </div>
           </div>
-        </motion.div>
-      </S.ReviewContainer>
+        )}
+
+        {/* ── Commit ───────────────────────────────────────────────────── */}
+        <section className={cx(form.panel, 'flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between')} aria-label="Save draft">
+          <div className="space-y-1.5">
+            <p className={page.eyebrow}>What happens next</p>
+            <ol className="list-decimal space-y-0.5 pl-5 text-sm text-gray-400">
+              <li>We save a draft and attach the videos you selected.</li>
+              <li>We check that every video belongs to your linked channel and is unlisted.</li>
+              <li>Next you choose how you get paid and publish. Fans cannot buy a draft.</li>
+            </ol>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowConfirmModal(true)}
+            disabled={isLoading}
+            className={cx(form.primaryButton, 'shrink-0')}
+          >
+            {isLoading ? 'Saving draft…' : 'Save draft'}
+            {!isLoading && <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+          </button>
+        </section>
+      </div>
 
       {/* Confirmation Modal */}
       <AnimatePresence>
         {showConfirmModal && (
-          <S.ModalOverlay
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={() => setShowConfirmModal(false)}
           >
-            <S.ModalContent
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="confirm-draft-title"
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0, y: 8 }}
+              transition={{ duration: 0.18 }}
+              onClick={(e) => e.stopPropagation()}
+              className={cx(form.panel, 'w-full max-w-md space-y-4 shadow-2xl')}
             >
-              <S.ModalHeader>
-                <S.ModalTitle>Save this as a draft?</S.ModalTitle>
-                <S.ModalCloseButton onClick={() => setShowConfirmModal(false)}>
-                  <X size={20} />
-                </S.ModalCloseButton>
-              </S.ModalHeader>
-              
-              <S.ModalBody>
-                <S.ConfirmIcon className="celebration">
-                  <Sparkles size={30} />
-                </S.ConfirmIcon>
-                
-                <S.ConfirmTitle>This will not go on sale yet</S.ConfirmTitle>
-                
-                <S.ConfirmText>
-                  We will save <strong>"{watchedFields.title}"</strong> at <strong>{formattedPrice}</strong>. You choose how you get paid and publish on the next screen.
-                </S.ConfirmText>
-                
-                <S.ConfirmFeatures>
-                  <S.ConfirmFeatureItem>
-                    <Lock size={18} />
-                    <span>Limited to <strong>{watchedFields.supply_cap || 'unlimited'}</strong> passes</span>
-                  </S.ConfirmFeatureItem>
-                  
-                  <S.ConfirmFeatureItem>
-                    <Play size={18} />
-                    <span><strong>{validUrls.length}</strong> premium video{validUrls.length !== 1 ? 's' : ''}</span>
-                  </S.ConfirmFeatureItem>
-                </S.ConfirmFeatures>
-                
-                <S.ModalActions>
-                  <S.ModalButton 
-                    variant="secondary"
-                    onClick={() => setShowConfirmModal(false)}
-                  >
-                    Not Yet
-                  </S.ModalButton>
-                  
-                  <S.ModalButton 
-                    variant="primary"
-                    onClick={handleConfirm}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Saving draft…' : (
-                      <>
-                        <Sparkles size={16} />
-                        Save draft
-                      </>
-                    )}
-                  </S.ModalButton>
-                </S.ModalActions>
-              </S.ModalBody>
-            </S.ModalContent>
-          </S.ModalOverlay>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 id="confirm-draft-title" className="text-base font-medium text-white">Save this as a draft?</h3>
+                  <p className="mt-1 text-sm text-gray-500">This will not go on sale yet.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(false)}
+                  aria-label="Close"
+                  className={list.actionButton}
+                >
+                  <X className={list.actionIcon} aria-hidden="true" />
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-300">
+                We will save <strong className="font-medium text-gray-100">"{watchedFields.title}"</strong> at{' '}
+                <strong className="font-medium tabular-nums text-gray-100">{formattedPrice}</strong>. You choose how you get paid and publish on the next screen.
+              </p>
+
+              <dl className="grid grid-cols-[auto,1fr] gap-x-6 gap-y-1.5 border-t border-gray-800/60 pt-4">
+                <dt className={page.eyebrow}>Supply</dt>
+                <dd className="text-sm tabular-nums text-gray-100">
+                  Limited to {watchedFields.supply_cap || 'unlimited'} passes
+                </dd>
+                <dt className={page.eyebrow}>Content</dt>
+                <dd className="text-sm tabular-nums text-gray-100">
+                  {validUrls.length} premium video{validUrls.length !== 1 ? 's' : ''}
+                </dd>
+              </dl>
+
+              <div className="flex items-center justify-end gap-2 border-t border-gray-800/60 pt-4">
+                <button type="button" onClick={() => setShowConfirmModal(false)} className={form.ghostButton}>
+                  Not yet
+                </button>
+                <button type="button" onClick={handleConfirm} disabled={isLoading} className={form.primaryButton}>
+                  {isLoading ? 'Saving draft…' : 'Save draft'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </>
