@@ -48,6 +48,12 @@ const PASS_ERROR_MAP: Record<
     message: 'Enter a valid wallet address starting with 0x, or leave it blank if you already linked one.',
     action: null,
   },
+  CONNECT_ACCOUNT_NOT_READY: {
+    message:
+      'This creator still needs to connect a Stripe test account before card checkout can pay them.',
+    action: null,
+    canRetry: false,
+  },
   PASS_NOT_PUBLISHED: {
     message: 'This pass is still a draft and cannot be purchased yet.',
     action: null,
