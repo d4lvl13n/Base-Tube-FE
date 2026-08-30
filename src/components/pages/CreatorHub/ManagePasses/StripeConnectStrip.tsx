@@ -17,6 +17,13 @@ import { cx, form } from '../shared/hubStyles';
  * The status query failing must never block the page — the strip just
  * stays out of the way.
  */
+/** The API answers `{ error: "<sentence>" }`; show it when it reads as one, else a generic line. */
+function onboardingErrorText(error: unknown): string {
+  const fromServer = (error as { response?: { data?: { error?: unknown } } })?.response?.data?.error;
+  if (typeof fromServer === 'string' && fromServer.trim().length > 12) return fromServer.trim();
+  return 'Stripe could not be opened. Try again in a moment.';
+}
+
 const StripeConnectStrip: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: status, isError, refetch } = useStripeConnectStatus();
@@ -46,7 +53,7 @@ const StripeConnectStrip: React.FC = () => {
           Card sales that pay you in euros need a Stripe test account. Crypto checkout does not.
         </p>
         {startConnect.isError && (
-          <p className={cx(form.errorText, 'mt-1')}>Stripe could not be opened. Try again in a moment.</p>
+          <p className={cx(form.errorText, 'mt-1')}>{onboardingErrorText(startConnect.error)}</p>
         )}
       </div>
       <button
