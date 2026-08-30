@@ -234,6 +234,28 @@ export const useCreatorPasses = () => {
   });
 };
 
+export const useStripeConnectStatus = () => {
+  return useQuery({
+    queryKey: ['stripe-connect-status'],
+    queryFn: () => passApi.getStripeConnectStatus(),
+    staleTime: 1000 * 30,
+  });
+};
+
+export const useStartStripeConnect = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { country?: string; restart?: boolean } = {}) =>
+      passApi.startStripeConnectOnboarding(body),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['stripe-connect-status'], data);
+      if (data.onboardingUrl) {
+        window.location.href = data.onboardingUrl;
+      }
+    },
+  });
+};
+
 /**
  * Hook to add a new video to an existing pass
  */

@@ -286,6 +286,35 @@ export const passApi = {
     return response.data;
   },
 
+  getStripeConnectStatus: async (): Promise<{
+    accountId: string | null;
+    chargesEnabled: boolean;
+    detailsSubmitted: boolean;
+    ready: boolean;
+    country?: string | null;
+    onboardingUrl?: string;
+  }> => {
+    const response = await api.get('/api/v1/passes/creator/stripe-connect');
+    return response.data;
+  },
+
+  startStripeConnectOnboarding: async (body: {
+    /** ISO 3166-1 alpha-2; required the first time, fixed for the account's life. */
+    country?: string;
+    /** Drop a not-yet-live account and start again (wrong country). */
+    restart?: boolean;
+  } = {}): Promise<{
+    accountId: string | null;
+    chargesEnabled: boolean;
+    detailsSubmitted: boolean;
+    ready: boolean;
+    country?: string | null;
+    onboardingUrl?: string;
+  }> => {
+    const response = await api.post('/api/v1/passes/creator/stripe-connect', body);
+    return response.data;
+  },
+
   updateDraftPass: async (passId: string, data: UpdateDraftPassRequest): Promise<Pass> => {
     try {
       const response = await api.patch<PassCreateApiResponse>(`/api/v1/passes/${passId}`, data);
