@@ -40,12 +40,12 @@ export const useCheckout = () => {
   return useMutation<
     CheckoutSessionResponse,
     Error,
-    string | { passId: string; consent?: import('../constants/passConsent').SaleConsentPayload },
+    string | { passId: string; consent?: import('../constants/passConsent').SaleConsentPayload; quantity?: number },
     unknown
   >({
     mutationFn: (input) => {
       if (typeof input === 'string') return passApi.createCheckoutSession(input);
-      return passApi.createCheckoutSession(input.passId, input.consent);
+      return passApi.createCheckoutSession(input.passId, input.consent, input.quantity);
     },
     onSuccess: (data, input) => {
       const passId = typeof input === 'string' ? input : input.passId;

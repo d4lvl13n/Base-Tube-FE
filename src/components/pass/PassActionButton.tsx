@@ -19,9 +19,12 @@ interface PassActionButtonProps {
     onchain_pass_id?: number | null;
     tier: string;
     formatted_price: string;
+    price_cents?: number;
+    currency?: string;
     supply_cap?: number;
     minted_count?: number;
     sold_count?: number;
+    available_count?: number | null;
     can_purchase?: boolean;
     publish_status?: string;
     purchase_block_reason_code?: string | null;
@@ -48,7 +51,103 @@ function getBlockMessage(pass: PassActionButtonProps['pass']): string | null {
   return 'This pass cannot be purchased right now.';
 }
 
+const MAX_CHECKOUT_QUANTITY = 10_000;
+
+function remainingForPass(pass: PassActionButtonProps['pass']): number | null {
+  if (pass.available_count != null) return Math.max(0, pass.available_count);
+  if (pass.supply_cap && pass.supply_cap > 0) {
+    return Math.max(0, pass.supply_cap - (pass.sold_count ?? pass.minted_count ?? 0));
+  }
+  return null;
+}
+
+function formatCheckoutTotal(priceCents: number, quantity: number, currency?: string): string {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: (currency || 'EUR').toUpperCase(),
+      minimumFractionDigits: 2,
+    }).format((priceCents * quantity) / 100);
+  } catch {
+    return `${((priceCents * quantity) / 100).toFixed(2)}`;
+  }
+}
+
 const FROST_BORDER = 'border-[rgba(214,235,253,0.19)]';
+
+function QuantityStepper({
+  quantity,
+  max,
+  remaining,
+  disabled,
+  onChange,
+  totalLabel,
+}: {
+  quantity: number;
+  max: number;
+  remaining: number | null;
+  disabled?: boolean;
+  onChange: (next: number) => void;
+  totalLabel?: string | null;
+}) {
+  const clamp = (n: number) => Math.min(max, Math.max(1, n));
+  const remainingLabel =
+    remaining == null
+      ? null
+      : remaining === 1
+        ? '1 remaining'
+        : `${remaining} remaining`;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-3">
+        <span className="text-xs uppercase text-[#a1a4a5]" style={{ letterSpacing: '0.12em' }}>
+          Quantity
+        </span>
+        <div className={`inline-flex items-center rounded-full border ${FROST_BORDER} overflow-hidden`}>
+          <button
+            type="button"
+            aria-label="Decrease quantity"
+            disabled={disabled || quantity <= 1}
+            onClick={() => onChange(clamp(quantity - 1))}
+            className="px-3 py-1.5 text-sm text-[#f0f0f0] disabled:opacity-40 hover:bg-white/[0.04]"
+          >
+            −
+          </button>
+          <input
+            type="number"
+            min={1}
+            max={max}
+            value={quantity}
+            disabled={disabled}
+            onChange={(e) => {
+              const n = Number.parseInt(e.target.value, 10);
+              if (Number.isFinite(n)) onChange(clamp(n));
+            }}
+            className="w-14 bg-transparent text-center text-sm text-[#f0f0f0] tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+          <button
+            type="button"
+            aria-label="Increase quantity"
+            disabled={disabled || quantity >= max}
+            onClick={() => onChange(clamp(quantity + 1))}
+            className="px-3 py-1.5 text-sm text-[#f0f0f0] disabled:opacity-40 hover:bg-white/[0.04]"
+          >
+            +
+          </button>
+        </div>
+        {remainingLabel ? (
+          <span className="text-xs text-[#5c5c5c]">{remainingLabel}</span>
+        ) : null}
+      </div>
+      {totalLabel ? (
+        <p className="text-sm text-[#f0f0f0]">
+          Total {totalLabel}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 const PRIMARY_PILL =
   'w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-white text-black font-medium text-sm tracking-tight transition-colors hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -96,7 +195,9 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
   const { markCompletedFromResume, markConflictFromResume, retryPendingConfirmation } = cryptoDirect;
   const [cryptoReservationExpiresAt, setCryptoReservationExpiresAt] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [quantity] = useState(1);
+  const remaining = remainingForPass(pass);
+  const maxQty = Math.max(1, Math.min(remaining ?? MAX_CHECKOUT_QUANTITY, MAX_CHECKOUT_QUANTITY));
+  const [quantity, setQuantity] = useState(1);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutIntent, setCheckoutIntent] = useState<'card' | 'crypto' | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -150,37 +251,12 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
     };
   }, [markCompletedFromResume, markConflictFromResume, pass.id]);
 
+  useEffect(() => {
+    setQuantity((q) => Math.min(Math.max(1, q), maxQty));
+  }, [maxQty]);
+
   if (isAccessLoading && !checkoutIntent) {
     return <div className="h-12 w-full bg-white/[0.04] rounded-full animate-pulse" />;
-  }
-
-  if (alreadyOwns) {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="flex items-baseline gap-3">
-          <span
-            className="text-[#f0f0f0] text-4xl font-medium"
-            style={{ letterSpacing: '-0.03em' }}
-          >
-            {pass.formatted_price}
-          </span>
-          <span
-            className="text-[#a1a4a5] text-xs uppercase"
-            style={{ letterSpacing: '0.12em' }}
-          >
-            Owned
-          </span>
-        </div>
-
-        <button
-          onClick={() => navigate(`/watch/${pass.id}`)}
-          className={PRIMARY_PILL}
-        >
-          <PlayCircle className="w-4 h-4" />
-          Start watching
-        </button>
-      </div>
-    );
   }
 
   const cryptoInFlight =
@@ -292,16 +368,48 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
     <>
       <div className="flex flex-col gap-5">
         {/* Price — always visible, dimmed when blocked */}
-        <div
-          className={`text-5xl font-medium ${canPurchase ? 'text-[#f0f0f0]' : 'text-[#5c5c5c]'}`}
-          style={{ letterSpacing: '-0.03em', lineHeight: 1 }}
-        >
-          {pass.formatted_price}
+        <div className="flex items-baseline gap-3">
+          <div
+            className={`text-5xl font-medium ${canPurchase ? 'text-[#f0f0f0]' : 'text-[#5c5c5c]'}`}
+            style={{ letterSpacing: '-0.03em', lineHeight: 1 }}
+          >
+            {pass.formatted_price}
+          </div>
+          {alreadyOwns ? (
+            <span
+              className="text-[#a1a4a5] text-xs uppercase"
+              style={{ letterSpacing: '0.12em' }}
+            >
+              Owned
+            </span>
+          ) : null}
         </div>
+
+        {alreadyOwns ? (
+          <button
+            onClick={() => navigate(`/watch/${pass.id}`)}
+            className={PRIMARY_PILL}
+          >
+            <PlayCircle className="w-4 h-4" />
+            Start watching
+          </button>
+        ) : null}
 
         {canPurchase ? (
           checkoutIntent ? (
             <>
+              <QuantityStepper
+                quantity={quantity}
+                max={maxQty}
+                remaining={remaining}
+                disabled={cryptoInFlight}
+                onChange={setQuantity}
+                totalLabel={
+                  quantity > 1 && pass.price_cents != null
+                    ? formatCheckoutTotal(pass.price_cents, quantity, pass.currency)
+                    : null
+                }
+              />
               <PassConsentBoxes
                 consent={pass.sale_consent}
                 acceptedTerms={acceptedTerms}
@@ -318,6 +426,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
                   className={PRIMARY_PILL}
                   consent={consentPayload}
                   consentReady={consentReady}
+                  quantity={quantity}
                   label="Continue to card"
                   onError={(err) => {
                     const parsed = getPassErrorMessage(err);
@@ -371,12 +480,24 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
             </>
           ) : (
             <>
+              <QuantityStepper
+                quantity={quantity}
+                max={maxQty}
+                remaining={remaining}
+                disabled={cryptoInFlight}
+                onChange={setQuantity}
+                totalLabel={
+                  quantity > 1 && pass.price_cents != null
+                    ? formatCheckoutTotal(pass.price_cents, quantity, pass.currency)
+                    : null
+                }
+              />
               <button
                 type="button"
                 onClick={() => chooseMethod('card')}
-                className={PRIMARY_PILL}
+                className={alreadyOwns ? SECONDARY_PILL : PRIMARY_PILL}
               >
-                Buy with Card
+                {alreadyOwns ? 'Buy more with card' : 'Buy with Card'}
               </button>
               <button
                 type="button"
@@ -384,12 +505,12 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
                 className={SECONDARY_PILL}
               >
                 <Wallet className="w-4 h-4" />
-                Buy with crypto
+                {alreadyOwns ? 'Buy more with crypto' : 'Buy with crypto'}
               </button>
               {checkoutFinePrint}
             </>
           )
-        ) : (
+        ) : alreadyOwns ? null : (
           <p className="text-sm text-[#a1a4a5] leading-relaxed">
             {blockMessage}
           </p>

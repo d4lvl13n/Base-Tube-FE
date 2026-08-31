@@ -34,6 +34,8 @@ export interface Pass {
   tier: string;
   supply_cap?: number;
   minted_count?: number;
+  /** Remaining keys that can still be bought (null = no cap). Additive; do not send reserved_count. */
+  available_count?: number | null;
   has_access?: boolean;
   can_purchase?: boolean;
   purchase_block_reason_code?: PurchaseBlockReasonCode | null;

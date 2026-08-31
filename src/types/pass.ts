@@ -104,6 +104,8 @@ export interface Pass {
   minted_count?: number; // Number of passes minted on-chain
   /** Aggregate sold count (minted + pending reservations) — the backend never exposes raw reserved_count */
   sold_count?: number;
+  /** Remaining keys still for sale. Null when the pass has no supply cap. */
+  available_count?: number | null;
   publish_status?: PassPublishStatus;
   creator_settlement_preference?: CreatorSettlementPreference | null;
   /** Unlock Lock contract address (public chain data needed to purchase with crypto) */

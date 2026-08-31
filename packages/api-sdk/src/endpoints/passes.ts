@@ -42,10 +42,17 @@ export function createPassesApi(http: AxiosInstance) {
     },
 
     /** `POST /api/v1/passes/:id/checkout` (auth) — creates a Stripe checkout session. */
-    async checkout(passId: string, consent?: CheckoutConsent): Promise<CheckoutSessionResponse> {
+    async checkout(
+      passId: string,
+      consent?: CheckoutConsent,
+      quantity?: number
+    ): Promise<CheckoutSessionResponse> {
       const res = await http.post<CheckoutSessionResponse>(
         `/api/v1/passes/${passId}/checkout`,
-        consent ?? {}
+        {
+          ...(consent ?? {}),
+          ...(quantity != null ? { quantity } : {}),
+        }
       );
       return res.data;
     },

@@ -86,7 +86,7 @@ export const onchainPassApi = {
   // Optional quote step if backend exposes it
   async getCryptoQuote(
     passId: string,
-    payload: { buyer: string } & Partial<import('../constants/passConsent').SaleConsentPayload>
+    payload: { buyer: string; quantity?: number } & Partial<import('../constants/passConsent').SaleConsentPayload>
   ): Promise<CryptoQuote> {
     const exec = async () => {
       const res = await api.post(`/api/v1/passes/${passId}/crypto/quote`, payload);

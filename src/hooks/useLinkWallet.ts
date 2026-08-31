@@ -6,8 +6,11 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   createWalletAuthPayload,
   isWalletAlreadyLinked,
+  isWalletLinkedToOtherAccount,
+  messageFromUnknown,
   setLinkedWalletHint,
   normalizeWalletAddress,
+  WALLET_LINKED_TO_OTHER_ACCOUNT,
 } from '../utils/walletAuth';
 
 type ModalState = {
@@ -38,21 +41,22 @@ export function useLinkWallet() {
     const connectedAddress = normalizeWalletAddress(targetAddress || address);
 
     if (!connectedAddress) {
+      const details = 'Please connect your wallet first.';
       setModalState({
         type: 'error',
         message: 'No wallet connected',
-        details: 'Please connect your wallet first.'
+        details,
       });
-      return;
+      return { ok: false as const, details };
     }
 
     if (isWalletAlreadyLinked(connectedAddress)) {
       setModalState({
         type: 'success',
-        message: 'Wallet Already Connected',
-        details: 'This wallet is already linked to your account. You can proceed.'
+        message: 'Wallet already connected',
+        details: 'This wallet is already linked to your account. You can proceed.',
       });
-      return { alreadyLinked: true };
+      return { ok: true as const, alreadyLinked: true };
     }
 
     setIsLinking(true);
@@ -82,52 +86,39 @@ export function useLinkWallet() {
         details: 'Your wallet has been connected to your account.'
       });
 
-      return response;
+      return { ok: true as const };
     } catch (err) {
       console.error('Link wallet error:', err);
+      const errMsg = messageFromUnknown(err);
 
-      if (err instanceof Error) {
-        const errMsg = err.message.toLowerCase();
-        console.log('Error message:', err.message);
+      if (errMsg.toLowerCase().includes('already linked') && errMsg.toLowerCase().includes('your account')) {
+        setLinkedWalletHint(connectedAddress);
+        setModalState({
+          type: 'success',
+          message: 'Wallet already connected',
+          details: 'This wallet is already linked to your account. You can proceed.'
+        });
+        await queryClient.invalidateQueries({ queryKey: ['wallet'] });
+        await queryClient.invalidateQueries({ queryKey: ['profile'] });
+        return { ok: true as const, alreadyLinked: true };
+      }
 
-        // Check if wallet is already linked to THIS account (success case)
-        // Backend may return "already linked to your account" or similar
-        if (errMsg.includes('already linked') && errMsg.includes('your account')) {
-          // Wallet is already linked to the current user - treat as success
-          setLinkedWalletHint(connectedAddress);
-          setModalState({
-            type: 'success',
-            message: 'Wallet Already Connected',
-            details: 'This wallet is already linked to your account. You can proceed.'
-          });
-          // Invalidate queries to ensure UI is up to date
-          await queryClient.invalidateQueries({ queryKey: ['wallet'] });
-          await queryClient.invalidateQueries({ queryKey: ['profile'] });
-          return { alreadyLinked: true };
-        } else if (errMsg.includes('already linked')) {
-          // Wallet is linked to a DIFFERENT account - this is an actual error
-          setModalState({
-            type: 'error',
-            message: 'Wallet Already In Use',
-            details: 'This wallet is linked to another account. Please disconnect and try a different wallet.'
-          });
-          // Don't auto-disconnect - let user decide what to do
-          // await disconnect();
-        } else {
-          setModalState({
-            type: 'error',
-            message: 'Failed to Link Wallet',
-            details: err.message
-          });
-        }
-      } else {
+      if (isWalletLinkedToOtherAccount(errMsg)) {
         setModalState({
           type: 'error',
-          message: 'Failed to Link Wallet',
-          details: 'An unexpected error occurred. Please try again.'
+          message: 'This wallet belongs to another account',
+          details: WALLET_LINKED_TO_OTHER_ACCOUNT,
         });
+        return { ok: false as const, details: WALLET_LINKED_TO_OTHER_ACCOUNT };
       }
-      return null;
+
+      const details = errMsg || 'An unexpected error occurred. Please try again.';
+      setModalState({
+        type: 'error',
+        message: 'Could not link wallet',
+        details,
+      });
+      return { ok: false as const, details };
     } finally {
       setIsLinking(false);
     }
@@ -148,23 +139,25 @@ export function useLinkWallet() {
       const nextAddress = normalizeWalletAddress(connectResult.accounts?.[0] || null);
 
       if (!nextAddress) {
+        const details = 'Your wallet is connecting. Please click link again once the wallet address is ready.';
         setModalState({
           type: 'error',
-          message: 'Connection Pending',
-          details: 'Your wallet is connecting. Please click link again once the wallet address is ready.'
+          message: 'Connection pending',
+          details,
         });
-        return null;
+        return { ok: false as const, details };
       }
 
       return await performLink(nextAddress);
     } catch (err) {
       console.error('Handle link wallet error:', err);
+      const details = err instanceof Error ? err.message : 'Failed to connect wallet';
       setModalState({
         type: 'error',
-        message: 'Connection Failed',
-        details: err instanceof Error ? err.message : 'Failed to connect wallet'
+        message: 'Connection failed',
+        details,
       });
-      return null;
+      return { ok: false as const, details };
     }
   }, [address, connectAsync, connectors, performLink]);
 

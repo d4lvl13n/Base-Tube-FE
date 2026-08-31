@@ -116,11 +116,10 @@ class Web3AuthApi {
         additionalData: { walletAddress: walletAddress.slice(0, 6) + '...' }
       });
 
-      // Handle specific link wallet errors
-      if (userError.code === ErrorCode.VALIDATION_ERROR &&
-          error instanceof Error && error.message.includes('409')) {
+      const raw = userError.message || '';
+      if (/already linked/i.test(raw)) {
         userError.message = 'Wallet already linked to another account.';
-        }
+      }
 
       throw userError;
     }

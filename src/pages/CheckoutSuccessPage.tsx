@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { useUser } from '@clerk/clerk-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
@@ -28,6 +27,11 @@ import {
 } from '../utils/purchaseStatus';
 import { useLinkWallet } from '../hooks/useLinkWallet';
 import { WITHDRAWAL_TEXT } from '../constants/passConsent';
+import {
+  messageFromUnknown,
+  WALLET_ALREADY_HAS_THIS_PASS_NFT,
+  WALLET_LINKED_TO_OTHER_ACCOUNT,
+} from '../utils/walletAuth';
 
 const DEFAULT_CHAIN_ID = 8453;
 
@@ -44,14 +48,12 @@ const CheckoutSuccessPage: React.FC = () => {
   const purchaseIdFromQuery = searchParams.get('purchase_id');
   const [purchaseId, setPurchaseId] = useState<string | null>(purchaseIdFromQuery || storedCheckout?.purchase_id || null);
   const [statusOverride, setStatusOverride] = useState<string | null>(null);
+  const [claimNotice, setClaimNotice] = useState<string | null>(null);
 
   const { isConnected, address } = useAccount();
   const { openConnectModal } = useConnectModal();
-  const { isSignedIn } = useUser();
   const { linkWallet, isLinking, modalState: linkModalState, clearModal: clearLinkModal } = useLinkWallet();
   const claim = useClaim();
-
-  const hasAttemptedLinkRef = useRef(false);
 
   const {
     data: checkoutResolver,
@@ -96,24 +98,6 @@ const CheckoutSuccessPage: React.FC = () => {
     }
   }, [effectiveStatus]);
 
-  useEffect(() => {
-    const authMethod = localStorage.getItem('auth_method');
-    const isClerkUser = authMethod === 'clerk' || isSignedIn;
-
-    if (isConnected && address && isClerkUser && !hasAttemptedLinkRef.current) {
-      hasAttemptedLinkRef.current = true;
-      linkWallet().catch(() => {
-        hasAttemptedLinkRef.current = false;
-      });
-    }
-  }, [address, isConnected, isSignedIn, linkWallet]);
-
-  useEffect(() => {
-    if (!isConnected) {
-      hasAttemptedLinkRef.current = false;
-    }
-  }, [isConnected]);
-
   const txHash = purchase?.claimTxHash || purchase?.mintTxHash || purchase?.txHash || null;
   const txUrl = getExplorerTxUrl(txHash, DEFAULT_CHAIN_ID);
   const hasEntitlement = hasPurchaseEntitlement(effectiveStatus);
@@ -125,6 +109,7 @@ const CheckoutSuccessPage: React.FC = () => {
 
   const handleClaim = async () => {
     if (!purchaseId) return;
+    setClaimNotice(null);
 
     if (!isConnected || !address) {
       sessionStorage.setItem('wallet_connect_intent', 'link');
@@ -132,12 +117,24 @@ const CheckoutSuccessPage: React.FC = () => {
       return;
     }
 
+    const linked = await linkWallet();
+    if (!linked?.ok) {
+      setClaimNotice(linked && 'details' in linked ? linked.details : WALLET_LINKED_TO_OTHER_ACCOUNT);
+      return;
+    }
+
     try {
       setStatusOverride('minting');
       await claim.mutateAsync({ purchaseId, walletAddress: address });
       setStatusOverride(null);
-    } catch {
+    } catch (err) {
       setStatusOverride(null);
+      const raw = messageFromUnknown(err);
+      setClaimNotice(
+        /reverted|already|execution/i.test(raw)
+          ? WALLET_ALREADY_HAS_THIS_PASS_NFT
+          : raw || 'Could not mint the NFT to this wallet. You can still watch.'
+      );
     }
   };
 
@@ -289,6 +286,13 @@ const CheckoutSuccessPage: React.FC = () => {
                   <p className="text-sm text-white/65 mb-4">
                     Your payment is complete and access is unlocked. The NFT is not minted yet.
                   </p>
+                  {(claimNotice || linkModalState.type === 'error' || purchase?.lastStatusReason?.includes('Mint failed')) && (
+                    <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100/90">
+                      {claimNotice
+                        || (linkModalState.type === 'error' ? linkModalState.details : null)
+                        || WALLET_ALREADY_HAS_THIS_PASS_NFT}
+                    </div>
+                  )}
                   {isConnected ? (
                     <button
                       onClick={handleClaim}

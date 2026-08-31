@@ -115,11 +115,15 @@ export const passApi = {
    */
   createCheckoutSession: async (
     passId: string,
-    consent?: import('../constants/passConsent').SaleConsentPayload
+    consent?: import('../constants/passConsent').SaleConsentPayload,
+    quantity?: number
   ): Promise<CheckoutSessionResponse> => {
     const response = await api.post<CheckoutSessionResponse>(
       `/api/v1/passes/${passId}/checkout`,
-      consent ?? {}
+      {
+        ...(consent ?? {}),
+        ...(quantity != null ? { quantity } : {}),
+      }
     );
     return response.data;
   },

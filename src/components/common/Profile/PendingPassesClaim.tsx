@@ -169,9 +169,8 @@ const PendingPassesClaim: React.FC = () => {
       console.log('[PendingPassesClaim] Clerk user connected wallet, initiating link flow');
 
       linkWallet().then((result) => {
-        if (result) {
+        if (result?.ok) {
           console.log('[PendingPassesClaim] Wallet linked successfully');
-          // Refetch pending purchases after linking
           refetch();
         }
       }).catch((err) => {

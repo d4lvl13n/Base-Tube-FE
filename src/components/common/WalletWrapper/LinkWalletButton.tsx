@@ -19,7 +19,7 @@ export const LinkWalletButton: React.FC<LinkWalletButtonProps> = ({
   const handleClick = async () => {
     try {
       const response = await linkWallet();
-      if (response) {
+      if (response?.ok) {
         // Force refresh all relevant caches
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['wallet'] }),

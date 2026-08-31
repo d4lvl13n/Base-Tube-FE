@@ -51,6 +51,28 @@ export function isWalletAlreadyLinked(walletAddress?: string | null): boolean {
   return Boolean(normalizedAddress && getLinkedWalletHint() === normalizedAddress);
 }
 
+export const WALLET_LINKED_TO_OTHER_ACCOUNT =
+  'This wallet is already linked to another BaseTube account. Switch to a different wallet in MetaMask, then try again. Your payment and watch access are already unlocked.';
+
+export const WALLET_ALREADY_HAS_THIS_PASS_NFT =
+  'This wallet already holds the NFT for this pass (one NFT per wallet). Switch to a different wallet to claim, or skip claiming — you can watch now.';
+
+export function messageFromUnknown(err: unknown): string {
+  if (!err) return '';
+  if (typeof err === 'string') return err;
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  return '';
+}
+
+export function isWalletLinkedToOtherAccount(text: string): boolean {
+  const lower = text.toLowerCase();
+  return lower.includes('already linked') && !lower.includes('your account');
+}
+
 export async function createWalletAuthPayload(
   walletAddress: string,
   signMessage: (message: string) => Promise<string>

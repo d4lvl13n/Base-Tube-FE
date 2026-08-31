@@ -116,6 +116,7 @@ export interface CryptoQuote {
   lock_address: string;     // Unlock PublicLock for this pass
   payment_token: string;    // USDC address
   key_price: string;        // USDC raw units (6 decimals)
+  quantity?: number;
   chain_id: number;
 }
 

@@ -309,8 +309,7 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
     { quantity: number; validSeconds?: number; confirmations?: number; accessPollTimeoutMs?: number; accessPollIntervalMs?: number; consent?: import('../constants/passConsent').SaleConsentPayload }
   >({
     mutationFn: async ({
-      // `quantity`/`validSeconds` retained in the type for API compatibility;
-      // the Unlock flow buys exactly one key at the Lock's on-chain price.
+      quantity = 1,
       confirmations = 1,
       accessPollTimeoutMs = 60_000,
       accessPollIntervalMs = 2500,
@@ -323,10 +322,10 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       if (!address) throw new Error('Wallet not connected');
 
       // Start the purchase: backend reserves supply + creates a pending purchase
-      // and returns the Lock address, USDC token, and per-key price. No signed
-      // price quote — the Unlock Lock enforces the price on-chain.
+      // and returns the Lock address, USDC token, per-key price, and quantity.
       const quote = await onchainPassApi.getCryptoQuote(passId, {
         buyer: address,
+        quantity,
         ...(consent ?? {}),
       });
       if ((quote?.buyer || '').toLowerCase() !== address.toLowerCase()) {
@@ -359,6 +358,8 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       const lockAddress = quote.lock_address as `0x${string}`;
       const usdc = quote.payment_token as `0x${string}`;
       const keyPrice = BigInt(quote.key_price);
+      const qty = Math.max(1, quote.quantity ?? quantity);
+      const totalUsdc = keyPrice * BigInt(qty);
 
       // Opportunistic wallet link for Clerk users (access checks key off the linked wallet).
       // Non-blocking: the buy still proceeds even if linking fails.
@@ -387,12 +388,12 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
         functionName: 'allowance',
         args: [address as `0x${string}`, lockAddress],
       })) as bigint;
-      if (allowance < keyPrice) {
-        try { console.log('[CryptoPay] approving USDC', { usdc, lock: lockAddress, keyPrice: keyPrice.toString() }); } catch {}
+      if (allowance < totalUsdc) {
+        try { console.log('[CryptoPay] approving USDC', { usdc, lock: lockAddress, keyPrice: keyPrice.toString(), quantity: qty, total: totalUsdc.toString() }); } catch {}
         const approveData = encodeFunctionData({
           abi: ERC20_ABI,
           functionName: 'approve',
-          args: [lockAddress, keyPrice],
+          args: [lockAddress, totalUsdc],
         });
         const approveHash = await activeWalletClient.sendTransaction({
           account: address as `0x${string}`,
@@ -403,12 +404,16 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
         try { await pubClient.waitForTransactionReceipt({ hash: approveHash }); } catch {}
       }
 
-      // 2. Purchase the key (USDC payment → msg.value = 0). Legacy v14 purchase sig.
-      try { console.log('[CryptoPay] purchasing key', { lock: lockAddress, keyPrice: keyPrice.toString(), chainId: desiredChainId }); } catch {}
+      // 2. Purchase N keys (USDC payment → msg.value = 0). Legacy v14 purchase sig.
+      try { console.log('[CryptoPay] purchasing keys', { lock: lockAddress, keyPrice: keyPrice.toString(), quantity: qty, chainId: desiredChainId }); } catch {}
+      const recipients = Array.from({ length: qty }, () => address as `0x${string}`);
+      const values = Array.from({ length: qty }, () => keyPrice);
+      const zeros = Array.from({ length: qty }, () => ZERO_ADDRESS);
+      const emptyData = Array.from({ length: qty }, () => '0x' as `0x${string}`);
       const data = encodeFunctionData({
         abi: PUBLIC_LOCK_ABI,
         functionName: 'purchase',
-        args: [[keyPrice], [address as `0x${string}`], [ZERO_ADDRESS], [ZERO_ADDRESS], ['0x']],
+        args: [values, recipients, zeros, zeros, emptyData],
       });
       const hash = await activeWalletClient.sendTransaction({
         account: address as `0x${string}`,

@@ -68,8 +68,10 @@ const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProp
           placeholder="E.g., Premium Video Masterclass"
           aria-invalid={errors.title ? true : undefined}
           className={cx(form.input, errors.title && 'border-red-500/60')}
+          maxLength={120}
           {...register('title', {
-            required: 'Title is required'
+            required: 'Title is required',
+            maxLength: { value: 120, message: 'Title must be 120 characters or fewer' },
           })}
         />
         {errors.title && (
