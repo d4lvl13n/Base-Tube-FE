@@ -179,6 +179,7 @@ export type CryptoDirectBuyResult = UseMutationResult<
     confirmations?: number;
     accessPollTimeoutMs?: number;
     accessPollIntervalMs?: number;
+    consent?: import('../constants/passConsent').SaleConsentPayload;
   }
 > & {
   phase: CryptoPurchasePhase;
@@ -305,7 +306,7 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       status?: OnchainPurchaseStatus;
     },
     Error,
-    { quantity: number; validSeconds?: number; confirmations?: number; accessPollTimeoutMs?: number; accessPollIntervalMs?: number }
+    { quantity: number; validSeconds?: number; confirmations?: number; accessPollTimeoutMs?: number; accessPollIntervalMs?: number; consent?: import('../constants/passConsent').SaleConsentPayload }
   >({
     mutationFn: async ({
       // `quantity`/`validSeconds` retained in the type for API compatibility;
@@ -313,6 +314,7 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       confirmations = 1,
       accessPollTimeoutMs = 60_000,
       accessPollIntervalMs = 2500,
+      consent,
     }) => {
       setErrorMessage(null);
       setHardConflict(false);
@@ -323,7 +325,10 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       // Start the purchase: backend reserves supply + creates a pending purchase
       // and returns the Lock address, USDC token, and per-key price. No signed
       // price quote — the Unlock Lock enforces the price on-chain.
-      const quote = await onchainPassApi.getCryptoQuote(passId, { buyer: address });
+      const quote = await onchainPassApi.getCryptoQuote(passId, {
+        buyer: address,
+        ...(consent ?? {}),
+      });
       if ((quote?.buyer || '').toLowerCase() !== address.toLowerCase()) {
         throw new Error('Checkout buyer does not match connected wallet');
       }

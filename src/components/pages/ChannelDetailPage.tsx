@@ -12,6 +12,9 @@ import { Video } from '../../types/video';
 import { useChannelData } from '../../hooks/useChannelData';
 import RichTextDisplay from '../common/RichTextDisplay';
 import ChannelTabs from '../common/Channel/ChannelTabs';
+import { passApi } from '../../api/pass';
+import type { Pass } from '../../types/pass';
+import { Link } from 'react-router-dom';
 
 const ChannelDetailPage: React.FC = () => {
   const { identifier } = useParams<{ identifier: string }>();
@@ -22,6 +25,8 @@ const ChannelDetailPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [activeTab, setActiveTab] = useState('videos');
+  const [channelPasses, setChannelPasses] = useState<Pass[]>([]);
+  const [passesLoading, setPassesLoading] = useState(false);
 
   const {
     channel,
@@ -48,6 +53,26 @@ const ChannelDetailPage: React.FC = () => {
     };
 
     fetchChannelVideos();
+  }, [channel?.id]);
+
+  useEffect(() => {
+    if (!channel?.id) return;
+    let cancelled = false;
+    const load = async () => {
+      setPassesLoading(true);
+      try {
+        const result = await passApi.discoverPasses({ channel_id: String(channel.id), limit: 24 });
+        if (!cancelled) setChannelPasses(result.data ?? []);
+      } catch {
+        if (!cancelled) setChannelPasses([]);
+      } finally {
+        if (!cancelled) setPassesLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [channel?.id]);
 
   const loadMoreVideos = async () => {
@@ -149,6 +174,30 @@ const ChannelDetailPage: React.FC = () => {
                       />
                     )}
                   </>
+                )}
+                {activeTab === 'products' && (
+                  <div className="max-w-4xl mx-auto">
+                    <h2 className="text-2xl font-bold mb-4">Passes</h2>
+                    {passesLoading ? (
+                      <p className="text-gray-400">Loading passes…</p>
+                    ) : channelPasses.length === 0 ? (
+                      <p className="text-gray-400">No passes for sale on this channel yet.</p>
+                    ) : (
+                      <ul className="grid gap-4 sm:grid-cols-2">
+                        {channelPasses.map((pass) => (
+                          <li key={pass.id}>
+                            <Link
+                              to={`/p/${pass.slug || pass.id}`}
+                              className="block rounded-xl border border-gray-800 bg-gray-900/40 p-4 hover:border-[#fa7517]/50"
+                            >
+                              <p className="font-medium text-white">{pass.title}</p>
+                              <p className="text-sm text-gray-400 mt-1">{pass.formatted_price}</p>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 )}
                 {activeTab === 'about' && (
                   <div className="max-w-4xl mx-auto">

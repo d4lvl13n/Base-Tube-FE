@@ -17,7 +17,9 @@ const PassCard: React.FC<PassCardProps> = ({ pass }) => {
   
   // Format the purchase date (if we had this info from the API)
   // For now, we'll just show a placeholder
-  const purchaseDate = new Date().toLocaleDateString();
+  const purchaseDate = pass.purchased_at
+    ? new Date(pass.purchased_at).toLocaleDateString()
+    : '—';
   
   // Get tier color for badge
   const getTierColor = (tier: string): string => {

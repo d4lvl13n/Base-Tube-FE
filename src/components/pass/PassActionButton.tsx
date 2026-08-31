@@ -7,9 +7,11 @@ import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useCryptoDirectBuy } from '../../hooks/useOnchainPass';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import CryptoPurchaseModal from './CryptoPurchaseModal';
+import PassConsentBoxes from './PassConsentBoxes';
 import type { CryptoPurchasePhase } from '../../types/onchainPass';
 import { readCryptoCheckoutContext } from '../../utils/checkoutStorage';
 import { getPassErrorMessage } from '../../utils/passErrorMessages';
+import { saleConsentPayload, type SaleConsentPublic } from '../../constants/passConsent';
 
 interface PassActionButtonProps {
   pass: {
@@ -24,6 +26,7 @@ interface PassActionButtonProps {
     publish_status?: string;
     purchase_block_reason_code?: string | null;
     purchase_block_reason?: string | null;
+    sale_consent?: SaleConsentPublic;
   };
   alreadyOwns: boolean;
   isAccessLoading: boolean;
@@ -95,6 +98,11 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [quantity] = useState(1);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutIntent, setCheckoutIntent] = useState<'card' | 'crypto' | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedWithdrawal, setAcceptedWithdrawal] = useState(false);
+  const consentReady = acceptedTerms && acceptedWithdrawal;
+  const consentPayload = saleConsentPayload(pass.sale_consent, acceptedTerms, acceptedWithdrawal);
   const canPurchase =
     pass.can_purchase === true &&
     (pass.publish_status === undefined || pass.publish_status === 'published');
@@ -114,6 +122,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
           txHash: detail.txHash ?? null,
           explorerUrl: detail.explorerUrl ?? null,
         });
+        setCheckoutIntent('crypto');
         setModalOpen(true);
       }
     };
@@ -129,6 +138,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
           txHash: detail.txHash ?? null,
           explorerUrl: detail.explorerUrl ?? null,
         });
+        setCheckoutIntent('crypto');
         setModalOpen(true);
       }
     };
@@ -140,7 +150,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
     };
   }, [markCompletedFromResume, markConflictFromResume, pass.id]);
 
-  if (isAccessLoading) {
+  if (isAccessLoading && !checkoutIntent) {
     return <div className="h-12 w-full bg-white/[0.04] rounded-full animate-pulse" />;
   }
 
@@ -173,6 +183,20 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
     );
   }
 
+  const cryptoInFlight =
+    cryptoDirect.isPending ||
+    cryptoDirect.phase === 'reserving' ||
+    cryptoDirect.phase === 'awaiting-signature' ||
+    cryptoDirect.phase === 'tx-pending' ||
+    cryptoDirect.phase === 'confirming' ||
+    cryptoDirect.phase === 'polling';
+
+  const chooseMethod = (method: 'card' | 'crypto') => {
+    if (cryptoInFlight) return;
+    setCheckoutError(null);
+    setCheckoutIntent(method);
+  };
+
   const handleCryptoClick = async () => {
     try {
       console.log('[CryptoPay] click', {
@@ -184,6 +208,10 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
     } catch {}
 
     if (!canPurchase) return;
+    if (!consentReady) {
+      setCheckoutIntent('crypto');
+      return;
+    }
 
     if (!isConnected) {
       try {
@@ -207,6 +235,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
       const { hash, explorerUrl, expiresAt } = await cryptoDirect.mutateAsync({
         quantity,
         confirmations: 1,
+        consent: consentPayload,
       });
       setCryptoReservationExpiresAt(expiresAt || null);
       if (explorerUrl) {
@@ -238,13 +267,26 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
     await handleCryptoClick();
   };
 
-  const cryptoInFlight =
-    cryptoDirect.isPending ||
-    cryptoDirect.phase === 'reserving' ||
-    cryptoDirect.phase === 'awaiting-signature' ||
-    cryptoDirect.phase === 'tx-pending' ||
-    cryptoDirect.phase === 'confirming' ||
-    cryptoDirect.phase === 'polling';
+  const checkoutFinePrint = (
+    <p className="text-xs text-[#a1a4a5] leading-relaxed">
+      Card checkout unlocks access instantly. Claim the NFT to your wallet any time.
+      <span className="inline-flex items-center gap-1 ml-1 text-[#5c5c5c]">
+        <Clock3 className="w-3 h-3" />
+        Crypto quotes hold inventory for ~5 minutes.
+        {cryptoReservationExpiresAt ? (
+          <span>
+            {' '}
+            Current hold ends{' '}
+            {new Date(cryptoReservationExpiresAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+            .
+          </span>
+        ) : null}
+      </span>
+    </p>
+  );
 
   return (
     <>
@@ -258,54 +300,95 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
         </div>
 
         {canPurchase ? (
-          <>
-            {/* Card CTA — white pill, primary */}
-            <UnlockButton
-              passId={pass.id}
-              className={PRIMARY_PILL}
-              onError={(err) => {
-                const parsed = getPassErrorMessage(err);
-                setCheckoutError(parsed.message);
-              }}
-            />
+          checkoutIntent ? (
+            <>
+              <PassConsentBoxes
+                consent={pass.sale_consent}
+                acceptedTerms={acceptedTerms}
+                acceptedWithdrawal={acceptedWithdrawal}
+                onAcceptedTerms={setAcceptedTerms}
+                onAcceptedWithdrawal={setAcceptedWithdrawal}
+                disabled={cryptoInFlight}
+                autoFocus
+              />
 
-            {/* Checkout error — inline below the card button */}
-            {checkoutError && (
-              <p className="text-xs text-red-300 leading-relaxed -mt-2">
-                {checkoutError}
-              </p>
-            )}
+              {checkoutIntent === 'card' ? (
+                <UnlockButton
+                  passId={pass.id}
+                  className={PRIMARY_PILL}
+                  consent={consentPayload}
+                  consentReady={consentReady}
+                  label="Continue to card"
+                  onError={(err) => {
+                    const parsed = getPassErrorMessage(err);
+                    setCheckoutError(parsed.message);
+                  }}
+                />
+              ) : (
+                <button
+                  disabled={cryptoInFlight || !consentReady}
+                  onClick={handleCryptoClick}
+                  className={PRIMARY_PILL}
+                >
+                  <Wallet className="w-4 h-4" />
+                  {cryptoInFlight || cryptoDirect.phase === 'failed'
+                    ? cryptoButtonLabel(cryptoDirect.phase, isConnected)
+                    : isConnected
+                      ? 'Continue with wallet'
+                      : 'Connect wallet to continue'}
+                </button>
+              )}
 
-            {/* Crypto CTA — frost-bordered pill, secondary */}
-            <button
-              disabled={cryptoInFlight}
-              onClick={handleCryptoClick}
-              className={SECONDARY_PILL}
-            >
-              <Wallet className="w-4 h-4" />
-              {cryptoButtonLabel(cryptoDirect.phase, isConnected)}
-            </button>
+              {checkoutError && (
+                <p className="text-xs text-red-300 leading-relaxed -mt-2">
+                  {checkoutError}
+                </p>
+              )}
 
-            {/* Fine print */}
-            <p className="text-xs text-[#a1a4a5] leading-relaxed">
-              Card checkout unlocks access instantly. Claim the NFT to your wallet any time.
-              <span className="inline-flex items-center gap-1 ml-1 text-[#5c5c5c]">
-                <Clock3 className="w-3 h-3" />
-                Crypto quotes hold inventory for ~5 minutes.
-                {cryptoReservationExpiresAt ? (
-                  <span>
-                    {' '}
-                    Current hold ends{' '}
-                    {new Date(cryptoReservationExpiresAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                    .
-                  </span>
-                ) : null}
-              </span>
-            </p>
-          </>
+              {!cryptoInFlight ? (
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => chooseMethod(checkoutIntent === 'card' ? 'crypto' : 'card')}
+                    className="text-xs text-[#a1a4a5] hover:text-[#f0f0f0] text-left"
+                  >
+                    {checkoutIntent === 'card' ? 'Pay with crypto instead' : 'Pay with card instead'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCheckoutIntent(null);
+                      setCheckoutError(null);
+                    }}
+                    className="text-xs text-[#5c5c5c] hover:text-[#a1a4a5] text-left"
+                  >
+                    Back
+                  </button>
+                </div>
+              ) : null}
+
+              {checkoutFinePrint}
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => chooseMethod('card')}
+                className={PRIMARY_PILL}
+              >
+                Buy with Card
+              </button>
+              <button
+                type="button"
+                onClick={() => chooseMethod('crypto')}
+                className={SECONDARY_PILL}
+              >
+                <Wallet className="w-4 h-4" />
+                Buy with crypto
+              </button>
+              {checkoutFinePrint}
+            </>
+          )
         ) : (
           <p className="text-sm text-[#a1a4a5] leading-relaxed">
             {blockMessage}

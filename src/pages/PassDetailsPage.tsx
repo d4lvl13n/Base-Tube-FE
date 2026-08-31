@@ -137,7 +137,7 @@ const PassDetailsPage: React.FC = () => {
 
   const descriptionNeedsToggle = (pass?.description?.length || 0) > DESCRIPTION_COLLAPSE_AT;
 
-  if (isLoading || isAccessLoading) {
+  if (isLoading) {
     return (
       <>
         <PremiumHeader />
@@ -502,6 +502,7 @@ const PassDetailsPage: React.FC = () => {
                     publish_status: pass.publish_status,
                     purchase_block_reason_code: pass.purchase_block_reason_code,
                     purchase_block_reason: pass.purchase_block_reason,
+                    sale_consent: pass.sale_consent,
                   }}
                   alreadyOwns={alreadyOwns}
                   isAccessLoading={isAccessLoading}

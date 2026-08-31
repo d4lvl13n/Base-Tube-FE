@@ -11,6 +11,7 @@ import {
   Clock3,
 } from 'lucide-react';
 import type { CryptoPurchasePhase } from '../../types/onchainPass';
+import { WITHDRAWAL_TEXT } from '../../constants/passConsent';
 
 /**
  * Full-screen progress modal for the crypto purchase flow.
@@ -380,6 +381,9 @@ const CryptoPurchaseModal: React.FC<CryptoPurchaseModalProps> = ({
               {/* Terminal-state CTAs */}
               {phase === 'completed' && (
                 <div className="mt-10 flex flex-col gap-3">
+                  <p className={`text-xs ${TEXT_SECONDARY} leading-relaxed`}>
+                    {WITHDRAWAL_TEXT}
+                  </p>
                   {watchRoute && (
                     <button
                       onClick={() => {

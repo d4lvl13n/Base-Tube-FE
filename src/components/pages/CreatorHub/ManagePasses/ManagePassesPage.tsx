@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { useCreatorPasses } from '../../../../hooks/usePass';
+import { useCreatorPasses, useCreatorSales } from '../../../../hooks/usePass';
 import { cx, form, list, page, segmented } from '../shared/hubStyles';
 import PassesOverview from './PassesOverview';
 import StripeConnectStrip from './StripeConnectStrip';
@@ -23,6 +23,7 @@ const CHIPS: { value: PassFilter; label: string }[] = [
 const ManagePassesPage: React.FC = () => {
   const [filter, setFilter] = useState<PassFilter>('all');
   const { data: passes, isLoading, error, refetch } = useCreatorPasses();
+  const { data: sales, isLoading: salesLoading } = useCreatorSales();
 
   const visible = useMemo(() => {
     const rows = passes ?? [];
@@ -52,7 +53,12 @@ const ManagePassesPage: React.FC = () => {
 
         <StripeConnectStrip />
 
-        <PassesOverview passes={passes} isLoading={isLoading} error={error} />
+        <PassesOverview
+          passes={passes}
+          sales={sales}
+          isLoading={isLoading || salesLoading}
+          error={error}
+        />
 
         <div className="flex items-center justify-between gap-3">
           <p className={page.eyebrow}>Passes</p>

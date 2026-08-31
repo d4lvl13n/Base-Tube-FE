@@ -9,6 +9,7 @@ import type {
   PlayTokenData,
   PurchaseStatus,
   SignedUrlResponse,
+  CheckoutConsent,
 } from '../types/pass';
 
 /**
@@ -41,8 +42,11 @@ export function createPassesApi(http: AxiosInstance) {
     },
 
     /** `POST /api/v1/passes/:id/checkout` (auth) — creates a Stripe checkout session. */
-    async checkout(passId: string): Promise<CheckoutSessionResponse> {
-      const res = await http.post<CheckoutSessionResponse>(`/api/v1/passes/${passId}/checkout`, {});
+    async checkout(passId: string, consent?: CheckoutConsent): Promise<CheckoutSessionResponse> {
+      const res = await http.post<CheckoutSessionResponse>(
+        `/api/v1/passes/${passId}/checkout`,
+        consent ?? {}
+      );
       return res.data;
     },
 

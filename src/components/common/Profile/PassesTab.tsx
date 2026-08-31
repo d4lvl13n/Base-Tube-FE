@@ -32,7 +32,9 @@ const PassCard: React.FC<PassCardProps> = ({ pass, access, isPending }) => {
 
   // Format the purchase date (if we had this info from the API)
   // For now, we'll just show a placeholder
-  const purchaseDate = new Date().toLocaleDateString();
+  const purchaseDate = pass.purchased_at
+    ? new Date(pass.purchased_at).toLocaleDateString()
+    : '—';
 
   const descriptionText = pass.description ? stripHtml(pass.description) : '';
 

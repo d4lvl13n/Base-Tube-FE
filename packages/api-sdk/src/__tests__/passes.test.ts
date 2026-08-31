@@ -52,4 +52,22 @@ describe('passes / access / purchases', () => {
     const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
     await expect(client.purchases.pending()).resolves.toHaveLength(1);
   });
+
+  it('checkout posts consent when provided', async () => {
+    const { adapter, requests } = makeAdapter(() => ({
+      status: 200,
+      data: { url: 'https://stripe.test', session_id: 'cs_test' },
+    }));
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+    await client.passes.checkout('p1', {
+      accepted_terms: true,
+      accepted_withdrawal: true,
+      terms_version: '2026-08-31.1',
+      withdrawal_version: '2026-08-31.1',
+    });
+    expect(JSON.parse(String(requests[0].data))).toMatchObject({
+      accepted_terms: true,
+      accepted_withdrawal: true,
+    });
+  });
 });

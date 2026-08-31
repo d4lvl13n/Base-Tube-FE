@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { PlayCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import UnlockButton from './UnlockButton';
 
 interface StickyPassHeaderProps {
   isVisible: boolean;
@@ -56,10 +55,7 @@ const StickyPassHeader: React.FC<StickyPassHeaderProps> = ({
           </button>
         ) : pass.can_purchase === true &&
           (pass.publish_status === undefined || pass.publish_status === 'published') ? (
-          <UnlockButton 
-            passId={pass.id} 
-            className="text-xs bg-orange-500 text-white px-3 py-1 rounded flex items-center gap-1" 
-          />
+          <span className="text-xs text-[#a1a4a5]">Buy on this page</span>
         ) : (
           <span className="text-xs text-[#a1a4a5]">Not for sale yet</span>
         )}

@@ -27,6 +27,7 @@ import {
   isNegativePurchaseStatus,
 } from '../utils/purchaseStatus';
 import { useLinkWallet } from '../hooks/useLinkWallet';
+import { WITHDRAWAL_TEXT } from '../constants/passConsent';
 
 const DEFAULT_CHAIN_ID = 8453;
 
@@ -258,6 +259,9 @@ const CheckoutSuccessPage: React.FC = () => {
                   <div className="font-medium text-emerald-200">Paid, access unlocked</div>
                   <p className="text-sm text-emerald-100/75 mt-1">
                     You can start watching immediately from your pass page.
+                  </p>
+                  <p className="text-xs text-emerald-100/60 mt-2 leading-relaxed">
+                    {WITHDRAWAL_TEXT}
                   </p>
                 </div>
               )}

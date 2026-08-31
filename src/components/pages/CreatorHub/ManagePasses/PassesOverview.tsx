@@ -6,6 +6,12 @@ import { formatMoney, soldCount } from './passHelpers';
 
 interface PassesOverviewProps {
   passes: Pass[] | undefined;
+  sales?: {
+    card: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
+    crypto: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
+    buyers: number;
+    pass_holders: number;
+  } | null;
   isLoading: boolean;
   error: unknown;
 }
@@ -21,14 +27,12 @@ interface Tile {
  * no icons, no change arrows. Revenue carries its currency; a creator selling
  * in two currencies sees one total per currency rather than a meaningless sum.
  */
-const PassesOverview: React.FC<PassesOverviewProps> = ({ passes, isLoading, error }) => {
+const PassesOverview: React.FC<PassesOverviewProps> = ({ passes, sales, isLoading, error }) => {
   const tiles = useMemo<Tile[]>(() => {
     const rows = passes ?? [];
     let sold = 0;
     let cappedSold = 0;
     let supplyCap = 0;
-    const revenueByCurrency = new Map<string, number>();
-
     rows.forEach((pass) => {
       const passSold = soldCount(pass);
       sold += passSold;
@@ -36,30 +40,28 @@ const PassesOverview: React.FC<PassesOverviewProps> = ({ passes, isLoading, erro
         supplyCap += pass.supply_cap;
         cappedSold += passSold;
       }
-      const currency = (pass.currency || 'EUR').toUpperCase();
-      revenueByCurrency.set(currency, (revenueByCurrency.get(currency) ?? 0) + passSold * pass.price_cents);
     });
 
-    const revenue =
-      revenueByCurrency.size === 0
-        ? formatMoney(0, 'EUR')
-        : Array.from(revenueByCurrency.entries())
-            .map(([currency, cents]) => formatMoney(cents, currency))
-            .join(' · ');
+    const revenue = sales
+      ? [
+          `${formatMoney(sales.card.proceeds_minor, sales.card.currency)} card`,
+          `${formatMoney(sales.crypto.proceeds_minor, sales.crypto.currency)} crypto`,
+        ].join(' · ')
+      : '—';
 
     const hasUnlimited = rows.some((pass) => !pass.supply_cap);
 
     return [
       { label: 'Passes', value: rows.length.toLocaleString() },
-      { label: 'Sold', value: sold.toLocaleString() },
+      { label: 'Sold', value: (sales ? sales.card.purchase_count + sales.crypto.purchase_count : sold).toLocaleString() },
       {
         label: 'Available supply',
         value: supplyCap > 0 ? Math.max(0, supplyCap - cappedSold).toLocaleString() : hasUnlimited ? '∞' : '0',
         hint: supplyCap > 0 && hasUnlimited ? 'capped passes only' : undefined,
       },
-      { label: 'Gross revenue', value: revenue, hint: 'before fees' },
+      { label: 'Your proceeds', value: revenue, hint: sales ? 'after the platform fee; refunds excluded' : 'loading sales' },
     ];
-  }, [passes]);
+  }, [passes, sales]);
 
   return (
     <div

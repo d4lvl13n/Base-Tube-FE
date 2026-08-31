@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Video, Info, Users } from 'lucide-react';
+import { Video, Info, Users, Ticket } from 'lucide-react';
 
 interface ChannelTabsProps {
   activeTab: string;
@@ -10,6 +10,7 @@ interface ChannelTabsProps {
 const ChannelTabs: React.FC<ChannelTabsProps> = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { key: 'videos', label: 'Videos', icon: <Video size={18} /> },
+    { key: 'products', label: 'Passes', icon: <Ticket size={18} /> },
     { key: 'about', label: 'About', icon: <Info size={18} /> },
     { key: 'community', label: 'Community', icon: <Users size={18} /> },
   ];

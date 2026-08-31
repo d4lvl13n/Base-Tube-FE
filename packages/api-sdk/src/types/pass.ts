@@ -40,12 +40,30 @@ export interface Pass {
   purchase_block_reason?: string | null;
   channel: { name: string; user: { username: string } };
   videos: PassVideo[];
+  purchased_at?: string | null;
+  sale_consent?: {
+    terms_version: string;
+    terms_hash: string;
+    terms_text: string;
+    withdrawal_version: string;
+    withdrawal_hash: string;
+    withdrawal_text: string;
+  };
 }
 
 export interface PassDetailsResponse {
   success: boolean;
   data: Pass;
   message?: string;
+}
+
+export interface CheckoutConsent {
+  accepted_terms: boolean;
+  accepted_withdrawal: boolean;
+  terms_version: string;
+  withdrawal_version: string;
+  terms_hash?: string;
+  withdrawal_hash?: string;
 }
 
 /** `POST /api/v1/passes/:id/checkout` (Stripe). */

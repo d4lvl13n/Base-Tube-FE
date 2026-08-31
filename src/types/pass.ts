@@ -64,6 +64,15 @@ export type PurchaseBlockReasonCode =
 export type PassPublishStatus = 'draft' | 'publishing' | 'published' | 'publish_failed';
 export type CreatorSettlementPreference = 'fiat' | 'crypto';
 
+export interface SaleConsentPublic {
+  terms_version: string;
+  terms_hash: string;
+  terms_text: string;
+  withdrawal_version: string;
+  withdrawal_hash: string;
+  withdrawal_text: string;
+}
+
 export interface UpdateDraftPassRequest {
   title?: string;
   description?: string | null;
@@ -112,6 +121,8 @@ export interface Pass {
     }
   };
   videos: PassVideo[];
+  sale_consent?: SaleConsentPublic;
+  purchased_at?: string | null;
 }
 
 // API response for fetching pass details

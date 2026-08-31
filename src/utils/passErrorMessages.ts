@@ -48,6 +48,16 @@ const PASS_ERROR_MAP: Record<
     message: 'Enter a valid wallet address starting with 0x, or leave it blank if you already linked one.',
     action: null,
   },
+  CONSENT_REQUIRED: {
+    message: 'Tick both boxes to buy: the terms, and the note about losing the 14-day withdrawal right.',
+    action: null,
+    canRetry: false,
+  },
+  CONSENT_STALE: {
+    message: 'The terms on this page are out of date. Refresh and tick the boxes again.',
+    action: null,
+    canRetry: true,
+  },
   CONNECT_ACCOUNT_NOT_READY: {
     message:
       'This creator still needs to connect a Stripe test account before card checkout can pay them.',

@@ -55,6 +55,19 @@ jest.mock('../../../../hooks/useChannelData', () => ({
   useChannelData: () => mockChannel
 }));
 
+jest.mock('../../../../hooks/usePass', () => ({
+  useCreatorSales: () => ({
+    data: {
+      card: { currency: 'EUR', proceeds_minor: 0, gross_minor: 0, fee_minor: 0, purchase_count: 0 },
+      crypto: { currency: 'USDC', proceeds_minor: 0, gross_minor: 0, fee_minor: 0, purchase_count: 0 },
+      buyers: 0,
+      pass_holders: 0,
+      recent: [],
+    },
+    isLoading: false,
+  }),
+}));
+
 beforeEach(() => {
   mockAnalytics.errors = { ...noErrors };
   mockChannel.error = null;

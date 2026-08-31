@@ -114,12 +114,56 @@ export const passApi = {
    * @param passId Pass unique id
    */
   createCheckoutSession: async (
-    passId: string
+    passId: string,
+    consent?: import('../constants/passConsent').SaleConsentPayload
   ): Promise<CheckoutSessionResponse> => {
     const response = await api.post<CheckoutSessionResponse>(
-      `/api/v1/passes/${passId}/checkout`
+      `/api/v1/passes/${passId}/checkout`,
+      consent ?? {}
     );
     return response.data;
+  },
+
+  getCreatorSales: async (): Promise<{
+    card: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
+    crypto: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
+    buyers: number;
+    pass_holders: number;
+    recent: Array<{
+      purchase_id: string;
+      pass_title: string;
+      buyer_email: string | null;
+      buyer_username: string | null;
+      payment_type: string;
+      settlement_status: string;
+      has_access: boolean;
+      first_played_at: string | null;
+      purchased_at: string;
+      proceeds_minor: number | null;
+      currency_or_asset: string | null;
+    }>;
+  }> => {
+    const response = await api.get('/api/v1/creator/sales');
+    const body = response.data as { data?: unknown };
+    return (body.data ?? body) as {
+      card: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
+      crypto: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
+      buyers: number;
+      pass_holders: number;
+      recent: Array<{
+        purchase_id: string;
+        pass_title: string;
+        buyer_email: string | null;
+        buyer_username: string | null;
+        payment_type: string;
+        settlement_status: string;
+        has_access: boolean;
+        first_played_at: string | null;
+        purchased_at: string;
+        proceeds_minor: number | null;
+        currency_or_asset: string | null;
+      }>;
+    };
   },
 
   /**

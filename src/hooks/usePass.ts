@@ -37,9 +37,18 @@ export const usePassDetails = (
  */
 export const useCheckout = () => {
   const queryClient = useQueryClient();
-  return useMutation<CheckoutSessionResponse, Error, string, unknown>({
-    mutationFn: (passId: string) => passApi.createCheckoutSession(passId),
-    onSuccess: (data: CheckoutSessionResponse, passId: string) => {
+  return useMutation<
+    CheckoutSessionResponse,
+    Error,
+    string | { passId: string; consent?: import('../constants/passConsent').SaleConsentPayload },
+    unknown
+  >({
+    mutationFn: (input) => {
+      if (typeof input === 'string') return passApi.createCheckoutSession(input);
+      return passApi.createCheckoutSession(input.passId, input.consent);
+    },
+    onSuccess: (data, input) => {
+      const passId = typeof input === 'string' ? input : input.passId;
       queryClient.invalidateQueries({ queryKey: ['pass'] });
       queryClient.invalidateQueries({ queryKey: ['purchased-passes'] });
       persistCheckoutContext(passId, data);
@@ -253,6 +262,15 @@ export const useStartStripeConnect = () => {
         window.location.href = data.onboardingUrl;
       }
     },
+  });
+};
+
+export const useCreatorSales = (options: { enabled?: boolean } = {}) => {
+  return useQuery({
+    queryKey: ['creator-sales'],
+    queryFn: () => passApi.getCreatorSales(),
+    enabled: options.enabled ?? true,
+    staleTime: 30_000,
   });
 };
 
