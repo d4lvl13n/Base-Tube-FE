@@ -138,6 +138,12 @@ export type VideoProgressFetcher = (videoIds: number[]) => Promise<VideoProgress
 export interface UseUploadQueueOptions {
   api?: UploadApi;
   resumeStore?: UploadResumeStore;
+  /**
+   * Scopes the IndexedDB database to the authenticated user, so one browser
+   * profile never shows another account's filenames/draft metadata. The
+   * provider remounts the hook (React `key`) when the user changes.
+   */
+  storageNamespace?: string;
   /** Injected by tests; defaults to `PUT /api/v1/videos/:id`. */
   applyVideoUpdate?: (videoId: number, fields: VideoUpdateFields) => Promise<void>;
   /** Injected by tests; defaults to `GET /api/v1/videos/progress?ids=`. */
@@ -276,7 +282,9 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   const applyVideoUpdate = options.applyVideoUpdate ?? putVideoUpdate;
   const fetchVideoProgress = options.fetchVideoProgress ?? getVideoProgressBatch;
   const notify = options.notify ?? showErrorToast;
-  const storeRef = useRef<UploadResumeStore>(options.resumeStore ?? createUploadResumeStore());
+  const storeRef = useRef<UploadResumeStore>(
+    options.resumeStore ?? createUploadResumeStore(options.storageNamespace),
+  );
   const entriesRef = useRef<UploadQueueEntry[]>([]);
   const controllersRef = useRef(new Map<string, AbortController>());
   const activeIdsRef = useRef(new Set<string>());
@@ -288,6 +296,13 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   const inFlightPatchRef = useRef(new Map<string, Promise<void>>());
   const pendingThumbnailsRef = useRef(new Map<string, File>());
   const thumbnailAttemptedRef = useRef(new Set<string>());
+  /**
+   * Rows cancelled while their create request was still on the wire. The
+   * request itself cannot be aborted, so when its response finally delivers an
+   * `uploadId`, the transfer's update callback sees this set and aborts the
+   * server session — otherwise an invisible multipart session leaks.
+   */
+  const cancelAfterCreateRef = useRef(new Set<string>());
   const mountedRef = useRef(true);
   const applyVideoUpdateRef = useRef(applyVideoUpdate);
   const fetchVideoProgressRef = useRef(fetchVideoProgress);
@@ -374,6 +389,12 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
             await forget(entry.localId);
             continue;
           }
+          // Rebuild unacknowledged metadata from the persisted record: a
+          // reload during the debounce (or after a failed PATCH) must not
+          // silently drop an edit — visibility above all.
+          if (entry.pendingPatch) {
+            pendingPatchesRef.current.set(entry.localId, { ...entry.pendingPatch });
+          }
           hydratedEntries.push(entry);
         }
         if (cancelled) return;
@@ -399,8 +420,15 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
               // finished while nobody was polling, and only the single-upload
               // read can say which (see `resolveAbsentRow`).
               const resolved = await resolveAbsentRow(api, entry);
-              if (resolved === 'forget' || resolved === 'keep') {
+              if (resolved === 'forget') {
                 await forget(entry.localId);
+                continue;
+              }
+              // `keep` means "could not determine" (a transient detail-read
+              // failure) — deleting the record here threw away resumable
+              // state on any flaky boot. The row stays; the poll retries.
+              if (resolved === 'keep') {
+                survivors.push(entry);
                 continue;
               }
               const merged = applyServerRow(entry, resolved);
@@ -493,11 +521,17 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
    * every keystroke, so an identity mismatch means the creator typed again
    * while the request was in flight — those newer fields must survive.
    */
-  const clearPendingPatch = useCallback((localId: string, sent: PatchUploadBody) => {
-    if (pendingPatchesRef.current.get(localId) === sent) {
-      pendingPatchesRef.current.delete(localId);
-    }
-  }, []);
+  const clearPendingPatch = useCallback(
+    (localId: string, sent: PatchUploadBody) => {
+      if (pendingPatchesRef.current.get(localId) === sent) {
+        pendingPatchesRef.current.delete(localId);
+        // The acknowledged marker is durable too: drop the persisted copy so a
+        // reload does not replay a patch the server already took.
+        void updateEntry(localId, { pendingPatch: null });
+      }
+    },
+    [updateEntry],
+  );
 
   /**
    * Re-applies pending draft fields to the Video row the upload produced.
@@ -600,20 +634,35 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     [sendPendingPatch],
   );
 
+  // Unacknowledged edits rebuilt from IndexedDB are re-sent as soon as the
+  // queue is hydrated — the reload interrupted the save, not the intent.
+  useEffect(() => {
+    if (!hydrated) return;
+    for (const localId of Array.from(pendingPatchesRef.current.keys())) {
+      void sendPendingPatch(localId);
+    }
+    // Once, on hydration; later patches schedule their own sends.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
   /** Debounced draft-metadata PATCH; last write wins server-side (§7.3). */
   const updateMetadata = useCallback(
     (localId: string, patch: PatchUploadBody) => {
+      const merged = {
+        ...pendingPatchesRef.current.get(localId),
+        ...patch,
+      };
+      pendingPatchesRef.current.set(localId, merged);
+      // One persisted write carries both the DESIRED values and the fact that
+      // the server has not confirmed them yet (`pendingPatch`), so a reload
+      // rebuilds the unacknowledged edit instead of dropping it.
       void updateEntry(localId, {
         ...(patch.title !== undefined ? { title: patch.title } : {}),
         ...(patch.description !== undefined ? { description: patch.description } : {}),
         ...(patch.isPublic !== undefined ? { isPublic: patch.isPublic } : {}),
         ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
         ...(patch.channelId !== undefined ? { channelId: patch.channelId } : {}),
-      });
-
-      pendingPatchesRef.current.set(localId, {
-        ...pendingPatchesRef.current.get(localId),
-        ...patch,
+        pendingPatch: { ...merged },
       });
       const existing = patchTimersRef.current.get(localId);
       if (existing) clearTimeout(existing);
@@ -667,6 +716,11 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       controllersRef.current.set(entry.localId, controller);
 
       const update: QueueEntryUpdate = (patch, updateOptions) => {
+        // A cancel that raced session creation: the server row exists now, so
+        // honour the cancel there instead of leaving an orphan session.
+        if (patch.uploadId && cancelAfterCreateRef.current.delete(entry.localId)) {
+          void api.abort(patch.uploadId).catch(() => undefined);
+        }
         // Any sign of progress means the admission backoff was pessimistic.
         if (
           patch.uploadId ||
@@ -681,8 +735,23 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       };
 
       // Completion is the point of no return for draft metadata: the backend
-      // creates the Video row there, and every later PATCH is a 409.
-      const deps = { ...transferDeps, beforeComplete: () => flushMetadata(entry.localId) };
+      // creates the Video row there, and every later PATCH is a 409. And
+      // VISIBILITY must be acknowledged before that point — completing while a
+      // Private edit is still unconfirmed is how a video the creator made
+      // private goes public. Throwing keeps the row in the retry path (the
+      // parts are all uploaded; a retry resumes at completion).
+      const deps = {
+        ...transferDeps,
+        beforeComplete: async () => {
+          await flushMetadata(entry.localId);
+          const pending = pendingPatchesRef.current.get(entry.localId);
+          if (pending && pending.isPublic !== undefined) {
+            throw new Error(
+              'Your visibility choice has not reached the server yet — completion will retry once it is saved.',
+            );
+          }
+        },
+      };
 
       void executeUploadTransfer(entry, entry.file, deps, update, { signal: controller.signal })
         .catch(async (error: unknown) => {
@@ -710,7 +779,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
           if (mountedRef.current) setSchedulerRevision((value) => value + 1);
         });
     },
-    [flushMetadata, transferDeps, updateEntry],
+    [api, flushMetadata, transferDeps, updateEntry],
   );
 
   // ── scheduler ────────────────────────────────────────────────────────────
@@ -951,6 +1020,9 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
             errorMessage: null,
           });
         } else {
+          // The create round-trip may still be on the wire; the response's
+          // uploadId will be aborted server-side by the update callback.
+          if (controllersRef.current.has(localId)) cancelAfterCreateRef.current.add(localId);
           await forget(localId);
           replaceEntries(entriesRef.current.filter((candidate) => candidate.localId !== localId));
           releaseSessionSlot();

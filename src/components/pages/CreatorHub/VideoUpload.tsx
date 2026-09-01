@@ -29,7 +29,7 @@ import RichTextEditor from '../../common/RichTextEditor';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 import { useAIthumbnail } from '../../../hooks/useAIthumbnail';
 import { formatBytes, phaseDetail, phaseLabel, uploadPhase } from '../../upload/uploadPhase';
-import type { UploadQueueViewEntry } from '../../../hooks/useUploadQueue';
+import { uploadRowIsTerminal, type UploadQueueViewEntry } from '../../../hooks/useUploadQueue';
 
 const ACCEPTED = '.mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo';
 
@@ -85,6 +85,23 @@ const VideoUpload: React.FC = () => {
   const entry = queueLocalId
     ? (uploadQueue.entries.find((item) => item.localId === queueLocalId) ?? null)
     : null;
+
+  // Reload adoption: a reload used to leave this page empty while the hydrated
+  // row lived only in the floating panel (which is hidden on upload routes) —
+  // inviting the creator to pick the file again under a NEW attempt. Adopt the
+  // most recent still-live row instead, so the page shows what is already
+  // resumable.
+  useEffect(() => {
+    if (queueLocalId !== null || !uploadQueue.hydrated) return;
+    const candidates = uploadQueue.entries.filter((item) => !uploadRowIsTerminal(item));
+    const latest = candidates[candidates.length - 1];
+    if (!latest) return;
+    setQueueLocalId(latest.localId);
+    setTitle(latest.title);
+    setDescription(latest.description ?? '');
+    setVisibility(latest.isPublic ? 'public' : 'private');
+  }, [queueLocalId, uploadQueue.entries, uploadQueue.hydrated]);
+
   // Stable across renders (useCallback in the hook), so they are safe in deps.
   const updateQueueMetadata = uploadQueue.updateMetadata;
   const parkThumbnail = uploadQueue.setPendingThumbnail;

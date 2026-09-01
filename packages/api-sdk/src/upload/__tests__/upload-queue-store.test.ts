@@ -35,6 +35,35 @@ describe('queue entry creation', () => {
     const entry = createQueueEntry(7, validated(), () => 'attempt-1');
     expect('file' in persistedRecord(entry)).toBe(false);
   });
+
+  // `pendingPatch` records the fields of the last un-flushed metadata PATCH.
+  // It must survive the persist → hydrate round trip, or a reload during the
+  // debounce silently drops the edit (visibility above all).
+  it('round-trips the pendingPatch marker through persist and hydrate', () => {
+    const entry = {
+      ...createQueueEntry(7, validated(), () => 'attempt-1'),
+      pendingPatch: { isPublic: false, title: 'Unsaved title' },
+    };
+
+    const record = persistedRecord(entry);
+    expect(record.pendingPatch).toEqual({ isPublic: false, title: 'Unsaved title' });
+
+    const [hydrated] = hydrateUploadQueue([record]);
+    expect(hydrated!.pendingPatch).toEqual({ isPublic: false, title: 'Unsaved title' });
+  });
+
+  it('leaves pendingPatch absent when nothing is unacknowledged', () => {
+    const entry = createQueueEntry(7, validated(), () => 'attempt-1');
+    const record = persistedRecord(entry);
+    expect(record.pendingPatch).toBeUndefined();
+
+    // An acknowledged patch is persisted as an explicit null; both spellings
+    // hydrate to "nothing pending".
+    const [absent] = hydrateUploadQueue([record]);
+    expect(absent!.pendingPatch).toBeUndefined();
+    const [cleared] = hydrateUploadQueue([{ ...record, pendingPatch: null }]);
+    expect(cleared!.pendingPatch).toBeNull();
+  });
 });
 
 describe('reload hydration', () => {

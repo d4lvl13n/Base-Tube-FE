@@ -12,6 +12,17 @@ const DATABASE_NAME = 'bt-upload-v1';
 const STORE_NAME = 'upload-records';
 const DATABASE_VERSION = 1;
 
+/**
+ * Databases are NAMESPACED per authenticated user: filenames and draft
+ * metadata are personal, and one un-namespaced database showed the previous
+ * user's uploads to the next account on the same browser.
+ */
+function databaseName(namespace?: string): string {
+  if (!namespace) return DATABASE_NAME;
+  const safe = namespace.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
+  return `${DATABASE_NAME}--${safe}`;
+}
+
 export interface UploadResumeStore {
   list: () => Promise<PersistedUploadRecord[]>;
   put: (record: PersistedUploadRecord) => Promise<void>;
@@ -33,9 +44,9 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
   });
 }
 
-async function openDatabase(): Promise<IDBDatabase> {
+async function openDatabase(namespace?: string): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') throw new Error('IndexedDB is unavailable');
-  const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+  const request = indexedDB.open(databaseName(namespace), DATABASE_VERSION);
   request.onupgradeneeded = () => {
     const database = request.result;
     if (!database.objectStoreNames.contains(STORE_NAME)) {
@@ -47,10 +58,10 @@ async function openDatabase(): Promise<IDBDatabase> {
   return requestResult(request);
 }
 
-export function createIndexedDbResumeStore(): UploadResumeStore {
+export function createIndexedDbResumeStore(namespace?: string): UploadResumeStore {
   let databasePromise: Promise<IDBDatabase> | null = null;
   const database = () => {
-    databasePromise ??= openDatabase();
+    databasePromise ??= openDatabase(namespace);
     return databasePromise;
   };
 
@@ -102,6 +113,8 @@ export function createMemoryResumeStore(): UploadResumeStore {
 }
 
 /** IndexedDB when the platform has it, memory otherwise. */
-export function createUploadResumeStore(): UploadResumeStore {
-  return typeof indexedDB === 'undefined' ? createMemoryResumeStore() : createIndexedDbResumeStore();
+export function createUploadResumeStore(namespace?: string): UploadResumeStore {
+  return typeof indexedDB === 'undefined'
+    ? createMemoryResumeStore()
+    : createIndexedDbResumeStore(namespace);
 }

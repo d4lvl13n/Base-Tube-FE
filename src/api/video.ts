@@ -555,25 +555,36 @@ export const getVideoProgress = async (videoId: number): Promise<VideoProgressRe
 export const getVideoProgressBatch = async (
   videoIds: number[]
 ): Promise<VideoProgressBatchResponse> => {
-  const ids = videoIds.slice(0, 50);
-  if (ids.length === 0) {
+  if (videoIds.length === 0) {
     return { success: true, data: {} };
   }
-  const response = await api.get<{ success: boolean; data?: unknown }>(
-    `/api/v1/videos/progress`,
-    { params: { ids: ids.join(',') } }
-  );
 
-  // `data` is an ARRAY of rows, each carrying its own `videoId`; ids the caller
-  // does not own are simply absent (the backend filters by ownership in SQL).
-  const rows = Array.isArray(response.data?.data)
-    ? (response.data.data as VideoProgressBatchRow[])
-    : [];
-  const byId: Record<string, VideoProgressBatchRow> = {};
-  for (const row of rows) {
-    if (row && typeof row.videoId === 'number') byId[String(row.videoId)] = row;
+  // CHUNKED, never truncated: callers treat "asked about but absent from a
+  // successful answer" as "deleted", so silently dropping ids 51+ ERASED those
+  // uploads from the queue during a processing backlog.
+  const chunks: number[][] = [];
+  for (let start = 0; start < videoIds.length; start += 50) {
+    chunks.push(videoIds.slice(start, start + 50));
   }
-  return { success: response.data?.success !== false, data: byId };
+
+  const byId: Record<string, VideoProgressBatchRow> = {};
+  let success = true;
+  for (const ids of chunks) {
+    const response = await api.get<{ success: boolean; data?: unknown }>(
+      `/api/v1/videos/progress`,
+      { params: { ids: ids.join(',') } }
+    );
+    // `data` is an ARRAY of rows, each carrying its own `videoId`; ids the caller
+    // does not own are simply absent (the backend filters by ownership in SQL).
+    const rows = Array.isArray(response.data?.data)
+      ? (response.data.data as VideoProgressBatchRow[])
+      : [];
+    for (const row of rows) {
+      if (row && typeof row.videoId === 'number') byId[String(row.videoId)] = row;
+    }
+    if (response.data?.success === false) success = false;
+  }
+  return { success, data: byId };
 };
 
 export const retryVideoProcessing = async (videoId: number): Promise<{ success: boolean; message: string }> => {

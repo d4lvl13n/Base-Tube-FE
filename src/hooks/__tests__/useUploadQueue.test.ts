@@ -921,6 +921,32 @@ describe('useUploadQueue session hygiene', () => {
     expect(result.current.entries).toHaveLength(0);
   });
 
+  // A flaky boot is not a verdict. `resolveAbsentRow` answers 'keep' when the
+  // single-upload read fails with anything but a 404 — the record used to be
+  // deleted anyway, throwing away resumable state over a transient error.
+  it('keeps a bytes-done row when the single-upload read fails transiently', async () => {
+    const get = jest
+      .fn()
+      .mockRejectedValue(new UploadApiError('bad gateway', 502, 'INTERNAL_ERROR', null));
+    const { api } = harness({ get }); // listActive() → [] — the row is absent
+    const store = await seededStore(
+      persistedRow({ status: 'processing', progress: 90, videoId: null, videoStatus: null }),
+    );
+    const remove = jest.spyOn(store, 'remove');
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    expect(get).toHaveBeenCalledWith('upload-9');
+    // Still in the queue, still on disk — the poll retries later.
+    expect(result.current.entries).toHaveLength(1);
+    expect(result.current.entries[0]).toMatchObject({ uploadId: 'upload-9', videoId: null });
+    expect(remove).not.toHaveBeenCalled();
+    await expect(store.list()).resolves.toHaveLength(1);
+  });
+
   it('drops a processing row whose video no longer exists', async () => {
     const { api } = harness();
     const store = await seededStore(persistedRow()); // videoId 99, processing
@@ -933,5 +959,159 @@ describe('useUploadQueue session hygiene', () => {
     await waitFor(() => expect(fetchVideoProgress).toHaveBeenCalledWith([99]));
     await waitFor(() => expect(result.current.entries).toHaveLength(0));
     await expect(store.list()).resolves.toHaveLength(0);
+  });
+});
+
+describe('useUploadQueue persisted pending metadata', () => {
+  // A reload during the 800 ms debounce (or after a failed PATCH) used to
+  // silently drop the edit. The unacknowledged fields now ride along in the
+  // persisted record as `pendingPatch`, and are cleared only when the server
+  // has actually taken them.
+  it('persists the unacknowledged fields and clears them once the PATCH lands', async () => {
+    const store = createMemoryResumeStore();
+    const { api, order, releaseCreate } = harness();
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    let localId = '';
+    await act(async () => {
+      const enqueued = await result.current.enqueueFiles([videoFile()], 7);
+      localId = enqueued.accepted[0].localId;
+    });
+    act(() => {
+      result.current.updateMetadata(localId, { isPublic: false });
+    });
+
+    // The record carries both the DESIRED value and the fact that the server
+    // has not confirmed it yet.
+    await waitFor(async () => {
+      const [record] = await store.list();
+      expect(record?.isPublic).toBe(false);
+      expect(record?.pendingPatch).toEqual({ isPublic: false });
+    });
+
+    // Completion flushes the patch; once acknowledged, the persisted marker
+    // is cleared so a later reload does not replay it.
+    releaseCreate();
+    await waitFor(() => expect(order).toContain('patch'));
+    await waitFor(async () => {
+      const [record] = await store.list();
+      expect(record?.pendingPatch).toBeNull();
+    });
+  });
+
+  it('re-seeds a stored pendingPatch on hydration and re-sends it without a keystroke', async () => {
+    const { api, order, patches } = harness({ listActive: async () => [activeRow()] });
+    const store = await seededStore(resumableRow({ pendingPatch: { isPublic: false } }));
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    // Nothing was typed this session; the reload interrupted the save, not
+    // the intent — the hook re-sends the stored fields on its own.
+    await waitFor(() => expect(patches).toEqual([{ isPublic: false }]));
+    expect(order).toContain('patch');
+    // Acknowledged: the durable marker goes too.
+    await waitFor(async () => {
+      const [record] = await store.list();
+      expect(record?.pendingPatch).toBeNull();
+    });
+  });
+});
+
+describe('useUploadQueue completion refuses unacknowledged visibility', () => {
+  // Completing while a visibility edit is still unconfirmed is how a video the
+  // creator made private goes public. `beforeComplete` flushes the metadata
+  // and REJECTS if `isPublic` is still pending — completion must not proceed.
+  it('blocks completion while the visibility PATCH keeps failing, then completes once it lands', async () => {
+    let patchShouldFail = true;
+    const patchBodies: unknown[] = [];
+    const { api, order, releaseCreate, completions } = harness({
+      async patch(_uploadId, body) {
+        patchBodies.push(body);
+        if (patchShouldFail) throw new UploadApiError('boom', 500, 'INTERNAL_ERROR', null);
+      },
+    });
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: createMemoryResumeStore(), notify: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    let localId = '';
+    await act(async () => {
+      const enqueued = await result.current.enqueueFiles([videoFile()], 7);
+      localId = enqueued.accepted[0].localId;
+    });
+    act(() => {
+      result.current.updateMetadata(localId, { isPublic: true });
+    });
+
+    releaseCreate();
+
+    // The transfer reached completion, tried to flush, could not get the
+    // visibility acknowledged — and refused to complete: the row parks in the
+    // retry path instead of publishing with the wrong visibility.
+    await waitFor(() =>
+      expect(result.current.entries.find((entry) => entry.localId === localId)?.status).toBe(
+        'retry_wait',
+      ),
+    );
+    expect(order).not.toContain('complete');
+    expect(patchBodies.length).toBeGreaterThanOrEqual(1);
+
+    // The server comes back: the flush lands, the retry resumes at completion
+    // (the parts are all uploaded), and completion now goes through.
+    patchShouldFail = false;
+    await act(async () => {
+      await result.current.flushMetadata(localId);
+    });
+    expect(patchBodies[patchBodies.length - 1]).toEqual({ isPublic: true });
+    await act(async () => {
+      await result.current.retryEntry(localId);
+    });
+    await waitFor(() => expect(order).toContain('complete'));
+    expect(completions).toHaveLength(1);
+  }, 10_000);
+});
+
+describe('useUploadQueue cancel racing session creation', () => {
+  // The create request cannot be aborted mid-flight. Cancelling before it
+  // answers used to leak an invisible multipart session on the server; the
+  // update callback now aborts the session the moment its uploadId arrives.
+  it('aborts the late-created server session after the row was cancelled', async () => {
+    const abort = jest.fn().mockResolvedValue(undefined);
+    const { api, releaseCreate } = harness({ abort });
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: createMemoryResumeStore(), notify: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    let localId = '';
+    await act(async () => {
+      const enqueued = await result.current.enqueueFiles([videoFile()], 7);
+      localId = enqueued.accepted[0].localId;
+    });
+    // The transfer is active, its `create` still on the wire (gated).
+    await waitFor(() =>
+      expect(result.current.entries.find((entry) => entry.localId === localId)?.status).toBe(
+        'reserving',
+      ),
+    );
+
+    // Cancel while there is no uploadId yet: the row disappears locally, and
+    // nothing can be aborted server-side — yet.
+    await act(async () => {
+      await result.current.abortEntry(localId);
+    });
+    expect(result.current.entries).toHaveLength(0);
+    expect(abort).not.toHaveBeenCalled();
+
+    // The create response finally lands and delivers the uploadId: the hook
+    // honours the cancel there, so no orphan session survives.
+    releaseCreate();
+    await waitFor(() => expect(abort).toHaveBeenCalledWith('upload-1'));
   });
 });

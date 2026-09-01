@@ -210,9 +210,11 @@ describe('VideoUpload', () => {
   it('enqueues the chosen file and shows its row', async () => {
     const created = entry();
     const enqueueFiles = jest.fn().mockResolvedValue({ accepted: [created], rejected: [] });
-    // The queue is the source of truth for the row; the page only shows the
-    // entry once its own `enqueueFiles` has claimed the localId.
-    const api = queue({ enqueueFiles, entries: [created] });
+    // The queue starts empty — a live entry already in a hydrated queue would
+    // be ADOPTED on mount (see the reload-adoption tests below). The row only
+    // appears once the page's own `enqueueFiles` has claimed the localId and
+    // the queue reports the entry.
+    const api = queue({ enqueueFiles, entries: [] });
     const { container } = renderUpload(api);
 
     expect(screen.queryByText('clip.mp4')).not.toBeInTheDocument();
@@ -221,6 +223,10 @@ describe('VideoUpload', () => {
     selectFile(container, file);
 
     await waitFor(() => expect(enqueueFiles).toHaveBeenCalledWith([file], 7));
+
+    // The queue's state moves on: the accepted entry is now in `entries`.
+    mockUseUploadQueueContext.mockReturnValue({ ...api, entries: [created] });
+    rerenderUpload();
 
     expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
     expect(screen.getByText('12.0 MB')).toBeInTheDocument();
@@ -284,19 +290,29 @@ describe('VideoUpload', () => {
   // clear the page while the bytes may well have kept moving.
   it('clears the row when the cancel is confirmed', async () => {
     const created = entry();
+    // Starts empty so the row on screen is the one this page enqueued, not an
+    // adopted one (a hydrated live entry would be adopted on mount).
     const api = queue({
-      entries: [created],
+      entries: [],
       enqueueFiles: jest.fn().mockResolvedValue({ accepted: [created], rejected: [] }),
       abortEntry: jest.fn().mockResolvedValue(true),
     });
     const { container } = renderUpload(api);
 
     selectFile(container, new File(['bytes'], 'clip.mp4', { type: 'video/mp4' }));
+    await waitFor(() => expect(api.enqueueFiles).toHaveBeenCalled());
+    mockUseUploadQueueContext.mockReturnValue({ ...api, entries: [created] });
+    rerenderUpload();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel clip.mp4' }));
 
     await waitFor(() => expect(api.abortEntry).toHaveBeenCalledWith('local-1'));
     await waitFor(() => expect(api.removeEntry).toHaveBeenCalledWith('local-1'));
+
+    // The queue drops the removed entry; with nothing left to adopt, the page
+    // gets its drop zone back.
+    mockUseUploadQueueContext.mockReturnValue({ ...api, entries: [] });
+    rerenderUpload();
     expect(await screen.findByText('Drop a video here')).toBeInTheDocument();
   });
 
@@ -346,6 +362,61 @@ describe('VideoUpload', () => {
 
     expect(await screen.findByText('Give the video a title.')).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+});
+
+describe('VideoUpload · reload adoption', () => {
+  // A reload used to leave this page empty while the hydrated row lived only
+  // in the floating panel (hidden on upload routes) — inviting the creator to
+  // pick the file again under a NEW attempt. The page now adopts the queue's
+  // most recent still-live row on mount.
+  it('adopts a hydrated in-flight row and seeds the form from it', async () => {
+    const hydrated = entry({
+      localId: 'resumed-1',
+      title: 'Persisted draft title',
+      description: '<p>Persisted draft description</p>',
+      isPublic: true,
+      status: 'uploading',
+      progress: 61,
+    });
+    renderUpload(queue({ entries: [hydrated] }));
+
+    // The row renders without any file being chosen on this visit.
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+    expect(screen.getByText('Uploading 61%')).toBeInTheDocument();
+    // The form is seeded from the adopted entry, not left blank.
+    expect(screen.getByPlaceholderText('Video title')).toHaveValue('Persisted draft title');
+    expect(screen.getByLabelText('Description')).toHaveValue('<p>Persisted draft description</p>');
+    expect(screen.getByRole('radio', { name: /Public/ })).toHaveAttribute('aria-checked', 'true');
+    // Save is available for the adopted row.
+    expect(screen.getByRole('button', { name: 'Save & continue uploading' })).toBeInTheDocument();
+  });
+
+  it('adopts the most recent live row when several are hydrated', async () => {
+    const older = entry({ localId: 'old-1', filename: 'first.mp4', title: 'first' });
+    const newer = entry({ localId: 'new-1', filename: 'second.mp4', title: 'second' });
+    renderUpload(queue({ entries: [older, newer] }));
+
+    expect(await screen.findByText('second.mp4')).toBeInTheDocument();
+    expect(screen.queryByText('first.mp4')).not.toBeInTheDocument();
+  });
+
+  it('does not adopt terminal rows — the drop zone stays', () => {
+    const settled = [
+      entry({ localId: 'f-1', status: 'failed' }),
+      entry({ localId: 'r-1', status: 'ready', videoStatus: 'processed' }),
+    ];
+    renderUpload(queue({ entries: settled }));
+
+    expect(screen.getByText('Drop a video here')).toBeInTheDocument();
+    expect(screen.queryByText('clip.mp4')).not.toBeInTheDocument();
+  });
+
+  it('does not adopt anything before the queue is hydrated', () => {
+    renderUpload(queue({ hydrated: false, entries: [entry()] }));
+
+    expect(screen.getByText('Drop a video here')).toBeInTheDocument();
+    expect(screen.queryByText('clip.mp4')).not.toBeInTheDocument();
   });
 });
 

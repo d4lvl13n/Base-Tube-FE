@@ -55,11 +55,45 @@ describe('getVideoProgressBatch', () => {
     expect(mockedGet).not.toHaveBeenCalled();
   });
 
-  it('caps the request at the contract limit of 50 ids', async () => {
-    mockedGet.mockResolvedValue({ data: { success: true, data: [] } });
-    await getVideoProgressBatch(Array.from({ length: 60 }, (_, index) => index + 1));
+  // Callers treat "asked about but absent from a successful answer" as
+  // "deleted", so silently truncating at the contract limit of 50 ids ERASED
+  // uploads 51+ from the queue during a processing backlog. The request is now
+  // CHUNKED: several 50-id GETs whose row maps are merged.
+  it('chunks past the 50-id contract limit and merges the row maps', async () => {
+    const ids = Array.from({ length: 60 }, (_, index) => index + 1);
+    mockedGet
+      .mockResolvedValueOnce({
+        data: { success: true, data: [{ videoId: 1, status: 'processing', renditions: [] }] },
+      })
+      .mockResolvedValueOnce({
+        data: { success: true, data: [{ videoId: 60, status: 'processed', renditions: [] }] },
+      });
 
-    const sent = String(mockedGet.mock.calls[0][1].params.ids).split(',');
-    expect(sent).toHaveLength(50);
+    const result = await getVideoProgressBatch(ids);
+
+    expect(mockedGet).toHaveBeenCalledTimes(2);
+    const first = String(mockedGet.mock.calls[0][1].params.ids).split(',');
+    const second = String(mockedGet.mock.calls[1][1].params.ids).split(',');
+    expect(first).toEqual(ids.slice(0, 50).map(String));
+    expect(second).toEqual(ids.slice(50).map(String));
+
+    // Rows from every chunk land in one merged map — nothing truncated.
+    expect(result.success).toBe(true);
+    expect(result.data['1']).toMatchObject({ videoId: 1, status: 'processing' });
+    expect(result.data['60']).toMatchObject({ videoId: 60, status: 'processed' });
+  });
+
+  it('reports failure when any chunk answers success:false, keeping the rows it did get', async () => {
+    const ids = Array.from({ length: 51 }, (_, index) => index + 1);
+    mockedGet
+      .mockResolvedValueOnce({
+        data: { success: true, data: [{ videoId: 2, status: 'processed', renditions: [] }] },
+      })
+      .mockResolvedValueOnce({ data: { success: false, data: [] } });
+
+    const result = await getVideoProgressBatch(ids);
+
+    expect(result.success).toBe(false);
+    expect(result.data['2']).toMatchObject({ videoId: 2, status: 'processed' });
   });
 });

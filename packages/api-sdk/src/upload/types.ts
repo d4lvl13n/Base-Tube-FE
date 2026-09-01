@@ -53,6 +53,22 @@ export interface PersistedUploadRecord {
   videoId: number | null;
   videoStatus: UploadVideoStatus | null;
 
+  /**
+   * Draft metadata the SERVER has not yet acknowledged (the fields of the
+   * last un-flushed PATCH). Persisted so a reload during the debounce — or
+   * after a failed PATCH — rebuilds the pending change instead of silently
+   * completing with whatever the server last saw. `title`/`description`/
+   * `isPublic` above are the DESIRED values; this records which of them are
+   * still unacknowledged. Absent/null means everything shown is saved.
+   */
+  pendingPatch?: {
+    title?: string;
+    description?: string | null;
+    isPublic?: boolean;
+    tags?: string[] | null;
+    channelId?: number;
+  } | null;
+
   createdAt: string;
   updatedAt: string;
 }

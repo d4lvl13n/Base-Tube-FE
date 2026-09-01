@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import { useUploadQueue, type UploadQueueApi } from '../hooks/useUploadQueue';
 import UploadQueuePanel from '../components/upload/UploadQueuePanel';
 import { showInfoToast } from '../components/common/Notifications/ErrorToast';
@@ -30,7 +31,23 @@ const BYTES_IN_FLIGHT_STATUSES = ['uploading'] as const;
  * IndexedDB records.
  */
 export const UploadQueueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const queue = useUploadQueue();
+  // The queue's IndexedDB records are per-user: keying the inner provider on
+  // the account remounts (and re-hydrates) the queue when the user changes, so
+  // the next sign-in never sees the previous account's filenames/drafts.
+  const { user, isLoaded } = useUser();
+  const namespace = isLoaded ? (user?.id ?? 'anonymous') : 'loading';
+  return (
+    <UploadQueueProviderInner key={namespace} storageNamespace={namespace}>
+      {children}
+    </UploadQueueProviderInner>
+  );
+};
+
+const UploadQueueProviderInner: React.FC<{
+  children: React.ReactNode;
+  storageNamespace: string;
+}> = ({ children, storageNamespace }) => {
+  const queue = useUploadQueue({ storageNamespace });
   const location = useLocation();
   const uploading = queue.entries.some((entry) =>
     (BYTES_IN_FLIGHT_STATUSES as readonly string[]).includes(entry.status),
