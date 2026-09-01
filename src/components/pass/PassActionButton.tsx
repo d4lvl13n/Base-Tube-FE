@@ -51,7 +51,8 @@ function getBlockMessage(pass: PassActionButtonProps['pass']): string | null {
   return 'This pass cannot be purchased right now.';
 }
 
-const MAX_CHECKOUT_QUANTITY = 10_000;
+// Mirrors base-be passQuantity.ts: one grantKeys batch until batching is resumable.
+const MAX_CHECKOUT_QUANTITY = 20;
 
 function remainingForPass(pass: PassActionButtonProps['pass']): number | null {
   if (pass.available_count != null) return Math.max(0, pass.available_count);

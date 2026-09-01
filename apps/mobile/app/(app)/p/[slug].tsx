@@ -15,18 +15,35 @@ import { formatCount, formatDuration, formatPrice, thumbnailUrl } from '../../..
 
 const NO_HEADER = { headerShown: false } as const;
 
+// Fallbacks when the API predates `sale_consent`; must match base-be passConsent.ts.
+const FALLBACK_TERMS_TEXT = 'I accept the Terms of Sale and the Creator Pass Terms.';
+const FALLBACK_WITHDRAWAL_TEXT =
+  'I expressly request immediate access to this digital content and acknowledge that, once delivery or streaming begins, I lose my 14-day right of withdrawal.';
+const FALLBACK_CONSENT_VERSION = '2026-08-31.1';
+
 export default function PassDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedWithdrawal, setAcceptedWithdrawal] = useState(false);
 
   const pass = useQuery({ queryKey: ['pass', slug], queryFn: () => api.passes.getById(slug), enabled: !!slug });
   const p = pass.data;
+  const consentReady = acceptedTerms && acceptedWithdrawal;
 
   const checkout = useMutation({
     mutationFn: async () => {
-      const session = await api.passes.checkout(p!.id);
+      const sale = p!.sale_consent;
+      const session = await api.passes.checkout(p!.id, {
+        accepted_terms: acceptedTerms,
+        accepted_withdrawal: acceptedWithdrawal,
+        terms_version: sale?.terms_version ?? FALLBACK_CONSENT_VERSION,
+        withdrawal_version: sale?.withdrawal_version ?? FALLBACK_CONSENT_VERSION,
+        terms_hash: sale?.terms_hash,
+        withdrawal_hash: sale?.withdrawal_hash,
+      });
       return session;
     },
     onSuccess: async (session) => {
@@ -99,10 +116,19 @@ export default function PassDetailScreen() {
           <Button label={p.purchase_block_reason || 'Unavailable'} onPress={() => {}} disabled />
         ) : (
           <>
+            <Pressable style={styles.consentRow} onPress={() => setAcceptedTerms((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: acceptedTerms }}>
+              <Ionicons name={acceptedTerms ? 'checkbox' : 'square-outline'} size={20} color={acceptedTerms ? theme.colors.accent : theme.colors.textMuted} />
+              <Text style={styles.consentText}>{p.sale_consent?.terms_text ?? FALLBACK_TERMS_TEXT}</Text>
+            </Pressable>
+            <Pressable style={styles.consentRow} onPress={() => setAcceptedWithdrawal((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: acceptedWithdrawal }}>
+              <Ionicons name={acceptedWithdrawal ? 'checkbox' : 'square-outline'} size={20} color={acceptedWithdrawal ? theme.colors.accent : theme.colors.textMuted} />
+              <Text style={styles.consentText}>{p.sale_consent?.withdrawal_text ?? FALLBACK_WITHDRAWAL_TEXT}</Text>
+            </Pressable>
             <Button
               label={`Buy · ${formatPrice(p.price_cents, p.currency, p.formatted_price)}`}
               onPress={() => checkout.mutate()}
               loading={checkout.isPending}
+              disabled={!consentReady}
             />
             <Text style={styles.ctaNote}>Card payment opens securely in your browser. Crypto purchase coming soon.</Text>
           </>
@@ -132,5 +158,7 @@ const styles = StyleSheet.create({
   includeTitle: { color: theme.colors.text, fontSize: 14, fontWeight: '600' },
   includeMeta: { color: theme.colors.textFaint, fontSize: 12, marginTop: 2 },
   cta: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(5,5,6,0.96)', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border, padding: theme.spacing(4), paddingBottom: theme.spacing(7) },
+  consentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing(2.5), marginBottom: theme.spacing(2.5) },
+  consentText: { flex: 1, color: theme.colors.textMuted, fontSize: 12, lineHeight: 17 },
   ctaNote: { color: theme.colors.textFaint, fontSize: 12, textAlign: 'center', marginTop: theme.spacing(2.5) },
 });

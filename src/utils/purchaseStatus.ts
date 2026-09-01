@@ -121,7 +121,11 @@ export function normalizePurchaseStatusResponse(raw: any): OnchainPurchaseStatus
         title: payload.pass.title,
         description: payload.pass.description ?? null,
         supplyCap: payload.pass.supplyCap ?? payload.pass.supply_cap ?? null,
-        mintedCount: Number(payload.pass.mintedCount ?? payload.pass.minted_count ?? 0),
+        // The API now sends the public `soldCount`; internal minted/reserved
+        // counters are no longer exposed. Old field names kept as fallback.
+        mintedCount: Number(
+          payload.pass.soldCount ?? payload.pass.mintedCount ?? payload.pass.minted_count ?? 0
+        ),
         reservedCount: Number(payload.pass.reservedCount ?? payload.pass.reserved_count ?? 0),
       }
     : null;

@@ -41,16 +41,21 @@ export function createPassesApi(http: AxiosInstance) {
       return (Array.isArray(body) ? body : body?.data ?? []) as Pass[];
     },
 
-    /** `POST /api/v1/passes/:id/checkout` (auth) — creates a Stripe checkout session. */
+    /**
+     * `POST /api/v1/passes/:id/checkout` (auth) — creates a Stripe checkout
+     * session. Consent is REQUIRED: the API answers 400 CONSENT_REQUIRED
+     * without both accepted flags, so callers must show the two consent
+     * sentences (`pass.sale_consent`) and collect the ticks first.
+     */
     async checkout(
       passId: string,
-      consent?: CheckoutConsent,
+      consent: CheckoutConsent,
       quantity?: number
     ): Promise<CheckoutSessionResponse> {
       const res = await http.post<CheckoutSessionResponse>(
         `/api/v1/passes/${passId}/checkout`,
         {
-          ...(consent ?? {}),
+          ...consent,
           ...(quantity != null ? { quantity } : {}),
         }
       );
