@@ -970,7 +970,13 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       try {
         const response = await fetchVideoProgressRef.current(ids);
         if (cancelled) return;
-        await applyProgressRows(response.data ?? {}, ids);
+        // "Asked about but absent" only means "deleted" on a fully SUCCESSFUL
+        // answer. A degraded response (success:false, or a malformed body that
+        // parsed to nothing) must not erase processing rows — pass no
+        // requested ids so absence is treated as "no news".
+        const trustworthy =
+          response.success !== false && response.data && typeof response.data === 'object';
+        await applyProgressRows(response.data ?? {}, trustworthy ? ids : []);
       } catch {
         // Keep local state; the next tick tries again.
       } finally {

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
+import { useAuth } from './AuthContext';
 import { useUploadQueue, type UploadQueueApi } from '../hooks/useUploadQueue';
 import UploadQueuePanel from '../components/upload/UploadQueuePanel';
 import { showInfoToast } from '../components/common/Notifications/ErrorToast';
@@ -33,9 +34,16 @@ const BYTES_IN_FLIGHT_STATUSES = ['uploading'] as const;
 export const UploadQueueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // The queue's IndexedDB records are per-user: keying the inner provider on
   // the account remounts (and re-hydrates) the queue when the user changes, so
-  // the next sign-in never sees the previous account's filenames/drafts.
+  // the next sign-in never sees the previous account's filenames/drafts. Both
+  // auth methods count — a Web3 session left under a shared 'anonymous'
+  // database would leak drafts between wallet accounts on the same browser.
   const { user, isLoaded } = useUser();
-  const namespace = isLoaded ? (user?.id ?? 'anonymous') : 'loading';
+  const { user: web3User } = useAuth();
+  const namespace = web3User?.id
+    ? web3User.id
+    : isLoaded
+      ? (user?.id ?? 'anonymous')
+      : 'loading';
   return (
     <UploadQueueProviderInner key={namespace} storageNamespace={namespace}>
       {children}

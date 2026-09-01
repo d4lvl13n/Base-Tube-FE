@@ -962,6 +962,63 @@ describe('useUploadQueue session hygiene', () => {
   });
 });
 
+describe('useUploadQueue progress poll trust guard', () => {
+  // "Asked about but absent" only means "deleted" on a fully SUCCESSFUL answer.
+  // A degraded response used to erase every processing row it was asked about.
+  it('keeps a processing row when the batch answers success:false', async () => {
+    const { api } = harness();
+    const store = await seededStore(persistedRow()); // videoId 99, processing
+    const remove = jest.spyOn(store, 'remove');
+    const fetchVideoProgress = jest.fn().mockResolvedValue({ success: false, data: {} });
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    await waitFor(() => expect(fetchVideoProgress).toHaveBeenCalledWith([99]));
+
+    // The row survives — on screen and on disk — and keeps saying processing.
+    expect(result.current.entries).toHaveLength(1);
+    expect(result.current.entries[0]).toMatchObject({ videoId: 99, videoStatus: 'processing' });
+    expect(remove).not.toHaveBeenCalled();
+    await expect(store.list()).resolves.toHaveLength(1);
+  });
+
+  it('keeps a processing row when the batch body is malformed (no data object)', async () => {
+    const { api } = harness();
+    const store = await seededStore(persistedRow());
+    const remove = jest.spyOn(store, 'remove');
+    // `success: true` but the row map itself is missing: parsed to nothing.
+    const fetchVideoProgress = jest.fn().mockResolvedValue({ success: true });
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    await waitFor(() => expect(fetchVideoProgress).toHaveBeenCalledWith([99]));
+
+    expect(result.current.entries).toHaveLength(1);
+    expect(remove).not.toHaveBeenCalled();
+    await expect(store.list()).resolves.toHaveLength(1);
+  });
+
+  // The other side of the guard: a fully successful empty answer IS a verdict —
+  // the video was deleted while it transcoded, and the row goes.
+  it('still drops a requested-but-absent row on a fully successful answer', async () => {
+    const { api } = harness();
+    const store = await seededStore(persistedRow());
+    const fetchVideoProgress = jest.fn().mockResolvedValue({ success: true, data: {} });
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), fetchVideoProgress }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    await waitFor(() => expect(fetchVideoProgress).toHaveBeenCalledWith([99]));
+    await waitFor(() => expect(result.current.entries).toHaveLength(0));
+    await expect(store.list()).resolves.toHaveLength(0);
+  });
+});
+
 describe('useUploadQueue persisted pending metadata', () => {
   // A reload during the 800 ms debounce (or after a failed PATCH) used to
   // silently drop the edit. The unacknowledged fields now ride along in the

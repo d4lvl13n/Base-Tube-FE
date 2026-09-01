@@ -420,6 +420,61 @@ describe('VideoUpload · reload adoption', () => {
   });
 });
 
+describe('VideoUpload · reselect after reload', () => {
+  // A reload loses the file handle: the browser cannot re-open the file itself.
+  // The adopted row must say so and offer the picker — and a file chosen in
+  // that state RESUMES the existing attempt, never starts a second upload.
+  it('offers "Choose file to resume" on an adopted reselect_required row', async () => {
+    const stalled = entry({ status: 'reselect_required', progress: 50 });
+    renderUpload(queue({ entries: [stalled] }));
+
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+    const resume = screen.getByRole('button', { name: 'Reselect clip.mp4 to resume' });
+    expect(resume).toHaveTextContent('Choose file to resume');
+  });
+
+  it('routes a chosen file to reselectFiles, not enqueueFiles', async () => {
+    const stalled = entry({ status: 'reselect_required', progress: 50 });
+    const reselectFiles = jest.fn().mockResolvedValue(undefined);
+    const enqueueFiles = jest.fn().mockResolvedValue({ accepted: [], rejected: [] });
+    const api = queue({ entries: [stalled], reselectFiles, enqueueFiles });
+    const { container } = renderUpload(api);
+
+    // Adopted on mount; the picker now belongs to the stalled attempt.
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+
+    const file = new File(['0123456789'], 'clip.mp4', { type: 'video/mp4' });
+    selectFile(container, file);
+
+    await waitFor(() => expect(reselectFiles).toHaveBeenCalledWith([file]));
+    expect(enqueueFiles).not.toHaveBeenCalled();
+  });
+
+  it('does not offer the resume picker on a normal uploading row', async () => {
+    renderUpload(queue({ entries: [entry({ status: 'uploading' })] }));
+
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+    expect(screen.queryByText('Choose file to resume')).not.toBeInTheDocument();
+  });
+});
+
+describe('VideoUpload · adoption seeds the tags field', () => {
+  it('joins the entry tags into the comma-separated input', async () => {
+    const hydrated = entry({ tags: ['a', 'b'] });
+    renderUpload(queue({ entries: [hydrated] }));
+
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Separate tags with commas')).toHaveValue('a, b');
+  });
+
+  it('leaves the tags input empty when the entry has none', async () => {
+    renderUpload(queue({ entries: [entry({ tags: null })] }));
+
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Separate tags with commas')).toHaveValue('');
+  });
+});
+
 describe('VideoUpload · AI description assistant', () => {
   const AI_TEXT = [
     'A hook line.',

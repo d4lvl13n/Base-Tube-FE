@@ -100,6 +100,7 @@ const VideoUpload: React.FC = () => {
     setTitle(latest.title);
     setDescription(latest.description ?? '');
     setVisibility(latest.isPublic ? 'public' : 'private');
+    setTags((latest.tags ?? []).join(', '));
   }, [queueLocalId, uploadQueue.entries, uploadQueue.hydrated]);
 
   // Stable across renders (useCallback in the hook), so they are safe in deps.
@@ -144,9 +145,21 @@ const VideoUpload: React.FC = () => {
     setTitleError(null);
   };
 
+  /**
+   * A file chosen while the adopted row is waiting for its handle back is a
+   * RESELECT (resume the existing attempt), never a second upload.
+   */
+  const takeFile = (file: File) => {
+    if (entry?.status === 'reselect_required') {
+      void uploadQueue.reselectFiles([file]);
+      return;
+    }
+    void acceptFile(file);
+  };
+
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) void acceptFile(file);
+    if (file) takeFile(file);
     event.target.value = '';
   };
 
@@ -154,7 +167,7 @@ const VideoUpload: React.FC = () => {
     event.preventDefault();
     setDragActive(false);
     const file = event.dataTransfer.files?.[0];
-    if (file) void acceptFile(file);
+    if (file) takeFile(file);
   };
 
   /**
@@ -325,6 +338,21 @@ const VideoUpload: React.FC = () => {
               </span>
               <span className="shrink-0 text-xs text-gray-600">{formatBytes(entry.sizeBytes)}</span>
             </div>
+
+            {/* After a reload the browser cannot re-open the file itself: the
+                row must SAY so and offer the picker, or the creator's only
+                visible move is adding the file again as a new attempt. */}
+            {entry.status === 'reselect_required' && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label={`Reselect ${entry.filename} to resume`}
+                className="shrink-0 rounded border border-gray-700 px-2 py-0.5 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-white
+                           focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600"
+              >
+                Choose file to resume
+              </button>
+            )}
 
             {transferring && (
               <button

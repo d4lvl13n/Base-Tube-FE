@@ -323,11 +323,37 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
 
       // Start the purchase: backend reserves supply + creates a pending purchase
       // and returns the Lock address, USDC token, per-key price, and quantity.
-      const quote = await onchainPassApi.getCryptoQuote(passId, {
-        buyer: address,
-        quantity,
-        ...(consent ?? {}),
-      });
+      //
+      // The backend binds the quote to a wallet LINKED to this account (a
+      // signature-backed ownership proof), so an unlinked wallet answers 403
+      // WALLET_NOT_LINKED. Link with a signature and retry once — blocking,
+      // not opportunistic: without the link the quote cannot exist at all.
+      const requestQuote = () =>
+        onchainPassApi.getCryptoQuote(passId, {
+          buyer: address,
+          quantity,
+          ...(consent ?? {}),
+        });
+      let quote: Awaited<ReturnType<typeof requestQuote>>;
+      try {
+        quote = await requestQuote();
+      } catch (quoteError: any) {
+        const code =
+          quoteError?.response?.data?.error?.code ??
+          quoteError?.response?.data?.code ??
+          quoteError?.code;
+        if (code !== 'WALLET_NOT_LINKED') throw quoteError;
+        const signerClient =
+          walletClient ?? (await getWalletClient(wagmiConfig).catch(() => undefined));
+        if (!signerClient) throw new Error('Connect your wallet to continue');
+        const { walletAddress, signature } = await createWalletAuthPayload(
+          address,
+          (message) => signerClient.signMessage({ account: address as `0x${string}`, message }),
+        );
+        await web3AuthApi.linkWallet(walletAddress, signature);
+        setLinkedWalletHint(walletAddress);
+        quote = await requestQuote();
+      }
       if ((quote?.buyer || '').toLowerCase() !== address.toLowerCase()) {
         throw new Error('Checkout buyer does not match connected wallet');
       }

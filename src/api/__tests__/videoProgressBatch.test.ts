@@ -96,4 +96,32 @@ describe('getVideoProgressBatch', () => {
     expect(result.success).toBe(false);
     expect(result.data['2']).toMatchObject({ videoId: 2, status: 'processed' });
   });
+
+  // A failing chunk must not short-circuit the batch: the chunks AFTER it are
+  // still fetched and merged, and the overall verdict stays success:false so
+  // callers do not read the (partial) map as a deletion verdict.
+  it('keeps fetching and merging later chunks after a mid-batch success:false', async () => {
+    const ids = Array.from({ length: 101 }, (_, index) => index + 1); // 3 chunks
+    mockedGet
+      .mockResolvedValueOnce({
+        data: { success: true, data: [{ videoId: 1, status: 'processing', renditions: [] }] },
+      })
+      .mockResolvedValueOnce({ data: { success: false, data: [] } })
+      .mockResolvedValueOnce({
+        data: { success: true, data: [{ videoId: 101, status: 'processed', renditions: [] }] },
+      });
+
+    const result = await getVideoProgressBatch(ids);
+
+    // The third chunk went out despite the second one degrading…
+    expect(mockedGet).toHaveBeenCalledTimes(3);
+    expect(String(mockedGet.mock.calls[2][1].params.ids).split(',')).toEqual(
+      ids.slice(100).map(String),
+    );
+    // …its rows merged next to the first chunk's…
+    expect(result.data['1']).toMatchObject({ videoId: 1, status: 'processing' });
+    expect(result.data['101']).toMatchObject({ videoId: 101, status: 'processed' });
+    // …and the one bad chunk still poisons the overall verdict.
+    expect(result.success).toBe(false);
+  });
 });
