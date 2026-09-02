@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useAuth } from './AuthContext';
+import { NON_DURABLE_NAMESPACES, purgeLegacyResumeDatabases } from '@basetube/api';
 import { useUploadQueue, type UploadQueueApi } from '../hooks/useUploadQueue';
 import UploadQueuePanel from '../components/upload/UploadQueuePanel';
 import { showInfoToast } from '../components/common/Notifications/ErrorToast';
@@ -44,6 +45,16 @@ export const UploadQueueProvider: React.FC<{ children: React.ReactNode }> = ({ c
     : isLoaded
       ? (user?.id ?? 'anonymous')
       : 'loading';
+
+  // Unidentified sessions get a MEMORY store (see createUploadResumeStore), so
+  // nothing durable ever accumulates under 'anonymous'/'loading' again. The
+  // databases that predate namespacing hold records belonging to nobody
+  // identifiable — purge them once an identity is known rather than import
+  // and risk showing another person's drafts.
+  useEffect(() => {
+    if (!NON_DURABLE_NAMESPACES.has(namespace)) purgeLegacyResumeDatabases();
+  }, [namespace]);
+
   return (
     <UploadQueueProviderInner key={namespace} storageNamespace={namespace}>
       {children}

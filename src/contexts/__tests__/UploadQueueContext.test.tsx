@@ -15,7 +15,14 @@ import { MemoryRouter } from 'react-router-dom';
 const mockUseUser = jest.fn();
 const mockUseAuth = jest.fn();
 const mockUseUploadQueue = jest.fn();
+const mockPurgeLegacyResumeDatabases = jest.fn();
 
+// Partial mock: NON_DURABLE_NAMESPACES stays REAL so the provider's gate is
+// exercised against the SDK's actual set; only the purge side effect is spied.
+jest.mock('@basetube/api', () => ({
+  ...jest.requireActual('@basetube/api'),
+  purgeLegacyResumeDatabases: () => mockPurgeLegacyResumeDatabases(),
+}));
 jest.mock('@clerk/clerk-react', () => ({
   useUser: () => mockUseUser(),
 }));
@@ -151,5 +158,76 @@ describe('UploadQueueProvider storage namespace', () => {
 
     expect(mounts).toBe(1);
     expect(lastNamespace()).toBe('clerk-user-1');
+  });
+});
+
+// The databases that predate per-user namespacing (un-namespaced, 'anonymous',
+// 'loading') hold records belonging to nobody identifiable. They are purged
+// once — and only once — an identity is known; an unidentified session must
+// not trigger anything.
+describe('UploadQueueProvider legacy database purge', () => {
+  it('purges once a Clerk identity is known', () => {
+    mockUseUser.mockReturnValue({ user: { id: 'clerk-user-1' }, isLoaded: true });
+
+    renderProvider();
+
+    expect(mockPurgeLegacyResumeDatabases).toHaveBeenCalledTimes(1);
+  });
+
+  it('purges once a web3 identity is known', () => {
+    mockUseAuth.mockReturnValue({ user: { id: 'web3-user-9' } });
+
+    renderProvider();
+
+    expect(mockPurgeLegacyResumeDatabases).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not purge while the namespace is "anonymous"', () => {
+    renderProvider();
+
+    expect(lastNamespace()).toBe('anonymous');
+    expect(mockPurgeLegacyResumeDatabases).not.toHaveBeenCalled();
+  });
+
+  it('does not purge while the namespace is "loading"', () => {
+    mockUseUser.mockReturnValue({ user: undefined, isLoaded: false });
+
+    renderProvider();
+
+    expect(lastNamespace()).toBe('loading');
+    expect(mockPurgeLegacyResumeDatabases).not.toHaveBeenCalled();
+  });
+
+  it('purges exactly when the session goes from loading to a real identity', () => {
+    mockUseUser.mockReturnValue({ user: undefined, isLoaded: false });
+    const { rerender } = renderProvider();
+    expect(mockPurgeLegacyResumeDatabases).not.toHaveBeenCalled();
+
+    mockUseUser.mockReturnValue({ user: { id: 'clerk-user-1' }, isLoaded: true });
+    rerender(
+      <MemoryRouter>
+        <UploadQueueProvider>
+          <Probe />
+        </UploadQueueProvider>
+      </MemoryRouter>,
+    );
+
+    expect(lastNamespace()).toBe('clerk-user-1');
+    expect(mockPurgeLegacyResumeDatabases).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not purge again on re-renders with the same identity', () => {
+    mockUseUser.mockReturnValue({ user: { id: 'clerk-user-1' }, isLoaded: true });
+    const { rerender } = renderProvider();
+
+    rerender(
+      <MemoryRouter>
+        <UploadQueueProvider>
+          <Probe />
+        </UploadQueueProvider>
+      </MemoryRouter>,
+    );
+
+    expect(mockPurgeLegacyResumeDatabases).toHaveBeenCalledTimes(1);
   });
 });

@@ -33,6 +33,8 @@ export {
   createIndexedDbResumeStore,
   createMemoryResumeStore,
   createUploadResumeStore,
+  NON_DURABLE_NAMESPACES,
+  purgeLegacyResumeDatabases,
   type UploadResumeStore,
 } from './upload-resume-store';
 export {

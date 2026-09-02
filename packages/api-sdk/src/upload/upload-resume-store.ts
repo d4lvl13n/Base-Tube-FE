@@ -112,9 +112,33 @@ export function createMemoryResumeStore(): UploadResumeStore {
   };
 }
 
-/** IndexedDB when the platform has it, memory otherwise. */
+/**
+ * Namespaces that must NEVER get a durable database: an unauthenticated (or
+ * not-yet-authenticated) session has no identity to scope records to, and a
+ * shared durable "anonymous" database is exactly what leaked one user's
+ * filenames and drafts to the next person on the browser.
+ */
+export const NON_DURABLE_NAMESPACES: ReadonlySet<string> = new Set(['anonymous', 'loading']);
+
+/** IndexedDB when the platform has it AND the namespace is a real identity; memory otherwise. */
 export function createUploadResumeStore(namespace?: string): UploadResumeStore {
-  return typeof indexedDB === 'undefined'
-    ? createMemoryResumeStore()
-    : createIndexedDbResumeStore(namespace);
+  if (typeof indexedDB === 'undefined') return createMemoryResumeStore();
+  if (!namespace || NON_DURABLE_NAMESPACES.has(namespace)) return createMemoryResumeStore();
+  return createIndexedDbResumeStore(namespace);
+}
+
+/**
+ * Removes the databases that predate per-user namespacing (the un-namespaced
+ * original and the shared 'anonymous' one). Their contents belong to nobody
+ * identifiable, so they are purged rather than imported. Best effort.
+ */
+export function purgeLegacyResumeDatabases(): void {
+  if (typeof indexedDB === 'undefined') return;
+  for (const name of [DATABASE_NAME, databaseName('anonymous'), databaseName('loading')]) {
+    try {
+      indexedDB.deleteDatabase(name);
+    } catch {
+      /* best effort */
+    }
+  }
 }

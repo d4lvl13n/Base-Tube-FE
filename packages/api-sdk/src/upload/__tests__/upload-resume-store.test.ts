@@ -12,6 +12,8 @@ import {
   createIndexedDbResumeStore,
   createMemoryResumeStore,
   createUploadResumeStore,
+  NON_DURABLE_NAMESPACES,
+  purgeLegacyResumeDatabases,
 } from '../upload-resume-store';
 import { persistedRecord } from '../upload-queue-store';
 import { queueEntry } from './helpers';
@@ -85,7 +87,14 @@ function installFakeIndexedDb() {
     };
   }
 
+  const deletedNames: string[] = [];
+
   const fake = {
+    deleteDatabase: (name: string) => {
+      deletedNames.push(name);
+      databases.delete(name);
+      return fakeRequest(() => undefined);
+    },
     open: (name: string, _version: number) => {
       openedNames.push(name);
       const isNew = !databases.has(name);
@@ -108,6 +117,7 @@ function installFakeIndexedDb() {
   (globalThis as { indexedDB?: unknown }).indexedDB = fake;
   return {
     openedNames,
+    deletedNames,
     uninstall: () => {
       delete (globalThis as { indexedDB?: unknown }).indexedDB;
     },
@@ -216,5 +226,96 @@ describe('createUploadResumeStore with IndexedDB (fake)', () => {
 
     await expect(userA.list()).resolves.toHaveLength(0);
     await expect(userB.list()).resolves.toHaveLength(1);
+  });
+
+  // An unidentified session has nobody to scope records to; a shared durable
+  // 'anonymous' database is exactly what leaked one person's filenames and
+  // drafts to the next account on the browser. So even WITH IndexedDB present,
+  // those namespaces get a memory store and never open a database.
+  describe('non-durable namespaces', () => {
+    it('exports the exact set the provider keys off', () => {
+      expect([...NON_DURABLE_NAMESPACES].sort()).toEqual(['anonymous', 'loading']);
+    });
+
+    it.each([undefined, 'anonymous', 'loading'])(
+      'returns a memory store (no IndexedDB open) for namespace %p',
+      async (namespace) => {
+        const store = createUploadResumeStore(namespace);
+        await store.put(record('a'));
+        await expect(store.list()).resolves.toMatchObject([{ localId: 'a' }]);
+        await store.remove('a');
+        await expect(store.list()).resolves.toHaveLength(0);
+
+        expect(fake.openedNames).toEqual([]);
+      },
+    );
+
+    it('does not persist across store instances for a non-durable namespace', async () => {
+      await createUploadResumeStore('anonymous').put(record('a'));
+      // A fresh instance sees nothing: the previous one was memory-only.
+      await expect(createUploadResumeStore('anonymous').list()).resolves.toHaveLength(0);
+      expect(fake.openedNames).toEqual([]);
+    });
+
+    it('still opens the namespaced IndexedDB database for a real identity', async () => {
+      await createUploadResumeStore('user-a').list();
+      expect(fake.openedNames).toEqual(['bt-upload-v1--user-a']);
+    });
+  });
+});
+
+// ── legacy database purge ───────────────────────────────────────────────────
+
+describe('purgeLegacyResumeDatabases', () => {
+  it('is a no-op without IndexedDB', () => {
+    expect(typeof indexedDB).toBe('undefined');
+    expect(() => purgeLegacyResumeDatabases()).not.toThrow();
+  });
+
+  describe('with IndexedDB (fake)', () => {
+    let fake: ReturnType<typeof installFakeIndexedDb>;
+
+    beforeEach(() => {
+      fake = installFakeIndexedDb();
+    });
+
+    afterEach(() => {
+      fake.uninstall();
+    });
+
+    it('deletes the un-namespaced, anonymous and loading databases — and nothing else', () => {
+      purgeLegacyResumeDatabases();
+
+      expect(fake.deletedNames.sort()).toEqual([
+        'bt-upload-v1',
+        'bt-upload-v1--anonymous',
+        'bt-upload-v1--loading',
+      ]);
+    });
+
+    it('wipes records that lived in the legacy databases but leaves a real user untouched', async () => {
+      // Seed the legacy databases directly through the IndexedDB-backed store
+      // (createUploadResumeStore would refuse to open them, by design).
+      await createIndexedDbResumeStore().put(record('legacy-unscoped'));
+      await createIndexedDbResumeStore('anonymous').put(record('legacy-anon'));
+      await createIndexedDbResumeStore('loading').put(record('legacy-loading'));
+      await createIndexedDbResumeStore('user-a').put(record('mine'));
+
+      purgeLegacyResumeDatabases();
+
+      await expect(createIndexedDbResumeStore().list()).resolves.toHaveLength(0);
+      await expect(createIndexedDbResumeStore('anonymous').list()).resolves.toHaveLength(0);
+      await expect(createIndexedDbResumeStore('loading').list()).resolves.toHaveLength(0);
+      await expect(createIndexedDbResumeStore('user-a').list()).resolves.toMatchObject([
+        { localId: 'mine' },
+      ]);
+    });
+
+    it('swallows a throwing deleteDatabase (best effort)', () => {
+      (globalThis as { indexedDB: { deleteDatabase: unknown } }).indexedDB.deleteDatabase = () => {
+        throw new Error('blocked');
+      };
+      expect(() => purgeLegacyResumeDatabases()).not.toThrow();
+    });
   });
 });

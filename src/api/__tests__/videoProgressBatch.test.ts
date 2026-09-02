@@ -124,4 +124,83 @@ describe('getVideoProgressBatch', () => {
     // …and the one bad chunk still poisons the overall verdict.
     expect(result.success).toBe(false);
   });
+
+  // STRICT TRUST: a chunk counts only when it is an explicit `success: true`
+  // with an ARRAY payload. The old normalization turned any odd 200 into
+  // "success with no rows", which the queue read as "every id deleted" and
+  // erased processing uploads. Anything short of the contract now degrades the
+  // verdict and contributes no rows.
+  describe('strict chunk trust', () => {
+    it.each<[string, unknown]>([
+      ['success:true with no data', { success: true }],
+      ['data array with no success flag', { data: [{ videoId: 3, status: 'processing', renditions: [] }] }],
+      ['success:true with a non-array data (object)', { success: true, data: { videoId: 3 } }],
+      ['success:true with a non-array data (string)', { success: true, data: 'oops' }],
+      ['success:true with null data', { success: true, data: null }],
+      ['success as a truthy non-boolean', { success: 'true', data: [] }],
+      ['empty object body', {}],
+      ['undefined body', undefined],
+      ['null body', null],
+      ['string body (HTML error page)', '<html>502</html>'],
+    ])('marks the result success:false and yields no rows for %s', async (_label, body) => {
+      mockedGet.mockResolvedValue({ data: body });
+
+      const result = await getVideoProgressBatch([3]);
+
+      expect(result.success).toBe(false);
+      expect(result.data).toEqual({});
+    });
+
+    it('drops rows from an untrusted chunk while merging well-formed neighbours', async () => {
+      const ids = Array.from({ length: 101 }, (_, index) => index + 1); // 3 chunks
+      mockedGet
+        .mockResolvedValueOnce({
+          data: { success: true, data: [{ videoId: 1, status: 'processing', renditions: [] }] },
+        })
+        // No success flag: even though it carries a plausible row, it is not trusted.
+        .mockResolvedValueOnce({
+          data: { data: [{ videoId: 51, status: 'processing', renditions: [] }] },
+        })
+        .mockResolvedValueOnce({
+          data: { success: true, data: [{ videoId: 101, status: 'processed', renditions: [] }] },
+        });
+
+      const result = await getVideoProgressBatch(ids);
+
+      expect(mockedGet).toHaveBeenCalledTimes(3);
+      expect(result.success).toBe(false);
+      expect(Object.keys(result.data).sort()).toEqual(['1', '101']);
+      expect(result.data['51']).toBeUndefined();
+    });
+
+    it('keeps fetching later chunks after a malformed (non-object) chunk body', async () => {
+      const ids = Array.from({ length: 51 }, (_, index) => index + 1); // 2 chunks
+      mockedGet
+        .mockResolvedValueOnce({ data: undefined })
+        .mockResolvedValueOnce({
+          data: { success: true, data: [{ videoId: 51, status: 'processed', renditions: [] }] },
+        });
+
+      const result = await getVideoProgressBatch(ids);
+
+      expect(mockedGet).toHaveBeenCalledTimes(2);
+      expect(result.success).toBe(false);
+      expect(result.data['51']).toMatchObject({ videoId: 51, status: 'processed' });
+    });
+
+    it('skips non-row entries inside a trusted array without poisoning the verdict', async () => {
+      mockedGet.mockResolvedValue({
+        data: {
+          success: true,
+          data: [null, 'junk', { status: 'processing' }, { videoId: '4' }, { videoId: 5, status: 'pending', renditions: [] }],
+        },
+      });
+
+      const result = await getVideoProgressBatch([4, 5]);
+
+      // The chunk honoured the contract; only its unusable entries are ignored.
+      expect(result.success).toBe(true);
+      expect(Object.keys(result.data)).toEqual(['5']);
+    });
+  });
 });

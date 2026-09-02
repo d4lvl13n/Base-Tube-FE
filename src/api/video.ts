@@ -574,15 +574,22 @@ export const getVideoProgressBatch = async (
       `/api/v1/videos/progress`,
       { params: { ids: ids.join(',') } }
     );
+    // A chunk is TRUSTWORTHY only when it is an explicit `success: true` with
+    // an array payload. Anything else (a malformed 200, a missing body, a
+    // non-array `data`) must not normalize to "success with no rows" — the
+    // queue treats absence in a successful answer as "deleted", so that
+    // normalization erased processing rows on any odd response.
+    const body = response.data;
+    const trustworthy = body?.success === true && Array.isArray(body.data);
+    if (!trustworthy) {
+      success = false;
+      continue;
+    }
     // `data` is an ARRAY of rows, each carrying its own `videoId`; ids the caller
     // does not own are simply absent (the backend filters by ownership in SQL).
-    const rows = Array.isArray(response.data?.data)
-      ? (response.data.data as VideoProgressBatchRow[])
-      : [];
-    for (const row of rows) {
+    for (const row of body.data as VideoProgressBatchRow[]) {
       if (row && typeof row.videoId === 'number') byId[String(row.videoId)] = row;
     }
-    if (response.data?.success === false) success = false;
   }
   return { success, data: byId };
 };
