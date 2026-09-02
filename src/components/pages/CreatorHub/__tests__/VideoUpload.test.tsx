@@ -629,6 +629,110 @@ describe('VideoUpload · adoption seeds the tags field', () => {
   });
 });
 
+describe('VideoUpload · metadata mirror sends isPublic only when it differs from the row', () => {
+  // The mirror effect used to restate `isPublic` on every render. The render
+  // right after adopting a rebuilt row re-PUT the row's own stored value over
+  // whatever the creator had since set in Videos Management — in either
+  // direction. Visibility now travels only when the form disagrees with the
+  // row (or there is no row to disagree with yet).
+  function mirrorCalls(api: UploadQueueApi, localId: string) {
+    return (api.updateMetadata as jest.Mock).mock.calls
+      .filter((call) => call[0] === localId)
+      .map((call) => call[1] as Record<string, unknown>);
+  }
+
+  it('adopting a rebuilt row whose isPublic matches the seeded visibility mirrors WITHOUT an isPublic key', async () => {
+    const hydrated = entry({ localId: 'resumed-1', title: 'Persisted', isPublic: true });
+    const api = queue({ entries: [hydrated] });
+    renderUpload(api);
+
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Public/ })).toHaveAttribute('aria-checked', 'true');
+
+    await waitFor(() => expect(mirrorCalls(api, 'resumed-1').length).toBeGreaterThan(0));
+    const calls = mirrorCalls(api, 'resumed-1');
+    // The other fields still mirror…
+    expect(calls[calls.length - 1]).toMatchObject({ title: 'Persisted' });
+    // …but NOT visibility: the row already holds `true`, restating it would
+    // clobber a newer change made elsewhere.
+    for (const patch of calls) {
+      expect(patch).not.toHaveProperty('isPublic');
+    }
+  });
+
+  it('adopting a rebuilt PRIVATE row (seeded private) likewise sends no isPublic', async () => {
+    const hydrated = entry({ localId: 'resumed-2', isPublic: false });
+    const api = queue({ entries: [hydrated] });
+    renderUpload(api);
+
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Private/ })).toHaveAttribute('aria-checked', 'true');
+
+    await waitFor(() => expect(mirrorCalls(api, 'resumed-2').length).toBeGreaterThan(0));
+    for (const patch of mirrorCalls(api, 'resumed-2')) {
+      expect(patch).not.toHaveProperty('isPublic');
+    }
+  });
+
+  it('toggling visibility in the UI sends isPublic (the form now disagrees with the row)', async () => {
+    const hydrated = entry({ localId: 'resumed-1', isPublic: true });
+    const api = queue({ entries: [hydrated] });
+    renderUpload(api);
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+    await waitFor(() => expect(mirrorCalls(api, 'resumed-1').length).toBeGreaterThan(0));
+    const before = mirrorCalls(api, 'resumed-1').length;
+
+    fireEvent.click(screen.getByRole('radio', { name: /Private/ }));
+
+    await waitFor(() => expect(mirrorCalls(api, 'resumed-1').length).toBeGreaterThan(before));
+    const latest = mirrorCalls(api, 'resumed-1').slice(-1)[0];
+    expect(latest).toMatchObject({ isPublic: false });
+  });
+
+  it('toggling back to the row\'s stored value drops isPublic again', async () => {
+    const hydrated = entry({ localId: 'resumed-1', isPublic: true });
+    const api = queue({ entries: [hydrated] });
+    renderUpload(api);
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('radio', { name: /Private/ }));
+    await waitFor(() =>
+      expect(mirrorCalls(api, 'resumed-1').slice(-1)[0]).toMatchObject({ isPublic: false }),
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: /Public/ }));
+    await waitFor(() => {
+      const latest = mirrorCalls(api, 'resumed-1').slice(-1)[0];
+      expect(latest).toMatchObject({ title: 'clip' });
+      expect(latest).not.toHaveProperty('isPublic');
+    });
+  });
+
+  it('a fresh in-session row (row isPublic false, page default public) gets isPublic:true on its FIRST mirror', async () => {
+    // A brand-new row is created private by the queue; the page defaults to
+    // public. The disagreement must reach the row, or the creator's default
+    // is silently lost.
+    const created = entry({ localId: 'new-1', isPublic: false });
+    const enqueueFiles = jest.fn().mockResolvedValue({ accepted: [created], rejected: [] });
+    const api = queue({ entries: [], enqueueFiles });
+    const { container } = renderUpload(api);
+
+    expect(screen.getByRole('radio', { name: /Public/ })).toHaveAttribute('aria-checked', 'true');
+    selectFile(container, new File(['bytes'], 'clip.mp4', { type: 'video/mp4' }));
+    await waitFor(() => expect(enqueueFiles).toHaveBeenCalled());
+
+    await waitFor(() => expect(mirrorCalls(api, 'new-1').length).toBeGreaterThan(0));
+    expect(mirrorCalls(api, 'new-1')[0]).toMatchObject({ isPublic: true });
+
+    // Once the queue reports the row (still `false` until the PATCH lands),
+    // the poll-driven re-render does not fire the mirror again on its own.
+    const count = mirrorCalls(api, 'new-1').length;
+    mockUseUploadQueueContext.mockReturnValue({ ...api, entries: [created] });
+    rerenderUpload();
+    expect(mirrorCalls(api, 'new-1').length).toBe(count);
+  });
+});
+
 describe('VideoUpload · AI description assistant', () => {
   const AI_TEXT = [
     'A hook line.',

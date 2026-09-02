@@ -295,12 +295,18 @@ const VideoUpload: React.FC = () => {
   // The draft metadata lives on the upload row until the worker creates the
   // Video, so every edit is mirrored to the upload (the hook debounces the
   // actual PATCH).
+  //
+  // Visibility is sent ONLY when it differs from what the row already holds:
+  // restating a stored value on every render (notably the one right after
+  // adopting a rebuilt row) re-PUT a stale `is_public` over a change the
+  // creator had since made in Videos Management — in either direction.
   useEffect(() => {
     if (!queueLocalId) return;
+    const wantPublic = visibility === 'public';
     updateQueueMetadata(queueLocalId, {
       title,
       description,
-      isPublic: visibility === 'public',
+      ...(entry && entry.isPublic === wantPublic ? {} : { isPublic: wantPublic }),
       tags: tags.trim()
         ? tags
             .split(',')
@@ -308,6 +314,9 @@ const VideoUpload: React.FC = () => {
             .filter(Boolean)
         : null,
     });
+    // `entry` is deliberately not a dependency: it changes on every poll tick
+    // and would re-fire the mirror for no edit of the creator's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queueLocalId, updateQueueMetadata, title, description, tags, visibility]);
 
   /**
