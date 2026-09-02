@@ -192,14 +192,15 @@ describe('useUploadQueue metadata flush', () => {
     await waitFor(() =>
       expect(result.current.entries.find((entry) => entry.localId === localId)?.videoId).toBe(55),
     );
-    // The title the creator typed lands on the video, not on the floor.
+    // The title the creator typed lands on the video, not on the floor — and
+    // visibility is NOT restated: it was not part of this edit.
     await waitFor(() =>
       expect(applyVideoUpdate).toHaveBeenCalledWith(55, {
         title: 'Too late',
         description: undefined,
-        isPublic: false,
       }),
     );
+    expect(applyVideoUpdate.mock.calls[0][1]).not.toHaveProperty('isPublic');
   });
 
   it('keeps the edit queued when the 409 fallback also fails', async () => {
@@ -242,7 +243,6 @@ describe('useUploadQueue metadata flush', () => {
     expect(applyVideoUpdate).toHaveBeenLastCalledWith(55, {
       title: 'Too late',
       description: undefined,
-      isPublic: false,
     });
   });
 
@@ -323,10 +323,149 @@ describe('useUploadQueue metadata flush', () => {
     expect(applyVideoUpdate).toHaveBeenCalledWith(42, {
       title: 'Renamed after publish',
       description: undefined,
-      isPublic: false,
     });
+    expect(applyVideoUpdate.mock.calls[0][1]).not.toHaveProperty('isPublic');
     // And no doomed PATCH went out for it.
     expect(order.filter((step) => step === 'patch')).toHaveLength(0);
+  });
+
+  // Visibility travels only when it is part of the edit itself.
+  it('sends isPublic to updateVideo only when the pending patch contains it', async () => {
+    const applyVideoUpdate = jest.fn().mockResolvedValue(undefined);
+    const { api, order, releaseCreate } = harness();
+    const { result } = renderHook(() =>
+      useUploadQueue({
+        api,
+        resumeStore: createMemoryResumeStore(),
+        notify: jest.fn(),
+        applyVideoUpdate,
+        fetchVideoProgress: jest.fn().mockResolvedValue(progressResponse(42, 'processing')),
+      }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    let localId = '';
+    await act(async () => {
+      const enqueued = await result.current.enqueueFiles([videoFile()], 7);
+      localId = enqueued.accepted[0].localId;
+    });
+    releaseCreate();
+    await waitFor(() => expect(order).toContain('complete'));
+    await waitFor(() =>
+      expect(result.current.entries.find((entry) => entry.localId === localId)?.videoId).toBe(42),
+    );
+
+    act(() => {
+      result.current.updateMetadata(localId, { isPublic: true });
+    });
+    await act(async () => {
+      await result.current.flushMetadata(localId);
+    });
+
+    expect(applyVideoUpdate).toHaveBeenLastCalledWith(42, {
+      title: undefined,
+      description: undefined,
+      isPublic: true,
+    });
+  });
+});
+
+/**
+ * The default `applyVideoUpdate` is the module's own `PUT /videos/:id` sender.
+ * The controller treats an OMITTED `is_public` as "not mentioned", so what the
+ * FormData carries — and what it leaves out — decides whether a thumbnail or
+ * title edit can silently flip a video's visibility.
+ */
+describe('useUploadQueue default video update body', () => {
+  const mockedUpdateVideo = jest.requireMock('../../api/video').updateVideo as jest.Mock;
+
+  beforeEach(() => {
+    mockedUpdateVideo.mockClear();
+  });
+
+  function lastBody(): FormData {
+    const call = mockedUpdateVideo.mock.calls[mockedUpdateVideo.mock.calls.length - 1];
+    return call[1] as FormData;
+  }
+
+  async function completedRow() {
+    const { api, order, releaseCreate } = harness();
+    const { result } = renderHook(() =>
+      useUploadQueue({
+        api,
+        resumeStore: createMemoryResumeStore(),
+        notify: jest.fn(),
+        fetchVideoProgress: jest.fn().mockResolvedValue(progressResponse(42, 'processing')),
+      }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    let localId = '';
+    await act(async () => {
+      const enqueued = await result.current.enqueueFiles([videoFile()], 7);
+      localId = enqueued.accepted[0].localId;
+    });
+    return { result, localId, order, releaseCreate };
+  }
+
+  it('omits is_public and carries an empty description when only text changed', async () => {
+    const { result, localId, order, releaseCreate } = await completedRow();
+    releaseCreate();
+    await waitFor(() => expect(order).toContain('complete'));
+    await waitFor(() =>
+      expect(result.current.entries.find((entry) => entry.localId === localId)?.videoId).toBe(42),
+    );
+
+    act(() => {
+      result.current.updateMetadata(localId, { title: 'Renamed', description: '' });
+    });
+    await act(async () => {
+      await result.current.flushMetadata(localId);
+    });
+
+    expect(mockedUpdateVideo).toHaveBeenCalledWith('42', expect.any(FormData));
+    const body = lastBody();
+    expect(body.get('title')).toBe('Renamed');
+    // An empty string is a legitimate "clear the description", not "unset".
+    expect(body.has('description')).toBe(true);
+    expect(body.get('description')).toBe('');
+    expect(body.has('is_public')).toBe(false);
+  });
+
+  it('sends is_public when the edit is a visibility change', async () => {
+    const { result, localId, order, releaseCreate } = await completedRow();
+    releaseCreate();
+    await waitFor(() => expect(order).toContain('complete'));
+    await waitFor(() =>
+      expect(result.current.entries.find((entry) => entry.localId === localId)?.videoId).toBe(42),
+    );
+
+    act(() => {
+      result.current.updateMetadata(localId, { isPublic: true });
+    });
+    await act(async () => {
+      await result.current.flushMetadata(localId);
+    });
+
+    const body = lastBody();
+    expect(body.get('is_public')).toBe('true');
+    expect(body.has('title')).toBe(false);
+    expect(body.has('description')).toBe(false);
+  });
+
+  it('applies a parked thumbnail with the thumbnail field alone', async () => {
+    const { result, localId, releaseCreate } = await completedRow();
+    const thumbnail = new File(['img'], 'thumb.jpg', { type: 'image/jpeg' });
+    act(() => {
+      result.current.setPendingThumbnail(localId, thumbnail);
+    });
+    releaseCreate();
+
+    await waitFor(() => expect(mockedUpdateVideo).toHaveBeenCalledWith('42', expect.any(FormData)));
+    const body = lastBody();
+    expect(body.has('thumbnail')).toBe(true);
+    expect(body.has('is_public')).toBe(false);
+    expect(body.has('title')).toBe(false);
+    expect(body.has('description')).toBe(false);
   });
 });
 
@@ -360,12 +499,12 @@ describe('useUploadQueue parked thumbnail', () => {
 
     releaseCreate();
 
-    // `isPublic` rides along because `PUT /videos/:id` turns a missing
-    // `is_public` into `false` — a thumbnail must not unpublish the video.
-    await waitFor(() =>
-      expect(applyVideoUpdate).toHaveBeenCalledWith(42, { thumbnail, isPublic: false }),
-    );
+    // Thumbnail ONLY. Restating `isPublic` here flipped visibility back when
+    // the creator had changed it in Videos Management before a slow thumbnail
+    // landed; the API leaves an omitted `is_public` alone.
+    await waitFor(() => expect(applyVideoUpdate).toHaveBeenCalledWith(42, { thumbnail }));
     expect(applyVideoUpdate).toHaveBeenCalledTimes(1);
+    expect(applyVideoUpdate.mock.calls[0][1]).not.toHaveProperty('isPublic');
   });
 
   it('does nothing once the thumbnail is cleared', async () => {
@@ -1170,5 +1309,307 @@ describe('useUploadQueue cancel racing session creation', () => {
     // honours the cancel there, so no orphan session survives.
     releaseCreate();
     await waitFor(() => expect(abort).toHaveBeenCalledWith('upload-1'));
+  });
+
+  // The other outcome of the race: the create itself fails. There is no
+  // session to abort, and the cancel marker must not outlive the transfer.
+  // Observable from outside only as "nothing is aborted and nothing blows up";
+  // the marker's removal is what keeps that true for the rest of the session.
+  it('fires no late abort when the cancelled create rejects instead', async () => {
+    const abort = jest.fn().mockResolvedValue(undefined);
+    let releaseFailingCreate = () => {};
+    const gate = new Promise<void>((resolve) => {
+      releaseFailingCreate = resolve;
+    });
+    const create = jest.fn().mockImplementation(async () => {
+      await gate;
+      throw new UploadApiError('boom', 500, 'INTERNAL_ERROR', null);
+    });
+    const { api } = harness({ abort, create });
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: createMemoryResumeStore(), notify: jest.fn() }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    let localId = '';
+    await act(async () => {
+      const enqueued = await result.current.enqueueFiles([videoFile()], 7);
+      localId = enqueued.accepted[0].localId;
+    });
+    await waitFor(() =>
+      expect(result.current.entries.find((entry) => entry.localId === localId)?.status).toBe(
+        'reserving',
+      ),
+    );
+
+    await act(async () => {
+      await result.current.abortEntry(localId);
+    });
+    expect(result.current.entries).toHaveLength(0);
+
+    releaseFailingCreate();
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    // Let the rejection propagate through the transfer's catch/finally.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(abort).not.toHaveBeenCalled();
+    // The row stays gone: the failure of a cancelled transfer is not a
+    // failure the creator is shown.
+    expect(result.current.entries).toHaveLength(0);
+  });
+});
+
+describe('useUploadQueue boot applies a settled row’s unacknowledged edit', () => {
+  // The video finished while the post-completion PUT kept failing, then the
+  // page reloaded. The settled row used to be forgotten on boot — and the edit
+  // with it. For a visibility change that left Public a video the creator had
+  // made Private.
+  it('applies the pending patch to the video, then forgets the row', async () => {
+    const applyVideoUpdate = jest.fn().mockResolvedValue(undefined);
+    const { api } = harness();
+    const store = await seededStore(
+      persistedRow({
+        status: 'ready',
+        videoStatus: 'processed',
+        pendingPatch: { isPublic: false, title: 'Final' },
+      }),
+    );
+    const fetchVideoProgress = jest.fn().mockResolvedValue({ success: true, data: {} });
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), applyVideoUpdate, fetchVideoProgress }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(1);
+    expect(applyVideoUpdate).toHaveBeenCalledWith(99, {
+      title: 'Final',
+      description: undefined,
+      isPublic: false,
+    });
+    // Applied, so the row has nothing left to say: forgotten as before.
+    expect(result.current.entries).toHaveLength(0);
+    await expect(store.list()).resolves.toHaveLength(0);
+  });
+
+  it('does not send isPublic when the settled row’s patch has none', async () => {
+    const applyVideoUpdate = jest.fn().mockResolvedValue(undefined);
+    const { api } = harness();
+    const store = await seededStore(
+      persistedRow({ status: 'ready', videoStatus: 'processed', pendingPatch: { title: 'Final' } }),
+    );
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), applyVideoUpdate }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    expect(applyVideoUpdate).toHaveBeenCalledWith(99, { title: 'Final', description: undefined });
+    expect(applyVideoUpdate.mock.calls[0][1]).not.toHaveProperty('isPublic');
+  });
+
+  it('keeps the record, hydrated with its patch re-seeded, when the apply fails', async () => {
+    const applyVideoUpdate = jest.fn().mockRejectedValue(new Error('offline'));
+    const { api } = harness();
+    const store = await seededStore(
+      persistedRow({ status: 'ready', videoStatus: 'processed', pendingPatch: { isPublic: false } }),
+    );
+    const remove = jest.spyOn(store, 'remove');
+    const fetchVideoProgress = jest.fn().mockResolvedValue({ success: true, data: {} });
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), applyVideoUpdate, fetchVideoProgress }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    // The boot attempt itself.
+    expect(applyVideoUpdate.mock.calls[0]).toEqual([
+      99,
+      { title: undefined, description: undefined, isPublic: false },
+    ]);
+    // Not forgotten: the next boot gets another go at it.
+    expect(remove).not.toHaveBeenCalled();
+    await expect(store.list()).resolves.toHaveLength(1);
+    expect(result.current.entries).toHaveLength(1);
+    expect(result.current.entries[0]).toMatchObject({ localId: 'row-1', videoId: 99 });
+
+    // The patch is live in memory too: the hydration re-send (no keystroke
+    // this session) goes out with the very same fields…
+    await waitFor(() => expect(applyVideoUpdate.mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(applyVideoUpdate).toHaveBeenLastCalledWith(99, {
+      title: undefined,
+      description: undefined,
+      isPublic: false,
+    });
+
+    // …and so does an explicit Save once the server is back.
+    applyVideoUpdate.mockResolvedValue(undefined);
+    const before = applyVideoUpdate.mock.calls.length;
+    await act(async () => {
+      await result.current.flushMetadata('row-1');
+    });
+    expect(applyVideoUpdate.mock.calls.length).toBe(before + 1);
+    expect(applyVideoUpdate).toHaveBeenLastCalledWith(99, {
+      title: undefined,
+      description: undefined,
+      isPublic: false,
+    });
+    // Acknowledged now: the durable marker goes.
+    await waitFor(async () => {
+      const [record] = await store.list();
+      expect(record?.pendingPatch).toBeNull();
+    });
+  });
+
+  it('forgets a settled row with no pending patch without touching the video', async () => {
+    const applyVideoUpdate = jest.fn().mockResolvedValue(undefined);
+    const { api } = harness();
+    const store = await seededStore(persistedRow({ status: 'ready', videoStatus: 'processed' }));
+
+    const { result } = renderHook(() =>
+      useUploadQueue({ api, resumeStore: store, notify: jest.fn(), applyVideoUpdate }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+
+    expect(applyVideoUpdate).not.toHaveBeenCalled();
+    expect(result.current.entries).toHaveLength(0);
+  });
+});
+
+describe('useUploadQueue post-completion update retries', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  /** A row whose bytes are in and whose video exists, so edits go to PUT. */
+  async function rowWithVideo(applyVideoUpdate: jest.Mock) {
+    const { api, order, releaseCreate } = harness();
+    const { result } = renderHook(() =>
+      useUploadQueue({
+        api,
+        resumeStore: createMemoryResumeStore(),
+        notify: jest.fn(),
+        applyVideoUpdate,
+        // Keep the poll from ever deciding the video vanished.
+        fetchVideoProgress: jest.fn().mockResolvedValue(progressResponse(42, 'processing')),
+      }),
+    );
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    let localId = '';
+    await act(async () => {
+      const enqueued = await result.current.enqueueFiles([videoFile()], 7);
+      localId = enqueued.accepted[0].localId;
+    });
+    releaseCreate();
+    await waitFor(() => expect(order).toContain('complete'));
+    await waitFor(() =>
+      expect(result.current.entries.find((entry) => entry.localId === localId)?.videoId).toBe(42),
+    );
+    return { result, localId };
+  }
+
+  // "We will keep trying" used to be a promise nothing kept: a failed PUT sat
+  // until a keystroke or Save that might never come.
+  it('retries at 5 s, 15 s and 45 s, then stops', async () => {
+    const applyVideoUpdate = jest.fn().mockRejectedValue(new Error('offline'));
+    const { result, localId } = await rowWithVideo(applyVideoUpdate);
+
+    act(() => {
+      result.current.updateMetadata(localId, { title: 'Renamed' });
+    });
+    await act(async () => {
+      await result.current.flushMetadata(localId);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(1);
+
+    // Nothing before the first backoff elapses.
+    await act(async () => {
+      jest.advanceTimersByTime(4_900);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      jest.advanceTimersByTime(15_000);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      jest.advanceTimersByTime(45_000);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(4);
+    // Every retry carried the same edit.
+    for (const call of applyVideoUpdate.mock.calls) {
+      expect(call).toEqual([42, { title: 'Renamed', description: undefined }]);
+    }
+
+    // Bounded: after the third retry no more timers are armed.
+    await act(async () => {
+      jest.advanceTimersByTime(10 * 60_000);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(4);
+
+    // The edit itself is still pending, so an explicit Save sends it again.
+    applyVideoUpdate.mockResolvedValue(undefined);
+    await act(async () => {
+      await result.current.flushMetadata(localId);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(5);
+  });
+
+  it('stops retrying once an attempt lands, and starts the ladder afresh for the next failure', async () => {
+    const applyVideoUpdate = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(undefined);
+    const { result, localId } = await rowWithVideo(applyVideoUpdate);
+
+    act(() => {
+      result.current.updateMetadata(localId, { title: 'First' });
+    });
+    await act(async () => {
+      await result.current.flushMetadata(localId);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(1);
+
+    // The 5 s retry succeeds…
+    await act(async () => {
+      jest.advanceTimersByTime(5_000);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(2);
+
+    // …so the 15 s and 45 s rungs never fire.
+    await act(async () => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(2);
+
+    // Success cleared the counter: a later failure gets the full ladder again,
+    // starting at 5 s rather than continuing where the last one left off.
+    applyVideoUpdate.mockRejectedValue(new Error('offline again'));
+    act(() => {
+      result.current.updateMetadata(localId, { title: 'Second' });
+    });
+    await act(async () => {
+      await result.current.flushMetadata(localId);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(3);
+    await act(async () => {
+      jest.advanceTimersByTime(5_000);
+    });
+    expect(applyVideoUpdate).toHaveBeenCalledTimes(4);
+    expect(applyVideoUpdate).toHaveBeenLastCalledWith(42, { title: 'Second', description: undefined });
   });
 });

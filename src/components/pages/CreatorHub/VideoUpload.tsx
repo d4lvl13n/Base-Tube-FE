@@ -91,9 +91,18 @@ const VideoUpload: React.FC = () => {
   // inviting the creator to pick the file again under a NEW attempt. Adopt the
   // most recent still-live row instead, so the page shows what is already
   // resumable.
+  //
+  // ONLY rows rebuilt from storage qualify — those have no `File` handle
+  // (`file === null`). A row created in this session (file present) is one the
+  // creator already walked away from to start something else; adopting it
+  // here hijacked the page for that previous video and pointed new edits at
+  // it. The creator can also explicitly release an adopted row (below).
+  const [releasedLocalIds, setReleasedLocalIds] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     if (queueLocalId !== null || !uploadQueue.hydrated) return;
-    const candidates = uploadQueue.entries.filter((item) => !uploadRowIsTerminal(item));
+    const candidates = uploadQueue.entries.filter(
+      (item) => item.file === null && !uploadRowIsTerminal(item) && !releasedLocalIds.has(item.localId),
+    );
     const latest = candidates[candidates.length - 1];
     if (!latest) return;
     setQueueLocalId(latest.localId);
@@ -101,7 +110,19 @@ const VideoUpload: React.FC = () => {
     setDescription(latest.description ?? '');
     setVisibility(latest.isPublic ? 'public' : 'private');
     setTags((latest.tags ?? []).join(', '));
-  }, [queueLocalId, uploadQueue.entries, uploadQueue.hydrated]);
+  }, [queueLocalId, releasedLocalIds, uploadQueue.entries, uploadQueue.hydrated]);
+
+  /** Hands the page back to the drop zone; the row keeps going in the queue. */
+  const releaseRow = () => {
+    if (!queueLocalId) return;
+    setReleasedLocalIds((current) => new Set(current).add(queueLocalId));
+    setQueueLocalId(null);
+    setTitle('');
+    setDescription('');
+    setTags('');
+    setVisibility('public');
+    setThumbnailPreview(null);
+  };
 
   // Stable across renders (useCallback in the hook), so they are safe in deps.
   const updateQueueMetadata = uploadQueue.updateMetadata;
@@ -363,6 +384,21 @@ const VideoUpload: React.FC = () => {
                            focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            )}
+
+            {/* Once the bytes are in, the row no longer needs this page: give
+                the drop zone back so the next video can start while this one
+                finishes processing in the queue. */}
+            {!transferring && phase !== 'failed' && (
+              <button
+                type="button"
+                onClick={releaseRow}
+                aria-label="Upload another video"
+                className="shrink-0 rounded px-1 text-xs text-gray-500 transition-colors hover:text-white
+                           focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600"
+              >
+                Upload another
               </button>
             )}
 

@@ -418,6 +418,160 @@ describe('VideoUpload · reload adoption', () => {
     expect(screen.getByText('Drop a video here')).toBeInTheDocument();
     expect(screen.queryByText('clip.mp4')).not.toBeInTheDocument();
   });
+
+  // Only rows REBUILT FROM STORAGE qualify — those have no `File` handle. A row
+  // created in this session still holds its File; it is one the creator already
+  // walked away from, and adopting it hijacked the page for the previous video.
+  it('never adopts an in-session row that still holds its File', () => {
+    const inSession = entry({
+      localId: 'session-1',
+      title: 'Previous video',
+      file: new File(['bytes'], 'clip.mp4', { type: 'video/mp4' }),
+    });
+    renderUpload(queue({ entries: [inSession] }));
+
+    expect(screen.getByText('Drop a video here')).toBeInTheDocument();
+    expect(screen.queryByText('clip.mp4')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Video title')).toHaveValue('');
+  });
+
+  it('adopts the latest file-less row, skipping newer in-session rows', async () => {
+    const hydrated = entry({ localId: 'resumed-1', filename: 'resumed.mp4', title: 'resumed' });
+    const inSession = entry({
+      localId: 'session-1',
+      filename: 'fresh.mp4',
+      title: 'fresh',
+      file: new File(['bytes'], 'fresh.mp4', { type: 'video/mp4' }),
+    });
+    renderUpload(queue({ entries: [hydrated, inSession] }));
+
+    expect(await screen.findByText('resumed.mp4')).toBeInTheDocument();
+    expect(screen.queryByText('fresh.mp4')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Video title')).toHaveValue('resumed');
+  });
+});
+
+describe('VideoUpload · "Upload another" releases the row', () => {
+  // Once the bytes are in, the row no longer needs this page. Releasing it
+  // hands the drop zone back while the row keeps going in the queue.
+  it('offers "Upload another" on a processing row and returns to the drop zone', async () => {
+    const processing = entry({
+      status: 'ready',
+      videoId: 55,
+      videoStatus: 'processing',
+      title: 'Adopted title',
+      description: '<p>Adopted description</p>',
+      tags: ['a', 'b'],
+      isPublic: true,
+    });
+    const api = queue({ entries: [processing] });
+    renderUpload(api);
+
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Video title')).toHaveValue('Adopted title');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload another video' }));
+
+    // The page is back to a blank upload form…
+    expect(await screen.findByText('Drop a video here')).toBeInTheDocument();
+    expect(screen.queryByText('clip.mp4')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Video title')).toHaveValue('');
+    expect(screen.getByLabelText('Description')).toHaveValue('');
+    expect(screen.getByPlaceholderText('Separate tags with commas')).toHaveValue('');
+    expect(screen.getByRole('radio', { name: /Public/ })).toHaveAttribute('aria-checked', 'true');
+    // …and the row was NOT taken out of the queue.
+    expect(api.removeEntry).not.toHaveBeenCalled();
+    expect(api.abortEntry).not.toHaveBeenCalled();
+  });
+
+  it('never re-adopts a released row while the page lives, even as the queue re-renders', async () => {
+    const processing = entry({ status: 'ready', videoId: 55, videoStatus: 'processing' });
+    const api = queue({ entries: [processing] });
+    renderUpload(api);
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload another video' }));
+    expect(await screen.findByText('Drop a video here')).toBeInTheDocument();
+
+    // The queue moves on (progress, renditions…) and the provider re-renders
+    // with the same still-live, still file-less row.
+    mockUseUploadQueueContext.mockReturnValue({
+      ...api,
+      entries: [{ ...processing, progress: 100, updatedAt: '2026-08-28T10:05:00.000Z' }],
+    });
+    rerenderUpload();
+
+    expect(screen.getByText('Drop a video here')).toBeInTheDocument();
+    expect(screen.queryByText('clip.mp4')).not.toBeInTheDocument();
+  });
+
+  it('lets a new file start a NEW upload after the release', async () => {
+    const processing = entry({ localId: 'old-1', status: 'ready', videoId: 55, videoStatus: 'processing' });
+    const created = entry({ localId: 'new-1', filename: 'next.mp4', status: 'uploading', progress: 3 });
+    const enqueueFiles = jest.fn().mockResolvedValue({ accepted: [created], rejected: [] });
+    const api = queue({ entries: [processing], enqueueFiles });
+    const { container } = renderUpload(api);
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload another video' }));
+    expect(await screen.findByText('Drop a video here')).toBeInTheDocument();
+
+    const file = new File(['bytes'], 'next.mp4', { type: 'video/mp4' });
+    selectFile(container, file);
+    await waitFor(() => expect(enqueueFiles).toHaveBeenCalledWith([file], 7));
+    expect(api.reselectFiles).not.toHaveBeenCalled();
+
+    mockUseUploadQueueContext.mockReturnValue({ ...api, entries: [processing, created] });
+    rerenderUpload();
+
+    expect(await screen.findByText('next.mp4')).toBeInTheDocument();
+    expect(screen.queryByText('clip.mp4')).not.toBeInTheDocument();
+  });
+
+  it('is not offered while the bytes are still transferring', async () => {
+    renderUpload(queue({ entries: [entry({ status: 'uploading', progress: 42 })] }));
+
+    expect(await screen.findByText('clip.mp4')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Upload another video' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel clip.mp4' })).toBeInTheDocument();
+  });
+
+  it('is not offered on a failed row — Remove is the only way out', async () => {
+    // A failed row is not adopted on mount, so this exercises a row the page
+    // enqueued itself that then failed.
+    const created = entry();
+    const failed = entry({ status: 'failed', errorCode: 'X', errorMessage: 'boom' });
+    const api = queue({
+      entries: [],
+      enqueueFiles: jest.fn().mockResolvedValue({ accepted: [created], rejected: [] }),
+    });
+    const { container } = renderUpload(api);
+    selectFile(container, new File(['bytes'], 'clip.mp4', { type: 'video/mp4' }));
+    await waitFor(() => expect(api.enqueueFiles).toHaveBeenCalled());
+
+    mockUseUploadQueueContext.mockReturnValue({ ...api, entries: [failed] });
+    rerenderUpload();
+
+    expect(await screen.findByRole('button', { name: 'Remove clip.mp4' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Upload another video' })).not.toBeInTheDocument();
+  });
+
+  it('is offered on a finished (ready) row the page enqueued itself', async () => {
+    const created = entry();
+    const done = entry({ status: 'ready', videoId: 55, videoStatus: 'processed' });
+    const api = queue({
+      entries: [],
+      enqueueFiles: jest.fn().mockResolvedValue({ accepted: [created], rejected: [] }),
+    });
+    const { container } = renderUpload(api);
+    selectFile(container, new File(['bytes'], 'clip.mp4', { type: 'video/mp4' }));
+    await waitFor(() => expect(api.enqueueFiles).toHaveBeenCalled());
+
+    mockUseUploadQueueContext.mockReturnValue({ ...api, entries: [done] });
+    rerenderUpload();
+
+    expect(await screen.findByRole('button', { name: 'Upload another video' })).toBeInTheDocument();
+  });
 });
 
 describe('VideoUpload · reselect after reload', () => {

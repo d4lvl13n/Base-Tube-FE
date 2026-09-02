@@ -40,11 +40,18 @@ export const UploadQueueProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // database would leak drafts between wallet accounts on the same browser.
   const { user, isLoaded } = useUser();
   const { user: web3User } = useAuth();
-  const namespace = web3User?.id
-    ? web3User.id
-    : isLoaded
-      ? (user?.id ?? 'anonymous')
-      : 'loading';
+  // CLERK FIRST when a Clerk session exists. Linking a wallet (or a card
+  // checkout's success page) calls the web3 `setUser` for a Clerk account too;
+  // letting that id take precedence flipped the namespace mid-session and
+  // remounted the queue — aborting a creator's in-flight transfer. The web3 id
+  // only names a session that has no Clerk user at all.
+  const namespace = !isLoaded
+    ? 'loading'
+    : user?.id
+      ? user.id
+      : web3User?.id
+        ? web3User.id
+        : 'anonymous';
 
   // Unidentified sessions get a MEMORY store (see createUploadResumeStore), so
   // nothing durable ever accumulates under 'anonymous'/'loading' again. The

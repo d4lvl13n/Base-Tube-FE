@@ -56,6 +56,8 @@ const FINISHED_ROW_TTL_MS = 24 * 60 * 60 * 1_000;
 const PERSISTENCE_WARNING = 'This queue is running without reliable reload recovery.';
 /** How long a keystroke waits before it becomes a draft-metadata PATCH. */
 const METADATA_DEBOUNCE_MS = 800;
+/** Backoff for a failed post-completion video update, then it waits for the next flush. */
+const VIDEO_PATCH_RETRY_DELAYS_MS = [5_000, 15_000, 45_000] as const;
 /**
  * Shown when a PATCH lost the race with completion: the backend answers 409
  * `UPLOAD_STATE_CONFLICT` once the row has produced a `Video`, and from then on
@@ -96,13 +98,12 @@ export interface VideoUpdateFields {
   title?: string;
   description?: string | null;
   /**
-   * Always sent, never optional.
-   *
-   * `PUT /api/v1/videos/:id` computes `isPublic: is_public === 'true'`
-   * unconditionally, so a request that omits the field sets the video to
-   * PRIVATE. A thumbnail-only update must therefore restate the visibility.
+   * Optional. `PUT /api/v1/videos/:id` treats an OMITTED `is_public` as "not
+   * mentioned" (see `optionalBoolean` in the controller), so a thumbnail-only
+   * update leaves visibility alone instead of restating a possibly stale
+   * local value.
    */
-  isPublic: boolean;
+  isPublic?: boolean;
   thumbnail?: File;
 }
 
@@ -110,8 +111,8 @@ export interface VideoUpdateFields {
 async function putVideoUpdate(videoId: number, fields: VideoUpdateFields): Promise<void> {
   const formData = new FormData();
   if (fields.title !== undefined) formData.append('title', fields.title);
-  if (fields.description) formData.append('description', fields.description);
-  formData.append('is_public', fields.isPublic ? 'true' : 'false');
+  if (fields.description !== undefined) formData.append('description', fields.description ?? '');
+  if (fields.isPublic !== undefined) formData.append('is_public', fields.isPublic ? 'true' : 'false');
   if (fields.thumbnail) formData.append('thumbnail', fields.thumbnail);
   await updateVideo(String(videoId), formData);
 }
@@ -296,6 +297,10 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   const inFlightPatchRef = useRef(new Map<string, Promise<void>>());
   const pendingThumbnailsRef = useRef(new Map<string, File>());
   const thumbnailAttemptedRef = useRef(new Set<string>());
+  /** Bounded retry counter for a failed post-completion `PUT /videos/:id`. */
+  const videoPatchRetriesRef = useRef(new Map<string, number>());
+  /** Late-bound so the retry timer can call the (later-defined) sender. */
+  const sendPendingPatchRef = useRef<(localId: string) => Promise<void>>(async () => undefined);
   /**
    * Rows cancelled while their create request was still on the wire. The
    * request itself cannot be aborted, so when its response finally delivers an
@@ -386,6 +391,27 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         const hydratedEntries: UploadQueueEntry[] = [];
         for (const entry of hydrateUploadQueue(records)) {
           if (settledBeforeReload(entry)) {
+            // A settled row can still carry an UNACKNOWLEDGED edit (the video
+            // finished while the post-completion PUT was failing, then the
+            // page reloaded). Forgetting it here silently dropped that edit —
+            // for a visibility change, a video left Public the creator made
+            // Private. Apply it first; keep the record if that fails so the
+            // next boot tries again.
+            if (entry.pendingPatch && entry.videoId !== null) {
+              try {
+                await applyVideoUpdateRef.current(entry.videoId, {
+                  title: entry.pendingPatch.title,
+                  description: entry.pendingPatch.description,
+                  ...(entry.pendingPatch.isPublic !== undefined
+                    ? { isPublic: entry.pendingPatch.isPublic }
+                    : {}),
+                });
+              } catch {
+                pendingPatchesRef.current.set(entry.localId, { ...entry.pendingPatch });
+                hydratedEntries.push(entry);
+                continue;
+              }
+            }
             await forget(entry.localId);
             continue;
           }
@@ -552,11 +578,27 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         await applyVideoUpdateRef.current(videoId, {
           title: patch.title,
           description: patch.description,
-          isPublic: patch.isPublic ?? fallbackIsPublic,
+          // Send visibility only when it is part of THIS edit; restating a
+          // stale local value could undo a change made in Videos Management.
+          ...(patch.isPublic !== undefined ? { isPublic: patch.isPublic } : {}),
         });
         clearPendingPatch(localId, patch);
+        videoPatchRetriesRef.current.delete(localId);
       } catch {
         if (mountedRef.current) notifyRef.current(METADATA_SAVE_FAILED_NOTICE);
+        // "We will keep trying" has to be TRUE: a failed post-completion PUT
+        // used to wait for a keystroke or Save that might never come. Bounded
+        // backoff (5 s, 15 s, 45 s); the patch stays persisted throughout, so
+        // a reload picks it up too.
+        const attempt = videoPatchRetriesRef.current.get(localId) ?? 0;
+        if (attempt < VIDEO_PATCH_RETRY_DELAYS_MS.length) {
+          videoPatchRetriesRef.current.set(localId, attempt + 1);
+          const timer = setTimeout(() => {
+            patchTimersRef.current.delete(localId);
+            void sendPendingPatchRef.current(localId);
+          }, VIDEO_PATCH_RETRY_DELAYS_MS[attempt]);
+          patchTimersRef.current.set(localId, timer);
+        }
       }
     },
     [clearPendingPatch],
@@ -620,6 +662,8 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     },
     [api, applyPendingToVideo, clearPendingPatch, updateEntry],
   );
+
+  sendPendingPatchRef.current = sendPendingPatch;
 
   /**
    * Drains the metadata pipeline for one entry: whatever is already on the
@@ -697,7 +741,11 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       const videoId = entry.videoId;
       const localId = entry.localId;
       void applyVideoUpdateRef
-        .current(videoId, { thumbnail, isPublic: entry.isPublic })
+        // Thumbnail ONLY: restating `isPublic` here flipped visibility back
+        // if the creator had changed it in Videos Management before a slow
+        // thumbnail landed. The API treats an omitted `is_public` as "leave
+        // it alone".
+        .current(videoId, { thumbnail })
         .then(() => {
           pendingThumbnailsRef.current.delete(localId);
         })
@@ -755,6 +803,9 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
 
       void executeUploadTransfer(entry, entry.file, deps, update, { signal: controller.signal })
         .catch(async (error: unknown) => {
+          // The create never produced an uploadId, so there is nothing late
+          // to abort; drop the marker instead of leaking it.
+          cancelAfterCreateRef.current.delete(entry.localId);
           if (abortingIdsRef.current.has(entry.localId) || controller.signal.aborted) return;
           const failure = classifyTransferFailure(error);
           const retryAt =

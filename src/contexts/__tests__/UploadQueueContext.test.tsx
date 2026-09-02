@@ -5,11 +5,14 @@ import { MemoryRouter } from 'react-router-dom';
 /**
  * Per-user IndexedDB namespace (src/contexts/UploadQueueContext.tsx).
  *
- * The provider derives the queue's storage namespace from the WEB3 user id
- * when one is present (it takes precedence), else the Clerk user id, else
- * 'anonymous' — and 'loading' while Clerk has not answered yet. The inner
- * provider is keyed on the namespace, so an identity change REMOUNTS the queue
- * rather than letting the next account read the previous account's drafts.
+ * The provider derives the queue's storage namespace as 'loading' while Clerk
+ * has not answered yet, else the CLERK user id when one is present (it takes
+ * precedence), else the web3 user id, else 'anonymous'. Clerk goes first
+ * because linking a wallet also sets the web3 user for a Clerk account; a
+ * web3-first order flipped the namespace mid-session and remounted the queue.
+ * The inner provider is keyed on the namespace, so a REAL identity change
+ * REMOUNTS the queue rather than letting the next account read the previous
+ * account's drafts.
  */
 
 const mockUseUser = jest.fn();
@@ -90,21 +93,38 @@ beforeEach(() => {
 });
 
 describe('UploadQueueProvider storage namespace', () => {
-  it('uses the web3 user id, even when a Clerk user is also present', () => {
+  it('uses the Clerk user id, even when a web3 user is also present', () => {
     mockUseAuth.mockReturnValue({ user: { id: 'web3-user-9' } });
     mockUseUser.mockReturnValue({ user: { id: 'clerk-user-1' }, isLoaded: true });
+
+    renderProvider();
+
+    expect(lastNamespace()).toBe('clerk-user-1');
+  });
+
+  it('uses the Clerk user id when there is no web3 session', () => {
+    mockUseUser.mockReturnValue({ user: { id: 'clerk-user-1' }, isLoaded: true });
+
+    renderProvider();
+
+    expect(lastNamespace()).toBe('clerk-user-1');
+  });
+
+  it('falls back to the web3 user id when Clerk has loaded with nobody signed in', () => {
+    mockUseAuth.mockReturnValue({ user: { id: 'web3-user-9' } });
 
     renderProvider();
 
     expect(lastNamespace()).toBe('web3-user-9');
   });
 
-  it('falls back to the Clerk user id when there is no web3 session', () => {
-    mockUseUser.mockReturnValue({ user: { id: 'clerk-user-1' }, isLoaded: true });
+  it('stays "loading" while Clerk has not answered, even if a web3 user is already known', () => {
+    mockUseAuth.mockReturnValue({ user: { id: 'web3-user-9' } });
+    mockUseUser.mockReturnValue({ user: undefined, isLoaded: false });
 
     renderProvider();
 
-    expect(lastNamespace()).toBe('clerk-user-1');
+    expect(lastNamespace()).toBe('loading');
   });
 
   it('uses "anonymous" when Clerk has loaded and nobody is signed in', () => {
@@ -124,6 +144,29 @@ describe('UploadQueueProvider storage namespace', () => {
   // The namespace is also the inner provider's React key: a different account
   // must get a freshly mounted (re-hydrated) queue, not a patched-up one.
   it('remounts the queue subtree when the identity changes', () => {
+    mockUseAuth.mockReturnValue({ user: { id: 'web3-user-9' } });
+    const { rerender } = renderProvider();
+    expect(mounts).toBe(1);
+    expect(lastNamespace()).toBe('web3-user-9');
+
+    // A Clerk session appears for a different account: the namespace changes.
+    mockUseUser.mockReturnValue({ user: { id: 'clerk-user-1' }, isLoaded: true });
+    rerender(
+      <MemoryRouter>
+        <UploadQueueProvider>
+          <Probe />
+        </UploadQueueProvider>
+      </MemoryRouter>,
+    );
+
+    expect(lastNamespace()).toBe('clerk-user-1');
+    // The key changed: the whole subtree, probe included, mounted again.
+    expect(mounts).toBe(2);
+  });
+
+  // Linking a wallet mid-session sets the web3 user for the SAME Clerk account.
+  // That must not flip the namespace (and abort an in-flight transfer).
+  it('does not remount when a web3 user appears later for the same Clerk session', () => {
     mockUseUser.mockReturnValue({ user: { id: 'clerk-user-1' }, isLoaded: true });
     const { rerender } = renderProvider();
     expect(mounts).toBe(1);
@@ -138,9 +181,8 @@ describe('UploadQueueProvider storage namespace', () => {
       </MemoryRouter>,
     );
 
-    expect(lastNamespace()).toBe('web3-user-9');
-    // The key changed: the whole subtree, probe included, mounted again.
-    expect(mounts).toBe(2);
+    expect(lastNamespace()).toBe('clerk-user-1');
+    expect(mounts).toBe(1);
   });
 
   it('does not remount while the identity stays the same', () => {
