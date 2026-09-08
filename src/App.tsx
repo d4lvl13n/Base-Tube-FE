@@ -1,4 +1,4 @@
-import React, { useMemo, lazy, Suspense } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { ToastContainer } from 'react-toastify';
@@ -24,7 +24,6 @@ import CreateChannelPage from './components/pages/CreateChannelPage';
 import ProfileSettings from './components/pages/ProfileSettings';
 import CreatorHubLandingPage from './components/pages/CreatorHub/CreatorHubLandingPage';
 import VideoUpload from './components/pages/CreatorHub/VideoUpload';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import AnalyticsPage from './components/pages/CreatorHub/Analytics/AnalyticsPage';
 import { useAnalyticsContext } from './hooks/useAnalyticsData';
@@ -41,7 +40,6 @@ import { SystemHealth } from './health/SystemHealth';
 import { ContentStudio } from './components/pages/CreatorHub/ContentStudio/index';
 import ChannelList from './components/pages/CreatorHub/ChannelManagement/ChannelList';
 import OnboardingModal from './components/pages/OnboardingModal';
-import { AuthProvider } from './contexts/AuthContext';
 import SignInWeb3 from './components/pages/SignInWeb3';
 import OnboardingWeb3 from './components/pages/OnboardingWeb3';
 import NFTSimulator from './components/pages/NftContentPass/NFTCPsimulator/NftContentPassSimulator';
@@ -114,23 +112,10 @@ const AuthRouteAliasRedirect: React.FC<{ to: string }> = ({ to }) => {
 const isInternalMonitoringEnabled = process.env.REACT_APP_ENABLE_INTERNAL_MONITORING === 'true';
 
 function App() {
-  const queryClient = useMemo(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        refetchOnWindowFocus: false,
-        retry: 2,
-        staleTime: Infinity,
-        gcTime: 10 * 60 * 1000,
-      },
-    },
-  }), []);
-
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
         <ConfigProvider>
           <VideoProvider>
-            <AuthProvider>
               <UploadQueueProvider>
               <div className="min-h-screen bg-black">
                 <ReferralAttributionBridge />
@@ -464,10 +449,8 @@ function App() {
                 <ReactQueryDevtools initialIsOpen={false} />
               </div>
               </UploadQueueProvider>
-            </AuthProvider>
           </VideoProvider>
         </ConfigProvider>
-      </QueryClientProvider>
     </ErrorBoundary>
   );
 }
