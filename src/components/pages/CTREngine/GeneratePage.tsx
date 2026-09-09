@@ -1,6 +1,6 @@
 import { ThumbnailLogoPicker } from '../../common/ThumbnailLogoPicker';
 import { thumbnailMediaUrl } from '../../../utils/thumbnailMediaUrl';
-import { ThumbnailStylePicker } from '../../common/ThumbnailPackaging';
+import { SaveThumbnailStyle, ThumbnailStylePicker } from '../../common/ThumbnailPackaging';
 import { ThumbnailConceptComparison } from '../../common/ThumbnailConceptComparison';
 import { ThumbnailSubjectPicker } from '../../common/ThumbnailSubjectPicker';
 // src/components/pages/CTREngine/GeneratePage.tsx
@@ -979,6 +979,7 @@ const GeneratePage: React.FC = () => {
                     <div className="p-4">
                       {thumbnail.conceptName && <p className="mb-1 text-sm font-semibold text-white">{thumbnail.conceptName}</p>}
                       <p className="text-sm text-gray-400 line-clamp-2">{thumbnail.conceptDescription || thumbnail.prompt}</p>
+                      {isAuthenticated && <SaveThumbnailStyle key={`style:${comparisonUrls[thumbnail.id] || thumbnail.imageUrl}`} imageUrl={comparisonUrls[thumbnail.id] || thumbnail.imageUrl} />}
                       {thumbnail.adjustmentError && <p role="alert" className="text-xs text-amber-300">{thumbnail.adjustmentError}</p>}
                       <p className="text-xs text-gray-600 mt-2 flex items-center gap-1">
                         <Clock className="w-3 h-3" />

@@ -3,6 +3,7 @@ import { SavedThumbnailStyle, thumbnailPackagingApi } from '../../api/thumbnailP
 import { thumbnailMediaUrl } from '../../utils/thumbnailMediaUrl';
 
 const message = (error: any) => error?.response?.data?.error?.message || error?.message || 'Could not save your style. Please try again.';
+const stylesChangedEvent = 'thumbnail-styles-changed';
 const buttonClass = 'rounded-lg border border-white/20 px-3 py-2 text-sm text-white disabled:opacity-40';
 
 export function SaveThumbnailStyle({ imageUrl }: { imageUrl: string }) {
@@ -14,7 +15,7 @@ export function SaveThumbnailStyle({ imageUrl }: { imageUrl: string }) {
   const save = async () => {
     if (busy || !name.trim()) return;
     setBusy(true); setError('');
-    try { const result = await thumbnailPackagingApi.save(imageUrl, name.trim()); setSaved(result.name); setOpen(false); }
+    try { const result = await thumbnailPackagingApi.save(imageUrl, name.trim()); setSaved(result.name); setOpen(false); window.dispatchEvent(new Event(stylesChangedEvent)); }
     catch (error) { setError(message(error)); }
     finally { setBusy(false); }
   };
@@ -45,6 +46,11 @@ export function ThumbnailStylePicker({ value, onChange, disabled }: { value?: nu
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [revision]);
+  useEffect(() => {
+    const refresh = () => setRevision(n => n + 1);
+    window.addEventListener(stylesChangedEvent, refresh);
+    return () => window.removeEventListener(stylesChangedEvent, refresh);
+  }, []);
   const selected = styles.find(style => style.id === value);
   const remove = async () => {
     if (!selected || loading) return;
@@ -56,7 +62,7 @@ export function ThumbnailStylePicker({ value, onChange, disabled }: { value?: nu
   return <fieldset className="my-5 rounded-xl border border-white/10 p-4" disabled={disabled}>
     <legend className="px-1 text-sm font-semibold text-white">Channel style</legend>
     <select aria-label="Channel style" value={value ?? ''} disabled={loading} onChange={event => onChange(event.target.value ? Number(event.target.value) : undefined, styles.find(style => style.id === Number(event.target.value))?.hasLogo)} className="w-full rounded-lg bg-[#171719] p-3 text-white">
-      <option value="">{loading ? 'Loading styles…' : 'No saved style'}</option>
+      <option value="">{loading ? 'Loading styles…' : 'Start without a saved style'}</option>
       {value && !selected && <option value={value}>Selected style unavailable</option>}
       {styles.map(style => <option key={style.id} value={style.id}>{style.name}</option>)}
     </select>
@@ -65,7 +71,8 @@ export function ThumbnailStylePicker({ value, onChange, disabled }: { value?: nu
       <div className="space-y-2"><p className="text-xs text-gray-400">Match this style. Use your new brief for the subject and words.{selected.hasLogo && ' Your saved original logo will be included automatically.'}</p>
         <button type="button" className={buttonClass} disabled={loading} onClick={remove}>Remove saved style</button>
       </div>
-    </div> : <p className="mt-2 text-xs text-gray-400">Choose “Save style” on a thumbnail you like. Keep that image in your gallery to reuse its style.</p>}
+    </div> : null}
+    <p className="mt-2 text-xs text-gray-400">To add another style, generate a thumbnail or open one in your gallery, then choose “Save style”. Your other saved styles stay available.</p>
     {error && <p role="alert" className="mt-2 text-sm text-red-300">{error} <button type="button" onClick={() => setRevision(n => n + 1)}>Retry</button></p>}
   </fieldset>;
 }

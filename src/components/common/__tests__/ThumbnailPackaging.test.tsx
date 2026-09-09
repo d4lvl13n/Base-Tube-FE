@@ -47,3 +47,24 @@ it('tells the logo picker whether the selected style includes an original logo',
   fireEvent.change(screen.getByRole('combobox', { name: 'Channel style' }), { target: { value: '' } });
   expect(onChange).toHaveBeenLastCalledWith(undefined, undefined);
 });
+
+it('adds a second style without hiding save or replacing the selected style', async () => {
+  const first = { id: 7, name: 'Music', imageUrl };
+  const nextUrl = 'https://gateway.storjshare.io/basetube-thumbnails/def-456.png';
+  const second = { id: 8, name: 'Travel', imageUrl: nextUrl };
+  (thumbnailPackagingApi.list as jest.Mock).mockResolvedValueOnce([first]).mockResolvedValue([first, second]);
+  (thumbnailPackagingApi.save as jest.Mock).mockResolvedValue(second);
+  const onChange = jest.fn();
+  render(<><ThumbnailStylePicker value={7} onChange={onChange} /><SaveThumbnailStyle imageUrl={nextUrl} /></>);
+  await screen.findByRole('option', { name: 'Music' });
+  expect(screen.getByText(/To add another style/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Save style', exact: true }));
+  fireEvent.change(screen.getByLabelText('Channel or style name'), { target: { value: 'Travel' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save channel style' }));
+  await screen.findByRole('option', { name: 'Travel' });
+  expect(screen.getByRole('option', { name: 'Music' })).toBeInTheDocument();
+  expect(screen.getByRole('combobox')).toHaveValue('7');
+  expect(screen.getByRole('button', { name: 'Save style', exact: true })).toBeEnabled();
+  expect(onChange).not.toHaveBeenCalled();
+  expect(thumbnailPackagingApi.save).toHaveBeenCalledWith(nextUrl, 'Travel');
+});
