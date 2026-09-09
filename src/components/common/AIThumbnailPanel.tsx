@@ -1,3 +1,4 @@
+import { thumbnailMediaUrl } from '../../utils/thumbnailMediaUrl';
 import { ThumbnailConceptComparison, ComparisonConcept } from './ThumbnailConceptComparison';
 import { ThumbnailSubjectPicker } from './ThumbnailSubjectPicker';
 import { PreciseThumbnailEditor, ThumbnailEditVersion } from './PreciseThumbnailEditor';
@@ -635,7 +636,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                             onClick={() => { if (isRefiningThumbnail) return; setSelectedThumbnail(thumbnail); setEditRoot(thumbnail); }}
                           >
                             <img 
-                              src={thumbnail} 
+                              src={thumbnailMediaUrl(thumbnail)}
                               alt={`Generated thumbnail ${index + 1}`} 
                               className={`w-full ${thumbnailAspectClass} object-cover`}
                             />

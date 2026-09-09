@@ -1,3 +1,4 @@
+import { thumbnailMediaUrl } from '../../utils/thumbnailMediaUrl';
 import React, { useEffect, useRef, useState } from 'react';
 import { ctrApi } from '../../api/ctr';
 import { AuditContext, CTRUsageAccess, ThumbnailAudit } from '../../types/ctr';
@@ -109,7 +110,7 @@ export function ThumbnailConceptComparison({ concepts, context, onComplete }: {
         const key = keyFor(concept);
         const audit = results[key];
         return <article key={concept.id} className="rounded-lg border border-white/10 p-3">
-          <img src={concept.imageUrl} alt={concept.name} className="aspect-video w-full rounded object-contain bg-black" />
+          <img src={thumbnailMediaUrl(concept.imageUrl)} alt={concept.name} className="aspect-video w-full rounded object-contain bg-black" />
           <h4 className="mt-2 text-sm font-semibold">{concept.name}</h4>
           {audit ? <>
             <p className="mt-2 text-sm">AI assessment: {audit.overallScore.toFixed(1)}/10 <span className="text-xs text-gray-400">({audit.confidence} confidence)</span></p>

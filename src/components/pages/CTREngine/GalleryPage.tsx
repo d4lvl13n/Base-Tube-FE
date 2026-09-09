@@ -1,3 +1,4 @@
+import { thumbnailMediaUrl } from '../../../utils/thumbnailMediaUrl';
 // src/components/pages/CTREngine/GalleryPage.tsx
 // User's thumbnail gallery - displays all generated thumbnails
 
@@ -398,7 +399,7 @@ const GalleryPage: React.FC = () => {
                 viewMode === 'list' ? 'w-32 sm:w-48 flex-shrink-0' : 'aspect-video'
               }`}>
                 <img
-                  src={thumbnail.thumbnailUrl}
+                  src={thumbnailMediaUrl(thumbnail.thumbnailUrl)}
                   alt={thumbnail.prompt}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />

@@ -1,3 +1,4 @@
+import { thumbnailMediaUrl } from '../../../../utils/thumbnailMediaUrl';
 import { ThumbnailConceptComparison } from '../../../common/ThumbnailConceptComparison';
 import { AuditContext } from '../../../../types/ctr';
 import { PreciseThumbnailEditor } from '../../../common/PreciseThumbnailEditor';
@@ -49,7 +50,8 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat,
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      const response = await fetch(currentThumbnailUrl);
+      const response = await fetch(thumbnailMediaUrl(currentThumbnailUrl));
+      if (!response.ok) throw new Error('Thumbnail download failed.');
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -77,7 +79,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat,
       {/* Thumbnail Image */}
       <div className={`relative ${imageAspectClass} bg-black/40 overflow-hidden`}>
         <img
-          src={currentThumbnailUrl}
+          src={thumbnailMediaUrl(currentThumbnailUrl)}
           alt={concept.conceptName}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />

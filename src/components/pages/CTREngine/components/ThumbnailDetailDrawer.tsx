@@ -1,3 +1,4 @@
+import { thumbnailMediaUrl } from '../../../../utils/thumbnailMediaUrl';
 import { PreciseThumbnailEditor, ThumbnailEditVersion } from '../../../common/PreciseThumbnailEditor';
 import { thumbnailApi } from '../../../../api/thumbnail';
 import { ThumbnailSizePreset } from '../../../../types/thumbnail';
@@ -221,7 +222,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                   <section className="flex min-h-[180px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black">
                     {imageSrc ? (
                       <img
-                        src={imageSrc}
+                        src={thumbnailMediaUrl(imageSrc)}
                         alt="AI generated thumbnail"
                         className="max-h-full w-full object-contain"
                         onContextMenu={handleContextMenu}
