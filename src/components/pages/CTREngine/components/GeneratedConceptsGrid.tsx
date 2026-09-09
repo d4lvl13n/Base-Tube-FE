@@ -1,3 +1,4 @@
+import { SaveThumbnailStyle } from '../../../common/ThumbnailPackaging';
 import { thumbnailMediaUrl } from '../../../../utils/thumbnailMediaUrl';
 import { ThumbnailConceptComparison } from '../../../common/ThumbnailConceptComparison';
 import { AuditContext } from '../../../../types/ctr';
@@ -158,6 +159,8 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat,
             Audit
           </motion.a>
         </div>
+
+        <SaveThumbnailStyle key={`style:${currentThumbnailUrl}`} imageUrl={currentThumbnailUrl} />
 
         <PreciseThumbnailEditor key={editRoot} initial={{ imageUrl: editRoot, id: concept.id, editing: concept.editing }}
           onRefine={async (version, instruction) => {

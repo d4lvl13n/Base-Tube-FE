@@ -340,6 +340,7 @@ export interface ApplyOverlayResponse {
 }
 
 export interface GenerateRequest {
+  savedStyleId?: number;
   creatorBrief?: ThumbnailBrief;
   subjectReference?: File;
   title: string;

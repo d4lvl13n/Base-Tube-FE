@@ -232,11 +232,12 @@ describe('usePublicThumbnailGenerator', () => {
     mockApiPost.mockResolvedValue({ data: { success: true, data: { concepts: [{ thumbnailUrl: 'https://example.com/new.webp' }], ...creditResponse.data } } });
     const { result } = renderHook(() => usePublicThumbnailGenerator());
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const options = { model: 'gpt-image-2.5-sunburst' as const, quality: 'xhigh' as const, size: '2048x1152' as const, background: 'transparent' as const, outputFormat: 'webp' as const, outputCompression: 0, n: 1 };
+    const options = { savedStyleId: authenticated ? 7 : undefined, creatorBrief: authenticated ? { title: 'Camera' } : undefined, model: 'gpt-image-2.5-sunburst' as const, quality: 'xhigh' as const, size: '2048x1152' as const, background: 'transparent' as const, outputFormat: 'webp' as const, outputCompression: 0, n: 1 };
     await act(async () => { await result.current.generateThumbnail('A red camera', options); });
     const body = authenticated
       ? mockApiPost.mock.calls.find(([url]) => url === '/api/v1/ctr/generate')?.[1]
       : JSON.parse(fetchMock.mock.calls.find(([url]) => String(url).includes('/v1/images/generate'))?.[1].body);
+    if (authenticated) expect(body).toMatchObject({ savedStyleId: 7, creatorBrief: { title: 'Camera' } });
     expect(body).toMatchObject({ model: options.model, quality: options.quality, size: options.size, background: options.background, outputFormat: options.outputFormat, outputCompression: 0 });
   });
 
@@ -247,10 +248,11 @@ describe('usePublicThumbnailGenerator', () => {
     const { result } = renderHook(() => usePublicThumbnailGenerator());
     await waitFor(() => expect(result.current.usageMode).toBe('credits'));
     const file = new File(['image'], 'subject.png', { type: 'image/png' });
-    await act(async () => { await result.current.generateThumbnail('My camera', { referenceImage: file, size: 'short' }); });
+    await act(async () => { await result.current.generateThumbnail('My camera', { referenceImage: file, size: 'short', savedStyleId: 7, creatorBrief: { title: 'Camera' } }); });
     expect(mockApiPost.mock.calls[0][0]).toBe('/api/v1/ctr/generate');
     const form = mockApiPost.mock.calls[0][1] as FormData;
     expect(form.get('subjectReference')).toBe(file);
+    expect(form.get('savedStyleId')).toBe('7');
     expect(form.get('concepts')).toBe('3');
     expect(result.current.thumbnails[0]).toMatchObject({ conceptName: 'Subject spotlight', conceptDescription: 'Close-up', size: 'short' });
   });

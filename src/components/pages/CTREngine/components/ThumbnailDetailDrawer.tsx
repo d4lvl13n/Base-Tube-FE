@@ -1,3 +1,4 @@
+import { SaveThumbnailStyle } from '../../../common/ThumbnailPackaging';
 import { thumbnailMediaUrl } from '../../../../utils/thumbnailMediaUrl';
 import { PreciseThumbnailEditor, ThumbnailEditVersion } from '../../../common/PreciseThumbnailEditor';
 import { thumbnailApi } from '../../../../api/thumbnail';
@@ -240,6 +241,7 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                     )}
                   </section>
 
+                  {isAuthenticated && <SaveThumbnailStyle key={`style:${imageSrc}`} imageUrl={imageSrc} />}
                   {isAuthenticated && <PreciseThumbnailEditor key={String(thumbnail.id)} initial={{ imageUrl: thumbnail.imageUrl || thumbnail.thumbnailUrl || '', id: thumbnail.id, shareUrl: thumbnail.shareUrl, editing: thumbnail.editing }}
                     onRefine={async (source, instruction) => {
                       const result = await thumbnailApi.refineThumbnailConversationally({ thumbnailId: source.editing ? source.id : undefined, imageUrl: source.editing ? undefined : source.imageUrl, instruction, size: thumbnail.size, quality: 'high' });

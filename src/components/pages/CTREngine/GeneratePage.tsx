@@ -1,3 +1,5 @@
+import { thumbnailMediaUrl } from '../../../utils/thumbnailMediaUrl';
+import { ThumbnailStylePicker } from '../../common/ThumbnailPackaging';
 import { ThumbnailConceptComparison } from '../../common/ThumbnailConceptComparison';
 import { ThumbnailSubjectPicker } from '../../common/ThumbnailSubjectPicker';
 // src/components/pages/CTREngine/GeneratePage.tsx
@@ -106,6 +108,7 @@ const GeneratePage: React.FC = () => {
   const [shareSelectedThumbnail, setShareSelectedThumbnail] = useState<any>(null);
 
   // Creative mode state
+  const [savedStyleId, setSavedStyleId] = useState<number>();
   const [creatorHook, setCreatorHook] = useState('');
   const [creativeDescription, setCreativeDescription] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -176,6 +179,7 @@ const GeneratePage: React.FC = () => {
     
     clearError();
     await generateThumbnail(prompt, {
+      savedStyleId,
       creatorBrief: isAuthenticated ? { title: prompt, description: creativeDescription, creatorHook } : undefined,
       size: outputFormat,
       quality: creativeQuality,
@@ -195,6 +199,7 @@ const GeneratePage: React.FC = () => {
     if (!ctrTitle.trim()) return;
 
     await generateCTR({
+      savedStyleId,
       creatorBrief: { title: ctrTitle, description: ctrDescription, creatorHook },
       title: ctrTitle.trim(),
       description: ctrDescription.trim() || undefined,
@@ -353,6 +358,7 @@ const GeneratePage: React.FC = () => {
         {isAuthenticated && <label className="block text-sm text-white">What’s the most interesting thing viewers will discover?
           <textarea aria-label="Creator hook" value={creatorHook} onChange={e => setCreatorHook(e.target.value)} maxLength={1000} disabled={loading || ctrProgress.status === 'generating'} placeholder="Optional: The cheapest microphone sounded better in my test." className="mt-2 w-full rounded-xl bg-white/5 p-3" />
         </label>}
+        {isAuthenticated && <ThumbnailStylePicker value={savedStyleId} onChange={setSavedStyleId} disabled={loading || ctrProgress.status === 'generating'} />}
         {isAuthenticated && <ThumbnailSubjectPicker value={subjectReference} onChange={setSubjectReference} disabled={loading || ctrProgress.status === 'generating'} />}
 
         {/* Main Form Card */}
@@ -944,7 +950,7 @@ const GeneratePage: React.FC = () => {
                   >
                     <div className={`relative ${creativePreviewAspectClass} bg-black/40 overflow-hidden`}>
                       <img
-                        src={comparisonUrls[thumbnail.id] || thumbnail.imageUrl}
+                        src={thumbnailMediaUrl(comparisonUrls[thumbnail.id] || thumbnail.imageUrl)}
                         alt={thumbnail.prompt}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />

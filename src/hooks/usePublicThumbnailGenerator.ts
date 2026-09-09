@@ -55,6 +55,7 @@ export type ImageModel = ThumbnailImageModel;
 
 interface ThumbnailGenerationOptions {
   creatorBrief?: ThumbnailBrief;
+  savedStyleId?: number;
   // GPT Image 2.5 Flare is the default model. Gemini 3 Pro can still be requested explicitly.
   model?: ImageModel;
   size?: ThumbnailSizePreset;
@@ -605,7 +606,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       if (options?.referenceImage) {
         if (!isAuthenticated) throw new Error('Sign in to generate with your own subject reference.');
         const generated = await ctrApi.generateThumbnails({
-          creatorBrief: options.creatorBrief, textOverlay: options.title,
+          creatorBrief: options.creatorBrief, textOverlay: options.title, savedStyleId: options.savedStyleId,
           title: prompt.trim(), prompt: enhancedPrompt, subjectReference: options.referenceImage,
           concepts: Math.min(options.n || 3, 3), quality: options.quality || 'high',
           size: options.size || DEFAULT_THUMBNAIL_FORMAT,
@@ -686,7 +687,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         
         try {
           const axiosResponse = await api.post('/api/v1/ctr/generate', {
-            creatorBrief: options?.creatorBrief, textOverlay: options?.title,
+            creatorBrief: options?.creatorBrief, textOverlay: options?.title, savedStyleId: options?.savedStyleId,
             title: prompt.trim(),
             prompt: enhancedPrompt,
             style: options?.style,
