@@ -153,15 +153,21 @@ export const thumbnailApi = {
     
     // Async mode and tuning
     if (options.async) formData.append('async', 'true');
+    if (options.creatorBrief) formData.append('creatorBrief', JSON.stringify(options.creatorBrief));
+    if (options.distinctConcepts !== undefined) formData.append('distinctConcepts', String(options.distinctConcepts));
+    if (options.referenceRole) formData.append('referenceRole', options.referenceRole);
     if (options.size) formData.append('size', options.size);
     if (options.quality) formData.append('quality', options.quality);
+    if (options.model) formData.append('model', options.model);
+    if (options.outputFormat) formData.append('outputFormat', options.outputFormat);
+    if (options.outputCompression !== undefined) formData.append('outputCompression', String(options.outputCompression));
     if (options.n) formData.append('n', String(options.n));
     
     if (options.style) {
       formData.append('style', options.style);
     }
     
-    // Add background parameter. GPT Image 2 does not support transparent output.
+    // Add the background parameter.
     if (options.background) {
       formData.append('background', options.background);
     }
@@ -212,6 +218,9 @@ export const thumbnailApi = {
       setValue('quality', options.quality);
       setValue('style', options.style);
       setValue('background', options.background);
+      setValue('model', options.model);
+      setValue('outputFormat', options.outputFormat);
+      setValue('outputCompression', options.outputCompression);
     };
 
     if (hasUpload && options.image) {

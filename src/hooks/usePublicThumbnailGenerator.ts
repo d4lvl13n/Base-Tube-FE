@@ -1,6 +1,8 @@
+import type { ThumbnailBrief, ThumbnailEditing } from '../types/thumbnail';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import api from '../api/index';
+import { ctrApi } from '../api/ctr';
 import creditsApi from '../api/credits';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthMethod } from '../types/auth';
@@ -14,7 +16,7 @@ import {
   getOperationAccessUpdate,
   normalizeUsageAccessResponse,
 } from '../utils/usageAccess';
-import type { ThumbnailOutputFormat, ThumbnailSizePreset } from '../types/thumbnail';
+import type { ThumbnailOutputFormat, ThumbnailSizePreset, ThumbnailImageModel, ThumbnailQuality } from '../types/thumbnail';
 
 // Extend Window interface for Clerk
 declare global {
@@ -32,6 +34,11 @@ declare global {
 // =============================================================================
 
 interface GeneratedThumbnail {
+  editing?: ThumbnailEditing;
+  adjustmentError?: string;
+  conceptName?: string;
+  conceptDescription?: string;
+  size?: ThumbnailSizePreset;
   id: string;
   prompt: string;
   imageUrl: string;
@@ -44,13 +51,17 @@ export type AspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' 
 export type Resolution = '1K' | '2K' | '4K';
 
 // Model selection
-export type ImageModel = 'gpt-image-2' | 'gemini-3-pro';
+export type ImageModel = ThumbnailImageModel;
 
 interface ThumbnailGenerationOptions {
-  // GPT Image 2 is the default model. Gemini 3 Pro can still be requested explicitly.
+  creatorBrief?: ThumbnailBrief;
+  // GPT Image 2.5 Flare is the default model. Gemini 3 Pro can still be requested explicitly.
   model?: ImageModel;
   size?: ThumbnailSizePreset;
-  quality?: 'low' | 'medium' | 'high';
+  quality?: ThumbnailQuality;
+  background?: 'opaque' | 'auto' | 'transparent';
+  outputFormat?: 'png' | 'jpeg' | 'webp';
+  outputCompression?: number;
 
   // Optional Gemini controls.
   aspectRatio?: AspectRatio;
@@ -78,6 +89,7 @@ interface ThumbnailGenerationOptions {
 }
 
 interface GalleryThumbnail {
+  editing?: ThumbnailEditing;
   id: number;
   thumbnailUrl: string;
   prompt: string;
@@ -90,9 +102,11 @@ interface GalleryThumbnail {
 }
 
 interface UsePublicThumbnailGeneratorReturn {
+  isAuthenticated: boolean;
   // Generation
   generateThumbnail: (prompt: string, options?: ThumbnailGenerationOptions) => Promise<void>;
   thumbnails: GeneratedThumbnail[];
+  latestThumbnails: GeneratedThumbnail[];
   loading: boolean;
   error: string | null;
   clearError: () => void;
@@ -279,6 +293,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
   
   // Generation state
   const [thumbnails, setThumbnails] = useState<GeneratedThumbnail[]>([]);
+  const [latestThumbnails, setLatestThumbnails] = useState<GeneratedThumbnail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -420,13 +435,11 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       return 0;
     }
 
-    const imageCount = Math.min(options?.n || 2, 4);
-    const perImageCost = options?.referenceImage
-      ? pricing.thumbnail.editPerImage
-      : pricing.thumbnail.generatePerImage;
+    const imageCount = Math.min(options?.n || 3, 3);
+    const perImageCost = isAuthenticated ? pricing.ctr.generatePerConcept : pricing.thumbnail.generatePerImage;
 
     return perImageCost * imageCount;
-  }, [pricing]);
+  }, [pricing, isAuthenticated]);
 
   // ---------------------------------------------------------------------------
   // Job Polling
@@ -466,6 +479,8 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
             id: thumb.id ? thumb.id.toString() : `${Date.now()}-${index}`,
             prompt: jobData.result.prompt || originalPrompt,
             imageUrl: thumb.thumbnailUrl,
+            conceptName: thumb.conceptName, editing: thumb.editing, adjustmentError: thumb.adjustmentError,
+            conceptDescription: thumb.conceptDescription,
             createdAt: new Date().toISOString(),
             shareUrl: thumb.shareUrl,
           }));
@@ -480,6 +495,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         }
 
         if (generatedThumbnails.length > 0) {
+          setLatestThumbnails(generatedThumbnails);
           setThumbnails(prev => [...generatedThumbnails, ...prev]);
         }
 
@@ -572,7 +588,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       // Build enhanced prompt with title instructions
       let enhancedPrompt = prompt.trim();
       
-      if (options?.title) {
+      if (options?.title && !options.creatorBrief) {
         const titleInstructions = buildTitleInstructions(
           options.title, 
           options.titleStyle, 
@@ -587,80 +603,25 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       console.log('[generateThumbnail] Auth method:', localStorage.getItem('auth_method'));
       
       if (options?.referenceImage) {
-        // Reference image upload - always use fetch for FormData
-        const endpoint = '/v1/images/edit';
-        const formData = new FormData();
-        formData.append('image', options.referenceImage);
-        formData.append('prompt', enhancedPrompt);
-        formData.append('size', options.size || DEFAULT_THUMBNAIL_FORMAT);
-        formData.append('quality', options.quality || 'high');
-        formData.append('n', String(Math.min(options.n || 2, 4)));
-        
-        if (options.style) {
-          formData.append('style', options.style);
-        }
-        
-        if (options.mask) {
-          formData.append('mask', options.mask);
-        }
-        
-        const formHeaders = await getAuthHeaders();
-        // Remove Content-Type for FormData - browser sets it with boundary
-        delete formHeaders['Content-Type'];
-        
-        const response = await fetch(`${API_URL}${endpoint}`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: formHeaders,
-          body: formData,
+        if (!isAuthenticated) throw new Error('Sign in to generate with your own subject reference.');
+        const generated = await ctrApi.generateThumbnails({
+          creatorBrief: options.creatorBrief, textOverlay: options.title,
+          title: prompt.trim(), prompt: enhancedPrompt, subjectReference: options.referenceImage,
+          concepts: Math.min(options.n || 3, 3), quality: options.quality || 'high',
+          size: options.size || DEFAULT_THUMBNAIL_FORMAT,
+          model: options.model, background: options.background, outputFormat: options.outputFormat, outputCompression: options.outputCompression,
         });
-
-        // Handle async job (202 response)
-        if (response.status === 202) {
-          const result = await response.json();
-          if (result.success && result.jobId) {
-            void pollJobStatus(result.jobId, prompt.trim());
-            shouldClearLoading = false;
-            return; // Don't increment quota yet - will do after job completes
-          }
-        }
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          if (response.status === 402 || errorData.error?.code === 'INSUFFICIENT_CREDITS') {
-            setInsufficientCredits(true);
-            throw new Error(errorData.error?.message || 'Insufficient credits for this edit.');
-          }
-          throw new Error(errorData.error?.message || 'Failed to generate thumbnail. Please try again.');
-        }
-
-        const result = await response.json();
-        if (!result.success) {
-          throw new Error(result.error?.message || 'Failed to generate thumbnail.');
-        }
-
-        // Handle response
-        let generatedThumbnails: GeneratedThumbnail[] = [];
-        if (result.data.thumbnails) {
-          generatedThumbnails = result.data.thumbnails.map((thumb: any, index: number) => ({
-            id: thumb.id ? thumb.id.toString() : `${Date.now()}-${index}`,
-            prompt: prompt.trim(),
-            imageUrl: thumb.thumbnailUrl,
-            createdAt: new Date().toISOString(),
-            shareUrl: thumb.shareUrl,
-          }));
-        } else if (result.data.thumbnailUrl) {
-          generatedThumbnails = [{
-            id: result.data.id ? result.data.id.toString() : Date.now().toString(),
-            prompt: prompt.trim(),
-            imageUrl: result.data.thumbnailUrl,
-            createdAt: new Date().toISOString(),
-            shareUrl: result.data.shareUrl,
-          }];
-        } else {
-          throw new Error('No thumbnail URL found in response.');
-        }
-
+        const result = { success: true, data: { ...generated, thumbnails: generated.concepts.map(concept => ({
+          ...concept, conceptDescription: concept.conceptDescription,
+        })) } };
+        const generatedThumbnails: GeneratedThumbnail[] = result.data.thumbnails.map((thumb: any, index: number) => ({
+          id: thumb.id ? String(thumb.id) : `${Date.now()}-${index}`, prompt: prompt.trim(),
+          imageUrl: thumb.thumbnailUrl,
+          conceptName: thumb.conceptName, editing: thumb.editing, adjustmentError: thumb.adjustmentError,
+          conceptDescription: thumb.conceptDescription, createdAt: new Date().toISOString(), shareUrl: thumb.shareUrl,
+          size: options.size,
+        }));
+        setLatestThumbnails(generatedThumbnails);
         setThumbnails(prev => [...generatedThumbnails, ...prev]);
         const accessUpdate = getOperationAccessUpdate(result);
         if (accessUpdate?.mode === 'credits') {
@@ -687,16 +648,20 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       }
 
       // Text-to-image generation
-      // GPT Image 2 is the default. Gemini 3 Pro remains available only when explicitly selected.
+      // GPT Image 2.5 Flare is the default. Gemini 3 Pro remains available only when explicitly selected.
       const useGemini = options?.model === 'gemini-3-pro';
       const requestedSize = options?.size || DEFAULT_THUMBNAIL_FORMAT;
 
       const requestBody: Record<string, any> = {
         prompt: enhancedPrompt,
-        model: useGemini ? 'gemini-3-pro' : 'gpt-image-2',
+        model: options?.model && options.model !== 'gpt-image-2' ? options.model : 'gpt-image-2.5-flare',
+        background: options?.background,
+        outputFormat: options?.outputFormat,
+        outputCompression: options?.outputCompression,
         size: requestedSize,
         quality: options?.quality || 'high',
-        n: Math.min(options?.n || 2, 4),
+        n: Math.min(options?.n || 3, 3),
+        distinctConcepts: true,
       };
 
       if (useGemini) {
@@ -721,14 +686,19 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
         
         try {
           const axiosResponse = await api.post('/api/v1/ctr/generate', {
+            creatorBrief: options?.creatorBrief, textOverlay: options?.title,
             title: prompt.trim(),
             prompt: enhancedPrompt,
             style: options?.style,
             includeFace: !!options?.includeFace,
-            concepts: Math.min(options?.n || 2, 4),
+            concepts: Math.min(options?.n || 3, 3),
             quality: options?.quality || 'high',
             size: requestedSize,
-          });
+            model: requestBody.model,
+            background: options?.background,
+            outputFormat: options?.outputFormat,
+            outputCompression: options?.outputCompression,
+          }, { timeout: 300000 });
           
           const result = axiosResponse.data;
           console.log('[generateThumbnail] Axios response:', result);
@@ -739,13 +709,17 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
             const newThumbnails: GeneratedThumbnail[] = result.data.concepts.map((concept: any) => ({
               id: concept.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               prompt: concept.prompt || prompt.trim(),
-              imageUrl: concept.thumbnailUrl, // CTR API uses thumbnailUrl
+              imageUrl: concept.thumbnailUrl,
+              conceptName: concept.conceptName, editing: concept.editing, adjustmentError: concept.adjustmentError,
+              conceptDescription: concept.conceptDescription,
+              size: requestedSize,
               createdAt: new Date().toISOString(),
               shareUrl: concept.shareUrl,
             }));
             
             console.log('[generateThumbnail] Transformed thumbnails:', newThumbnails);
             
+            setLatestThumbnails(newThumbnails);
             setThumbnails(prev => [...newThumbnails, ...prev]);
             const accessUpdate = getOperationAccessUpdate(result);
             if (accessUpdate?.mode === 'credits') {
@@ -770,6 +744,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
               shareUrl: t.shareUrl,
             }));
             
+            setLatestThumbnails(newThumbnails);
             setThumbnails(prev => [...newThumbnails, ...prev]);
             const accessUpdate = getOperationAccessUpdate(result);
             if (accessUpdate?.mode === 'credits') {
@@ -871,6 +846,8 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
             id: thumb.id ? thumb.id.toString() : `${Date.now()}-${index}`,
             prompt: prompt.trim(),
             imageUrl: thumb.thumbnailUrl,
+            conceptName: thumb.conceptName, editing: thumb.editing, adjustmentError: thumb.adjustmentError,
+            conceptDescription: thumb.conceptDescription,
             createdAt: new Date().toISOString(),
             shareUrl: thumb.shareUrl,
           }));
@@ -886,6 +863,7 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
           throw new Error('No thumbnail URL found in response.');
         }
 
+        setLatestThumbnails(generatedThumbnails);
         setThumbnails(prev => [...generatedThumbnails, ...prev]);
         const accessUpdate = getOperationAccessUpdate(result);
         if (accessUpdate?.mode === 'quota' && accessUpdate.quotaInfo) {
@@ -1212,9 +1190,10 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       // Remove from local state
       setGallery(prev => prev.filter(t => t.id !== thumbnailId));
       setThumbnails(prev => prev.filter(t => t.id !== thumbnailId.toString()));
-    } catch (err) {
+      setLatestThumbnails(prev => prev.filter(t => t.id !== thumbnailId.toString()));
+    } catch (err: any) {
       console.error('[deleteFromGallery] Error:', err);
-      setError('Failed to delete thumbnail.');
+      setError(err.response?.data?.error?.message || 'Failed to delete thumbnail.');
     }
   }, [isAuthenticated]);
 
@@ -1232,11 +1211,13 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
     // Generation
     generateThumbnail,
     thumbnails,
+    latestThumbnails,
     loading,
     error,
     clearError,
     
     // Usage access
+    isAuthenticated,
     usageMode,
     quotaInfo,
     creditInfo,

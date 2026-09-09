@@ -1,3 +1,6 @@
+import { ThumbnailConceptComparison, ComparisonConcept } from './ThumbnailConceptComparison';
+import { ThumbnailSubjectPicker } from './ThumbnailSubjectPicker';
+import { PreciseThumbnailEditor, ThumbnailEditVersion } from './PreciseThumbnailEditor';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Wand2, Upload, Check, Video, Info, Zap, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
@@ -64,6 +67,11 @@ type GenerationTab = 'video' | 'custom';
 interface ThumbnailItem {
   thumbnailUrl: string;
   thumbnailPath: string;
+  id?: number;
+  editing?: ThumbnailEditVersion['editing'];
+  adjustmentError?: string;
+  conceptName?: string;
+  conceptDescription?: string;
 }
 
 const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
@@ -86,13 +94,13 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
   const [activeTab, setActiveTab] = useState<GenerationTab>('video');
   
   // Form states
+  const [creatorHook, setCreatorHook] = useState('');
+  const [editVersions, setEditVersions] = useState<Record<string, ThumbnailEditVersion>>({});
   const [customPrompt, setCustomPrompt] = useState('');
   const [referenceImage, setReferenceImage] = useState<File | null>(null);
-  const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
   const [style, setStyle] = useState('');
   const [outputFormat, setOutputFormat] = useState<ThumbnailOutputFormat>('landscape');
   const [background, setBackground] = useState<'opaque' | 'auto'>('auto');
-  const [referenceImageDetail, setReferenceImageDetail] = useState<'low' | 'high' | 'auto'>('high');
   
   // Error handling state
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +142,9 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
   const [generatedThumbnails, setGeneratedThumbnails] = useState<string[]>([]);
   const [selectedThumbnail, setSelectedThumbnail] = useState<string | null>(null);
   const [lastGenerationOptions, setLastGenerationOptions] = useState<any | null>(null);
-  const [refinementInstruction, setRefinementInstruction] = useState('');
+  const [comparisonConcepts, setComparisonConcepts] = useState<ComparisonConcept[]>([]);
+  const [editRoot, setEditRoot] = useState<string | null>(null);
+  const [conceptLabels, setConceptLabels] = useState<Record<string, { name?: string; description?: string; size?: ThumbnailOutputFormat }>>({});
   const [thumbnailConversations, setThumbnailConversations] = useState<Record<string, ThumbnailConversationState>>({});
   const selectedOutputFormat = THUMBNAIL_OUTPUT_FORMATS[outputFormat];
   
@@ -218,24 +228,6 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
     }
   }, [isGeneratingForVideo, isGeneratingFromPrompt, isGeneratingWithReference, loadingMessageIndex, funnyLoadingMessages]);
   
-  // Handle reference image upload
-  const handleReferenceImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      setReferenceImage(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result;
-        if (typeof result === 'string') {
-          setReferenceImagePreview(result);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-  
   // Handle style preset selection
   const handleStylePresetClick = (preset: typeof stylePresets[0]) => {
     setCustomPrompt(preset.prompt);
@@ -266,64 +258,21 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
       let result;
       let options;
       
-      if (activeTab === 'video') {
-        if (!videoId) {
-          // If no videoId yet (new upload), use prompt method with video title/description
-          const generatedPrompt = `Create a thumbnail for video titled "${videoTitle}" with description "${videoDescription.substring(0, 100)}..."`;
-          
-          options = {
-            prompt: generatedPrompt,
-            style,
-            background,
-            size: outputFormat
-          };
-          
-          result = await generateFromPrompt(options);
-        } else {
-          // Use video-specific endpoint if we have a videoId
-          options = {
-            style,
-            background,
-            size: outputFormat
-          };
-          
-          result = await generateForVideo(videoId, options);
-        }
-      } else if (activeTab === 'custom') {
-        if (referenceImage) {
-          // If we have a reference image, use the reference endpoint
-          
-          options = {
-            referenceImage,
-            videoId,
-            customPrompt,
-            style,
-            background,
-            size: outputFormat,
-            referenceImageDetail,
-            async: true,
-            quality: 'medium' as const,
-            n: 1
-          };
-          
-          result = await generateWithReference(options);
-        } else if (customPrompt) {
-          // Otherwise, use the prompt endpoint
-          
-          options = {
-            prompt: customPrompt,
-            style,
-            background,
-            size: outputFormat
-          };
-          
-          result = await generateFromPrompt(options);
-        } else {
-          setError('Please enter a prompt or upload a reference image');
-          return;
-        }
+      const common = { style, background, size: outputFormat, n: 3, distinctConcepts: true, creatorBrief: { title: (activeTab === 'custom' ? customPrompt || videoTitle : videoTitle).slice(0, 500), description: videoDescription.slice(0, 3000), creatorHook } };
+      const videoPrompt = `Create a thumbnail for the video titled ${JSON.stringify(videoTitle)}. Context: ${videoDescription.slice(0, 1500)}`;
+      if (referenceImage) {
+        options = { ...common, referenceImage, customPrompt: activeTab === 'custom' ? customPrompt || videoPrompt : videoPrompt, referenceRole: 'subject' as const, async: true, quality: 'medium' as const };
+        result = await generateWithReference(options);
+      } else if (activeTab === 'video' && videoId) {
+        options = common;
+        result = await generateForVideo(videoId, options);
+      } else {
+        const prompt = activeTab === 'custom' ? customPrompt : videoPrompt;
+        if (!prompt.trim()) { setError('Describe your thumbnail or choose a subject reference.'); return; }
+        options = { ...common, prompt };
+        result = await generateFromPrompt(options);
       }
-      
+
       // Save the options for regeneration
       if (!isRegeneration) {
         setLastGenerationOptions(options);
@@ -336,16 +285,23 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
       if (result?.data) {
         if (result.data.thumbnails) {
           // New format: multiple thumbnails
+          setEditVersions(prev => ({ ...prev, ...Object.fromEntries(result.data.thumbnails.map((item: ThumbnailItem) => [item.thumbnailUrl, { id: item.id, imageUrl: item.thumbnailUrl, editing: item.editing }])) }));
+          const adjustmentError = result.data.thumbnails.find((item: ThumbnailItem) => item.adjustmentError)?.adjustmentError;
+          if (adjustmentError) setError(adjustmentError);
           const newThumbnails = result.data.thumbnails.map((item: ThumbnailItem) => item.thumbnailUrl);
+          setComparisonConcepts(result.data.thumbnails.map((item: ThumbnailItem, index: number) => ({ id: item.thumbnailUrl, imageUrl: item.thumbnailUrl, name: item.conceptName || `Concept ${index + 1}` })));
           
           setGeneratedThumbnails(prev => [...newThumbnails, ...prev]);
+          setConceptLabels(prev => ({ ...prev, ...Object.fromEntries(result.data.thumbnails.map((item: ThumbnailItem) => [item.thumbnailUrl, { name: item.conceptName, description: item.conceptDescription, size: outputFormat }])) }));
           if (newThumbnails.length > 0) {
             setSelectedThumbnail(newThumbnails[0]);
+            setEditRoot(newThumbnails[0]);
           }
         } else if (result.data.thumbnailUrl) {
           // Backward compatibility: single thumbnail
           setGeneratedThumbnails(prev => [result.data.thumbnailUrl, ...prev]);
           setSelectedThumbnail(result.data.thumbnailUrl);
+          setEditRoot(result.data.thumbnailUrl);
         }
       }
     } catch (error: any) {
@@ -366,62 +322,19 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
     }
   };
 
-  const handleRefineSelectedThumbnail = async () => {
-    if (!selectedThumbnail) {
-      setError('Select a thumbnail before refining it.');
-      return;
-    }
-
-    const instruction = refinementInstruction.trim();
-    if (!instruction) {
-      setError('Describe the change you want to make.');
-      return;
-    }
-
-    setError(null);
-
-    try {
-      const conversation = thumbnailConversations[selectedThumbnail];
-      const result = await refineThumbnail({
-        instruction,
-        imageUrl: conversation ? undefined : selectedThumbnail,
-        previousResponseId: conversation?.responseId,
-        imageGenerationCallId: conversation?.imageGenerationCallId,
-        size: outputFormat,
-        quality: 'high',
-        background,
-      });
-
-      const refinedUrl = result?.data?.thumbnailUrl;
-      const nextConversation = result?.data?.conversation;
-
-      if (!refinedUrl || !nextConversation) {
-        throw new Error('The refinement response was missing thumbnail data.');
-      }
-
-      setGeneratedThumbnails(prev => [refinedUrl, ...prev]);
-      setThumbnailConversations(prev => ({
-        ...prev,
-        [refinedUrl]: nextConversation,
-      }));
-      setSelectedThumbnail(refinedUrl);
-      setRefinementInstruction('');
-    } catch (error: any) {
-      console.error('Error refining thumbnail:', error);
-      setError(describeThumbnailError(error));
-    }
-  };
-  
   // Reset the panel state
   const resetPanel = () => {
     setCustomPrompt('');
+    setCreatorHook('');
+    setEditVersions({});
     setReferenceImage(null);
-    setReferenceImagePreview(null);
     setGeneratedThumbnails([]);
     setSelectedThumbnail(null);
     setActiveTab('video');
     setError(null);
-    setRefinementInstruction('');
+    setEditRoot(null);
+    setConceptLabels({});
+    setComparisonConcepts([]);
     setThumbnailConversations({});
   };
   
@@ -467,7 +380,6 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
   
   // Determine if generation is in progress
   const isGenerating = isGeneratingForVideo || isGeneratingFromPrompt || isGeneratingWithReference;
-  const selectedThumbnailConversation = selectedThumbnail ? thumbnailConversations[selectedThumbnail] : undefined;
   const thumbnailAspectClass = outputFormat === 'short' ? 'aspect-[9/16]' : 'aspect-video';
   
   // New state for regenerating
@@ -581,6 +493,10 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                     </motion.div>
                   )}
                   
+                  <label className="block text-sm text-white">What’s the most interesting thing viewers will discover?
+                      <textarea aria-label="Creator hook" value={creatorHook} onChange={e => setCreatorHook(e.target.value)} maxLength={1000} disabled={isGenerating} placeholder="Optional: The cheapest microphone sounded better in my test." className="mt-2 w-full rounded-lg bg-gray-900 p-3" />
+                    </label>
+                    <ThumbnailSubjectPicker value={referenceImage} onChange={setReferenceImage} disabled={isGenerating} />
                   {/* Tab Content */}
                   <AnimatePresence mode="wait">
                     <motion.div
@@ -598,8 +514,8 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                             <Video className="w-5 h-5 text-[#fa7517] flex-shrink-0 mt-1" />
                             <div>
                               <p className="text-white">
-                                Generate 2 thumbnails based on your video title and description.
-                                {!videoId && " Since your video isn't uploaded yet, we'll use text-based generation."}
+                                Compare three distinct concepts based on your video and selected subject.
+                                {!videoId && " Your selected reference will be used alongside the title and description."}
                               </p>
                               <p className="text-gray-400 text-sm mt-1">
                                 Choose landscape for YouTube/BaseTube or vertical for Shorts/TikTok.
@@ -632,59 +548,11 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                             <Sparkles className="w-5 h-5 text-[#fa7517] flex-shrink-0 mt-1" />
                             <div>
                               <p className="text-white">
-                                Create 2 custom thumbnails with your own prompt, reference image, or both combined for best results.
+                                Create 3 distinct thumbnail concepts with your own prompt, reference image, or both combined for best results.
                               </p>
                               <p className="text-gray-400 text-sm mt-1">
-                                Upload an image for styling reference and/or use a detailed prompt to guide the AI.
+                                Choose your real subject above and describe the idea you want to communicate.
                               </p>
-                            </div>
-                          </div>
-                          
-                          {/* Reference Image Upload */}
-                          <div>
-                            <label className="text-sm text-gray-400 mb-1 block">Reference Image (Optional)</label>
-                            <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center hover:border-[#fa7517]/50 transition-colors">
-                              {referenceImagePreview ? (
-                                <div className="relative">
-                                  <img 
-                                    src={referenceImagePreview} 
-                                    alt="Reference" 
-                                    className="mx-auto max-h-48 rounded shadow-md"
-                                  />
-                                  <button type="button"
-                                    onClick={() => {
-                                      setReferenceImage(null);
-                                      setReferenceImagePreview(null);
-                                    }}
-                                    className="absolute top-2 right-2 bg-black/70 rounded-full p-1.5 shadow-lg hover:bg-black/90 transition-colors"
-                                  >
-                                    <X className="w-4 h-4 text-white" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <div>
-                                  <Upload className="w-12 h-12 text-gray-500 mx-auto mb-3 opacity-75" />
-                                  <p className="text-gray-400 mb-2">
-                                    Drag & drop an image or{" "}
-                                    <button type="button"
-                                      onClick={() => document.getElementById('reference-image-input')?.click()}
-                                      className="text-[#fa7517] hover:text-[#ff8c3a] font-medium"
-                                    >
-                                      browse
-                                    </button>
-                                  </p>
-                                  <p className="text-gray-600 text-xs">
-                                    Use an image that has the style or composition you want
-                                  </p>
-                                  <input
-                                    id="reference-image-input"
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={handleReferenceImageChange}
-                                  />
-                                </div>
-                              )}
                             </div>
                           </div>
                           
@@ -726,41 +594,6 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                             </div>
                           </div>
 
-                          {/* Settings Group */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <OutputFormatSelector />
-
-                            {/* Background Selector */}
-                            <BackgroundSelector />
-
-                            {/* Reference Image Detail (only shown when reference image present) */}
-                            {referenceImage && (
-                              <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <label className="text-sm text-gray-400">Reference Detail Level</label>
-                                  <div className="group relative">
-                                    <Info className="w-4 h-4 text-gray-500 cursor-help" />
-                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 rounded-lg shadow-lg text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                      <p><b>Low:</b> Processes the reference image at lower resolution. Good for simple stylistic references.</p>
-                                      <p className="mt-1"><b>High:</b> Higher resolution for better detail. Recommended for complex reference images.</p>
-                                      <p className="mt-1"><b>Auto:</b> Lets the AI model decide the appropriate detail level.</p>
-                                    </div>
-                                  </div>
-                                </div>
-                                <select 
-                                  id="reference-image-detail-select"
-                                  value={referenceImageDetail}
-                                  onChange={(e) => setReferenceImageDetail(e.target.value as 'low' | 'high' | 'auto')}
-                                  className="w-full p-3 bg-gray-900/80 border border-gray-800/30 rounded-lg text-white focus:border-[#fa7517]/50 focus:ring-[#fa7517]/20 focus:ring-2 outline-none"
-                                >
-                                  <option value="low">Low (Faster)</option>
-                                  <option value="high">High (Better Quality)</option>
-                                  <option value="auto">Auto (AI Decides)</option>
-                                </select>
-                              </div>
-                            )}
-                          </div>
-
                           {/* Thumbnail Information */}
                           <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
                             <div className="flex items-center gap-2">
@@ -799,7 +632,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                                 ? 'border-[#fa7517] shadow-[#fa7517]/30' 
                                 : 'border-transparent hover:border-gray-700'}
                             `}
-                            onClick={() => setSelectedThumbnail(thumbnail)}
+                            onClick={() => { if (isRefiningThumbnail) return; setSelectedThumbnail(thumbnail); setEditRoot(thumbnail); }}
                           >
                             <img 
                               src={thumbnail} 
@@ -810,7 +643,7 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                             {/* Batch indicator for recent generation */}
                             {index < 3 && (
                               <div className="absolute top-2 left-2 bg-black/60 px-2 py-0.5 rounded text-xs text-white">
-                                Set {Math.floor(index / 3) + 1}
+                                {conceptLabels[thumbnail]?.name || `Concept ${index + 1}`}
                               </div>
                             )}
                             
@@ -841,59 +674,23 @@ const AIThumbnailPanel: React.FC<AIThumbnailPanelProps> = ({
                         ))}
                       </div>
 
-                      {selectedThumbnail && (
-                        <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                          <div className="flex items-start justify-between gap-4 mb-3">
-                            <div>
-                              <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                                <Wand2 className="w-4 h-4 text-[#fa7517]" />
-                                Refine selected thumbnail
-                              </h4>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {selectedThumbnailConversation
-                                  ? 'Continue editing this thumbnail while preserving the previous version as context.'
-                                  : 'Ask for a focused edit while keeping the selected thumbnail as the reference.'}
-                              </p>
-                            </div>
-                            {selectedThumbnailConversation && (
-                              <span className="shrink-0 rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-2.5 py-1 text-[11px] font-medium text-[#ffb37a]">
-                                Follow-up ready
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-col md:flex-row gap-3">
-                            <textarea
-                              value={refinementInstruction}
-                              onChange={(e) => setRefinementInstruction(e.target.value)}
-                              rows={2}
-                              placeholder="Example: make the expression more surprised, keep the same colors and composition"
-                              className="min-h-[76px] flex-1 rounded-xl border border-white/10 bg-gray-950/80 px-3 py-2 text-sm text-white placeholder:text-gray-600 outline-none resize-none focus:border-[#fa7517]/50 focus:ring-2 focus:ring-[#fa7517]/15"
-                            />
-                            <button
-                              type="button"
-                              onClick={handleRefineSelectedThumbnail}
-                              disabled={isRefiningThumbnail || !refinementInstruction.trim()}
-                              className={`md:w-44 rounded-xl px-4 py-3 text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                                isRefiningThumbnail || !refinementInstruction.trim()
-                                  ? 'bg-white/5 text-gray-500 cursor-not-allowed'
-                                  : 'bg-white text-black hover:bg-[#fa7517]'
-                              }`}
-                            >
-                              {isRefiningThumbnail ? (
-                                <>
-                                  <RefreshCw className="w-4 h-4 animate-spin" />
-                                  Refining
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles className="w-4 h-4" />
-                                  Refine
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                      {comparisonConcepts.length > 1 && <ThumbnailConceptComparison concepts={comparisonConcepts} context={{ title: videoTitle, description: [videoDescription, creatorHook].filter(Boolean).join("\n") }} />}
+                      {editRoot && <div>
+                        {conceptLabels[editRoot]?.description && <p className="text-sm text-gray-400">{conceptLabels[editRoot].description}</p>}
+                        <PreciseThumbnailEditor key={editRoot} initial={editVersions[editRoot] || { imageUrl: editRoot, conversation: thumbnailConversations[editRoot] }} disabled={isGenerating}
+                          onRefine={async (version, instruction) => {
+                            const result = await refineThumbnail({ instruction, thumbnailId: version.editing ? version.id : undefined, imageUrl: version.editing ? undefined : version.imageUrl, size: conceptLabels[editRoot]?.size || outputFormat, quality: 'high', background });
+                            return { id: result.data.id, imageUrl: result.data.thumbnailUrl, shareUrl: result.data.shareUrl, conversation: result.data.conversation };
+                          }}
+                          onChange={version => {
+                            setSelectedThumbnail(version.imageUrl);
+                            setEditVersions(prev => ({ ...prev, [editRoot]: version, [version.imageUrl]: version }));
+                            setComparisonConcepts(previous => previous.map(concept => concept.id === editRoot || concept.imageUrl === editRoot ? { ...concept, imageUrl: version.imageUrl } : concept));
+                            setConceptLabels(prev => ({ ...prev, [version.imageUrl]: prev[editRoot] }));
+                            setGeneratedThumbnails(prev => prev.includes(version.imageUrl) ? prev : [version.imageUrl, ...prev]);
+                            if (version.conversation) setThumbnailConversations(prev => ({ ...prev, [version.imageUrl]: version.conversation! }));
+                          }} />
+                      </div>}
 
                       {/* Regenerate Option */}
                       <motion.button type="button"

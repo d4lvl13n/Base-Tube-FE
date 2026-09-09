@@ -1,3 +1,6 @@
+import { PreciseThumbnailEditor, ThumbnailEditVersion } from '../../../common/PreciseThumbnailEditor';
+import { thumbnailApi } from '../../../../api/thumbnail';
+import { ThumbnailSizePreset } from '../../../../types/thumbnail';
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -14,26 +17,31 @@ import Button from '../../../common/Button';
 import { ViralSharePopup } from './ViralSharePopup';
 
 interface GeneratedThumbnail {
+  editing?: ThumbnailEditVersion['editing'];
   id: string | number;
   prompt: string;
   imageUrl?: string;
   thumbnailUrl?: string;
   createdAt: string;
   shareUrl?: string;
+  size?: ThumbnailSizePreset;
 }
 
 interface ThumbnailDetailDrawerProps {
   thumbnail: GeneratedThumbnail | null;
   isOpen: boolean;
   onClose: () => void;
+  onVersionChange?: (id: string | number, version: ThumbnailEditVersion) => void;
 }
 
 export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
   thumbnail,
   isOpen,
   onClose,
+  onVersionChange,
 }) => {
   const {
+    isAuthenticated,
     needsEmailCapture,
     submitEmailForDownload,
     downloadThumbnail,
@@ -42,6 +50,11 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
     clearError,
   } = usePublicThumbnailGenerator();
 
+  const [version, setVersion] = useState<ThumbnailEditVersion | null>(null);
+  useEffect(() => {
+    setVersion(thumbnail ? { imageUrl: thumbnail.imageUrl || thumbnail.thumbnailUrl || '', id: thumbnail.id, shareUrl: thumbnail.shareUrl, editing: thumbnail.editing } : null);
+  }, [thumbnail?.id]);
+  const current = thumbnail && version ? { ...thumbnail, ...version, id: version.id ?? 'edited', thumbnailUrl: version.imageUrl } : thumbnail;
   const [email, setEmail] = useState('');
   const [emailSubmitting, setEmailSubmitting] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'downloading' | 'downloaded'>('idle');
@@ -71,12 +84,12 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
   const handleDownload = async () => {
     if (!thumbnail) return;
 
-    const sourceUrl = thumbnail.imageUrl || thumbnail.thumbnailUrl;
+    const sourceUrl = current?.imageUrl || current?.thumbnailUrl;
     setDownloadStatus('downloading');
     clearError();
 
     try {
-      await downloadThumbnail(thumbnail.id.toString(), sourceUrl);
+      await downloadThumbnail(String(current?.id), sourceUrl);
 
       if (!needsEmailCapture) {
         setDownloadStatus('downloaded');
@@ -101,9 +114,9 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
       setEmailSuccess(true);
 
       if (thumbnail) {
-        const sourceUrl = thumbnail.imageUrl || thumbnail.thumbnailUrl;
+        const sourceUrl = current?.imageUrl || current?.thumbnailUrl;
         window.setTimeout(async () => {
-          await forceDownload(thumbnail.id.toString(), sourceUrl);
+          await forceDownload(String(current?.id), sourceUrl);
           setDownloadStatus('downloaded');
           window.setTimeout(() => setDownloadStatus('idle'), 1800);
         }, 500);
@@ -135,15 +148,15 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
     event.preventDefault();
   };
 
-  const imageSrc = thumbnail?.imageUrl || thumbnail?.thumbnailUrl || '';
+  const imageSrc = current?.imageUrl || current?.thumbnailUrl || '';
   const isPersistedThumbnail = /^\d+$/.test(String(thumbnail?.id ?? ''));
   const sourceLabel = isPersistedThumbnail ? 'Saved thumbnail' : 'Fresh generation';
-  const hasShareUrl = Boolean(thumbnail?.shareUrl);
+  const hasShareUrl = Boolean(current?.shareUrl);
   const statusLabel = hasShareUrl ? 'Public link ready' : 'Ready to export';
 
   return (
-    <AnimatePresence mode="wait">
-      {isOpen && thumbnail && (
+    <div hidden={!isOpen}><AnimatePresence mode="wait">
+      {thumbnail && (
         <>
           <motion.div
             initial={{ opacity: 0 }}
@@ -203,9 +216,9 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
 
               </header>
 
-              <main className="min-h-0 flex-1 bg-[#060607] p-3 sm:p-5">
-                <div className="flex h-full min-h-0 flex-col">
-                  <section className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black">
+              <main className="min-h-0 flex-1 overflow-y-auto bg-[#060607] p-3 sm:p-5">
+                <div className="flex min-h-full flex-col">
+                  <section className="flex min-h-[180px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black">
                     {imageSrc ? (
                       <img
                         src={imageSrc}
@@ -225,6 +238,12 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
                       </div>
                     )}
                   </section>
+
+                  {isAuthenticated && <PreciseThumbnailEditor key={String(thumbnail.id)} initial={{ imageUrl: thumbnail.imageUrl || thumbnail.thumbnailUrl || '', id: thumbnail.id, shareUrl: thumbnail.shareUrl, editing: thumbnail.editing }}
+                    onRefine={async (source, instruction) => {
+                      const result = await thumbnailApi.refineThumbnailConversationally({ thumbnailId: source.editing ? source.id : undefined, imageUrl: source.editing ? undefined : source.imageUrl, instruction, size: thumbnail.size, quality: 'high' });
+                      return { id: result.data.id, imageUrl: result.data.thumbnailUrl, shareUrl: result.data.shareUrl, conversation: result.data.conversation };
+                    }} onChange={next => { setVersion(next); onVersionChange?.(thumbnail.id, next); }} />}
 
                   {error && !needsEmailCapture && (
                     <p className="mt-4 rounded-md border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -357,10 +376,10 @@ export const ThumbnailDetailDrawer: React.FC<ThumbnailDetailDrawerProps> = ({
       )}
 
       <ViralSharePopup
-        thumbnail={thumbnail}
+        thumbnail={current}
         isOpen={isViralShareOpen}
         onClose={() => setIsViralShareOpen(false)}
       />
-    </AnimatePresence>
+    </AnimatePresence></div>
   );
 };

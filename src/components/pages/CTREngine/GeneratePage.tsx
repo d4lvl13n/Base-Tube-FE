@@ -1,3 +1,5 @@
+import { ThumbnailConceptComparison } from '../../common/ThumbnailConceptComparison';
+import { ThumbnailSubjectPicker } from '../../common/ThumbnailSubjectPicker';
 // src/components/pages/CTREngine/GeneratePage.tsx
 // Unified Thumbnail Generation Page - Combines Free-form and CTR-Optimized modes
 
@@ -43,7 +45,8 @@ const GeneratePage: React.FC = () => {
   
   // Get both CTR engine and public generator hooks
   const {
-    usageAccess, 
+    usageAccess,
+    refreshQuota: refreshCTRAccess,
     isLoadingQuota, 
     error: ctrError, 
     errorCode: ctrErrorCode,
@@ -76,6 +79,8 @@ const GeneratePage: React.FC = () => {
   const {
     generateThumbnail,
     thumbnails,
+    latestThumbnails = [],
+    refreshQuota: refreshCreativeAccess,
     loading,
     error,
     usageMode: creativeUsageMode,
@@ -94,18 +99,22 @@ const GeneratePage: React.FC = () => {
   // UI State
   const [isBuyCreditsOpen, setIsBuyCreditsOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [comparisonUrls, setComparisonUrls] = useState<Record<string, string>>({});
   const [selectedThumbnail, setSelectedThumbnail] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isViralShareOpen, setIsViralShareOpen] = useState(false);
   const [shareSelectedThumbnail, setShareSelectedThumbnail] = useState<any>(null);
 
   // Creative mode state
+  const [creatorHook, setCreatorHook] = useState('');
+  const [creativeDescription, setCreativeDescription] = useState('');
   const [prompt, setPrompt] = useState('');
   const [outputFormat, setOutputFormat] = useState<ThumbnailOutputFormat>('landscape');
   const [creativeQuality, setCreativeQuality] = useState<'low' | 'medium' | 'high'>('high');
   const [includeFace, setIncludeFace] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState('');
-  const [selectedVariations, setSelectedVariations] = useState(2);
+  const [selectedVariations, setSelectedVariations] = useState(3);
+  const [subjectReference, setSubjectReference] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [titleStyle, setTitleStyle] = useState<TitleStyle>({
     bold: true,
@@ -167,11 +176,13 @@ const GeneratePage: React.FC = () => {
     
     clearError();
     await generateThumbnail(prompt, {
+      creatorBrief: isAuthenticated ? { title: prompt, description: creativeDescription, creatorHook } : undefined,
       size: outputFormat,
       quality: creativeQuality,
       includeFace,
       style: selectedStyle.trim() || undefined,
       n: selectedVariations,
+      referenceImage: subjectReference || undefined,
       title: title.trim() || undefined,
       titleStyle: title.trim() ? titleStyle : undefined,
       titlePosition: title.trim() ? titlePosition : undefined,
@@ -184,6 +195,7 @@ const GeneratePage: React.FC = () => {
     if (!ctrTitle.trim()) return;
 
     await generateCTR({
+      creatorBrief: { title: ctrTitle, description: ctrDescription, creatorHook },
       title: ctrTitle.trim(),
       description: ctrDescription.trim() || undefined,
       niche: selectedNiche || undefined,
@@ -192,6 +204,7 @@ const GeneratePage: React.FC = () => {
       concepts,
       quality,
       size: ctrOutputFormat,
+      subjectReference: subjectReference || undefined,
     });
   };
 
@@ -206,7 +219,7 @@ const GeneratePage: React.FC = () => {
     setIsViralShareOpen(true);
   };
 
-  const creativeCreditCost = (creativePricing?.thumbnail.generatePerImage ?? 0) * selectedVariations;
+  const creativeCreditCost = (creativePricing?.ctr.generatePerConcept ?? 0) * selectedVariations;
   const ctrCreditCost = (usageAccess?.mode === 'credits' ? (usageAccess.pricing?.ctr.generatePerConcept ?? 0) : 0) * concepts;
   const creativePreviewAspectClass = outputFormat === 'short' ? 'aspect-[9/16]' : 'aspect-video';
 
@@ -244,6 +257,8 @@ const GeneratePage: React.FC = () => {
 
             <GeneratedConceptsGrid 
               concepts={generatedConcepts}
+              auditContext={{ title: ctrTitle, description: [ctrDescription, creatorHook].filter(Boolean).join("\n") }}
+              onComparisonComplete={refreshCTRAccess}
               detectedNiche={detectedNiche}
               generationTime={ctrGenerationTime}
               outputFormat={navigationState?.outputFormat || ctrOutputFormat}
@@ -335,6 +350,11 @@ const GeneratePage: React.FC = () => {
           </div>
         </motion.div>
 
+        {isAuthenticated && <label className="block text-sm text-white">What’s the most interesting thing viewers will discover?
+          <textarea aria-label="Creator hook" value={creatorHook} onChange={e => setCreatorHook(e.target.value)} maxLength={1000} disabled={loading || ctrProgress.status === 'generating'} placeholder="Optional: The cheapest microphone sounded better in my test." className="mt-2 w-full rounded-xl bg-white/5 p-3" />
+        </label>}
+        {isAuthenticated && <ThumbnailSubjectPicker value={subjectReference} onChange={setSubjectReference} disabled={loading || ctrProgress.status === 'generating'} />}
+
         {/* Main Form Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -373,6 +393,9 @@ const GeneratePage: React.FC = () => {
                   <p className="mt-2 text-xs text-gray-500">{prompt.length}/500 characters</p>
                 </div>
 
+                {isAuthenticated && <label className="mb-4 block text-sm text-gray-300">Video description (optional)
+                  <textarea aria-label="Video description" value={creativeDescription} onChange={e => setCreativeDescription(e.target.value)} maxLength={3000} disabled={loading} className="mt-2 w-full rounded-xl bg-white/5 p-3" />
+                </label>}
                 {/* Example Prompts */}
                 <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-black/40 border border-gray-800/50 rounded-xl">
                   <p className="text-xs sm:text-sm font-medium text-white mb-2 sm:mb-3 flex items-center gap-2">
@@ -477,7 +500,7 @@ const GeneratePage: React.FC = () => {
                           <div>
                             <h3 className="text-sm font-semibold text-white mb-3">Variations</h3>
                             <div className="flex gap-2">
-                              {[1, 2, 3, 4].map((num) => (
+                              {[1, 2, 3].map((num) => (
                                 <button
                                   key={num}
                                   type="button"
@@ -502,7 +525,10 @@ const GeneratePage: React.FC = () => {
                           disabled={loading}
                         />
 
-                        <TitleTextInput
+                        {isAuthenticated ? <label className="block text-sm text-white">Headline (optional)
+                          <input aria-label="Initial headline" value={title} maxLength={90} onChange={e => setTitle(e.target.value)} className="mt-2 w-full rounded-lg bg-white/5 p-3" />
+                          <span className="text-xs text-gray-400">Leave blank for a suggestion. Adjust text after generation.</span>
+                        </label> : (<TitleTextInput
                           title={title}
                           onTitleChange={setTitle}
                           style={titleStyle}
@@ -511,7 +537,7 @@ const GeneratePage: React.FC = () => {
                           onPositionChange={setTitlePosition}
                           color={titleColor}
                           onColorChange={setTitleColor}
-                        />
+                        />) }
                       </div>
                     </motion.div>
                   )}
@@ -715,7 +741,7 @@ const GeneratePage: React.FC = () => {
                             Number of Concepts
                           </label>
                           <div className="grid grid-cols-5 gap-2">
-                            {[1, 2, 3, 4, 5].map((num) => (
+                            {[1, 2, 3].map((num) => (
                               <button
                                 key={num}
                                 type="button"
@@ -889,6 +915,10 @@ const GeneratePage: React.FC = () => {
           </AnimatePresence>
         </motion.div>
 
+        {mode === 'creative' && latestThumbnails.length > 1 && <ThumbnailConceptComparison
+          concepts={latestThumbnails.map((thumbnail, index) => ({ id: thumbnail.id, imageUrl: comparisonUrls[thumbnail.id] || thumbnail.imageUrl, name: thumbnail.conceptName || `Concept ${index + 1}` }))}
+          context={{ title: prompt, description: [creativeDescription, creatorHook].filter(Boolean).join("\n") }} onComplete={refreshCreativeAccess} />}
+
         {/* Generated Creative Thumbnails */}
         <AnimatePresence>
           {thumbnails.length > 0 && mode === 'creative' && (
@@ -914,7 +944,7 @@ const GeneratePage: React.FC = () => {
                   >
                     <div className={`relative ${creativePreviewAspectClass} bg-black/40 overflow-hidden`}>
                       <img
-                        src={thumbnail.imageUrl}
+                        src={comparisonUrls[thumbnail.id] || thumbnail.imageUrl}
                         alt={thumbnail.prompt}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
@@ -934,7 +964,9 @@ const GeneratePage: React.FC = () => {
                     </div>
 
                     <div className="p-4">
-                      <p className="text-sm text-gray-400 line-clamp-2">{thumbnail.prompt}</p>
+                      {thumbnail.conceptName && <p className="mb-1 text-sm font-semibold text-white">{thumbnail.conceptName}</p>}
+                      <p className="text-sm text-gray-400 line-clamp-2">{thumbnail.conceptDescription || thumbnail.prompt}</p>
+                      {thumbnail.adjustmentError && <p role="alert" className="text-xs text-amber-300">{thumbnail.adjustmentError}</p>}
                       <p className="text-xs text-gray-600 mt-2 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {new Date(thumbnail.createdAt).toLocaleString()}
@@ -997,10 +1029,10 @@ const GeneratePage: React.FC = () => {
       {/* Thumbnail Detail Drawer */}
       <ThumbnailDetailDrawer
         thumbnail={selectedThumbnail}
+        onVersionChange={(id, version) => setComparisonUrls(previous => ({ ...previous, [String(id)]: version.imageUrl }))}
         isOpen={isDrawerOpen}
         onClose={() => {
           setIsDrawerOpen(false);
-          setSelectedThumbnail(null);
         }}
       />
 

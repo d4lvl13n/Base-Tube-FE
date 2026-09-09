@@ -1,0 +1,24 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { GeneratedConceptsGrid } from '../GeneratedConceptsGrid';
+import { ctrApi } from '../../../../../api/ctr';
+import { thumbnailApi } from '../../../../../api/thumbnail';
+jest.mock('../../../../../api/ctr', () => ({ ctrApi: { getQuota: jest.fn(), auditThumbnail: jest.fn(), applyOverlay: jest.fn() } }));
+jest.mock('../../../../../api/thumbnail', () => ({ thumbnailApi: { refineThumbnailConversationally: jest.fn() } }));
+it('compares the edited images through persona audit instead of displaying a fabricated generation score', async () => {
+  window.matchMedia = jest.fn(() => ({ matches: false, addListener: jest.fn(), removeListener: jest.fn() })) as any;
+  (ctrApi.getQuota as jest.Mock).mockResolvedValue({ mode: 'credits', creditInfo: { available: 20, balance: 20, reserved: 0 }, pricing: { ctr: { auditWithPersonas: 3 } } });
+  (ctrApi.auditThumbnail as jest.Mock).mockResolvedValue({ audit: { overallScore: 8, confidence: 'medium', strengths: [], weaknesses: [], suggestions: [] } });
+  (thumbnailApi.refineThumbnailConversationally as jest.Mock).mockResolvedValue({ data: { thumbnailUrl: 'https://example.com/edited.png' } });
+  const concepts = ['Subject spotlight', 'In context'].map((name, i) => ({ id: String(i), thumbnailUrl: `https://example.com/${i}.png`, thumbnailPath: '', prompt: 'Camera', conceptName: name, conceptDescription: 'Camera concept', estimatedCTRScore: 7 }));
+  render(<GeneratedConceptsGrid concepts={concepts} detectedNiche="tech" generationTime={1} onClear={jest.fn()} auditContext={{ title: 'Camera review' }} />);
+  expect(ctrApi.auditThumbnail).not.toHaveBeenCalled();
+  expect(screen.queryByText('7.0')).not.toBeInTheDocument();
+  fireEvent.change(screen.getAllByLabelText('Edit instruction')[0], { target: { value: 'Blue background' } });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Apply edit' })[0]);
+  const comparison = screen.getByRole('region', { name: 'Concept comparison' });
+  await waitFor(() => expect(within(comparison).getByAltText('Subject spotlight')).toHaveAttribute('src', 'https://example.com/edited.png'));
+  fireEvent.click(screen.getByRole('button', { name: 'Compare 2 concepts' }));
+  await screen.findByRole('button', { name: 'Comparison complete' });
+  expect((ctrApi.auditThumbnail as jest.Mock).mock.calls[0][0]).toEqual({ imageUrl: 'https://example.com/edited.png', includePersonas: true, context: { title: 'Camera review', niche: 'tech' } });
+});

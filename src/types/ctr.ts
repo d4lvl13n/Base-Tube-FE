@@ -1,7 +1,8 @@
+import type { ThumbnailBrief, ThumbnailEditing } from './thumbnail';
 // src/types/ctr.ts
 // CTR Thumbnail Engine Types
 
-import type { ThumbnailSizePreset } from './thumbnail';
+import type { ThumbnailSizePreset, ThumbnailGenerationOptions } from './thumbnail';
 
 // ============================================================================
 // ACCESS TYPES
@@ -299,6 +300,8 @@ export interface AuditDetailResponse {
 // ============================================================================
 
 export interface GeneratedConcept {
+  editing?: ThumbnailEditing;
+  adjustmentError?: string;
   id: string;
   thumbnailUrl: string;
   thumbnailPath: string;
@@ -337,6 +340,8 @@ export interface ApplyOverlayResponse {
 }
 
 export interface GenerateRequest {
+  creatorBrief?: ThumbnailBrief;
+  subjectReference?: File;
   title: string;
   description?: string;
   prompt?: string;          // Optimized prompt from audit
@@ -344,7 +349,11 @@ export interface GenerateRequest {
   textOverlay?: string;
   includeFace?: boolean;
   concepts?: number;        // 1-5, default 3
-  quality?: 'low' | 'medium' | 'high';
+  quality?: ThumbnailGenerationOptions['quality'];
+  model?: ThumbnailGenerationOptions['model'];
+  background?: ThumbnailGenerationOptions['background'];
+  outputFormat?: ThumbnailGenerationOptions['outputFormat'];
+  outputCompression?: number;
   size?: ThumbnailSizePreset;
 }
 

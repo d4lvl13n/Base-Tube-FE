@@ -1,4 +1,12 @@
+import type { OverlayTextPlan } from './ctr';
+export interface ThumbnailBrief { title: string; description?: string; creatorHook?: string; }
+export interface ThumbnailTextStyle { font: 'DejaVu Sans' | 'DejaVu Serif' | 'DejaVu Sans Mono'; color: string; fontScale: number; stroke: boolean; }
+export interface ThumbnailEditing { baseThumbnailId: number; baseImageUrl: string; textPlan: OverlayTextPlan; textStyle: ThumbnailTextStyle; }
+
 // src/types/thumbnail.ts
+
+export type ThumbnailImageModel = 'gpt-image-2' | 'gpt-image-2.5-flare' | 'gpt-image-2.5-sunburst' | 'gemini-3-pro';
+export type ThumbnailQuality = 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
 
 export type ThumbnailOutputFormat = 'landscape' | 'short';
 
@@ -12,7 +20,8 @@ export type ThumbnailSizePreset =
   | 'tiktok'
   | 'tiktok-short'
   | 'youtube-short'
-  | 'youtube-shorts';
+  | 'youtube-shorts'
+  | `${number}x${number}`;
 
 export const THUMBNAIL_OUTPUT_FORMATS: Record<ThumbnailOutputFormat, {
   label: string;
@@ -35,6 +44,13 @@ export const THUMBNAIL_OUTPUT_FORMATS: Record<ThumbnailOutputFormat, {
 };
 
 export interface ThumbnailGenerationOptions {
+  creatorBrief?: ThumbnailBrief;
+  distinctConcepts?: boolean;
+  referenceRole?: 'subject' | 'style';
+  n?: number;
+  model?: ThumbnailImageModel;
+  outputFormat?: 'png' | 'jpeg' | 'webp';
+  outputCompression?: number;
   customPrompt?: string;
   /**
    * @deprecated Use size instead.
@@ -47,21 +63,21 @@ export interface ThumbnailGenerationOptions {
    */
   height?: number;
   /**
-   * Rendering quality for GPT Image 2.
+   * Rendering quality for GPT Image 2.5.
    * Kept for backward compatibility.
    */
-  quality?: 'low' | 'medium' | 'high' | 'auto';
+  quality?: ThumbnailQuality;
   /**
-   * Product-approved thumbnail format.
+   * Thumbnail preset or validated WIDTHxHEIGHT dimensions.
    * - landscape: YouTube/BaseTube, resolves server-side to 1536x864
    * - short: TikTok/Shorts, resolves server-side to 1024x1792
    */
   size?: ThumbnailSizePreset;
   style?: string;
   /**
-   * GPT Image 2 does not support transparent backgrounds.
+   * Transparent output requires PNG or WebP.
    */
-  background?: 'opaque' | 'auto';
+  background?: 'opaque' | 'auto' | 'transparent';
 }
 
 export interface ThumbnailGenerationResponse {
@@ -128,6 +144,7 @@ export interface ThumbnailRefinementOptions extends ThumbnailGenerationOptions {
 export interface ThumbnailRefinementResponse {
   success: boolean;
   data: {
+    id?: number;
     thumbnailUrl: string;
     shareUrl?: string;
     conversation: ThumbnailConversationState;
@@ -140,6 +157,8 @@ export interface ThumbnailRefinementResponse {
  * Individual thumbnail item as returned by the API
  */
 export interface ThumbnailItem {
+  conceptName?: string;
+  conceptDescription?: string;
   /** Public short_id (string), not the numeric DB id */
   id: string;
   model: string;

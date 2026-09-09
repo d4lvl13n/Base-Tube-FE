@@ -1,3 +1,4 @@
+import type { ThumbnailEditing } from '../types/thumbnail';
 // src/api/ctr.ts
 // CTR Thumbnail Engine API Service
 
@@ -58,6 +59,12 @@ export const ANALYTICS_IMPORT_UNAVAILABLE = 'ANALYTICS_IMPORT_UNAVAILABLE';
  * - Quota tracking
  */
 export const ctrApi = {
+  applyFinalAdjustments: async (editing: ThumbnailEditing): Promise<{ id: number; thumbnailUrl: string; shareUrl?: string; editing: ThumbnailEditing }> => {
+    const { baseThumbnailId, textPlan, textStyle } = editing;
+    const response = await api.post(`${CTR_BASE_PATH}/overlay`, { baseThumbnailId, textPlan, textStyle });
+    if (!response.data.success) throw new Error(response.data.error?.message || 'Could not apply adjustments');
+    return response.data.data;
+  },
   // ============================================================================
   // QUOTA
   // ============================================================================
@@ -285,9 +292,18 @@ export const ctrApi = {
   generateThumbnails: async (
     request: GenerateRequest
   ): Promise<CTRGenerationResponse['data']> => {
+    let payload: GenerateRequest | FormData = request;
+    if (request.subjectReference) {
+      const form = new FormData();
+      Object.entries(request).forEach(([key, value]) => {
+        if (value !== undefined && key !== 'subjectReference') form.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+      });
+      form.append('subjectReference', request.subjectReference);
+      payload = form;
+    }
     const response = await api.post<CTRGenerationResponse | CTRErrorResponse>(
-      `${CTR_BASE_PATH}/generate`,
-      request
+      `${CTR_BASE_PATH}/generate`, payload,
+      { timeout: 300000, ...(payload instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}) }
     );
     
     if (!response.data.success) {

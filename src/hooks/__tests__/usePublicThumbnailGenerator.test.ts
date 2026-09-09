@@ -203,10 +203,14 @@ describe('usePublicThumbnailGenerator', () => {
       prompt: 'Web3 thumbnail prompt',
       style: undefined,
       includeFace: false,
-      concepts: 2,
+      concepts: 3,
       quality: 'high',
       size: 'landscape',
-    });
+      model: 'gpt-image-2.5-flare',
+      background: undefined,
+      outputFormat: undefined,
+      outputCompression: undefined,
+    }, { timeout: 300000 });
 
     expect(
       fetchMock.mock.calls.some(([url]) => String(url).includes('/v1/images/generate'))
@@ -214,6 +218,51 @@ describe('usePublicThumbnailGenerator', () => {
     expect(
       fetchMock.mock.calls.some(([url]) => String(url).includes('/v1/images/quota/increment'))
     ).toBe(false);
+  });
+
+  it.each([false, true])('forwards GPT Image 2.5 options for authenticated=%s', async authenticated => {
+    mockUseAuth.mockReturnValue({ isAuthenticated: authenticated } as ReturnType<typeof useAuth>);
+    if (authenticated) localStorage.setItem('auth_method', 'web3');
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/v1/images/quota')) return Promise.resolve(createJsonResponse(authenticated ? creditResponse : quotaResponse));
+      if (url.includes('/v1/images/generate')) return Promise.resolve(createJsonResponse({ success: true, data: { thumbnailUrl: 'https://example.com/new.webp' } }));
+      throw new Error(`Unexpected fetch call: ${url}`);
+    });
+    mockApiPost.mockResolvedValue({ data: { success: true, data: { concepts: [{ thumbnailUrl: 'https://example.com/new.webp' }], ...creditResponse.data } } });
+    const { result } = renderHook(() => usePublicThumbnailGenerator());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const options = { model: 'gpt-image-2.5-sunburst' as const, quality: 'xhigh' as const, size: '2048x1152' as const, background: 'transparent' as const, outputFormat: 'webp' as const, outputCompression: 0, n: 1 };
+    await act(async () => { await result.current.generateThumbnail('A red camera', options); });
+    const body = authenticated
+      ? mockApiPost.mock.calls.find(([url]) => url === '/api/v1/ctr/generate')?.[1]
+      : JSON.parse(fetchMock.mock.calls.find(([url]) => String(url).includes('/v1/images/generate'))?.[1].body);
+    expect(body).toMatchObject({ model: options.model, quality: options.quality, size: options.size, background: options.background, outputFormat: options.outputFormat, outputCompression: 0 });
+  });
+
+  it('sends a real subject through authenticated CTR generation with three concepts', async () => {
+    mockUseUser.mockReturnValue({ isSignedIn: true } as ReturnType<typeof useUser>);
+    fetchMock.mockResolvedValue(createJsonResponse(creditResponse));
+    mockApiPost.mockResolvedValue({ data: { success: true, data: { concepts: [{ id: 'subject-1', thumbnailUrl: 'https://example.com/subject.png', conceptName: 'Subject spotlight', conceptDescription: 'Close-up' }] } } });
+    const { result } = renderHook(() => usePublicThumbnailGenerator());
+    await waitFor(() => expect(result.current.usageMode).toBe('credits'));
+    const file = new File(['image'], 'subject.png', { type: 'image/png' });
+    await act(async () => { await result.current.generateThumbnail('My camera', { referenceImage: file, size: 'short' }); });
+    expect(mockApiPost.mock.calls[0][0]).toBe('/api/v1/ctr/generate');
+    const form = mockApiPost.mock.calls[0][1] as FormData;
+    expect(form.get('subjectReference')).toBe(file);
+    expect(form.get('concepts')).toBe('3');
+    expect(result.current.thumbnails[0]).toMatchObject({ conceptName: 'Subject spotlight', conceptDescription: 'Close-up', size: 'short' });
+  });
+
+  it('checks the actual CTR credit price before submitting subject concepts', async () => {
+    mockUseUser.mockReturnValue({ isSignedIn: true } as ReturnType<typeof useUser>);
+    fetchMock.mockResolvedValue(createJsonResponse({ ...creditResponse, data: { ...creditResponse.data, creditInfo: { balance: 20, reserved: 0, available: 20 } } }));
+    const { result } = renderHook(() => usePublicThumbnailGenerator());
+    await waitFor(() => expect(result.current.creditInfo?.available).toBe(20));
+    await act(async () => { await result.current.generateThumbnail('My camera', { referenceImage: new File(['image'], 'subject.png', { type: 'image/png' }) }); });
+    expect(mockApiPost).not.toHaveBeenCalled();
+    expect(result.current.insufficientCredits).toBe(true);
   });
 
   it('sets an insufficient credits state on authenticated 402 responses', async () => {
