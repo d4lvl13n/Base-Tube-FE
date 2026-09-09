@@ -1,3 +1,4 @@
+import { ThumbnailLogoPicker } from '../../common/ThumbnailLogoPicker';
 import { thumbnailMediaUrl } from '../../../utils/thumbnailMediaUrl';
 import { ThumbnailStylePicker } from '../../common/ThumbnailPackaging';
 import { ThumbnailConceptComparison } from '../../common/ThumbnailConceptComparison';
@@ -117,7 +118,8 @@ const GeneratePage: React.FC = () => {
   const [includeFace, setIncludeFace] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedVariations, setSelectedVariations] = useState(3);
-  const [logoError, setLogoError] = useState('');
+  const [logoChecking, setLogoChecking] = useState(false);
+  const [savedStyleHasLogo, setSavedStyleHasLogo] = useState(false);
   const [logo, setLogo] = useState<File | null>(null);
   const [subjectReference, setSubjectReference] = useState<File[]>([]);
   const [title, setTitle] = useState('');
@@ -176,6 +178,7 @@ const GeneratePage: React.FC = () => {
   ];
 
   const handleCreativeGenerate = async (e: React.FormEvent) => {
+    if (logoChecking) { e.preventDefault(); return; }
     e.preventDefault();
     if (!prompt.trim()) return;
     
@@ -197,6 +200,7 @@ const GeneratePage: React.FC = () => {
   };
 
   const handleCTRGenerate = async (e: React.FormEvent) => {
+    if (logoChecking) { e.preventDefault(); return; }
     e.preventDefault();
     if (!ctrTitle.trim()) return;
 
@@ -360,14 +364,8 @@ const GeneratePage: React.FC = () => {
         {isAuthenticated && <label className="block text-sm text-white">What’s the most interesting thing viewers will discover?
           <textarea aria-label="Creator hook" value={creatorHook} onChange={e => setCreatorHook(e.target.value)} maxLength={1000} disabled={loading || ctrProgress.status === 'generating'} placeholder="Optional: The cheapest microphone sounded better in my test." className="mt-2 w-full rounded-xl bg-white/5 p-3" />
         </label>}
-        {isAuthenticated && <ThumbnailStylePicker value={savedStyleId} onChange={setSavedStyleId} disabled={loading || ctrProgress.status === 'generating'} />}
-        {isAuthenticated && <fieldset disabled={loading || ctrProgress.status === 'generating'} className="my-4 rounded-xl border border-white/10 p-4 text-white">
-          <legend className="px-1 text-sm font-semibold">Channel logo</legend>
-          <p className="mb-3 text-xs text-gray-400">Optional. Your original logo is kept when you save this thumbnail as a channel style. A new upload replaces the saved logo for this generation.</p>
-          <input aria-label="Channel logo" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => { const file = event.target.files?.[0]; if (file && ['image/png', 'image/jpeg', 'image/webp'].includes(file.type) && file.size > 0 && file.size <= 5 * 1024 * 1024) { setLogo(file); setLogoError(''); } else if (file) setLogoError('Choose a PNG, JPEG or WebP logo up to 5 MB.'); event.target.value = ''; }} />
-          {logoError && <p role="alert" className="mt-2 text-sm text-red-300">{logoError}</p>}
-          {logo && <p className="mt-2 text-sm">{logo.name} <button type="button" onClick={() => setLogo(null)}>Remove logo</button></p>}
-        </fieldset>}
+        {isAuthenticated && <ThumbnailStylePicker value={savedStyleId} onChange={(id, hasLogo) => { setSavedStyleId(id); setSavedStyleHasLogo(Boolean(hasLogo)); }} disabled={loading || ctrProgress.status === 'generating'} />}
+        {isAuthenticated && <ThumbnailLogoPicker value={logo} onChange={setLogo} savedLogo={savedStyleHasLogo} onCheckingChange={setLogoChecking} disabled={loading || ctrProgress.status === 'generating'} />}
         {isAuthenticated && <ThumbnailSubjectPicker multiple value={subjectReference} onChange={setSubjectReference} disabled={loading || ctrProgress.status === 'generating'} />}
 
         {/* Main Form Card */}
@@ -561,7 +559,7 @@ const GeneratePage: React.FC = () => {
                 {/* Submit Button */}
                 <motion.button
                   type="submit"
-                  disabled={loading || !canGenerateCreative || !prompt.trim()}
+                  disabled={logoChecking || loading || !canGenerateCreative || !prompt.trim()}
                   whileHover={{ scale: canGenerateCreative && !loading && prompt.trim() ? 1.02 : 1 }}
                   whileTap={{ scale: canGenerateCreative && !loading && prompt.trim() ? 0.98 : 1 }}
                   className={`relative w-full py-4 sm:py-4 px-4 sm:px-6 rounded-xl font-semibold text-white transition-all
@@ -875,7 +873,7 @@ const GeneratePage: React.FC = () => {
                 {/* Submit Button */}
                 <motion.button
                   type="submit"
-                  disabled={ctrProgress.status === 'generating' || !canGenerateCTR}
+                  disabled={logoChecking || ctrProgress.status === 'generating' || !canGenerateCTR}
                   whileHover={{ scale: canGenerateCTR && ctrProgress.status !== 'generating' ? 1.02 : 1 }}
                   whileTap={{ scale: canGenerateCTR && ctrProgress.status !== 'generating' ? 0.98 : 1 }}
                   className={`relative w-full py-4 sm:py-4 px-4 sm:px-6 rounded-xl font-semibold text-white transition-all

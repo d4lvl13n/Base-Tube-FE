@@ -37,3 +37,13 @@ it('does not silently switch to a different style when loading fails', async () 
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   expect(await screen.findByRole('img', { name: 'Music' })).toBeInTheDocument();
 });
+it('tells the logo picker whether the selected style includes an original logo', async () => {
+  (thumbnailPackagingApi.list as jest.Mock).mockResolvedValue([{ id: 7, name: 'Music', imageUrl, hasLogo: true }]);
+  const onChange = jest.fn();
+  render(<ThumbnailStylePicker onChange={onChange} />);
+  await screen.findByRole('option', { name: 'Music' });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Channel style' }), { target: { value: '7' } });
+  expect(onChange).toHaveBeenLastCalledWith(7, true);
+  fireEvent.change(screen.getByRole('combobox', { name: 'Channel style' }), { target: { value: '' } });
+  expect(onChange).toHaveBeenLastCalledWith(undefined, undefined);
+});

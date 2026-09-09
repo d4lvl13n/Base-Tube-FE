@@ -32,7 +32,7 @@ export function SaveThumbnailStyle({ imageUrl }: { imageUrl: string }) {
   </div>;
 }
 
-export function ThumbnailStylePicker({ value, onChange, disabled }: { value?: number; onChange: (id?: number) => void; disabled?: boolean }) {
+export function ThumbnailStylePicker({ value, onChange, disabled }: { value?: number; onChange: (id?: number, hasLogo?: boolean) => void; disabled?: boolean }) {
   const [styles, setStyles] = useState<SavedThumbnailStyle[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -55,7 +55,7 @@ export function ThumbnailStylePicker({ value, onChange, disabled }: { value?: nu
   };
   return <fieldset className="my-5 rounded-xl border border-white/10 p-4" disabled={disabled}>
     <legend className="px-1 text-sm font-semibold text-white">Channel style</legend>
-    <select aria-label="Channel style" value={value ?? ''} disabled={loading} onChange={event => onChange(event.target.value ? Number(event.target.value) : undefined)} className="w-full rounded-lg bg-[#171719] p-3 text-white">
+    <select aria-label="Channel style" value={value ?? ''} disabled={loading} onChange={event => onChange(event.target.value ? Number(event.target.value) : undefined, styles.find(style => style.id === Number(event.target.value))?.hasLogo)} className="w-full rounded-lg bg-[#171719] p-3 text-white">
       <option value="">{loading ? 'Loading styles…' : 'No saved style'}</option>
       {value && !selected && <option value={value}>Selected style unavailable</option>}
       {styles.map(style => <option key={style.id} value={style.id}>{style.name}</option>)}
