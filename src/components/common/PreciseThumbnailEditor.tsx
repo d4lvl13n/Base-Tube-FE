@@ -16,7 +16,8 @@ export function preciseEditInstruction(target: ThumbnailEditTarget, instruction:
   return `Requested change${target === 'custom' ? '' : ` (${target})`}: ${instruction.trim()}\nPreserve ${keep}. Make only the requested change.`;
 }
 
-export function PreciseThumbnailEditor({ initial, onRefine, onChange, disabled = false }: {
+export function PreciseThumbnailEditor({ initial, onRefine, onChange, disabled = false, editCreditCost }: {
+  editCreditCost?: number;
   initial: ThumbnailEditVersion;
   onRefine: (version: ThumbnailEditVersion, instruction: string) => Promise<ThumbnailEditVersion>;
   onChange: (version: ThumbnailEditVersion) => void;
@@ -82,6 +83,7 @@ export function PreciseThumbnailEditor({ initial, onRefine, onChange, disabled =
     } finally { inFlight.current = false; if (mounted.current) setBusy(false); }
   };
   return <div className="mt-3 rounded-xl border border-white/10 bg-black/25 p-3 text-sm text-white">
+    {editCreditCost !== undefined && <p className="mb-3 text-xs text-orange-300">Each AI edit costs {editCreditCost} credits. Undo and switching versions are free.</p>}
     {adjustments && <fieldset disabled={busy || disabled} className="mb-4 space-y-2">
       <legend className="mb-2 font-semibold">Final adjustments</legend>
       <label className="block">Headline<input aria-label="Headline" value={adjustments.textPlan.headline} maxLength={90} onChange={e => setAdjustments({ ...adjustments, textPlan: { ...adjustments.textPlan, headline: e.target.value } })} className="mt-1 w-full rounded-lg bg-gray-900 p-2" /></label>

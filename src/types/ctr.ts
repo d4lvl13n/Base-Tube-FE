@@ -300,6 +300,7 @@ export interface AuditDetailResponse {
 // ============================================================================
 
 export interface GeneratedConcept {
+  shareUrl?: string;
   editing?: ThumbnailEditing;
   adjustmentError?: string;
   id: string;

@@ -64,7 +64,19 @@ it('adds a second style without hiding save or replacing the selected style', as
   await screen.findByRole('option', { name: 'Travel' });
   expect(screen.getByRole('option', { name: 'Music' })).toBeInTheDocument();
   expect(screen.getByRole('combobox')).toHaveValue('7');
-  expect(screen.getByRole('button', { name: 'Save style', exact: true })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Rename style', exact: true })).toBeEnabled();
   expect(onChange).not.toHaveBeenCalled();
   expect(thumbnailPackagingApi.save).toHaveBeenCalledWith(nextUrl, 'Travel');
+});
+
+it('offers visual style choices and start fresh without deleting saved styles', async () => {
+  (thumbnailPackagingApi.list as jest.Mock).mockResolvedValue([{ id: 7, name: 'Music', imageUrl, hasLogo: true }]);
+  const onChange = jest.fn();
+  render(<ThumbnailStylePicker visual value={7} onChange={onChange} />);
+  const tile = await screen.findByRole('button', { name: 'Music', exact: true });
+  expect(tile).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByText('Logo included')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Start fresh/ }));
+  expect(onChange).toHaveBeenLastCalledWith(undefined, undefined);
+  expect(thumbnailPackagingApi.remove).not.toHaveBeenCalled();
 });

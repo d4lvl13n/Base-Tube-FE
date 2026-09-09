@@ -332,3 +332,38 @@
     text-align: left;
   }
 }
+
+/* Thumbnail creation: brief, visual choices, then one focused edit. */
+.thumbnail-flow { scroll-margin-top: 5rem; }
+.thumbnail-flow [hidden] { display: none !important; }
+.thumbnail-flow button:focus-visible, .thumbnail-flow summary:focus-visible {
+  outline: 2px solid #fa7517;
+  outline-offset: 4px;
+}
+.thumbnail-brief-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr); gap: 3rem; align-items: start; }
+.thumbnail-disclosure { border-top: 1px solid rgba(255,255,255,.1); padding-top: 1rem; }
+.thumbnail-disclosure > summary { cursor: pointer; color: #e4e4e7; font-size: .875rem; padding: .35rem 0; }
+.thumbnail-disclosure > summary > span { margin-left: .5rem; font-size: .75rem; }
+.thumbnail-look { border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; background: #111113; padding: 1.25rem; }
+.thumbnail-look > summary { display: flex; align-items: center; justify-content: space-between; color: #fafafa; font-weight: 600; list-style: none; }
+.thumbnail-look > summary::-webkit-details-marker { display: none; }
+.thumbnail-look-content > fieldset { border: 0; background: none; padding: 1rem 0; margin: 0; border-bottom: 1px solid rgba(255,255,255,.08); border-radius: 0; }
+.thumbnail-look-content > fieldset > legend { padding: 1rem 0 0; font-size: .75rem; color: #a1a1aa; }
+.thumbnail-look-content > fieldset > p { font-size: .75rem; }
+.thumbnail-look-content > fieldset > div > .h-20 { height: 3rem; width: 3rem; }
+.thumbnail-look-content > fieldset > div.flex > div.basis-40 { flex-basis: 8rem; }
+.thumbnail-flow form { padding-bottom: 10rem; }
+.thumbnail-generate-bar { position: fixed; bottom: max(1rem, env(safe-area-inset-bottom)); z-index: 20; margin-top: 2rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid rgba(255,255,255,.12); border-radius: 1rem; background: rgba(17,17,19,.97); padding: 1rem; box-shadow: 0 15px 45px rgba(0,0,0,.35); }
+.thumbnail-refine-card { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); align-items: start; }
+.thumbnail-refine-image { position: sticky; top: 1rem; }
+@media (max-width: 1023px) {
+  .thumbnail-brief-grid { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+  .thumbnail-look > summary { cursor: pointer; }
+  .thumbnail-refine-card { grid-template-columns: minmax(0, 1fr); }
+  .thumbnail-refine-image { position: relative; top: auto; }
+}
+@media (max-width: 600px) {
+  .thumbnail-generate-bar { bottom: max(.5rem, env(safe-area-inset-bottom)); gap: .75rem; }
+  .thumbnail-generate-bar > button[type=submit] { width: 100%; }
+  .thumbnail-flow { padding-bottom: 1rem; }
+}

@@ -20,8 +20,16 @@ it('compares the edited images through persona audit instead of displaying a fab
     expect(image).toHaveAttribute('src', '/thumbnail-media/0.png?X-Amz-Signature=original');
   }
   expect(screen.queryByText('7.0')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Apply edit' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Refine this' })[0]);
   fireEvent.change(screen.getAllByLabelText('Edit instruction')[0], { target: { value: 'Blue background' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Apply edit' })[0]);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Back to concepts' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: 'Back to concepts' }));
+  fireEvent.click(screen.getAllByRole('button', { name: 'Refine this' })[0]);
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Back to concepts' }));
+  fireEvent.click(screen.getByText('Help me choose'));
   const comparison = screen.getByRole('region', { name: 'Concept comparison' });
   await waitFor(() => expect(within(comparison).getByAltText('Subject spotlight')).toHaveAttribute('src', '/thumbnail-media/ed17ed.png?X-Amz-Signature=edited'));
   fireEvent.click(screen.getAllByRole('button', { name: 'Save style', exact: true })[0]);

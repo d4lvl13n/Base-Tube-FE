@@ -6,12 +6,13 @@ import { PreciseThumbnailEditor } from '../../../common/PreciseThumbnailEditor';
 // src/components/pages/CTREngine/components/GeneratedConceptsGrid.tsx
 // Premium grid display for generated thumbnail concepts
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, ExternalLink, RefreshCw, Sparkles, BarChart2, Clock, Type } from 'lucide-react';
+import { Download, RefreshCw, Sparkles, Clock } from 'lucide-react';
 import { GeneratedConcept } from '../../../../types/ctr';
 import type { ThumbnailOutputFormat } from '../../../../types/thumbnail';
 import { thumbnailApi } from '../../../../api/thumbnail';
+import { ViralSharePopup } from './ViralSharePopup';
 import { NicheBadge } from './NicheSelector';
 
 interface GeneratedConceptsGridProps {
@@ -23,11 +24,22 @@ interface GeneratedConceptsGridProps {
   className?: string;
   auditContext?: AuditContext;
   onComparisonComplete?: () => void | Promise<void>;
+  editCreditCost?: number;
+  hasLogo?: boolean;
+  onEditingChange?: (busy: boolean) => void;
+  onRefiningChange?: (active: boolean) => void;
+  choosing?: boolean;
 }
 
 interface ConceptCardProps {
   concept: GeneratedConcept;
   index: number;
+  active: boolean;
+  onSelect: () => void;
+  editCreditCost?: number;
+  hasLogo?: boolean;
+  onBusyChange: (busy: boolean) => void;
+  onEdited?: () => void | Promise<void>;
   onImageChange: (id: string, imageUrl: string) => void;
   outputFormat: ThumbnailOutputFormat;
 }
@@ -41,15 +53,19 @@ const shortStrategyLabel = (label: string): string => {
   return (head || label).trim();
 };
 
-const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat, onImageChange }) => {
+const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat, onImageChange, active, onSelect, editCreditCost, hasLogo, onEdited, onBusyChange }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [currentThumbnailUrl, setCurrentThumbnailUrl] = useState(concept.thumbnailUrl);
   const [editRoot] = useState(concept.thumbnailUrl);
-  const [, setIsRefining] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState(concept.shareUrl);
+  const [currentId, setCurrentId] = useState<string | number>(concept.id);
+  const [createdAt] = useState(() => new Date().toISOString());
+  const [downloadError, setDownloadError] = useState('');
   const imageAspectClass = outputFormat === 'short' ? 'aspect-[9/16]' : 'aspect-video';
 
   const handleDownload = async () => {
-    setIsDownloading(true);
+    setIsDownloading(true); setDownloadError('');
     try {
       const response = await fetch(thumbnailMediaUrl(currentThumbnailUrl));
       if (!response.ok) throw new Error('Thumbnail download failed.');
@@ -63,7 +79,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat,
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Download failed:', error);
+      setDownloadError('Could not download this image. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -75,47 +91,16 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat,
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay: index * 0.1, type: 'spring', stiffness: 100 }}
-      className="ai-concept-card group bg-[#111113] rounded-2xl overflow-hidden border border-white/[0.09] hover:border-[#fa7517]/30 transition-colors duration-300"
+      className={`ai-concept-card group bg-[#111113] rounded-2xl overflow-hidden border border-white/[0.09] ${active ? "thumbnail-refine-card" : ""}`}
     >
       {/* Thumbnail Image */}
-      <div className={`relative ${imageAspectClass} bg-black/40 overflow-hidden`}>
+      <div className={`relative ${imageAspectClass} bg-black/40 overflow-hidden ${active ? "thumbnail-refine-image" : ""}`}>
         <img
           src={thumbnailMediaUrl(currentThumbnailUrl)}
           alt={concept.conceptName}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-contain"
         />
         
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-
-        {/* Overlay on Hover */}
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-3">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={handleDownload}
-            disabled={isDownloading}
-            className="p-3 bg-white text-black rounded-xl shadow-lg"
-          >
-            {isDownloading ? (
-              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : (
-              <Download className="w-5 h-5" />
-            )}
-          </motion.button>
-          
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => window.open(currentThumbnailUrl, '_blank')}
-            className="p-3 bg-white/20 text-white rounded-xl shadow-lg backdrop-blur-sm border border-white/20"
-          >
-            <ExternalLink className="w-5 h-5" />
-          </motion.button>
-        </div>
 
       </div>
 
@@ -136,6 +121,8 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat,
         </p>
 
         {concept.adjustmentError && <p role="alert" className="text-xs text-amber-300">{concept.adjustmentError}</p>}
+        {downloadError && <p role="alert" className="mb-2 text-sm text-red-300">{downloadError}</p>}
+        {!active && <button type="button" onClick={onSelect} className="mb-3 w-full rounded-xl bg-[#fa7517] px-4 py-3 text-sm font-semibold text-white hover:bg-orange-500">Refine this</button>}
         {/* Actions */}
         <div className="flex gap-2">
           <motion.button
@@ -143,34 +130,28 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat,
             whileTap={{ scale: 0.98 }}
             onClick={handleDownload}
             disabled={isDownloading}
-            className="flex-1 py-2.5 px-4 bg-[#f97316] hover:bg-[#fb923c] text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Download className="w-4 h-4" />
             Download
           </motion.button>
           
-          <motion.a
-            href={`/ai-thumbnails/audit?url=${encodeURIComponent(currentThumbnailUrl)}`}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2"
-          >
-            <BarChart2 className="w-4 h-4" />
-            Audit
-          </motion.a>
+          <button type="button" onClick={() => setShareOpen(true)} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-white">Share</button>
         </div>
 
-        <SaveThumbnailStyle key={`style:${currentThumbnailUrl}`} imageUrl={currentThumbnailUrl} />
+        <SaveThumbnailStyle key={`style:${currentThumbnailUrl}`} imageUrl={currentThumbnailUrl} hasLogo={hasLogo} />
 
-        <PreciseThumbnailEditor key={editRoot} initial={{ imageUrl: editRoot, id: concept.id, editing: concept.editing }}
+        <div hidden={!active}><PreciseThumbnailEditor editCreditCost={editCreditCost} key={editRoot} initial={{ imageUrl: editRoot, id: concept.id, editing: concept.editing }}
           onRefine={async (version, instruction) => {
-            setIsRefining(true);
+            onBusyChange(true);
             try {
               const result = await thumbnailApi.refineThumbnailConversationally({ instruction, thumbnailId: version.editing ? version.id : undefined, imageUrl: version.editing ? undefined : version.imageUrl, size: outputFormat, quality: 'high' });
+              void Promise.resolve(onEdited?.()).catch(() => undefined);
               return { id: result.data.id, imageUrl: result.data.thumbnailUrl, shareUrl: result.data.shareUrl, conversation: result.data.conversation };
-            } finally { setIsRefining(false); }
+            } finally { onBusyChange(false); }
           }}
-          onChange={version => { setCurrentThumbnailUrl(version.imageUrl); onImageChange(concept.id, version.imageUrl); }} />
+          onChange={version => { setCurrentThumbnailUrl(version.imageUrl); setShareUrl(version.shareUrl); setCurrentId(version.id ?? concept.id); onImageChange(concept.id, version.imageUrl); }} /></div>
+        <ViralSharePopup thumbnail={{ id: currentId, createdAt, imageUrl: currentThumbnailUrl, thumbnailUrl: currentThumbnailUrl, prompt: concept.prompt, shareUrl }} isOpen={shareOpen} onClose={() => setShareOpen(false)} />
 
       </div>
     </motion.div>
@@ -185,8 +166,11 @@ export const GeneratedConceptsGrid: React.FC<GeneratedConceptsGridProps> = ({
   onClear,
   className = '',
   auditContext,
-  onComparisonComplete,
+  onComparisonComplete, editCreditCost, hasLogo, onRefiningChange, onEditingChange, choosing,
 }) => {
+  const [editing, setEditing] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  useEffect(() => { if (choosing) setActiveId(null); }, [choosing]);
   const [editedUrls, setEditedUrls] = useState<Record<string, string>>({});
   return (
     <motion.div 
@@ -197,7 +181,7 @@ export const GeneratedConceptsGrid: React.FC<GeneratedConceptsGridProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-2xl font-bold text-white mb-2">Generated Concepts</h2>
+          <h2 tabIndex={-1} className="text-2xl font-bold text-white mb-2">{activeId ? 'Make it yours' : 'Which direction works best?'}</h2>
           <div className="flex items-center gap-4 flex-wrap">
             {detectedNiche && <NicheBadge niche={detectedNiche} />}
             {generationTime && (
@@ -211,42 +195,30 @@ export const GeneratedConceptsGrid: React.FC<GeneratedConceptsGridProps> = ({
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={onClear}
+          disabled={editing}
+          onClick={() => { if (activeId) { setActiveId(null); onRefiningChange?.(false); } else onClear(); }}
           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all"
         >
           <RefreshCw className="w-4 h-4" />
-          Generate New
+          {activeId ? 'Back to concepts' : 'Edit brief'}
         </motion.button>
       </div>
 
+      {/* Grid */}
+      <div className={`grid gap-5 ${activeId ? "grid-cols-1" : "md:grid-cols-2"}`}>
+        {concepts.map((concept, index) => (
+          <div key={concept.id} hidden={Boolean(activeId && activeId !== concept.id)}><ConceptCard onBusyChange={busy => { setEditing(busy); onEditingChange?.(busy); }} active={activeId === concept.id} onSelect={() => { setActiveId(concept.id); onRefiningChange?.(true); }} editCreditCost={editCreditCost} hasLogo={hasLogo} onEdited={onComparisonComplete} concept={concept} index={index} outputFormat={outputFormat} onImageChange={(id, imageUrl) => setEditedUrls(previous => ({ ...previous, [id]: imageUrl }))} /></div>
+        ))}
+      </div>
+
+      <div hidden={Boolean(activeId)} className="mt-8">
+        <details className="thumbnail-disclosure"><summary>Help me choose <span className="text-zinc-500">Optional audience assessment</span></summary>
       {concepts.length > 1 && <ThumbnailConceptComparison
         concepts={concepts.map(concept => ({ id: concept.id, imageUrl: editedUrls[concept.id] || concept.thumbnailUrl, name: concept.conceptName }))}
         context={{ ...auditContext, niche: detectedNiche || auditContext?.niche }} onComplete={onComparisonComplete} />}
 
-      {/* Grid */}
-      <div className="grid md:grid-cols-2 gap-4">
-        {concepts.map((concept, index) => (
-          <ConceptCard key={concept.id} concept={concept} index={index} outputFormat={outputFormat} onImageChange={(id, imageUrl) => setEditedUrls(previous => ({ ...previous, [id]: imageUrl }))} />
-        ))}
+        </details>
       </div>
-
-      {/* Bottom Actions */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="mt-10 flex justify-center"
-      >
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={onClear}
-          className="py-3 px-8 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-medium transition-all flex items-center gap-2"
-        >
-          <Sparkles className="w-5 h-5 text-[#fa7517]" />
-          Generate More Concepts
-        </motion.button>
-      </motion.div>
     </motion.div>
   );
 };

@@ -1,1071 +1,181 @@
-import { ThumbnailLogoPicker } from '../../common/ThumbnailLogoPicker';
-import { thumbnailMediaUrl } from '../../../utils/thumbnailMediaUrl';
-import { SaveThumbnailStyle, ThumbnailStylePicker } from '../../common/ThumbnailPackaging';
-import { ThumbnailConceptComparison } from '../../common/ThumbnailConceptComparison';
-import { ThumbnailSubjectPicker } from '../../common/ThumbnailSubjectPicker';
-// src/components/pages/CTREngine/GeneratePage.tsx
-// Unified Thumbnail Generation Page - Combines Free-form and CTR-Optimized modes
-
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Sparkles, 
-  Wand2, 
-  RefreshCw, 
-  AlertCircle, 
-  X, 
-  Clock, 
-  Zap,
-  Image as ImageIcon,
-  Share2,
-  Settings,
-  ChevronDown,
-  ChevronUp,
-  Target,
-  Palette,
-  ArrowLeft,
-  Coins
-} from 'lucide-react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import { AlertCircle, ArrowLeft, ArrowRight, Check, ChevronDown, Sparkles } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
-import { usePublicThumbnailGenerator } from '../../../hooks/usePublicThumbnailGenerator';
-import type { ThumbnailOutputFormat } from '../../../types/thumbnail';
 import useCTREngine from '../../../hooks/useCTREngine';
-import { ThumbnailDetailDrawer } from './components/ThumbnailDetailDrawer';
-import { ViralSharePopup } from './components/ViralSharePopup';
+import { usePublicThumbnailGenerator } from '../../../hooks/usePublicThumbnailGenerator';
+import { ThumbnailLogoPicker } from '../../common/ThumbnailLogoPicker';
+import { ThumbnailSubjectPicker } from '../../common/ThumbnailSubjectPicker';
+import { ThumbnailStylePicker } from '../../common/ThumbnailPackaging';
 import { ThumbnailFormatSelector } from './components/ThumbnailFormatSelector';
-import { FaceConsistencyToggle } from './components/FaceConsistencyToggle';
-import { TitleTextInput, TitleStyle, TitlePosition, TitleColor } from './components/TitleTextInput';
 import { NicheSelector } from './components/NicheSelector';
 import { GeneratedConceptsGrid } from './components/GeneratedConceptsGrid';
+import { ThumbnailDetailDrawer } from './components/ThumbnailDetailDrawer';
 import { BuyCreditsModal } from './components/BuyCreditsModal';
+import { thumbnailMediaUrl } from '../../../utils/thumbnailMediaUrl';
+import type { AuditContext, GeneratedConcept } from '../../../types/ctr';
+import type { ThumbnailOutputFormat } from '../../../types/thumbnail';
 
-type GenerationMode = 'creative' | 'ctr';
+const emptyConcepts: GeneratedConcept[] = [];
+const fieldClass = 'mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-orange-500/40';
 
 const GeneratePage: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const flow = useRef<HTMLDivElement>(null);
+  const [barBounds, setBarBounds] = useState<{ left: number; width: number }>();
+  useLayoutEffect(() => {
+    const element = flow.current;
+    if (!element) return;
+    const measure = () => {
+      const { left, width } = element.getBoundingClientRect();
+      setBarBounds({ left, width });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    const workspace = element.closest('.ai-studio-workspace');
+    if (workspace) observer.observe(workspace);
+    window.addEventListener('resize', measure);
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
+  }, []);
+  const [params] = useSearchParams();
   const location = useLocation();
-  
-  // Get both CTR engine and public generator hooks
-  const {
-    usageAccess,
-    refreshQuota: refreshCTRAccess,
-    isLoadingQuota, 
-    error: ctrError, 
-    errorCode: ctrErrorCode,
-    clearError: clearCtrError,
-    generateThumbnails: generateCTR,
-    generatedConcepts: hookGeneratedConcepts,
-    detectedNiche: hookDetectedNiche,
-    generationTime: hookGenerationTime,
-    generationProgress: ctrProgress,
-    clearGeneratedConcepts,
-    niches,
-    isLoadingNiches,
-    faceReference,
-    isAuthenticated,
-  } = useCTREngine();
-
-  // Use concepts from navigation state if available (from "Generate Better Thumbnail" flow)
-  const navigationState = location.state as {
-    generatedConcepts?: any[];
-    detectedNiche?: string;
-    generationTime?: number;
-    optimizedPrompt?: any;
-    outputFormat?: ThumbnailOutputFormat;
-  } | null;
-  
-  const generatedConcepts = navigationState?.generatedConcepts || hookGeneratedConcepts;
-  const detectedNiche = navigationState?.detectedNiche || hookDetectedNiche;
-  const ctrGenerationTime = navigationState?.generationTime || hookGenerationTime;
-
-  const {
-    generateThumbnail,
-    thumbnails,
-    latestThumbnails = [],
-    refreshQuota: refreshCreativeAccess,
-    loading,
-    error,
-    usageMode: creativeUsageMode,
-    quotaInfo,
-    creditInfo,
-    pricing: creativePricing,
-    insufficientCredits,
-    clearError,
-  } = usePublicThumbnailGenerator();
-
-  // Mode state - read from URL params for deep linking
-  const urlMode = searchParams.get('mode') as GenerationMode | null;
-  const urlPrompt = searchParams.get('prompt');
-  const [mode, setMode] = useState<GenerationMode>(urlMode === 'ctr' ? 'ctr' : 'creative');
-
-  // UI State
-  const [isBuyCreditsOpen, setIsBuyCreditsOpen] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [comparisonUrls, setComparisonUrls] = useState<Record<string, string>>({});
-  const [selectedThumbnail, setSelectedThumbnail] = useState<any>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isViralShareOpen, setIsViralShareOpen] = useState(false);
-  const [shareSelectedThumbnail, setShareSelectedThumbnail] = useState<any>(null);
-
-  // Creative mode state
-  const [savedStyleId, setSavedStyleId] = useState<number>();
+  const ctr = useCTREngine();
+  const creative = usePublicThumbnailGenerator();
+  const navigation = location.state as { generatedConcepts?: GeneratedConcept[]; detectedNiche?: string; generationTime?: number; outputFormat?: ThumbnailOutputFormat } | null;
+  const [videoTitle, setVideoTitle] = useState(params.get('prompt') || '');
   const [creatorHook, setCreatorHook] = useState('');
-  const [creativeDescription, setCreativeDescription] = useState('');
-  const [prompt, setPrompt] = useState('');
-  const [outputFormat, setOutputFormat] = useState<ThumbnailOutputFormat>('landscape');
-  const [creativeQuality, setCreativeQuality] = useState<'low' | 'medium' | 'high'>('high');
-  const [includeFace, setIncludeFace] = useState(false);
-  const [selectedStyle, setSelectedStyle] = useState('');
-  const [selectedVariations, setSelectedVariations] = useState(3);
-  const [logoChecking, setLogoChecking] = useState(false);
+  const [description, setDescription] = useState('');
+  const [direction, setDirection] = useState('');
+  const [headline, setHeadline] = useState('');
+  const [savedStyleId, setSavedStyleId] = useState<number>();
   const [savedStyleHasLogo, setSavedStyleHasLogo] = useState(false);
   const [logo, setLogo] = useState<File | null>(null);
-  const [subjectReference, setSubjectReference] = useState<File[]>([]);
-  const [title, setTitle] = useState('');
-  const [titleStyle, setTitleStyle] = useState<TitleStyle>({
-    bold: true,
-    outline: false,
-    shadow: true,
-    uppercase: true
-  });
-  const [titlePosition, setTitlePosition] = useState<TitlePosition>({
-    vertical: 'top',
-    horizontal: 'center'
-  });
-  const [titleColor, setTitleColor] = useState<TitleColor>({
-    primary: 'white',
-    name: 'White'
-  });
-
-  // CTR mode state
-  const [ctrTitle, setCtrTitle] = useState('');
-  const [ctrDescription, setCtrDescription] = useState('');
-  const [selectedNiche, setSelectedNiche] = useState<string | null>(null);
-  const [textOverlay, setTextOverlay] = useState('');
-  const [ctrIncludeFace, setCtrIncludeFace] = useState(false);
-  const [ctrOutputFormat, setCtrOutputFormat] = useState<ThumbnailOutputFormat>('landscape');
-  const [concepts, setConcepts] = useState(3);
+  const [logoChecking, setLogoChecking] = useState(false);
+  const [subjects, setSubjects] = useState<File[]>([]);
+  const [format, setFormat] = useState<ThumbnailOutputFormat>(navigation?.outputFormat || 'landscape');
   const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('high');
-
-  // Handle URL params for optimized prompt flow
+  const [count, setCount] = useState(2);
+  const [niche, setNiche] = useState<string | null>(null);
+  const [includeFace, setIncludeFace] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [stage, setStage] = useState<'brief' | 'choose' | 'refine'>(navigation?.generatedConcepts?.length ? 'choose' : 'brief');
   useEffect(() => {
-    if (urlPrompt) {
-      if (urlMode === 'ctr') {
-        setCtrTitle(decodeURIComponent(urlPrompt));
+    const heading = flow.current?.querySelector<HTMLElement>(stage === 'brief' ? 'h1' : '.ai-generated-concepts h2');
+    heading?.focus({ preventScroll: true });
+    flow.current?.scrollIntoView?.({ block: 'start' });
+  }, [stage]);
+  const [buyCredits, setBuyCredits] = useState(false);
+  const [publicSelection, setPublicSelection] = useState<any>(null);
+  const [publicDrawerOpen, setPublicDrawerOpen] = useState(false);
+  const [resultContext, setResultContext] = useState<AuditContext>({ title: videoTitle });
+  const [resultFormat, setResultFormat] = useState<ThumbnailOutputFormat>(format);
+  const [resultHasLogo, setResultHasLogo] = useState(false);
+  const pendingBrief = useRef({ context: resultContext, format, hasLogo: false });
+  const inFlight = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [lookOpen, setLookOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
+  const resultConcepts = ctr.generatedConcepts.length ? ctr.generatedConcepts : navigation?.generatedConcepts || emptyConcepts;
+  const publicResults = creative.latestThumbnails?.length ? creative.latestThumbnails : creative.thumbnails;
+  const resultKey = ctr.isAuthenticated ? resultConcepts.map(c => c.thumbnailUrl).join('|') : publicResults.map(c => c.imageUrl).join('|');
+  useEffect(() => {
+    if (!resultKey) return;
+    setResultContext(pendingBrief.current.context);
+    setResultFormat(pendingBrief.current.format);
+    setResultHasLogo(pendingBrief.current.hasLogo);
+    setStage('choose');
+  }, [resultKey]);
+  const busy = editing || submitting || creative.loading || ctr.generationProgress.status === 'generating';
+  const access = ctr.usageAccess;
+  const creditMode = ctr.isAuthenticated ? access?.mode === 'credits' : creative.usageMode === 'credits';
+  const pricing = ctr.isAuthenticated ? access?.pricing : creative.pricing;
+  const cost = pricing ? (ctr.isAuthenticated ? pricing.ctr.generatePerConcept : pricing.thumbnail.generatePerImage) * count : undefined;
+  const available = ctr.isAuthenticated ? (access?.mode === 'credits' ? access.creditInfo.available : undefined) : creative.creditInfo?.available;
+  const quotaRemaining = ctr.isAuthenticated ? (access?.mode === 'quota' ? access.quota.generate.remaining : undefined) : creative.quotaInfo?.remaining;
+  const usageReady = (ctr.isAuthenticated ? Boolean(access) && !ctr.isLoadingQuota : Boolean(creative.usageMode)) && (!creditMode || cost !== undefined);
+  const enough = creditMode ? cost !== undefined && available !== undefined && available >= cost : quotaRemaining !== 0;
+  const canGenerate = usageReady && enough && videoTitle.trim().length > 0 && !busy && !logoChecking;
+  const error = creative.error || ctr.error;
+  const refreshAccess = async () => { await ctr.refreshQuota(); await creative.refreshQuota(); };
+
+  const generate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (inFlight.current || !canGenerate) return;
+    inFlight.current = true; setSubmitting(true);
+    creative.clearError(); ctr.clearError();
+    pendingBrief.current = { context: { title: videoTitle.trim(), description: [description, creatorHook].filter(Boolean).join('\n') }, format, hasLogo: Boolean(logo || savedStyleHasLogo) };
+    try {
+      if (ctr.isAuthenticated) {
+        await ctr.generateThumbnails({
+          title: videoTitle.trim(), description: description.trim() || undefined,
+          creatorBrief: { title: videoTitle.trim(), description: [description, direction.trim() && `Visual direction (creative preferences, not additional video facts): ${direction.trim()}`].filter(Boolean).join('\n\n'), creatorHook },
+          prompt: direction.trim() || undefined, textOverlay: headline.trim() || undefined,
+          savedStyleId, subjectReferences: subjects, logo: logo || undefined,
+          niche: niche || undefined, includeFace: includeFace && Boolean(ctr.faceReference?.hasFaceReference),
+          concepts: count, quality, size: format,
+        });
       } else {
-        setPrompt(decodeURIComponent(urlPrompt));
+        const prompt = [videoTitle.trim(), description && `Video context: ${description}`, creatorHook && `Viewer discovery: ${creatorHook}`, direction && `Visual direction: ${direction}`].filter(Boolean).join('\n');
+        await creative.generateThumbnail(prompt, { size: format, quality, n: count, title: headline || undefined });
       }
-    }
-  }, [urlPrompt, urlMode]);
-
-  // Style presets for creative mode
-  const stylePresets = [
-    { id: '', label: 'Default', icon: '✨' },
-    { id: 'cinematic', label: 'Cinematic', icon: '🎬' },
-    { id: 'vibrant', label: 'Vibrant', icon: '🌈' },
-    { id: 'minimal', label: 'Minimal', icon: '◻️' },
-    { id: 'dramatic', label: 'Dramatic', icon: '🔥' },
-    { id: 'retro', label: 'Retro', icon: '📼' },
-  ];
-
-  // Example prompts for creative mode
-  const examplePrompts = [
-    { text: "Epic gaming PC build with RGB lights and dramatic smoke", category: "Gaming" },
-    { text: "Shocked face reacting to code on screen, neon colors", category: "Tech" },
-    { text: "Cinematic mountain landscape with golden hour lighting", category: "Travel" },
-    { text: "Colorful healthy meal prep containers, top-down view", category: "Lifestyle" },
-  ];
-
-  const handleCreativeGenerate = async (e: React.FormEvent) => {
-    if (logoChecking) { e.preventDefault(); return; }
-    e.preventDefault();
-    if (!prompt.trim()) return;
-    
-    clearError();
-    await generateThumbnail(prompt, {
-      savedStyleId,
-      creatorBrief: isAuthenticated ? { title: prompt, description: creativeDescription, creatorHook } : undefined,
-      size: outputFormat,
-      quality: creativeQuality,
-      includeFace,
-      style: selectedStyle.trim() || undefined,
-      n: selectedVariations,
-      subjectReferences: subjectReference, logo: logo || undefined,
-      title: title.trim() || undefined,
-      titleStyle: title.trim() ? titleStyle : undefined,
-      titlePosition: title.trim() ? titlePosition : undefined,
-      titleColor: title.trim() ? titleColor : undefined
-    });
+    } finally { inFlight.current = false; setSubmitting(false); }
   };
 
-  const handleCTRGenerate = async (e: React.FormEvent) => {
-    if (logoChecking) { e.preventDefault(); return; }
-    e.preventDefault();
-    if (!ctrTitle.trim()) return;
-
-    await generateCTR({
-      savedStyleId,
-      creatorBrief: { title: ctrTitle, description: ctrDescription, creatorHook },
-      title: ctrTitle.trim(),
-      description: ctrDescription.trim() || undefined,
-      niche: selectedNiche || undefined,
-      textOverlay: textOverlay.trim() || undefined,
-      includeFace: ctrIncludeFace && faceReference?.hasFaceReference,
-      concepts,
-      quality,
-      size: ctrOutputFormat,
-      subjectReferences: subjectReference, logo: logo || undefined,
-    });
-  };
-
-  const handleThumbnailClick = (thumbnail: any) => {
-    setSelectedThumbnail(thumbnail);
-    setIsDrawerOpen(true);
-  };
-
-  const handleShare = (thumbnail: any, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShareSelectedThumbnail(thumbnail);
-    setIsViralShareOpen(true);
-  };
-
-  const creativeCreditCost = (creativePricing?.ctr.generatePerConcept ?? 0) * selectedVariations;
-  const ctrCreditCost = (usageAccess?.mode === 'credits' ? (usageAccess.pricing?.ctr.generatePerConcept ?? 0) : 0) * concepts;
-  const creativePreviewAspectClass = outputFormat === 'short' ? 'aspect-[9/16]' : 'aspect-video';
-
-  const canGenerateCreative = creativeUsageMode === 'credits'
-    ? (creditInfo?.available ?? 0) >= creativeCreditCost
-    : (quotaInfo ? quotaInfo.remaining > 0 : true);
-
-  const canGenerateCTR = ctrTitle.trim().length > 0 && (
-    usageAccess?.mode === 'credits'
-      ? usageAccess.creditInfo.available >= ctrCreditCost
-      : usageAccess?.mode !== 'quota' || usageAccess.quota.generate.remaining > 0
-  );
-
-  // Show CTR results if we have them
-  if (generatedConcepts.length > 0) {
-    return (
-      <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="ai-results-page max-w-4xl mx-auto"
-          >
-            {/* Back Button */}
-            <div className="mb-6">
-              <motion.button
-                onClick={clearGeneratedConcepts}
-                whileHover={{ x: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Generate New Thumbnails
-              </motion.button>
-            </div>
-
-            <GeneratedConceptsGrid 
-              concepts={generatedConcepts}
-              auditContext={{ title: ctrTitle, description: [ctrDescription, creatorHook].filter(Boolean).join("\n") }}
-              onComparisonComplete={refreshCTRAccess}
-              detectedNiche={detectedNiche}
-              generationTime={ctrGenerationTime}
-              outputFormat={navigationState?.outputFormat || ctrOutputFormat}
-              onClear={clearGeneratedConcepts}
-            />
-          </motion.div>
-      </AIThumbnailsLayout>
-    );
-  }
-
-  return (
-    <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
-      {/* Error Display */}
-      <AnimatePresence>
-        {(error || ctrError) && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="max-w-2xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3"
-          >
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-red-400">{error || ctrError}</p>
-              {(insufficientCredits || ctrErrorCode === 'INSUFFICIENT_CREDITS') && (
-                <button
-                  type="button"
-                  onClick={() => setIsBuyCreditsOpen(true)}
-                  className="mt-3 inline-flex items-center gap-2 text-sm text-[#fa7517] hover:text-orange-400 transition-colors"
-                >
-                  <Coins className="w-4 h-4" />
-                  Buy credits
-                </button>
-              )}
-            </div>
-            <button
-              onClick={() => { clearError(); clearCtrError(); }}
-              className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="ai-create-page max-w-2xl mx-auto w-full">
-        {/* Mode Toggle */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between"
-        >
-          <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#fa7517]">
-              AI Thumbnail Studio
-            </p>
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-100">
-              {mode === 'creative' ? 'New thumbnail' : 'Optimized thumbnail'}
-            </h1>
-            <p className="mt-2 max-w-md text-sm text-zinc-500">
-              {mode === 'creative'
-                ? 'Describe the visual. Keep full control of the creative direction.'
-                : 'Start with your video title and build focused thumbnail concepts.'}
-            </p>
-          </div>
-          <div className="ai-create-mode-switch flex w-full gap-1 rounded-xl border border-white/[0.08] bg-[#111113] p-1 sm:w-auto">
-            <button
-              onClick={() => setMode('creative')}
-              className={`flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors sm:flex-none ${
-                mode === 'creative'
-                  ? 'bg-[#fa7517]/15 text-[#fb923c]'
-                  : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200'
-              }`}
-            >
-              <Palette className="h-3.5 w-3.5" />
-              Free-form
-            </button>
-            <button
-              onClick={() => setMode('ctr')}
-              className={`flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors sm:flex-none ${
-                mode === 'ctr'
-                  ? 'bg-[#fa7517]/15 text-[#fb923c]'
-                  : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200'
-              }`}
-            >
-              <Target className="h-3.5 w-3.5" />
-              Optimized
-            </button>
-          </div>
-        </motion.div>
-
-        {isAuthenticated && <label className="block text-sm text-white">What’s the most interesting thing viewers will discover?
-          <textarea aria-label="Creator hook" value={creatorHook} onChange={e => setCreatorHook(e.target.value)} maxLength={1000} disabled={loading || ctrProgress.status === 'generating'} placeholder="Optional: The cheapest microphone sounded better in my test." className="mt-2 w-full rounded-xl bg-white/5 p-3" />
-        </label>}
-        {isAuthenticated && <ThumbnailStylePicker value={savedStyleId} onChange={(id, hasLogo) => { setSavedStyleId(id); setSavedStyleHasLogo(Boolean(hasLogo)); }} disabled={loading || ctrProgress.status === 'generating'} />}
-        {isAuthenticated && <ThumbnailLogoPicker value={logo} onChange={setLogo} savedLogo={savedStyleHasLogo} onCheckingChange={setLogoChecking} disabled={loading || ctrProgress.status === 'generating'} />}
-        {isAuthenticated && <ThumbnailSubjectPicker multiple value={subjectReference} onChange={setSubjectReference} disabled={loading || ctrProgress.status === 'generating'} />}
-
-        {/* Main Form Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="ai-create-card mb-8"
-        >
-          <AnimatePresence mode="wait">
-            {mode === 'creative' ? (
-              /* ============================================ */
-              /* CREATIVE MODE - Prompt-based generation */
-              /* ============================================ */
-              <motion.form
-                key="creative-form"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                onSubmit={handleCreativeGenerate}
-                className="ai-create-form"
-              >
-                {/* Prompt Input */}
-                <div className="mb-4 sm:mb-6">
-                  <label className="block text-sm font-semibold text-white mb-2 sm:mb-3 flex items-center gap-2">
-                    <Wand2 className="w-4 h-4 text-[#fa7517] flex-shrink-0" />
-                    <span className="text-xs sm:text-sm">Describe Your Thumbnail</span>
-                  </label>
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="A vibrant gaming thumbnail featuring a surprised face with glowing neon effects and bold 3D text..."
-                    rows={4}
-                    className="w-full px-3 sm:px-4 py-3 sm:py-3.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm sm:text-base
-                              placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 
-                              focus:border-[#fa7517]/50 backdrop-blur-sm transition-all resize-none"
-                    disabled={loading}
-                  />
-                  <p className="mt-2 text-xs text-gray-500">{prompt.length}/500 characters</p>
-                </div>
-
-                {isAuthenticated && <label className="mb-4 block text-sm text-gray-300">Video description (optional)
-                  <textarea aria-label="Video description" value={creativeDescription} onChange={e => setCreativeDescription(e.target.value)} maxLength={3000} disabled={loading} className="mt-2 w-full rounded-xl bg-white/5 p-3" />
-                </label>}
-                {/* Example Prompts */}
-                <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-black/40 border border-gray-800/50 rounded-xl">
-                  <p className="text-xs sm:text-sm font-medium text-white mb-2 sm:mb-3 flex items-center gap-2">
-                    <Sparkles className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-[#fa7517] flex-shrink-0" />
-                    Try an example
-                  </p>
-                  <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-                    {examplePrompts.map((example, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setPrompt(example.text)}
-                        className="group flex items-center gap-2 px-3 py-2.5 sm:py-2 bg-black/50 hover:bg-[#fa7517]/10 border border-gray-800/50 hover:border-[#fa7517]/30 rounded-lg transition-all min-h-[44px] sm:min-h-0 text-left"
-                      >
-                        <span className="px-1.5 py-0.5 bg-[#fa7517]/20 text-[#fa7517] text-[10px] font-semibold rounded flex-shrink-0">
-                          {example.category}
-                        </span>
-                        <span className="text-xs text-gray-400 group-hover:text-white transition-colors truncate flex-1">
-                          {example.text}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Style Presets */}
-                <div className="mb-4 sm:mb-6">
-                  <label className="block text-xs sm:text-sm font-semibold text-white mb-2 sm:mb-3">Style</label>
-                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                    {stylePresets.map((style) => (
-                      <button
-                        key={style.id}
-                        type="button"
-                        onClick={() => setSelectedStyle(style.id)}
-                        disabled={loading}
-                        className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all min-h-[44px] sm:min-h-0
-                                  ${selectedStyle === style.id
-                                    ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
-                                    : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/10'
-                                  }`}
-                      >
-                        <span className="text-base sm:text-lg">{style.icon}</span>
-                        <span>{style.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Advanced Options Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-4"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span>Advanced Options</span>
-                  {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-
-                {/* Advanced Options */}
-                <AnimatePresence>
-                  {showAdvanced && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="p-5 bg-black/40 border border-gray-800/50 rounded-xl space-y-6 mb-6">
-                        <ThumbnailFormatSelector
-                          selectedFormat={outputFormat}
-                          onFormatChange={setOutputFormat}
-                          disabled={loading}
-                        />
-
-                        <div className="grid md:grid-cols-2 gap-6">
-                          <div>
-                            <h3 className="text-sm font-semibold text-white mb-3">Quality</h3>
-                            <div className="grid grid-cols-3 gap-2">
-                              {[
-                                { value: 'low', label: 'Draft' },
-                                { value: 'medium', label: 'Standard' },
-                                { value: 'high', label: 'High' },
-                              ].map((opt) => (
-                                <button
-                                  key={opt.value}
-                                  type="button"
-                                  onClick={() => setCreativeQuality(opt.value as 'low' | 'medium' | 'high')}
-                                  disabled={loading}
-                                  className={`py-3 rounded-xl font-bold text-sm transition-all border-2
-                                             ${creativeQuality === opt.value
-                                               ? 'border-[#fa7517] bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
-                                               : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20 hover:bg-white/10'
-                                             }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div>
-                            <h3 className="text-sm font-semibold text-white mb-3">Variations</h3>
-                            <div className="flex gap-2">
-                              {[1, 2, 3].map((num) => (
-                                <button
-                                  key={num}
-                                  type="button"
-                                  onClick={() => setSelectedVariations(num)}
-                                  disabled={loading}
-                                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all border-2
-                                             ${selectedVariations === num
-                                               ? 'border-[#fa7517] bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
-                                               : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20 hover:bg-white/10'
-                                             }`}
-                                >
-                                  {num}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        <FaceConsistencyToggle
-                          enabled={includeFace}
-                          onToggle={setIncludeFace}
-                          disabled={loading}
-                        />
-
-                        {isAuthenticated ? <label className="block text-sm text-white">Headline (optional)
-                          <input aria-label="Initial headline" value={title} maxLength={90} onChange={e => setTitle(e.target.value)} className="mt-2 w-full rounded-lg bg-white/5 p-3" />
-                          <span className="text-xs text-gray-400">Leave blank for a suggestion. Adjust text after generation.</span>
-                        </label> : (<TitleTextInput
-                          title={title}
-                          onTitleChange={setTitle}
-                          style={titleStyle}
-                          onStyleChange={setTitleStyle}
-                          position={titlePosition}
-                          onPositionChange={setTitlePosition}
-                          color={titleColor}
-                          onColorChange={setTitleColor}
-                        />) }
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Submit Button */}
-                <motion.button
-                  type="submit"
-                  disabled={logoChecking || loading || !canGenerateCreative || !prompt.trim()}
-                  whileHover={{ scale: canGenerateCreative && !loading && prompt.trim() ? 1.02 : 1 }}
-                  whileTap={{ scale: canGenerateCreative && !loading && prompt.trim() ? 0.98 : 1 }}
-                  className={`relative w-full py-4 sm:py-4 px-4 sm:px-6 rounded-xl font-semibold text-white transition-all
-                             flex items-center justify-center gap-2 overflow-hidden min-h-[52px] sm:min-h-[48px]
-                             ${canGenerateCreative && !loading && prompt.trim()
-                               ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 shadow-lg shadow-[#fa7517]/25 hover:shadow-[#fa7517]/40'
-                               : 'bg-white/10 cursor-not-allowed text-gray-400'
-                             }`}
-                >
-                  {loading ? (
-                    <>
-                      <RefreshCw className="w-5 h-5 animate-spin flex-shrink-0" />
-                      <span className="text-sm sm:text-base">Creating {selectedVariations} thumbnail{selectedVariations > 1 ? 's' : ''}...</span>
-                    </>
-                  ) : !canGenerateCreative ? (
-                    <>
-                      <Clock className="w-5 h-5 flex-shrink-0" />
-                      <span className="text-sm sm:text-base">
-                        {creativeUsageMode === 'credits' ? 'Not enough credits' : 'Daily limit reached'}
-                      </span>
-                    </>
-                  ) : !prompt.trim() ? (
-                    <span className="text-sm sm:text-base">Describe your thumbnail idea</span>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5 flex-shrink-0" />
-                      <span className="text-sm sm:text-base">Create {selectedVariations} Thumbnail{selectedVariations > 1 ? 's' : ''}</span>
-                    </>
-                  )}
-                </motion.button>
-
-                {/* Usage Info */}
-                {creativeUsageMode === 'credits' && creditInfo ? (
-                  <div className="mt-4 flex items-center justify-center gap-2 text-sm">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-gray-800/50 rounded-full">
-                      <Coins className="w-4 h-4 text-[#fa7517]" />
-                      <span className="text-[#fa7517] font-medium">{creditInfo.available}</span>
-                      <span className="text-gray-500">available credits</span>
-                      {creativeCreditCost > 0 && (
-                        <span className="text-gray-600">• {creativeCreditCost} per run</span>
-                      )}
-                    </div>
-                  </div>
-                ) : quotaInfo && (
-                  <div className="mt-4 flex items-center justify-center gap-2 text-sm">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-gray-800/50 rounded-full">
-                      <Zap className="w-4 h-4 text-[#fa7517]" />
-                      <span className="text-[#fa7517] font-medium">{quotaInfo.used}</span>
-                      <span className="text-gray-500">of {quotaInfo.limit} created today</span>
-                    </div>
-                  </div>
-                )}
-              </motion.form>
-            ) : (
-              /* ============================================ */
-              /* CTR MODE - Title-based optimized generation */
-              /* ============================================ */
-              <motion.form
-                key="ctr-form"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                onSubmit={handleCTRGenerate}
-                className="ai-create-form"
-              >
-                {/* Optimized prompt banner if from URL */}
-                {urlPrompt && urlMode === 'ctr' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-4 p-3 bg-gradient-to-r from-[#fa7517]/10 to-orange-500/10 border border-[#fa7517]/20 rounded-xl flex items-center gap-3"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-[#fa7517]/20 flex items-center justify-center">
-                      <Target className="w-4 h-4 text-[#fa7517]" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-white">Optimized from Audit</p>
-                      <p className="text-xs text-gray-400">This prompt was generated based on your audit results</p>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* New-approach explainer: concepts now use modern, anti-clickbait strategies */}
-                <div className="mb-5 p-3 rounded-xl bg-[#fa7517]/5 border border-[#fa7517]/20 flex items-start gap-2.5">
-                  <Sparkles className="w-4 h-4 text-[#fa7517] flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-gray-300 leading-relaxed">
-                    Concepts use modern, high-contrast, anti-clickbait styles — one clear focal point and clean
-                    negative space (neo-minimal, cinematic, object hero and more). Each concept is labelled with the
-                    strategy it used.
-                  </p>
-                </div>
-
-                {/* Title Input */}
-                <div className="mb-5">
-                  <label className="block text-sm font-semibold text-white mb-2 flex items-center gap-2">
-                    <Target className="w-4 h-4 text-[#fa7517]" />
-                    Video Title <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={ctrTitle}
-                    onChange={(e) => setCtrTitle(e.target.value)}
-                    placeholder="How I Made $10,000 in One Day Trading Crypto"
-                    className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white 
-                              placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 
-                              focus:border-[#fa7517]/50 backdrop-blur-sm transition-all"
-                    disabled={ctrProgress.status === 'generating'}
-                    maxLength={150}
-                  />
-                  <p className="mt-1.5 text-xs text-gray-500">{ctrTitle.length}/150 characters</p>
-                </div>
-
-                {/* Description Input */}
-                <div className="mb-5">
-                  <label className="block text-sm font-semibold text-white mb-2">
-                    Description <span className="text-gray-500 font-normal">(optional)</span>
-                  </label>
-                  <textarea
-                    value={ctrDescription}
-                    onChange={(e) => setCtrDescription(e.target.value)}
-                    placeholder="Brief description of your video content..."
-                    rows={3}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white 
-                              placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 
-                              focus:border-[#fa7517]/50 backdrop-blur-sm transition-all resize-none"
-                    disabled={ctrProgress.status === 'generating'}
-                    maxLength={500}
-                  />
-                </div>
-
-                {/* Niche Selection */}
-                <div className="mb-4 sm:mb-5">
-                  <label className="block text-xs sm:text-sm font-semibold text-white mb-2 sm:mb-3">Content Niche</label>
-                  <NicheSelector
-                niches={niches}
-                    selectedNiche={selectedNiche}
-                    onSelect={setSelectedNiche}
-                    isLoading={isLoadingNiches || ctrProgress.status === 'generating'}
-                    variant="pills"
-                  />
-                </div>
-
-                {/* Text Overlay */}
-                <div className="mb-4 sm:mb-5">
-                  <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
-                    Text Overlay <span className="text-gray-500 font-normal">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={textOverlay}
-                    onChange={(e) => setTextOverlay(e.target.value)}
-                    placeholder="$10K IN 1 DAY"
-                    className="w-full px-3 sm:px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm sm:text-base
-                              placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 
-                              focus:border-[#fa7517]/50 backdrop-blur-sm transition-all min-h-[44px] sm:min-h-0"
-                    disabled={ctrProgress.status === 'generating'}
-                    maxLength={50}
-                  />
-                  <p className="mt-1.5 text-xs text-gray-500">Short, impactful text for your thumbnail</p>
-                </div>
-
-                {/* Advanced Options Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center gap-2 text-xs sm:text-sm text-gray-400 hover:text-white transition-colors mb-3 sm:mb-4 min-h-[44px] sm:min-h-0"
-                >
-                  <Settings className="w-4 h-4 flex-shrink-0" />
-                  <span>Advanced Options</span>
-                  {showAdvanced ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
-                </button>
-
-                {/* Advanced Options */}
-                <AnimatePresence>
-                  {showAdvanced && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="p-5 bg-black/40 border border-gray-800/50 rounded-xl space-y-5 mb-6">
-                        <ThumbnailFormatSelector
-                          selectedFormat={ctrOutputFormat}
-                          onFormatChange={setCtrOutputFormat}
-                          disabled={ctrProgress.status === 'generating'}
-                        />
-
-                        {/* Number of Concepts */}
-                        <div>
-                          <label className="block text-xs sm:text-sm font-medium text-white mb-2 sm:mb-3">
-                            Number of Concepts
-                          </label>
-                          <div className="grid grid-cols-5 gap-2">
-                            {[1, 2, 3].map((num) => (
-                              <button
-                                key={num}
-                                type="button"
-                                onClick={() => setConcepts(num)}
-                                disabled={ctrProgress.status === 'generating'}
-                                className={`py-2.5 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all min-h-[44px] sm:min-h-0
-                                           ${concepts === num
-                                             ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
-                                             : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
-                                           }`}
-                              >
-                                {num}
-                              </button>
-                            ))}
-                          </div>
-                          <p className="mt-2 text-xs text-gray-500">~{concepts * 15}s generation time</p>
-                        </div>
-
-                        {/* Quality */}
-                        <div>
-                          <label className="block text-xs sm:text-sm font-medium text-white mb-2 sm:mb-3">Quality</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {[
-                              { value: 'low', label: 'Draft' },
-                              { value: 'medium', label: 'Standard' },
-                              { value: 'high', label: 'High' },
-                            ].map((opt) => (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => setQuality(opt.value as 'low' | 'medium' | 'high')}
-                                disabled={ctrProgress.status === 'generating'}
-                                className={`py-2.5 sm:py-2.5 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-medium transition-all min-h-[44px] sm:min-h-0
-                                           ${quality === opt.value
-                                             ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 text-white shadow-lg shadow-[#fa7517]/25'
-                                             : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
-                                           }`}
-                              >
-                                {opt.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Face Reference Toggle */}
-                        {isAuthenticated && (
-                          <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                            <label className="flex items-center justify-between cursor-pointer">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-[#fa7517]/10 flex items-center justify-center">
-                                  {faceReference?.thumbnailUrl ? (
-                                    <img src={faceReference.thumbnailUrl} alt="Face" className="w-full h-full rounded-xl object-cover" />
-                                  ) : (
-                                    <ImageIcon className="w-5 h-5 text-[#fa7517]" />
-                                  )}
-                                </div>
-                                <div>
-                                  <span className="text-sm font-medium text-white">Include My Face</span>
-                                  <p className="text-xs text-gray-500">
-                                    {faceReference?.hasFaceReference ? 'Uses saved reference' : 'Set up in Settings'}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="relative">
-                                <input
-                                  type="checkbox"
-                                  checked={ctrIncludeFace}
-                                  onChange={(e) => setCtrIncludeFace(e.target.checked)}
-                                  disabled={!faceReference?.hasFaceReference}
-                                  className="sr-only"
-                                />
-                                <div className={`w-12 h-6 rounded-full transition-colors ${
-                                  ctrIncludeFace && faceReference?.hasFaceReference ? 'bg-[#fa7517]' : 'bg-white/20'
-                                }`}>
-                                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-all ${
-                                    ctrIncludeFace && faceReference?.hasFaceReference ? 'left-[26px]' : 'left-0.5'
-                                  }`} />
-                                </div>
-                              </div>
-                            </label>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Generation Progress */}
-                <AnimatePresence>
-                  {ctrProgress.status === 'generating' && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="mb-6 p-5 bg-[#fa7517]/10 border border-[#fa7517]/20 rounded-xl"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-white flex items-center gap-2">
-                          <Zap className="w-4 h-4 text-[#fa7517]" />
-                          Generating {concepts} concept{concepts > 1 ? 's' : ''}...
-                        </span>
-                        <span className="text-xs text-gray-400">~{concepts * 15}s estimated</span>
-                      </div>
-                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full bg-gradient-to-r from-[#fa7517] to-orange-500"
-                          initial={{ width: '0%' }}
-                          animate={{ width: '100%' }}
-                          transition={{ duration: concepts * 15, ease: 'linear' }}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-                {/* Submit Button */}
-                <motion.button
-                  type="submit"
-                  disabled={logoChecking || ctrProgress.status === 'generating' || !canGenerateCTR}
-                  whileHover={{ scale: canGenerateCTR && ctrProgress.status !== 'generating' ? 1.02 : 1 }}
-                  whileTap={{ scale: canGenerateCTR && ctrProgress.status !== 'generating' ? 0.98 : 1 }}
-                  className={`relative w-full py-4 sm:py-4 px-4 sm:px-6 rounded-xl font-semibold text-white transition-all
-                             flex items-center justify-center gap-2 overflow-hidden min-h-[52px] sm:min-h-[48px]
-                             ${canGenerateCTR && ctrProgress.status !== 'generating'
-                               ? 'bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 shadow-lg shadow-[#fa7517]/25 hover:shadow-[#fa7517]/40'
-                               : 'bg-white/10 cursor-not-allowed text-gray-400'
-                             }`}
-                >
-                  {ctrProgress.status === 'generating' ? (
-                    <>
-                      <RefreshCw className="w-5 h-5 animate-spin flex-shrink-0" />
-                      <span className="text-sm sm:text-base">Generating...</span>
-                    </>
-                  ) : !ctrTitle.trim() ? (
-                    <span className="text-sm sm:text-base">Enter a title to generate</span>
-                  ) : usageAccess?.mode === 'credits' && !canGenerateCTR ? (
-                    'Not enough credits'
-                  ) : usageAccess?.mode === 'quota' && usageAccess.quota.generate.remaining === 0 ? (
-                    'Generation quota exhausted'
-                  ) : (
-                    <>
-                      <Target className="w-5 h-5" />
-                      <span>Generate {concepts} Thumbnail{concepts > 1 ? 's' : ''}</span>
-                    </>
-                  )}
-                </motion.button>
-
-                {/* Usage Info */}
-                {usageAccess?.mode === 'credits' ? (
-                  <div className="mt-4 flex items-center justify-center gap-2 text-sm">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-gray-800/50 rounded-full">
-                      <Coins className="w-4 h-4 text-[#fa7517]" />
-                      <span className="text-[#fa7517] font-medium">{usageAccess.creditInfo.available}</span>
-                      <span className="text-gray-500">available credits</span>
-                      {ctrCreditCost > 0 && (
-                        <span className="text-gray-600">• {ctrCreditCost} for this run</span>
-                      )}
-                    </div>
-                  </div>
-                ) : usageAccess?.mode === 'quota' && (
-                  <div className="mt-4 flex items-center justify-center gap-2 text-sm">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-gray-800/50 rounded-full">
-                      <Zap className="w-4 h-4 text-[#fa7517]" />
-                      <span className="text-[#fa7517] font-medium">{usageAccess.quota.generate.used}</span>
-                      <span className="text-gray-500">of {usageAccess.quota.generate.limit === -1 ? '∞' : usageAccess.quota.generate.limit} generated today</span>
-                    </div>
-                  </div>
-                )}
-              </motion.form>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {mode === 'creative' && latestThumbnails.length > 1 && <ThumbnailConceptComparison
-          concepts={latestThumbnails.map((thumbnail, index) => ({ id: thumbnail.id, imageUrl: comparisonUrls[thumbnail.id] || thumbnail.imageUrl, name: thumbnail.conceptName || `Concept ${index + 1}` }))}
-          context={{ title: prompt, description: [creativeDescription, creatorHook].filter(Boolean).join("\n") }} onComplete={refreshCreativeAccess} />}
-
-        {/* Generated Creative Thumbnails */}
-        <AnimatePresence>
-          {thumbnails.length > 0 && mode === 'creative' && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-8"
-            >
-              <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-[#fa7517]" />
-                Generated Thumbnails
-              </h2>
-              
-              <div className="grid sm:grid-cols-2 gap-6">
-                {thumbnails.map((thumbnail, index) => (
-                  <motion.div
-                    key={thumbnail.id}
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ delay: index * 0.1 }}
-                    onClick={() => handleThumbnailClick(thumbnail)}
-                    className="group bg-black/50 rounded-2xl overflow-hidden border border-gray-800/30 hover:border-[#fa7517]/30 transition-all duration-300 cursor-pointer"
-                  >
-                    <div className={`relative ${creativePreviewAspectClass} bg-black/40 overflow-hidden`}>
-                      <img
-                        src={thumbnailMediaUrl(comparisonUrls[thumbnail.id] || thumbnail.imageUrl)}
-                        alt={thumbnail.prompt}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                      
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-3">
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={(e) => handleShare(thumbnail, e)}
-                          className="p-3 bg-white/20 text-white rounded-xl shadow-lg backdrop-blur-sm border border-white/20"
-                        >
-                          <Share2 className="w-5 h-5" />
-                        </motion.button>
-                      </div>
-                    </div>
-
-                    <div className="p-4">
-                      {thumbnail.conceptName && <p className="mb-1 text-sm font-semibold text-white">{thumbnail.conceptName}</p>}
-                      <p className="text-sm text-gray-400 line-clamp-2">{thumbnail.conceptDescription || thumbnail.prompt}</p>
-                      {isAuthenticated && <SaveThumbnailStyle key={`style:${comparisonUrls[thumbnail.id] || thumbnail.imageUrl}`} imageUrl={comparisonUrls[thumbnail.id] || thumbnail.imageUrl} />}
-                      {thumbnail.adjustmentError && <p role="alert" className="text-xs text-amber-300">{thumbnail.adjustmentError}</p>}
-                      <p className="text-xs text-gray-600 mt-2 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {new Date(thumbnail.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
+  return <AIThumbnailsLayout usageAccess={access} isLoadingQuota={ctr.isLoadingQuota}>
+    <div ref={flow} className="thumbnail-flow mx-auto w-full max-w-6xl pb-8">
+      <header className="mb-8 flex flex-wrap items-center justify-between gap-5">
+        <div><p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#fa7517]">AI Thumbnail Studio</p><p className="mt-1 text-sm text-zinc-400">Your next video, made unmissable.</p></div>
+        <nav aria-label="Thumbnail creation progress" className="flex items-center gap-4 text-sm">
+          <button type="button" disabled={busy} onClick={() => setStage('brief')} aria-current={stage === 'brief' ? 'step' : undefined} className={stage === 'brief' ? 'text-orange-400' : 'text-zinc-400'}>1. Brief</button><ArrowRight className="h-3 w-3 text-zinc-600" />
+          <button type="button" disabled={!resultKey || busy} onClick={() => setStage('choose')} aria-current={stage === 'choose' ? 'step' : undefined} className={stage === 'choose' ? 'text-orange-400' : 'text-zinc-400 disabled:opacity-40'}>2. Choose</button><ArrowRight className="h-3 w-3 text-zinc-600" />
+          <span aria-current={stage === 'refine' ? 'step' : undefined} className={stage === 'refine' ? 'text-orange-400' : 'text-zinc-500'}>3. Refine</span>
+        </nav>
+      </header>
+      {error && <div role="alert" className="mb-5 flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200"><AlertCircle className="h-5 w-5 shrink-0" /><div>{error}{(creative.insufficientCredits || ctr.errorCode === 'INSUFFICIENT_CREDITS') && <button type="button" className="ml-3 underline" onClick={() => setBuyCredits(true)}>Buy credits</button>}</div></div>}
+      <form onSubmit={generate} hidden={stage !== 'brief'} aria-label="Thumbnail brief">
+        <div className="thumbnail-brief-grid">
+          <fieldset disabled={busy} className="min-w-0 space-y-6 border-0 p-0">
+            <div><h1 tabIndex={-1} className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">What’s your video about?</h1><p className="mt-3 max-w-lg text-sm leading-6 text-zinc-400">Start with the idea. We’ll turn it into distinct visual directions for you to choose from.</p></div>
+            <label className="block text-sm font-medium text-zinc-200">Video title or idea <span className="text-orange-400">*</span>
+              <textarea required aria-label="Video title or idea" value={videoTitle} onChange={e => setVideoTitle(e.target.value)} maxLength={150} rows={2} placeholder="e.g. Why AI might change the future of work" className={`${fieldClass} text-base`} />
+            </label>
+            <label className="block text-sm font-medium text-zinc-200">What’s the most interesting thing viewers will discover?
+              <textarea aria-label="Creator hook" value={creatorHook} onChange={e => setCreatorHook(e.target.value)} maxLength={1000} rows={2} placeholder="The surprising result, feeling or takeaway. Optional, but helpful." className={fieldClass} />
+            </label>
+            <details className="thumbnail-disclosure"><summary>Add description <span className="text-zinc-500">Optional</span></summary><textarea aria-label="Video description" value={description} onChange={e => setDescription(e.target.value)} maxLength={500} rows={3} placeholder="Add context that the title doesn't cover." className={fieldClass} /></details>
+            <details className="thumbnail-disclosure"><summary>Have a visual in mind? <span className="text-zinc-500">Optional</span></summary><textarea aria-label="Visual direction" value={direction} onChange={e => setDirection(e.target.value)} maxLength={2000} rows={3} placeholder="e.g. A lone person facing a huge wall of glowing AI screens. Cinematic, restrained colors." className={fieldClass} /><label className="mt-4 block text-sm text-zinc-300">Exact thumbnail text<input aria-label="Initial headline" value={headline} onChange={e => setHeadline(e.target.value)} maxLength={50} placeholder="Leave blank for a suggestion" className={fieldClass} /></label></details>
+            <details className="thumbnail-disclosure"><summary>More options <span className="text-zinc-500">{format === 'short' ? '9:16' : '16:9'} · {quality} quality</span></summary>
+              <div className="mt-4 space-y-5"><ThumbnailFormatSelector selectedFormat={format} onFormatChange={setFormat} disabled={busy} />
+                <label className="block text-sm text-zinc-300">Quality<select aria-label="Quality" value={quality} onChange={e => setQuality(e.target.value as typeof quality)} className={fieldClass}><option value="low">Draft</option><option value="medium">Standard</option><option value="high">High</option></select></label>
+                {ctr.isAuthenticated && <><NicheSelector niches={ctr.niches} selectedNiche={niche} onSelect={setNiche} isLoading={ctr.isLoadingNiches || busy} variant="pills" />{ctr.faceReference?.hasFaceReference && <label className="flex items-center gap-2 text-sm text-zinc-300"><input type="checkbox" checked={includeFace} onChange={e => setIncludeFace(e.target.checked)} />Include my saved face reference</label>}</>}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Tips Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="ai-create-tips border-t border-white/[0.08] py-6"
-        >
-          <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#fa7517]" />
-            {mode === 'creative' ? 'Tips for Great Thumbnails' : 'Optimization Tips'}
-          </h3>
-          <ul className="space-y-2 text-sm text-gray-400">
-            {mode === 'creative' ? (
-              <>
-                <li className="flex items-start gap-2">
-                  <span className="text-[#fa7517]">•</span>
-                  Be specific about colors, emotions, and composition
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-[#fa7517]">•</span>
-                  Use style presets to achieve consistent visual themes
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-[#fa7517]">•</span>
-                  Generate multiple variations to find the perfect one
-                </li>
-              </>
-            ) : (
-              <>
-                <li className="flex items-start gap-2">
-                  <span className="text-[#fa7517]">•</span>
-                  Use compelling, curiosity-inducing titles
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-[#fa7517]">•</span>
-                  Select the right niche for optimized styling
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-[#fa7517]">•</span>
-                  Add short, impactful text overlays for better click-through
-                </li>
-              </>
-            )}
-          </ul>
-        </motion.div>
-      </div>
-
-      {/* Thumbnail Detail Drawer */}
-      <ThumbnailDetailDrawer
-        thumbnail={selectedThumbnail}
-        onVersionChange={(id, version) => setComparisonUrls(previous => ({ ...previous, [String(id)]: version.imageUrl }))}
-        isOpen={isDrawerOpen}
-        onClose={() => {
-          setIsDrawerOpen(false);
-        }}
-      />
-
-      {/* Viral Share Popup */}
-      <ViralSharePopup
-        thumbnail={shareSelectedThumbnail}
-        isOpen={isViralShareOpen}
-        onClose={() => {
-          setIsViralShareOpen(false);
-          setShareSelectedThumbnail(null);
-        }}
-      />
-
-      <BuyCreditsModal
-        isOpen={isBuyCreditsOpen}
-        onClose={() => setIsBuyCreditsOpen(false)}
-      />
-    </AIThumbnailsLayout>
-  );
+            </details>
+          </fieldset>
+          {ctr.isAuthenticated && <details className="thumbnail-look" open={lookOpen} onToggle={e => setLookOpen(e.currentTarget.open)}>
+            <summary><span>Your look</span><span className="text-xs font-normal text-zinc-400">Optional <ChevronDown className="ml-1 inline h-4 w-4" /></span></summary>
+            <div className="thumbnail-look-content">
+              <ThumbnailStylePicker visual value={savedStyleId} onChange={(id, hasLogo) => { setSavedStyleId(id); setSavedStyleHasLogo(Boolean(hasLogo)); }} disabled={busy} />
+              <ThumbnailLogoPicker value={logo} onChange={setLogo} savedLogo={savedStyleHasLogo} onCheckingChange={setLogoChecking} disabled={busy} />
+              <ThumbnailSubjectPicker multiple value={subjects} onChange={setSubjects} disabled={busy} />
+              {(savedStyleId || logo || subjects.length > 0) && <p className="flex items-center gap-2 text-xs text-emerald-300"><Check className="h-4 w-4" />{savedStyleId ? 'Saved style' : 'Fresh style'}{logo || savedStyleHasLogo ? ' · Logo included' : ''}{subjects.length ? ` · ${subjects.length} subject photo${subjects.length > 1 ? 's' : ''}` : ''}</p>}
+            </div>
+          </details>}
+        </div>
+        <div className="thumbnail-generate-bar" style={barBounds}>
+          <div className="flex flex-wrap items-center gap-3"><label className="flex items-center gap-2 text-sm text-zinc-300">Concepts<select aria-label="Number of concepts" value={count} disabled={busy} onChange={e => setCount(Number(e.target.value))} className="rounded-lg border border-white/10 px-3 py-2 text-white">{[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}</select></label><span className="text-xs text-zinc-400">{creditMode && available !== undefined ? `${available} credits available` : usageReady ? 'Your generation allowance applies' : 'Checking allowance…'}</span></div>
+          <button type="submit" disabled={!canGenerate} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#fa7517] px-6 py-3 text-sm font-semibold text-white hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-400"><Sparkles className="h-4 w-4" />{busy ? 'Creating your concepts…' : logoChecking ? 'Checking your logo…' : `Generate ${count} concept${count > 1 ? 's' : ''}${creditMode && cost !== undefined ? ` · ${cost} credits` : ''}`}</button>
+          {usageReady && !enough && <p className="basis-full text-sm text-amber-300">{creditMode ? 'Not enough credits for this run.' : 'Your generation allowance is used up.'}{creditMode && <button type="button" onClick={() => setBuyCredits(true)} className="ml-2 underline">Buy credits</button>}</p>}
+          {busy && <p role="status" className="basis-full text-sm text-zinc-300">Creating distinct directions from your brief. This can take a couple of minutes.</p>}
+        </div>
+      </form>
+      <section hidden={stage === 'brief'} aria-label="Thumbnail concepts">
+        {ctr.isAuthenticated ? <GeneratedConceptsGrid key={resultKey} concepts={resultConcepts} detectedNiche={ctr.detectedNiche || navigation?.detectedNiche || null} generationTime={ctr.generationTime || navigation?.generationTime || null} outputFormat={resultFormat} onClear={() => setStage('brief')} auditContext={resultContext} onComparisonComplete={refreshAccess} editCreditCost={creditMode ? pricing?.thumbnail.editPerImage : undefined} hasLogo={resultHasLogo} onEditingChange={setEditing} onRefiningChange={active => setStage(active ? 'refine' : 'choose')} choosing={stage === 'choose'} /> : <>
+          <button type="button" onClick={() => setStage('brief')} className="mb-6 flex items-center gap-2 text-sm text-zinc-400"><ArrowLeft className="h-4 w-4" />Edit brief</button><h2 className="mb-6 text-2xl font-semibold text-white">Which direction works best?</h2>
+          <div className="grid gap-5 sm:grid-cols-2">{publicResults.map((thumbnail, index) => <article key={thumbnail.id} className="overflow-hidden rounded-2xl border border-white/10 bg-[#111113]"><img src={thumbnailMediaUrl(thumbnail.imageUrl)} alt={thumbnail.conceptName || `Concept ${index + 1}`} className="aspect-video w-full object-contain" /><div className="p-5"><h3 className="font-medium text-white">{thumbnail.conceptName || `Concept ${index + 1}`}</h3><button type="button" onClick={() => { setPublicSelection(thumbnail); setPublicDrawerOpen(true); }} className="mt-3 rounded-xl bg-[#fa7517] px-4 py-3 text-sm font-semibold text-white">Open & download</button></div></article>)}</div>
+        </>}
+      </section>
+      <ThumbnailDetailDrawer thumbnail={publicSelection} isOpen={publicDrawerOpen} onClose={() => setPublicDrawerOpen(false)} />
+      <BuyCreditsModal isOpen={buyCredits} onClose={() => setBuyCredits(false)} />
+    </div>
+  </AIThumbnailsLayout>;
 };
-
 export default GeneratePage;
