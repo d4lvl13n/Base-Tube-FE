@@ -71,6 +71,8 @@ interface ThumbnailGenerationOptions {
   style?: string;
   n?: number;
   referenceImage?: File;
+  subjectReferences?: File[];
+  logo?: File;
   mask?: File;
   title?: string;
   titleStyle?: {
@@ -603,11 +605,11 @@ export const usePublicThumbnailGenerator = (): UsePublicThumbnailGeneratorReturn
       console.log('[generateThumbnail] isAuthenticated:', isAuthenticated);
       console.log('[generateThumbnail] Auth method:', localStorage.getItem('auth_method'));
       
-      if (options?.referenceImage) {
+      if (options?.referenceImage || options?.subjectReferences?.length || options?.logo) {
         if (!isAuthenticated) throw new Error('Sign in to generate with your own subject reference.');
         const generated = await ctrApi.generateThumbnails({
           creatorBrief: options.creatorBrief, textOverlay: options.title, savedStyleId: options.savedStyleId,
-          title: prompt.trim(), prompt: enhancedPrompt, subjectReference: options.referenceImage,
+          title: prompt.trim(), prompt: enhancedPrompt, subjectReference: options.referenceImage, subjectReferences: options.subjectReferences, logo: options.logo,
           concepts: Math.min(options.n || 3, 3), quality: options.quality || 'high',
           size: options.size || DEFAULT_THUMBNAIL_FORMAT,
           model: options.model, background: options.background, outputFormat: options.outputFormat, outputCompression: options.outputCompression,

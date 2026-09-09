@@ -1,6 +1,6 @@
 import api from './index';
 
-export interface SavedThumbnailStyle { id: number; name: string; imageUrl: string; }
+export interface SavedThumbnailStyle { id: number; name: string; hasLogo?: boolean; imageUrl: string; }
 const path = '/api/v1/ctr/styles';
 export const thumbnailPackagingApi = {
   list: async (): Promise<SavedThumbnailStyle[]> => (await api.get(path)).data.data,

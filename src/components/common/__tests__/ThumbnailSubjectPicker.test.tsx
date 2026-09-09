@@ -27,3 +27,18 @@ it('offers only an intentional photo reference and never a video/frame selector'
   expect(view.container.querySelector('input[accept="video/*"]')).toBeNull();
   expect(screen.getByLabelText('Subject photo')).toHaveAttribute('accept', 'image/jpeg,image/png,image/webp');
 });
+
+it('accepts multiple subjects, caps them at four, and removes only the chosen reference', () => {
+  function MultiPicker() {
+    const [value, setValue] = useState<File[]>([]);
+    return <ThumbnailSubjectPicker multiple value={value} onChange={setValue} />;
+  }
+  render(<MultiPicker />);
+  fireEvent.change(screen.getByLabelText('Subject photo'), { target: { files: [photo, photo, photo, photo] } });
+  expect(screen.getAllByRole('img')).toHaveLength(4);
+  fireEvent.change(screen.getByLabelText('Subject photo'), { target: { files: [photo] } });
+  expect(screen.getByRole('alert')).toHaveTextContent('up to four');
+  expect(screen.getAllByRole('img')).toHaveLength(4);
+  fireEvent.click(screen.getByRole('button', { name: 'Remove reference 2' }));
+  expect(screen.getAllByRole('img')).toHaveLength(3);
+});

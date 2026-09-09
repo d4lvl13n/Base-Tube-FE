@@ -87,7 +87,7 @@ export const ViralSharePopup: React.FC<ViralSharePopupProps> = ({
   const displayShareUrl = shareUrl.replace(window.location.origin, '') || shareUrl;
   if (!thumbnail) return null;
 
-  const shareText = `🔥 Just created this amazing thumbnail with AI!\n\n"${thumbnail.prompt}"\n\nCheck it out:`;
+  const shareText = 'Check out my AI thumbnail, created with Base.Tube:';
   const fullShareText = `${shareText} ${shareUrl}`;
 
   const shareOptions = [

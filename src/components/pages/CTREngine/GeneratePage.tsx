@@ -117,7 +117,9 @@ const GeneratePage: React.FC = () => {
   const [includeFace, setIncludeFace] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedVariations, setSelectedVariations] = useState(3);
-  const [subjectReference, setSubjectReference] = useState<File | null>(null);
+  const [logoError, setLogoError] = useState('');
+  const [logo, setLogo] = useState<File | null>(null);
+  const [subjectReference, setSubjectReference] = useState<File[]>([]);
   const [title, setTitle] = useState('');
   const [titleStyle, setTitleStyle] = useState<TitleStyle>({
     bold: true,
@@ -186,7 +188,7 @@ const GeneratePage: React.FC = () => {
       includeFace,
       style: selectedStyle.trim() || undefined,
       n: selectedVariations,
-      referenceImage: subjectReference || undefined,
+      subjectReferences: subjectReference, logo: logo || undefined,
       title: title.trim() || undefined,
       titleStyle: title.trim() ? titleStyle : undefined,
       titlePosition: title.trim() ? titlePosition : undefined,
@@ -209,7 +211,7 @@ const GeneratePage: React.FC = () => {
       concepts,
       quality,
       size: ctrOutputFormat,
-      subjectReference: subjectReference || undefined,
+      subjectReferences: subjectReference, logo: logo || undefined,
     });
   };
 
@@ -359,7 +361,14 @@ const GeneratePage: React.FC = () => {
           <textarea aria-label="Creator hook" value={creatorHook} onChange={e => setCreatorHook(e.target.value)} maxLength={1000} disabled={loading || ctrProgress.status === 'generating'} placeholder="Optional: The cheapest microphone sounded better in my test." className="mt-2 w-full rounded-xl bg-white/5 p-3" />
         </label>}
         {isAuthenticated && <ThumbnailStylePicker value={savedStyleId} onChange={setSavedStyleId} disabled={loading || ctrProgress.status === 'generating'} />}
-        {isAuthenticated && <ThumbnailSubjectPicker value={subjectReference} onChange={setSubjectReference} disabled={loading || ctrProgress.status === 'generating'} />}
+        {isAuthenticated && <fieldset disabled={loading || ctrProgress.status === 'generating'} className="my-4 rounded-xl border border-white/10 p-4 text-white">
+          <legend className="px-1 text-sm font-semibold">Channel logo</legend>
+          <p className="mb-3 text-xs text-gray-400">Optional. Your original logo is kept when you save this thumbnail as a channel style. A new upload replaces the saved logo for this generation.</p>
+          <input aria-label="Channel logo" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => { const file = event.target.files?.[0]; if (file && ['image/png', 'image/jpeg', 'image/webp'].includes(file.type) && file.size > 0 && file.size <= 5 * 1024 * 1024) { setLogo(file); setLogoError(''); } else if (file) setLogoError('Choose a PNG, JPEG or WebP logo up to 5 MB.'); event.target.value = ''; }} />
+          {logoError && <p role="alert" className="mt-2 text-sm text-red-300">{logoError}</p>}
+          {logo && <p className="mt-2 text-sm">{logo.name} <button type="button" onClick={() => setLogo(null)}>Remove logo</button></p>}
+        </fieldset>}
+        {isAuthenticated && <ThumbnailSubjectPicker multiple value={subjectReference} onChange={setSubjectReference} disabled={loading || ctrProgress.status === 'generating'} />}
 
         {/* Main Form Card */}
         <motion.div

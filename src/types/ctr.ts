@@ -343,6 +343,8 @@ export interface GenerateRequest {
   savedStyleId?: number;
   creatorBrief?: ThumbnailBrief;
   subjectReference?: File;
+  subjectReferences?: File[];
+  logo?: File;
   title: string;
   description?: string;
   prompt?: string;          // Optimized prompt from audit

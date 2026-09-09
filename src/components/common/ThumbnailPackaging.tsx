@@ -62,7 +62,7 @@ export function ThumbnailStylePicker({ value, onChange, disabled }: { value?: nu
     </select>
     {selected ? <div className="mt-3 flex items-center gap-3">
       <img src={thumbnailMediaUrl(selected.imageUrl)} alt={selected.name} className="w-32 rounded-lg aspect-video object-contain" />
-      <div className="space-y-2"><p className="text-xs text-gray-400">Match this style. Use your new brief for the subject and words.</p>
+      <div className="space-y-2"><p className="text-xs text-gray-400">Match this style. Use your new brief for the subject and words.{selected.hasLogo && ' Your saved original logo will be included automatically.'}</p>
         <button type="button" className={buttonClass} disabled={loading} onClick={remove}>Remove saved style</button>
       </div>
     </div> : <p className="mt-2 text-xs text-gray-400">Choose “Save style” on a thumbnail you like. Keep that image in your gallery to reuse its style.</p>}

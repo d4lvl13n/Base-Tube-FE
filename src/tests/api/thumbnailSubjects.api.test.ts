@@ -20,3 +20,14 @@ it('preserves JSON requests when no subject is selected', async () => {
   await ctrApi.generateThumbnails(request);
   expect(post.mock.calls[0][1]).toBe(request);
 });
+
+it('sends multiple subjects and a separate logo without serializing files into JSON', async () => {
+  const subjects = [new File(['a'], 'a.png', { type: 'image/png' }), new File(['b'], 'b.png', { type: 'image/png' })];
+  const logo = new File(['logo'], 'logo.png', { type: 'image/png' });
+  await ctrApi.generateThumbnails({ title: 'Music', subjectReferences: subjects, logo, savedStyleId: 7 });
+  const form = post.mock.calls[0][1];
+  expect(form.getAll('subjectReference')).toEqual(subjects);
+  expect(form.get('logo')).toBe(logo);
+  expect(form.get('savedStyleId')).toBe('7');
+  expect(form.has('subjectReferences')).toBe(false);
+});

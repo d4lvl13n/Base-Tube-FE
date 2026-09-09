@@ -293,12 +293,13 @@ export const ctrApi = {
     request: GenerateRequest
   ): Promise<CTRGenerationResponse['data']> => {
     let payload: GenerateRequest | FormData = request;
-    if (request.subjectReference) {
+    if (request.subjectReference || request.subjectReferences?.length || request.logo) {
       const form = new FormData();
       Object.entries(request).forEach(([key, value]) => {
-        if (value !== undefined && key !== 'subjectReference') form.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+        if (value !== undefined && !['subjectReference', 'subjectReferences', 'logo'].includes(key)) form.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
       });
-      form.append('subjectReference', request.subjectReference);
+      for (const file of request.subjectReferences || (request.subjectReference ? [request.subjectReference] : [])) form.append('subjectReference', file);
+      if (request.logo) form.append('logo', request.logo);
       payload = form;
     }
     const response = await api.post<CTRGenerationResponse | CTRErrorResponse>(
