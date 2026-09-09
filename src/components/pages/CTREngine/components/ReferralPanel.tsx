@@ -1,14 +1,6 @@
-// src/components/pages/CTREngine/components/ReferralPanel.tsx
-//
-// Referral card (Phase D). Reads GET /api/v1/referrals/me and renders a simple,
-// honest "invite friends, you both get credits" card with the shareable link
-// (copy button) and reward stats (pending / rewarded). Requires an
-// authenticated session — on 401/error it renders nothing so it can be dropped
-// anywhere in the tool sidebar/profile without guarding the caller.
-
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Users, Copy, Check, Gift, Loader2 } from 'lucide-react';
+import { Dialog, DialogPanel, DialogTitle, Description } from '@headlessui/react';
+import { UserPlus, Copy, Check, X } from 'lucide-react';
 import { getMyReferral } from '../../../../api/referral';
 import type { MyReferral } from '../../../../types/referral';
 
@@ -18,108 +10,81 @@ interface ReferralPanelProps {
 
 export const ReferralPanel: React.FC<ReferralPanelProps> = ({ className = '' }) => {
   const [data, setData] = useState<MyReferral | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [copyState, setCopyState] = useState<'idle' | 'copying' | 'copied' | 'failed'>('idle');
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const referral = await getMyReferral();
-        if (!cancelled) setData(referral);
-      } catch {
-        if (!cancelled) setFailed(true);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    getMyReferral().then((referral) => {
+      if (!cancelled) setData(referral);
+    }).catch(() => {
+      // Referral availability must not block the thumbnail workspace.
+    });
+    return () => { cancelled = true; };
   }, []);
 
   const handleCopy = async () => {
-    if (!data) return;
+    if (!data || copyState === 'copying') return;
+    setCopyState('copying');
     try {
       await navigator.clipboard.writeText(data.referral_link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopyState('copied');
     } catch {
-      /* clipboard unavailable — no-op */
+      setCopyState('failed');
     }
   };
 
-  // Loading: subtle placeholder. Failure (incl. unauthenticated): render nothing.
-  if (loading) {
-    return (
-      <div
-        className={`flex items-center gap-2 p-4 bg-black/40 border border-gray-800/50 rounded-2xl text-sm text-gray-500 ${className}`}
-      >
-        <Loader2 className="w-4 h-4 animate-spin" />
-        Loading referral link...
-      </div>
-    );
-  }
-  if (failed || !data) return null;
+  if (!data) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`bg-gradient-to-br from-[#111114] to-[#0a0a0c] border border-white/10 rounded-2xl p-5 ${className}`}
-    >
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#fa7517]/20 to-orange-500/20 flex items-center justify-center flex-shrink-0">
-          <Gift className="w-5 h-5 text-[#fa7517]" />
+    <>
+      <button
+        type="button"
+        onClick={() => { setCopyState('idle'); setOpen(true); }}
+        aria-haspopup="dialog"
+        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-500 transition-colors hover:bg-white/[0.04] hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517] ${className}`}
+      >
+        <UserPlus className="h-4 w-4 shrink-0" aria-hidden="true" />
+        Invite a creator
+      </button>
+      <Dialog open={open} onClose={() => setOpen(false)} className="relative z-[100]">
+        <div className="fixed inset-0 bg-black/60" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center overflow-y-auto p-4">
+          <DialogPanel className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111113] p-6 text-zinc-100 shadow-2xl">
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="text-lg font-semibold tracking-tight">Invite a creator</DialogTitle>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close invite panel" className="rounded-lg p-2 text-zinc-500 hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+            <Description className="mt-3 text-sm leading-relaxed text-zinc-400">
+              Share your link with a creator. Eligible invites earn you credits after they sign up and create their first thumbnail. Reward limits apply.
+            </Description>
+            <button
+              type="button"
+              onClick={handleCopy}
+              disabled={copyState === 'copying'}
+              aria-live="polite"
+              className="mt-6 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[#fa7517] px-4 py-3 text-sm font-semibold text-black transition-colors hover:bg-[#fb923c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-60"
+            >
+              {copyState === 'copied' ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+              <span>{copyState === 'copied' ? 'Link copied' : copyState === 'copying' ? 'Copying…' : 'Copy invite link'}</span>
+            </button>
+            {copyState === 'failed' && (
+              <div className="mt-3">
+                <p role="alert" className="text-sm text-zinc-300">Couldn’t copy automatically. Select and copy your link below.</p>
+                <input aria-label="Invite link" readOnly value={data.referral_link} onFocus={(event) => event.currentTarget.select()} className="mt-2 w-full rounded-lg border border-white/15 bg-black/30 p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-[#fa7517]" />
+              </div>
+            )}
+            {(data.stats.pending > 0 || data.stats.rewarded > 0) && (
+              <p className="mt-5 border-t border-white/10 pt-4 text-xs text-zinc-500">
+                {data.stats.pending} pending · {data.stats.rewarded} qualified
+              </p>
+            )}
+          </DialogPanel>
         </div>
-        <div>
-          <h3 className="text-sm font-bold text-white">Invite friends</h3>
-          <p className="text-xs text-gray-400">Earn credits when a friend signs up and creates their first thumbnail (up to your reward cap).</p>
-        </div>
-      </div>
-
-      {/* Shareable link + copy */}
-      <div className="flex items-center gap-2 mb-4">
-        <input
-          type="text"
-          readOnly
-          value={data.referral_link}
-          onFocus={(e) => e.currentTarget.select()}
-          className="flex-1 min-w-0 px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-xs text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/40 truncate"
-        />
-        <button
-          onClick={handleCopy}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all flex-shrink-0
-                     ${
-                       copied
-                         ? 'bg-green-500/15 text-green-400 border border-green-500/30'
-                         : 'bg-[#fa7517]/10 text-[#fa7517] border border-[#fa7517]/30 hover:bg-[#fa7517]/20'
-                     }`}
-        >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-          {copied ? 'Copied' : 'Copy'}
-        </button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-center">
-          <div className="text-lg font-bold text-white">{data.stats.pending}</div>
-          <div className="text-[11px] text-gray-500 flex items-center justify-center gap-1">
-            <Users className="w-3 h-3" />
-            Pending
-          </div>
-        </div>
-        <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-center">
-          <div className="text-lg font-bold text-[#fa7517]">{data.stats.rewarded}</div>
-          <div className="text-[11px] text-gray-500 flex items-center justify-center gap-1">
-            <Gift className="w-3 h-3" />
-            Qualified
-          </div>
-        </div>
-      </div>
-    </motion.div>
+      </Dialog>
+    </>
   );
 };
 
