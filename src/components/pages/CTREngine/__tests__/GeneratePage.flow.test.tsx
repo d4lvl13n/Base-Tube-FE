@@ -70,13 +70,17 @@ it('prevents duplicate generation and retains inputs after a failed request', as
   expect(screen.getByLabelText('Video title or idea')).toHaveValue('Ocean music');
   expect(screen.getByRole('button', { name: 'Generate 2 concepts · 30 credits' })).toBeEnabled();
 });
-it('preserves the anonymous generation path', async () => {
+it('preserves anonymous generation and portrait previews', async () => {
   ctr.isAuthenticated = false;
-  render(page());
+  const view = render(page());
   fireEvent.change(screen.getByLabelText('Video title or idea'), { target: { value: 'Ocean music' } });
+  fireEvent.click(screen.getByText('Portrait'));
   fireEvent.click(screen.getByRole('button', { name: 'Generate 2 concepts' }));
-  await waitFor(() => expect(creative.generateThumbnail).toHaveBeenCalledWith('Ocean music', expect.objectContaining({ n: 2, size: 'landscape' })));
+  await waitFor(() => expect(creative.generateThumbnail).toHaveBeenCalledWith('Ocean music', expect.objectContaining({ n: 2, size: 'short' })));
   expect(ctr.generateThumbnails).not.toHaveBeenCalled();
+  creative.latestThumbnails = [{ id: 'public-1', imageUrl: '/portrait.png' }];
+  view.rerender(page());
+  expect(await screen.findByRole('img', { name: 'Concept 1' })).toHaveClass('aspect-[9/16]');
 });
 it('blocks credit spending until pricing loads and when the balance is insufficient', () => {
   ctr.usageAccess = { mode: 'credits', pricing: null, creditInfo: { available: 100 } };
