@@ -367,3 +367,8 @@
   .thumbnail-generate-bar > button[type=submit] { width: 100%; }
   .thumbnail-flow { padding-bottom: 1rem; }
 }
+
+.ai-studio-shell:has(.thumbnail-flow form:not([hidden])) > div:has(> button[aria-label="Open help"]) { bottom: 10rem; }
+@media (max-width: 600px) {
+  .ai-studio-shell:has(.thumbnail-flow form:not([hidden])) > div:has(> button[aria-label="Open help"]) { bottom: 13rem; }
+}
