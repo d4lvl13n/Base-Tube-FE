@@ -38,7 +38,10 @@ export function AuthQueryProvider({ children }: { children: React.ReactNode }) {
   }, [session.client]);
 
   useEffect(() => {
-    const reset = () => setSession(previous => sessionCache(previous.identity, previous.generation + 1));
+    const reset = () => setSession(previous =>
+      previous.identity === 'anonymous' || previous.identity === 'loading'
+        ? previous
+        : sessionCache(previous.identity, previous.generation + 1));
     window.addEventListener('auth:unauthorized', reset);
     return () => window.removeEventListener('auth:unauthorized', reset);
   }, []);

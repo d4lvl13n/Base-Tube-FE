@@ -1613,3 +1613,20 @@ describe('useUploadQueue post-completion update retries', () => {
     expect(applyVideoUpdate).toHaveBeenLastCalledWith(42, { title: 'Second', description: undefined });
   });
 });
+
+describe('useUploadQueue anonymous boot', () => {
+  it.each(['anonymous', 'loading'])('does not request private uploads in a %s session', async storageNamespace => {
+    const listActive = jest.fn().mockResolvedValue([]);
+    const { api } = harness({ listActive });
+    const { result } = renderHook(() => useUploadQueue({ api, storageNamespace, resumeStore: createMemoryResumeStore(), notify: jest.fn() }));
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    expect(listActive).not.toHaveBeenCalled();
+  });
+  it('reconciles private uploads after a signed-in queue mounts', async () => {
+    const listActive = jest.fn().mockResolvedValue([]);
+    const { api } = harness({ listActive });
+    const { result } = renderHook(() => useUploadQueue({ api, storageNamespace: 'clerk-user-A', resumeStore: createMemoryResumeStore(), notify: jest.fn() }));
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    expect(listActive).toHaveBeenCalledTimes(1);
+  });
+});

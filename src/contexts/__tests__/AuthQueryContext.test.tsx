@@ -65,3 +65,18 @@ it('an unauthorized event discards the active cache instead of invalidating a di
   expect(screen.queryByText(/A@example.com/)).toBeNull(); expect(activeClient).not.toBe(oldClient);
   await waitFor(() => expect(oldClient.getQueryCache().getAll()).toHaveLength(0));
 });
+
+it('anonymous 401 responses do not remount the page or restart its requests', async () => {
+  let mounts = 0;
+  function PublicPage() {
+    React.useEffect(() => { mounts += 1; }, []);
+    return <input aria-label="Creator hook" defaultValue="Keep my draft" />;
+  }
+  render(<AuthQueryProvider><AuthCacheBoundary><PublicPage /></AuthCacheBoundary></AuthQueryProvider>);
+  const originalInput = screen.getByLabelText('Creator hook');
+  for (let i = 0; i < 3; i += 1) {
+    act(() => { window.dispatchEvent(new CustomEvent('auth:unauthorized')); });
+  }
+  expect(mounts).toBe(1);
+  expect(screen.getByLabelText('Creator hook')).toBe(originalInput);
+});

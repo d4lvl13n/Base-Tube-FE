@@ -9,6 +9,7 @@ import {
   hydrateUploadQueue,
   MAX_QUEUE_FILES,
   MAX_UPLOAD_SESSION_ITEMS,
+  NON_DURABLE_NAMESPACES,
   patchQueueEntry,
   persistedRecord,
   replaceQueueAttempt,
@@ -428,6 +429,8 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         setSessionUsedCount(hydratedEntries.length);
         replaceEntries(hydratedEntries);
 
+        if (options.storageNamespace && NON_DURABLE_NAMESPACES.has(options.storageNamespace)) return;
+
         try {
           const active = await api.listActive();
           if (cancelled) return;
@@ -488,7 +491,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       controllers.forEach((controller) => controller.abort());
       timers.forEach((timer) => clearTimeout(timer));
     };
-  }, [api, forget, replaceEntries]);
+  }, [api, forget, replaceEntries, options.storageNamespace]);
 
   const consumeSessionSlots = useCallback((count: number) => {
     if (count <= 0) return;
