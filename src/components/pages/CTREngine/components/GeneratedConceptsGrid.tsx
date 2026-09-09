@@ -141,7 +141,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat,
 
         <SaveThumbnailStyle key={`style:${currentThumbnailUrl}`} imageUrl={currentThumbnailUrl} hasLogo={hasLogo} />
 
-        <div hidden={!active}><PreciseThumbnailEditor editCreditCost={editCreditCost} key={editRoot} initial={{ imageUrl: editRoot, id: concept.id, editing: concept.editing }}
+        <div hidden={!active}><PreciseThumbnailEditor editCreditCost={editCreditCost} key={editRoot} initial={{ imageUrl: editRoot, id: concept.id, shareUrl: concept.shareUrl, editing: concept.editing }}
           onRefine={async (version, instruction) => {
             onBusyChange(true);
             try {

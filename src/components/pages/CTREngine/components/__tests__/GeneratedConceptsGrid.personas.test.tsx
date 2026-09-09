@@ -1,4 +1,5 @@
 import React from 'react';
+jest.mock('../ViralSharePopup', () => ({ ViralSharePopup: ({ thumbnail, isOpen }: any) => isOpen ? <output>{thumbnail.shareUrl}</output> : null }));
 import { thumbnailPackagingApi } from '../../../../../api/thumbnailPackaging';
 jest.mock('../../../../../api/thumbnailPackaging', () => ({ thumbnailPackagingApi: { save: jest.fn().mockResolvedValue({ id: 8, name: 'Music' }) } }));
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -12,8 +13,8 @@ it('compares the edited images through persona audit instead of displaying a fab
   window.matchMedia = jest.fn(() => ({ matches: false, addListener: jest.fn(), removeListener: jest.fn() })) as any;
   (ctrApi.getQuota as jest.Mock).mockResolvedValue({ mode: 'credits', creditInfo: { available: 20, balance: 20, reserved: 0 }, pricing: { ctr: { auditWithPersonas: 3 } } });
   (ctrApi.auditThumbnail as jest.Mock).mockResolvedValue({ audit: { overallScore: 8, confidence: 'medium', strengths: [], weaknesses: [], suggestions: [] } });
-  (thumbnailApi.refineThumbnailConversationally as jest.Mock).mockResolvedValue({ data: { thumbnailUrl: 'https://gateway.storjshare.io/basetube-thumbnails/ed17ed.png?X-Amz-Signature=edited' } });
-  const concepts = ['Subject spotlight', 'In context'].map((name, i) => ({ id: String(i), thumbnailUrl: `https://gateway.storjshare.io/basetube-thumbnails/${i}.png?X-Amz-Signature=original`, thumbnailPath: '', prompt: 'Camera', conceptName: name, conceptDescription: 'Camera concept', estimatedCTRScore: 7 }));
+  (thumbnailApi.refineThumbnailConversationally as jest.Mock).mockResolvedValue({ data: { shareUrl: 'edited-share', thumbnailUrl: 'https://gateway.storjshare.io/basetube-thumbnails/ed17ed.png?X-Amz-Signature=edited' } });
+  const concepts = ['Subject spotlight', 'In context'].map((name, i) => ({ id: String(i), shareUrl: 'original-share', thumbnailUrl: `https://gateway.storjshare.io/basetube-thumbnails/${i}.png?X-Amz-Signature=original`, thumbnailPath: '', prompt: 'Camera', conceptName: name, conceptDescription: 'Camera concept', estimatedCTRScore: 7 }));
   render(<GeneratedConceptsGrid concepts={concepts} detectedNiche="tech" generationTime={1} onClear={jest.fn()} auditContext={{ title: 'Camera review' }} />);
   expect(ctrApi.auditThumbnail).not.toHaveBeenCalled();
   for (const image of screen.getAllByAltText('Subject spotlight')) {
@@ -28,6 +29,11 @@ it('compares the edited images through persona audit instead of displaying a fab
   fireEvent.click(screen.getByRole('button', { name: 'Back to concepts' }));
   fireEvent.click(screen.getAllByRole('button', { name: 'Refine this' })[0]);
   expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Share', exact: true }));
+  expect(screen.getByText('original-share')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Thumbnail version'), { target: { value: '1' } });
+  expect(screen.getByText('edited-share')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Back to concepts' }));
   fireEvent.click(screen.getByText('Help me choose'));
   const comparison = screen.getByRole('region', { name: 'Concept comparison' });
