@@ -35,12 +35,12 @@ describe('PreciseThumbnailEditor', () => {
     const onRefine = jest.fn().mockRejectedValueOnce(new Error('Generation blocked')).mockResolvedValueOnce({ imageUrl: 'edited' });
     const onChange = jest.fn();
     render(<PreciseThumbnailEditor initial={{ imageUrl: 'original' }} onRefine={onRefine} onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText('Edit target'), { target: { value: 'headline' } });
-    edit('The "best" camera');
+    fireEvent.change(screen.getByLabelText('Headline'), { target: { value: 'The "best" camera' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Update text' }));
     await screen.findByRole('alert');
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Update text' }));
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     expect(onRefine.mock.calls[1][0].imageUrl).toBe('original');
     expect(onRefine.mock.calls[1][1]).toContain(JSON.stringify('The "best" camera'));
@@ -119,4 +119,27 @@ it('retains a paid image edit and the text draft when recomposition fails, then 
   await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ imageUrl: 'new-final' })));
   expect(onRefine).toHaveBeenCalledTimes(1);
   expect(ctrApi.applyFinalAdjustments).toHaveBeenLastCalledWith(expect.objectContaining({ baseThumbnailId: 30, textPlan: editing.textPlan }));
+});
+
+
+it('updates and removes model-rendered text from the selected image, with undo and no local overlay', async () => {
+  (ctrApi.applyFinalAdjustments as jest.Mock).mockClear();
+  const onRefine = jest.fn().mockResolvedValueOnce({ imageUrl: 'new-headline', id: 31 }).mockResolvedValueOnce({ imageUrl: 'no-text', id: 32 });
+  const onChange = jest.fn();
+  render(<PreciseThumbnailEditor initial={{ imageUrl: 'model-original', id: 30 }} onRefine={onRefine} onChange={onChange} />);
+  expect(screen.queryByLabelText('Text font')).not.toBeInTheDocument();
+  expect(screen.getByText(/Uses AI image editing/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Update text' })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('Headline'), { target: { value: 'EXACT Words?' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Update text' }));
+  await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+  expect(onRefine.mock.calls[0]).toEqual([{ imageUrl: 'model-original', id: 30 }, expect.stringContaining('"EXACT Words?"')]);
+  expect(onRefine.mock.calls[0][1]).not.toContain('clean base');
+  fireEvent.click(screen.getByRole('button', { name: 'Remove text' }));
+  await waitFor(() => expect(onChange).toHaveBeenCalledTimes(2));
+  expect(onRefine.mock.calls[1]).toEqual([expect.objectContaining({ imageUrl: 'new-headline', id: 31 }), expect.stringContaining('Remove the added headline')]);
+  expect(onRefine.mock.calls[1][1]).toContain('authentic product markings');
+  expect(ctrApi.applyFinalAdjustments).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ imageUrl: 'new-headline' }));
 });
