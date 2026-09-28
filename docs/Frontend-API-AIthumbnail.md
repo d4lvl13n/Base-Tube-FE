@@ -1,5 +1,7 @@
 # AI Thumbnail Landing Page Implementation & Distribution Guide
 
+> **Superseded for the web app (spec §17.4, FE-24, 26 September 2026).** The frontend no longer calls `/v1/images` and embeds no public API key. Anonymous visitors use `/api/v1/thumbnail-studio/anonymous`; see `docs/THUMBNAIL_STUDIO_FRONTEND.md`. `/v1/images` remains for API-key holders only.
+
 ---
 
 ## 1. Overview

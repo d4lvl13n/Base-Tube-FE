@@ -59,3 +59,9 @@ it('does not allow changes while generation is running', () => {
   render(<Picker disabled />);
   expect(screen.getByRole('button', { name: 'Choose logo' })).toBeDisabled();
 });
+it('keeps the saved logo visibly selected if its image preview fails', () => {
+  render(<ThumbnailLogoPicker value={null} onChange={jest.fn()} savedLogo savedAsset={{ url: 'https://signed.example/logo', name: 'channel-logo.png' }} onCheckingChange={jest.fn()} />);
+  fireEvent.error(screen.getByRole('img', { name: 'Saved channel logo' }));
+  expect(screen.getByText('channel-logo.png')).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('Logo added · preview unavailable');
+});

@@ -4,7 +4,7 @@ import { thumbnailMediaUrl } from '../../../utils/thumbnailMediaUrl';
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { SignInButton, useUser } from '@clerk/clerk-react';
+import { useUser } from '@clerk/clerk-react';
 import { 
   Image as ImageIcon, 
   Trash2, 
@@ -26,7 +26,8 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
-import { usePublicThumbnailGenerator } from '../../../hooks/usePublicThumbnailGenerator';
+import AIThumbnailsSignInOptions from './components/AIThumbnailsSignInOptions';
+import { useThumbnailGallery } from '../../../hooks/useThumbnailGallery';
 import useCTREngine from '../../../hooks/useCTREngine';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ThumbnailDetailDrawer } from './components/ThumbnailDetailDrawer';
@@ -42,8 +43,8 @@ const GalleryPage: React.FC = () => {
     galleryLoading,
     loadGallery,
     deleteFromGallery,
-    forceDownload,
-  } = usePublicThumbnailGenerator();
+    downloadThumbnail,
+  } = useThumbnailGallery();
 
   // UI State
   const [selectedThumbnail, setSelectedThumbnail] = useState<any>(null);
@@ -102,7 +103,7 @@ const GalleryPage: React.FC = () => {
 
   const handleDownload = async (thumbnail: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    await forceDownload(thumbnail.id.toString());
+    await downloadThumbnail(thumbnail.id);
   };
 
   // Auth gate
@@ -139,13 +140,9 @@ const GalleryPage: React.FC = () => {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
+            className="mx-auto w-full max-w-sm"
           >
-            <SignInButton mode="modal">
-              <button className="py-3.5 px-6 bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 text-white rounded-xl font-semibold transition-all shadow-lg shadow-[#fa7517]/25 flex items-center justify-center gap-2 mx-auto">
-                <Sparkles className="w-5 h-5" />
-                Sign In to Continue
-              </button>
-            </SignInButton>
+            <AIThumbnailsSignInOptions />
           </motion.div>
         </div>
       </AIThumbnailsLayout>

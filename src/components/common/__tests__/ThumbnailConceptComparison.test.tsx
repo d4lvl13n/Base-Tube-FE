@@ -81,3 +81,26 @@ it('stops after a credit rejection instead of charging more queued assessments',
   await screen.findByRole('alert');
   expect(audit).toHaveBeenCalledTimes(1);
 });
+it('uses shared Studio access without reading or replacing it from operation responses', async () => {
+  const refresh = jest.fn();
+  const view = render(<ThumbnailConceptComparison concepts={concepts} context={context} usageAccess={access as any} onComplete={refresh} />);
+  expect(quota).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Compare 2 concepts' }));
+  await screen.findByRole('button', { name: 'Comparison complete' });
+  expect(refresh).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText(/medium confidence/)).not.toBeInTheDocument();
+  expect(quota).not.toHaveBeenCalled();
+  view.rerender(<ThumbnailConceptComparison concepts={concepts} context={context} usageAccess={{ ...access, creditInfo: { available: 14, balance: 14, reserved: 0 } } as any} onComplete={refresh} />);
+  expect(screen.getByText(/14 available/)).toBeInTheDocument();
+});
+it('invalidates shared usage when a paid assessment settles after leaving the page', async () => {
+  let finish!: (value: any) => void;
+  audit.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const refresh = jest.fn();
+  const view = render(<ThumbnailConceptComparison concepts={concepts} context={context} usageAccess={access as any} onComplete={refresh} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Compare 2 concepts' }));
+  view.unmount();
+  await act(async () => finish({ audit: assessment }));
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(audit).toHaveBeenCalledTimes(1);
+});

@@ -37,14 +37,43 @@ export interface ConfirmSignupRequest {
   fingerprint?: string | null;
 }
 
-/** POST /api/v1/tool/email-capture/confirm (authenticated) → data. */
+/** The account's credit balance after the welcome grant. */
+export interface ConfirmSignupBalance {
+  balance: number;
+  reserved: number;
+  available: number;
+}
+
+/**
+ * POST /api/v1/tool/email-capture/confirm (authenticated) → data. A repeat call
+ * answers `granted: false, alreadyGranted: true`. When today's welcome credits
+ * are all given: `granted: false, deferred: true` and the day they are added
+ * (`grantOn`).
+ */
 export interface ConfirmSignupData {
   granted: boolean;
   alreadyGranted: boolean;
+  /** Absent from older servers. */
+  deferred?: boolean;
+  /** When deferred credits are added (a date, or a date and time). */
+  grantOn?: string | null;
   signupCredits: number;
-  balance: number | null;
+  /** An object on current servers; a plain number on older ones. */
+  balance: ConfirmSignupBalance | number | null;
   consentRecorded: boolean;
   welcomeSent: boolean;
+}
+
+/**
+ * GET /api/v1/tool/welcome-offer (public) → data. What a new account receives
+ * once its email is verified.
+ */
+export interface WelcomeOffer {
+  credits: number;
+  /** False when today's welcome credits are all given: new accounts get them the next day. */
+  available: boolean;
+  /** When the next day's welcome credits start. */
+  resetsAt: string;
 }
 
 /** POST /api/v1/tool/unsubscribe → data. */

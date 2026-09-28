@@ -59,12 +59,13 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=...
 REACT_APP_ONCHAINKIT_API_KEY=...
 REACT_APP_SHOW_PASSES / REACT_APP_FEATURE_ONCHAIN_PASSES=true
 REACT_APP_TESTNET_MODE=true|false
-(optional) REACT_APP_BASETUBE_PUBLIC_API_KEY, RPC overrides
+(optional) RPC overrides
 ```
 
 Deploy once to the preview URL and smoke-test against `api.base.tube`
-(API calls work cross-origin; web3 login will NOT work on the preview
-domain — expected, cookie domain).
+(API calls work cross-origin; web3 login and the anonymous AI Thumbnail
+Studio will NOT work on the preview domain — expected, both rely on
+`SameSite=Lax` cookies, which a different site does not send).
 
 ### 3. Flip the frontend DNS
 - Point `beta.base.tube` at the host (Vercel: CNAME `cname.vercel-dns.com`;

@@ -10,6 +10,7 @@ import { createEngagementApi } from './endpoints/engagement';
 import { createPassesApi } from './endpoints/passes';
 import { createAccessApi, createPurchasesApi } from './endpoints/purchases';
 import { createUploadApi } from './upload';
+import { createThumbnailStudioApi } from './endpoints/thumbnailStudio';
 
 export * from './types';
 export * from './upload';
@@ -19,6 +20,7 @@ export { buildSearchQuery } from './endpoints/discovery';
 export { DEFAULT_VIEW_TRACKING_CONFIG } from './endpoints/engagement';
 export type { RecordViewOutcome } from './endpoints/engagement';
 export * from './viewTracking/session';
+export { createThumbnailStudioApi } from './endpoints/thumbnailStudio';
 
 export interface BasetubeClient {
   videos: ReturnType<typeof createVideosApi>;
@@ -32,6 +34,7 @@ export interface BasetubeClient {
   purchases: ReturnType<typeof createPurchasesApi>;
   /** Upload V2 control plane (`/api/v1/videos/uploads/*`). */
   uploads: ReturnType<typeof createUploadApi>;
+  thumbnailStudio: ReturnType<typeof createThumbnailStudioApi>;
   web3auth: ReturnType<typeof createWeb3AuthApi>;
   auth: ReturnType<typeof createAuthApi>;
   /** Escape hatch to the underlying axios instance for not-yet-wrapped routes. */
@@ -61,6 +64,7 @@ export function createBasetubeClient(config: BasetubeClientConfig): BasetubeClie
     access: createAccessApi(http),
     purchases: createPurchasesApi(http),
     uploads: createUploadApi(http),
+    thumbnailStudio: createThumbnailStudioApi(http),
     web3auth: createWeb3AuthApi(http),
     auth: createAuthApi(http),
     http,

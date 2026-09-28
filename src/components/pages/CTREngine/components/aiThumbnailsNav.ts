@@ -1,6 +1,6 @@
 // src/components/pages/CTREngine/components/aiThumbnailsNav.ts
 import type { LucideIcon } from 'lucide-react';
-import { Sparkles, BarChart2, History, Images, Settings, ScanSearch } from 'lucide-react';
+import { Sparkles, BarChart2, History, Images, Settings, ScanSearch, FolderOpen } from 'lucide-react';
 
 export interface AIThumbnailsNavItem {
   path: string;
@@ -17,6 +17,13 @@ export const AI_THUMBNAILS_NAV_ITEMS: AIThumbnailsNavItem[] = [
     icon: Sparkles,
     description: 'Generate thumbnails',
     requiresAuth: false,
+  },
+  {
+    path: '/ai-thumbnails/projects',
+    label: 'Projects',
+    icon: FolderOpen,
+    description: 'Your saved thumbnail projects',
+    requiresAuth: true,
   },
   {
     path: '/ai-thumbnails/audit',
@@ -50,7 +57,7 @@ export const AI_THUMBNAILS_NAV_ITEMS: AIThumbnailsNavItem[] = [
     path: '/ai-thumbnails/settings',
     label: 'Settings',
     icon: Settings,
-    description: 'Preferences',
+    description: 'Channel style, logos, credits',
     requiresAuth: true,
   },
 ];

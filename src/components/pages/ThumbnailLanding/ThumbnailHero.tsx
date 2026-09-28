@@ -79,7 +79,7 @@ const TransformationCard = () => {
     );
 };
 
-const ThumbnailHero = ({ onSignUpClick }: { onSignUpClick: () => void }) => {
+const ThumbnailHero = () => {
   const navigate = useNavigate();
 
   return (

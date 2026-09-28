@@ -226,9 +226,11 @@ export interface AuditResponse {
   success: boolean;
   data: {
     audit: ThumbnailAudit;
-    auditId: number;           // NEW - Persisted audit ID
+    /** The saved audit; null when the audit was returned but could not be saved (nothing to link to). */
+    auditId: number | null;
     quotaInfo?: QuotaInfo;
     creditInfo?: CreditInfo;
+    creditsCharged?: number;
     pricing?: CreditPricingCatalog;
   };
 }
@@ -237,11 +239,13 @@ export interface YouTubeAuditResponse {
   success: boolean;
   data: {
     audit: ThumbnailAudit;
-    auditId: number;           // NEW - Persisted audit ID
+    /** The saved audit; null when the audit was returned but could not be saved (nothing to link to). */
+    auditId: number | null;
     videoMetadata: YouTubeVideoMetadata;
     thumbnailUrl: string;
     quotaInfo?: QuotaInfo;
     creditInfo?: CreditInfo;
+    creditsCharged?: number;
     pricing?: CreditPricingCatalog;
   };
 }
@@ -333,13 +337,6 @@ export interface OverlayTextPlan {
   emphasisWord?: string;
 }
 
-export interface ApplyOverlayResponse {
-  success: boolean;
-  data: {
-    thumbnailUrl: string;
-  };
-}
-
 export interface GenerateRequest {
   savedStyleId?: number;
   creatorBrief?: ThumbnailBrief;
@@ -418,42 +415,13 @@ export interface FaceReferenceUploadResponse {
 }
 
 // ============================================================================
-// OPTIMIZE PROMPT TYPES
-// ============================================================================
-
-export interface OptimizePromptRequest {
-  audit: {
-    overallScore: number;
-    heuristics: Partial<ThumbnailHeuristics>;
-    weaknesses: string[];
-    suggestions: string[];
-    detectedNiche: string;
-  };
-  context: {
-    title: string;
-    description?: string;
-  };
-}
-
-export interface OptimizedPrompt {
-  prompt: string;
-  improvements: string[];
-  originalScore: number;
-  estimatedNewScore: number;
-  estimatedScoreImprovement: number;
-}
-
-export interface OptimizePromptResponse {
-  success: boolean;
-  data: OptimizedPrompt;
-}
-
-// ============================================================================
 // ERROR TYPES
 // ============================================================================
 
 export type CTRErrorCode =
   | 'ANONYMOUS_AUDIT_QUOTA_EXCEEDED'
+  /** Free audits for visitors are used up on the platform for today (429). */
+  | 'ANONYMOUS_AUDIT_CAPACITY'
   | 'AUDIT_QUOTA_EXCEEDED'
   | 'GENERATE_QUOTA_EXCEEDED'
   | 'INSUFFICIENT_CREDITS'

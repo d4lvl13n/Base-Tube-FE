@@ -1,8 +1,4 @@
-import React, { useState } from 'react';
-import { SignIn, SignUp } from '@clerk/clerk-react';
-import { dark } from '@clerk/themes';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import React from 'react';
 
 import ThumbnailLandingHeader from './ThumbnailLandingHeader';
 import ThumbnailHero from './ThumbnailHero';
@@ -10,71 +6,19 @@ import CTRAuditPipeline from './CTRAuditPipeline';
 import ThumbnailFeatures from './ThumbnailFeatures';
 import ThumbnailFAQ from './ThumbnailFAQ';
 import FinalCTA from './FinalCTA';
+import StudioWelcomeCard from '../CTREngine/components/StudioWelcomeCard';
 
 const ThumbnailLanding: React.FC = () => {
-  const [showSignIn, setShowSignIn] = useState(false);
-  const [showSignUp, setShowSignUp] = useState(false);
-
-  const handleSignInClick = () => {
-    setShowSignIn(true);
-    setShowSignUp(false);
-  };
-
-  const handleSignUpClick = () => {
-    setShowSignUp(true);
-    setShowSignIn(false);
-  };
-
-  const closeModals = () => {
-    setShowSignIn(false);
-    setShowSignUp(false);
-  };
-
-  const AuthModal = ({ children, isOpen }: { children: React.ReactNode; isOpen: boolean }) => {
-    if (!isOpen) return null;
-
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        onClick={closeModals}
-      >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="relative max-w-md w-full"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={closeModals}
-            className="absolute -top-4 -right-4 w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center z-10 transition-colors duration-200"
-          >
-            <X className="w-5 h-5 text-white" />
-          </button>
-          
-          <div className="absolute -inset-1 bg-gradient-to-r from-[#fa751730] via-[#fa751710] to-[#fa751730] rounded-3xl blur-2xl" />
-          
-          <div className="relative">
-            {children}
-          </div>
-        </motion.div>
-      </motion.div>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-[#09090B]">
-      {/* Header */}
-      <ThumbnailLandingHeader
-        onSignInClick={handleSignInClick}
-        onSignUpClick={handleSignUpClick}
-      />
+      {/* Header: Sign In and Get Started use AI Thumbnails' own sign-in and sign-up */}
+      <ThumbnailLandingHeader />
+
+      {/* "Get Started" returns here: a new account's welcome, below the fixed header. */}
+      <StudioWelcomeCard className="relative z-10 mx-auto max-w-7xl px-4 pt-20 sm:px-6 lg:px-8" />
 
       {/* Hero Section - CTR-focused messaging */}
-      <ThumbnailHero onSignUpClick={handleSignUpClick} />
+      <ThumbnailHero />
 
       {/* CTR Audit Pipeline - The main USP visualization */}
       <CTRAuditPipeline />
@@ -195,113 +139,6 @@ const ThumbnailLanding: React.FC = () => {
           </div>
         </div>
       </footer>
-
-      {/* Auth Modals */}
-      <AnimatePresence>
-        {showSignIn && (
-          <AuthModal key="signin-modal" isOpen={showSignIn}>
-          <SignIn
-            routing="virtual"
-            signUpUrl=""
-            afterSignInUrl="/ai-thumbnails/audit"
-            appearance={{
-              baseTheme: dark,
-              variables: {
-                colorPrimary: '#fa7517',
-                colorBackground: '#000000',
-                colorText: '#FFFFFF',
-                colorTextSecondary: '#9CA3AF',
-                colorInputBackground: '#18181B',
-                colorInputText: '#FFFFFF',
-                borderRadius: '0.75rem',
-              },
-              elements: {
-                rootBox: "w-full",
-                card: `
-                  bg-[#111114]/90 
-                  border border-gray-800/20 
-                  shadow-xl 
-                  backdrop-blur-sm 
-                  rounded-2xl
-                  relative
-                  z-10
-                `,
-                headerTitle: "text-2xl font-bold",
-                headerSubtitle: "text-gray-400",
-                socialButtonsBlockButton: "border-gray-800 bg-[#18181B] hover:bg-[#1F1F23] transition-colors",
-                formButtonPrimary: `
-                  bg-[#fa7517] hover:bg-[#fa7517]/90 
-                  transition-all duration-300
-                  shadow-lg shadow-[#fa7517]/20 hover:shadow-[#fa7517]/30
-                `,
-                formFieldInput: {
-                  backgroundColor: '#18181B',
-                  borderColor: '#27272A',
-                  '&:focus': {
-                    borderColor: '#fa7517',
-                    boxShadow: '0 0 0 2px rgba(250, 117, 23, 0.2)'
-                  }
-                },
-                card__main: "p-6",
-                footer: "mt-8"
-              }
-            }}
-          />
-        </AuthModal>
-        )}
-
-        {showSignUp && (
-          <AuthModal key="signup-modal" isOpen={showSignUp}>
-          <SignUp
-            routing="virtual"
-            signInUrl=""
-            afterSignUpUrl="/ai-thumbnails/audit"
-            appearance={{
-              baseTheme: dark,
-              variables: {
-                colorPrimary: '#fa7517',
-                colorBackground: '#000000',
-                colorText: '#FFFFFF',
-                colorTextSecondary: '#9CA3AF',
-                colorInputBackground: '#18181B',
-                colorInputText: '#FFFFFF',
-                borderRadius: '0.75rem',
-              },
-              elements: {
-                rootBox: "w-full",
-                card: `
-                  bg-[#111114]/90 
-                  border border-gray-800/20 
-                  shadow-xl 
-                  backdrop-blur-sm 
-                  rounded-2xl
-                  relative
-                  z-10
-                `,
-                headerTitle: "text-2xl font-bold",
-                headerSubtitle: "text-gray-400",
-                socialButtonsBlockButton: "border-gray-800 bg-[#18181B] hover:bg-[#1F1F23] transition-colors",
-                formButtonPrimary: `
-                  bg-[#fa7517] hover:bg-[#fa7517]/90 
-                  transition-all duration-300
-                  shadow-lg shadow-[#fa7517]/20 hover:shadow-[#fa7517]/30
-                `,
-                formFieldInput: {
-                  backgroundColor: '#18181B',
-                  borderColor: '#27272A',
-                  '&:focus': {
-                    borderColor: '#fa7517',
-                    boxShadow: '0 0 0 2px rgba(250, 117, 23, 0.2)'
-                  }
-                },
-                card__main: "p-6",
-                footer: "mt-8"
-              }
-            }}
-          />
-        </AuthModal>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

@@ -27,6 +27,9 @@ import ctrApi from '../../../api/ctr';
 import type { ChannelAuditResult, ChannelAuditSummary } from '../../../types/ctr';
 import { ChannelAuditReport } from './components/ChannelAuditReport';
 import ChannelAuditProgress from './components/ChannelAuditProgress';
+import AIThumbnailsSignInOptions from './components/AIThumbnailsSignInOptions';
+import { plainApiError, type PlainApiError } from '../../../utils/plainApiError';
+import { TechnicalErrorDetail } from '../../common/TechnicalErrorDetail';
 
 const EXAMPLE_CHANNELS = [
   '@MrBeast',
@@ -137,9 +140,25 @@ const DATA_MODE_LABELS: Record<string, string> = {
   hybrid: 'Connected + upload',
 };
 
+/**
+ * A failed audit or re-open, in plain words, with what "Try again" repeats.
+ * An audit that does not finish is not saved (the server says so in its 503
+ * message), so trying again is always safe.
+ */
+type ChannelAuditError = PlainApiError & {
+  retry: { kind: 'audit'; channel: string } | { kind: 'open'; summary: ChannelAuditSummary };
+};
+
+/** Sending the same request again can help (server trouble, a limit, no answer), unlike a bad channel. */
+const canRetry = (error: ChannelAuditError) =>
+  error.status === null || error.status === 408 || error.status === 429 || error.status >= 500;
+
 const ChannelAuditPage: React.FC = () => {
   // Reuse the CTR engine for the quota/credit sidebar in the shared layout.
-  const { usageAccess, isLoadingQuota } = useCTREngine();
+  const { usageAccess, isLoadingQuota, refreshQuota, isAnonymous } = useCTREngine();
+  // Channel audits need an account: visitors get the sign-in choices, never a raw 401.
+  const [signInRequired, setSignInRequired] = useState(false);
+  const needsSignIn = isAnonymous || signInRequired;
 
   // Returning from the OAuth callback? Prefill with whatever they audited before
   // connecting so "run it again" is one click.
@@ -149,7 +168,7 @@ const ChannelAuditPage: React.FC = () => {
   );
   const [audit, setAudit] = useState<ChannelAuditResult | null>(null);
   const [isAuditing, setIsAuditing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ChannelAuditError | null>(null);
 
   // Persistence, SURFACED: past audits live in the backend — this page now
   // restores the most recent one on load (instead of greeting a returning
@@ -190,7 +209,11 @@ const ChannelAuditPage: React.FC = () => {
       if (summary.channelRef) setChannelUrl(summary.channelRef);
     } catch (err: any) {
       if (opRef.current !== op) return;
-      setError(err?.message || 'Could not open that audit. Please try again.');
+      if (err?.response?.status === 401) { setSignInRequired(true); return; }
+      setError({
+        ...plainApiError(err, 'That audit did not open. Please try again.'),
+        retry: { kind: 'open', summary },
+      });
     } finally {
       if (opRef.current === op) setOpeningAuditId(null);
     }
@@ -312,10 +335,27 @@ const ChannelAuditPage: React.FC = () => {
       });
     } catch (err: any) {
       if (opRef.current !== op) return;
-      setError(err?.message || 'Failed to audit channel. Please try again.');
+      if (err?.response?.status === 401) { setSignInRequired(true); return; }
+      setError({
+        ...plainApiError(
+          err,
+          err?.response?.status === 503
+            ? 'The audit did not finish, and no incomplete report was saved. Please try again.'
+            : 'The channel audit did not finish. Please try again.'
+        ),
+        retry: { kind: 'audit', channel: trimmed },
+      });
     } finally {
+      void refreshQuota();
       if (opRef.current === op) setIsAuditing(false);
     }
+  };
+
+  const retryAfterError = () => {
+    const retry = error?.retry;
+    if (!retry) return;
+    if (retry.kind === 'audit') void runAudit(retry.channel);
+    else void openAudit(retry.summary);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -410,25 +450,69 @@ const ChannelAuditPage: React.FC = () => {
       <AnimatePresence>
         {error && (
           <motion.div
+            role="alert"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="max-w-2xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3"
+            className="max-w-2xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex flex-wrap items-start gap-3"
           >
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="flex-1 text-red-400">{error}</p>
-            <button
-              onClick={() => setError(null)}
-              className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="flex-1 min-w-[12rem] text-sm leading-relaxed text-red-100">
+              {error.message}
+              <TechnicalErrorDetail detail={error.technical} />
+            </p>
+            <div className="flex items-center gap-1">
+              {canRetry(error) && (
+              <button
+                type="button"
+                onClick={retryAfterError}
+                disabled={isAuditing || openingAuditId !== null}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-sm font-medium text-white
+                           hover:border-white/30 hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-4 h-4 ${isAuditing ? 'animate-spin' : ''}`} aria-hidden="true" />
+                Try again
+              </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                aria-label="Dismiss"
+                className="text-gray-400 hover:text-white transition-colors p-1.5 hover:bg-white/10 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       <AnimatePresence mode="wait">
-        {!audit && isRestoring ? (
+        {!audit && needsSignIn ? (
+          <motion.div
+            key="sign-in"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="ai-audit-landing max-w-xl mx-auto min-h-[70vh] flex flex-col justify-center py-8"
+          >
+            <div className="text-center mb-6">
+              <div className="w-10 h-10 mx-auto mb-5 rounded-xl bg-[#fa7517]/10 flex items-center justify-center border border-[#fa7517]/25">
+                <ScanSearch className="w-5 h-5 text-[#fa7517]" />
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-white mb-3">
+                Channel Packaging Audit
+              </h1>
+              <p className="text-base leading-relaxed text-zinc-400">
+                Sign in to audit a channel. Your audits are saved to your account so you can
+                reopen them later.
+              </p>
+            </div>
+            <div className="mx-auto w-full max-w-sm">
+              <AIThumbnailsSignInOptions />
+            </div>
+          </motion.div>
+        ) : !audit && isRestoring ? (
           // Checking for a previous audit — a quiet beat instead of flashing the
           // empty form at a creator whose report is about to reappear.
           <motion.div

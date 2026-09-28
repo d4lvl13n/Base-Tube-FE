@@ -4,14 +4,14 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Check, AlertTriangle, Lightbulb, Clock, Wand2, BarChart3, ZoomIn, ExternalLink, TrendingUp, Eye } from 'lucide-react';
-import { ThumbnailAudit, YouTubeVideoMetadata, OptimizedPrompt } from '../../../../types/ctr';
+import { Check, AlertTriangle, Lightbulb, Clock, Sparkles, BarChart3, ZoomIn, ExternalLink, TrendingUp, Eye } from 'lucide-react';
+import { ThumbnailAudit, YouTubeVideoMetadata } from '../../../../types/ctr';
 import { ScoreGauge } from './ScoreGauge';
 import { PersonaVotesDisplay } from './PersonaVotesDisplay';
 import { NicheBadge } from './NicheSelector';
-import { OptimizedPromptModal } from './OptimizedPromptModal';
-import { ctrApi } from '../../../../api/ctr';
 import { cardStyles } from '../styles/cardTokens';
+import { useStudioAccount } from '../../../../hooks/useStudioAccount';
+import { studioCreateUrlForTitle } from '../../../../utils/studioDraft';
 
 interface ThumbnailAuditResultProps {
   audit: ThumbnailAudit;
@@ -30,71 +30,12 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
   onClear,
   className = '',
 }) => {
-  // Optimize prompt modal state
-  const [isOptimizeModalOpen, setIsOptimizeModalOpen] = useState(false);
-  const [optimizedPrompt, setOptimizedPrompt] = useState<OptimizedPrompt | null>(null);
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const navigate = useNavigate();
-
-  const handleGenerateBetter = async () => {
-    setIsOptimizeModalOpen(true);
-    setIsOptimizing(true);
-    setIsGenerating(false);
-    setOptimizeError(null);
-    setOptimizedPrompt(null);
-
-    try {
-      // Step 1: Get optimized prompt
-      const optimizeResult = await ctrApi.optimizePrompt({
-        audit: {
-          overallScore: audit.overallScore,
-          heuristics: audit.heuristics,
-          weaknesses: audit.weaknesses,
-          suggestions: audit.suggestions,
-          detectedNiche: audit.detectedNiche,
-        },
-        context: {
-          title: youtubeMetadata?.title || 'Untitled Video',
-          description: youtubeMetadata?.description,
-        },
-      });
-      
-      setOptimizedPrompt(optimizeResult);
-      setIsOptimizing(false);
-      
-      // Step 2: Generate thumbnails with optimized prompt
-      setIsGenerating(true);
-      
-      const generateResult = await ctrApi.generateThumbnails({
-        title: youtubeMetadata?.title || 'Untitled Video',
-        description: youtubeMetadata?.description,
-        prompt: optimizeResult.prompt, // Pass the optimized prompt
-        niche: audit.detectedNiche || 'auto',
-        concepts: 3,
-        quality: 'high',
-        size: 'landscape',
-      });
-      
-      // Navigate to generate page with generated concepts in state
-      navigate('/ai-thumbnails/generate', {
-        state: {
-          generatedConcepts: generateResult.concepts,
-          detectedNiche: generateResult.detectedNiche,
-          generationTime: generateResult.generationTime,
-          optimizedPrompt: optimizeResult,
-          outputFormat: 'landscape',
-        },
-      });
-      
-    } catch (error: any) {
-      setOptimizeError(error.message || 'Failed to generate optimized thumbnail');
-      setIsOptimizing(false);
-      setIsGenerating(false);
-    }
-  };
+  const account = useStudioAccount();
+  // The Studio replaces 'Generate better' (spec §17.4): open the create screen with this
+  // video's title; the creator reviews the brief; every paid step shows its price on its button.
+  const createForVideo = () => navigate(studioCreateUrlForTitle(youtubeMetadata?.title || '', account));
 
   // Get the image URL from props or YouTube metadata
   const imageUrl = thumbnailUrl || youtubeMetadata?.thumbnailUrl;
@@ -118,15 +59,7 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <NicheBadge niche={audit.detectedNiche} />
-          <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-            audit.confidence === 'high' 
-              ? 'bg-green-500/20 text-green-400 border-green-500/30' 
-              : audit.confidence === 'medium'
-              ? 'bg-[#fa7517]/20 text-[#fa7517] border-[#fa7517]/30'
-              : 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-          }`}>
-            {audit.confidence.charAt(0).toUpperCase() + audit.confidence.slice(1)} confidence
-          </span>
+
         </div>
       </div>
 
@@ -380,50 +313,27 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
         </motion.div>
       )}
 
-      {/* Primary CTA - Generate Better Thumbnail */}
-      {audit.weaknesses.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
+      {/* Primary CTA - continue in the Studio */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
+        className="space-y-2"
+      >
+        <button
+          type="button"
+          onClick={createForVideo}
+          className="w-full py-5 px-6 bg-gradient-to-r from-[#fa7517] to-orange-500
+                    hover:from-[#fa7517]/90 hover:to-orange-500/90 text-black rounded-xl font-bold text-lg
+                    transition-all shadow-lg shadow-[#fa7517]/25 flex items-center justify-center gap-3"
         >
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleGenerateBetter}
-            disabled={isOptimizing || isGenerating}
-            className="w-full py-5 px-6 bg-gradient-to-r from-[#fa7517] to-orange-500 
-                      hover:from-[#fa7517]/90 hover:to-orange-500/90 text-black rounded-xl font-bold text-lg
-                      transition-all shadow-lg shadow-[#fa7517]/25 flex items-center justify-center gap-3
-                      disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isOptimizing || isGenerating ? (
-              <>
-                <div className="w-6 h-6 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                {isOptimizing ? 'Optimizing prompt...' : 'Generating thumbnails...'}
-              </>
-            ) : (
-              <>
-                <Wand2 className="w-6 h-6" />
-                Generate Better Thumbnail
-                <span className="px-3 py-1 bg-black/20 rounded-full text-sm font-semibold">
-                  +{Math.min(audit.weaknesses.length * 0.8, 3).toFixed(1)} potential score
-                </span>
-              </>
-            )}
-          </motion.button>
-        </motion.div>
-      )}
-
-      {/* Optimized Prompt Modal */}
-      <OptimizedPromptModal
-        isOpen={isOptimizeModalOpen}
-        onClose={() => setIsOptimizeModalOpen(false)}
-        optimizedPrompt={optimizedPrompt}
-        isLoading={isOptimizing}
-        error={optimizeError}
-        videoTitle={youtubeMetadata?.title}
-      />
+          <Sparkles className="w-6 h-6" />
+          Create a new thumbnail for this video
+        </button>
+        <p className="text-center text-xs text-gray-500">
+          Opens the thumbnail creator{youtubeMetadata?.title ? ' with this video’s title' : ''}. You review the brief before anything is created; every paid step shows its price on its button.
+        </p>
+      </motion.div>
 
       {/* Full Size Image Modal */}
       {isImageExpanded && imageUrl && (

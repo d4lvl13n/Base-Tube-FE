@@ -7,3 +7,4 @@ export * from './engagement';
 export * from './pass';
 export * from './purchase';
 export * from './auth';
+export * from './thumbnailStudio';

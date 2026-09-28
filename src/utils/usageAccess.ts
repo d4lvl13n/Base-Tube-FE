@@ -33,7 +33,7 @@ export const normalizeQuotaInfo = (raw: unknown): QuotaInfo | null => {
   const remaining = Number(raw.remaining);
   const resetsAt = typeof raw.resetsAt === 'string' ? raw.resetsAt : '';
 
-  if ([used, limit, remaining].some(Number.isNaN)) {
+  if ([used, limit, remaining].some(value => !Number.isFinite(value))) {
     return null;
   }
 
@@ -65,7 +65,7 @@ export const normalizeCreditInfo = (raw: unknown): CreditInfo | null => {
   const reserved = Number(raw.reserved);
   const available = Number(raw.available);
 
-  if ([balance, reserved, available].some(Number.isNaN)) {
+  if ([balance, reserved, available].some(value => !Number.isFinite(value))) {
     return null;
   }
 
@@ -103,7 +103,7 @@ export const normalizeCreditPricingCatalog = (raw: unknown): CreditPricingCatalo
     pricing.ctr.generatePerConcept,
   ];
 
-  if (allValues.some(Number.isNaN)) {
+  if (allValues.some(value => !Number.isFinite(value))) {
     return null;
   }
 
@@ -228,3 +228,10 @@ export const updateCTRUsageFromOperation = (
 
 export const formatCreditCost = (cost: number, noun: string = 'credit'): string =>
   `${cost} ${noun}${cost === 1 ? '' : 's'}`;
+
+/** A quota reset is a server timestamp, not an inferred next billing period. */
+export function formatQuotaReset(value?: string): string {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : ` Resets ${date.toLocaleString()}.`;
+}

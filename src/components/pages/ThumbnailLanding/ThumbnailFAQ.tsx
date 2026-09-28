@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, HelpCircle, BarChart2 } from 'lucide-react';
+import { freeCreditsText, useWelcomeOffer } from '../../../hooks/useWelcomeOffer';
 
 interface FAQItemProps {
   question: string;
@@ -58,6 +59,7 @@ const FAQItem: React.FC<FAQItemProps> = ({ question, answer, isOpen, onClick, in
 
 const ThumbnailFAQ: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const { credits } = useWelcomeOffer();
 
   const faqs = [
     {
@@ -86,11 +88,11 @@ const ThumbnailFAQ: React.FC = () => {
     },
     {
       question: "Is it free to try?",
-      answer: "Yes! You can run your first audits and generations for free without a credit card. We want you to see the value before committing. Free users get a limited number of audits and generations per day, with premium tiers unlocking unlimited access and advanced features."
+      answer: `Yes. Visitors get up to 3 free thumbnail audits a day, no account needed. Generating and editing need a free account: new accounts get ${freeCreditsText(credits)} once the email is verified${credits ? ' — enough for one generation, one edit and an audit' : ''}. No credit card needed.`
     },
     {
       question: "Can the AI generate thumbnails based on my audit results?",
-      answer: "Yes! After an audit, you can click 'Generate Better Thumbnail' to create a new version that addresses the weaknesses identified. The AI uses your audit insights to produce an optimized alternative, or you can manually adjust the prompt to keep creative control."
+      answer: "Yes. After an audit, click “Create a new thumbnail for this video”: the Studio opens its create screen, with the video’s title filled in when the audit has one, and you review the brief before anything is generated. To fix an existing thumbnail, upload it in the Studio, audit it there, select the findings to fix and click “Apply N corrections · 18 credits” — one AI edit that makes those changes. Generating and editing need a free account, and every paid step shows its price on its button."
     },
   ];
 

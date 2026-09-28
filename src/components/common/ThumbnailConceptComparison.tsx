@@ -10,12 +10,14 @@ export interface ComparisonConcept {
   name: string;
 }
 
-export function ThumbnailConceptComparison({ concepts, context, onComplete }: {
+export function ThumbnailConceptComparison({ concepts, context, onComplete, usageAccess }: {
+  usageAccess?: CTRUsageAccess | null;
   concepts: ComparisonConcept[];
   context?: AuditContext;
   onComplete?: () => void | Promise<void>;
 }) {
-  const [access, setAccess] = useState<CTRUsageAccess | null>(null);
+  const [localAccess, setAccess] = useState<CTRUsageAccess | null>(null);
+  const access = usageAccess === undefined ? localAccess : usageAccess;
   const [results, setResults] = useState<Record<string, ThumbnailAudit>>({});
   const [failures, setFailures] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -28,6 +30,7 @@ export function ThumbnailConceptComparison({ concepts, context, onComplete }: {
   const signature = JSON.stringify(candidates.map(keyFor));
   const latestSignature = useRef(signature);
   latestSignature.current = signature;
+  const usesSharedAccess = usageAccess !== undefined;
   const complete = useRef(onComplete);
   complete.current = onComplete;
   const pending = candidates.filter((concept, index) => !results[keyFor(concept)] && candidates.findIndex(candidate => keyFor(candidate) === keyFor(concept)) === index);
@@ -40,16 +43,16 @@ export function ThumbnailConceptComparison({ concepts, context, onComplete }: {
 
   useEffect(() => {
     mounted.current = true;
-    ctrApi.getQuota().then(value => { if (mounted.current) setAccess(value); }).catch(() => {
+    if (!usesSharedAccess) ctrApi.getQuota().then(value => { if (mounted.current) setAccess(value); }).catch(() => {
       if (mounted.current) setError('Could not load audit access. Retry below.');
     });
     return () => { mounted.current = false; };
-  }, []);
+  }, [usesSharedAccess]);
 
   const compare = async () => {
     if (running.current || !pending.length) return;
     if (!access) {
-      try { setAccess(await ctrApi.getQuota()); setError(''); }
+      try { if (usageAccess === undefined) setAccess(await ctrApi.getQuota()); else await complete.current?.(); setError(''); }
       catch { setError('Could not load audit access. Please try again.'); }
       return;
     }
@@ -67,7 +70,7 @@ export function ThumbnailConceptComparison({ concepts, context, onComplete }: {
           if (!result.audit || !Number.isFinite(result.audit.overallScore)) throw new Error('The audit returned no usable assessment.');
           setResults(previous => ({ ...previous, [key]: result.audit }));
           setFailures(previous => ({ ...previous, [key]: '' }));
-          setAccess(previous => previous ? updateCTRUsageFromOperation(previous, result, 'audit') || previous : previous);
+          if (usageAccess === undefined) setAccess(previous => previous ? updateCTRUsageFromOperation(previous, result, 'audit') || previous : previous);
         } catch (failure: any) {
           if (!mounted.current) break;
           const message = failure.response?.data?.error?.message || failure.message || 'Assessment failed. Retry this concept.';
@@ -76,6 +79,11 @@ export function ThumbnailConceptComparison({ concepts, context, onComplete }: {
             setError(message);
             break;
           }
+        } finally {
+          // A paid request can settle even after the creator has left this page.
+          if (usesSharedAccess) {
+            try { await complete.current?.(); } catch { /* Keep assessments when a balance refresh fails. */ }
+          }
         }
       }
     } finally {
@@ -83,10 +91,12 @@ export function ThumbnailConceptComparison({ concepts, context, onComplete }: {
       if (mounted.current) {
         setBusy(false);
         try {
-          const nextAccess = await ctrApi.getQuota();
-          if (mounted.current) setAccess(nextAccess);
+          if (usageAccess === undefined) {
+            const nextAccess = await ctrApi.getQuota();
+            if (mounted.current) setAccess(nextAccess);
+          }
         } catch { /* Keep the last server-provided access state. */ }
-        try { if (mounted.current) await complete.current?.(); } catch { /* Assessments remain usable if the surrounding balance refresh fails. */ }
+        try { if (!usesSharedAccess && mounted.current) await complete.current?.(); } catch { /* Assessments remain usable if the surrounding balance refresh fails. */ }
       }
     }
   };
@@ -113,7 +123,7 @@ export function ThumbnailConceptComparison({ concepts, context, onComplete }: {
           <img src={thumbnailMediaUrl(concept.imageUrl)} alt={concept.name} className="aspect-video w-full rounded object-contain bg-black" />
           <h4 className="mt-2 text-sm font-semibold">{concept.name}</h4>
           {audit ? <>
-            <p className="mt-2 text-sm">AI assessment: {audit.overallScore.toFixed(1)}/10 <span className="text-xs text-gray-400">({audit.confidence} confidence)</span></p>
+            <p className="mt-2 text-sm">AI assessment: {audit.overallScore.toFixed(1)}/10 {!usesSharedAccess && <span className="text-xs text-gray-400">({audit.confidence} confidence)</span>}</p>
             {audit.strengths?.[0] && <p className="mt-2 text-xs text-emerald-300">Strength: {audit.strengths[0]}</p>}
             {audit.weaknesses?.[0] && <p className="mt-2 text-xs text-orange-300">Weakness: {audit.weaknesses[0]}</p>}
             {audit.suggestions?.[0] && <p className="mt-2 text-xs text-gray-300">Suggested change: {audit.suggestions[0]}</p>}

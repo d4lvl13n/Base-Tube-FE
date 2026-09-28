@@ -1,21 +1,18 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '@clerk/clerk-react';
 import { LogIn, UserPlus, UserCircle } from 'lucide-react';
 import Button from '../../common/Button';
+import AIThumbnailsSignInOptions from '../CTREngine/components/AIThumbnailsSignInOptions';
+import { startStudioAuth, STUDIO_SIGN_UP_PATH } from '../../../utils/studioAuth';
 
-interface ThumbnailLandingHeaderProps {
-  onSignInClick: () => void;
-  onSignUpClick: () => void;
-}
-
-const ThumbnailLandingHeader: React.FC<ThumbnailLandingHeaderProps> = ({
-  onSignInClick,
-  onSignUpClick,
-}) => {
+/** Sign In offers AI Thumbnails' own sign-in (email or wallet); Get Started opens its sign-up. Both return here. */
+const ThumbnailLandingHeader: React.FC = () => {
   const { isSignedIn, user } = useUser();
+  const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showSignInOptions, setShowSignInOptions] = useState(false);
 
   const UserMenu = () => (
     <motion.div
@@ -103,21 +100,37 @@ const ThumbnailLandingHeader: React.FC<ThumbnailLandingHeaderProps> = ({
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={onSignInClick}
-                      className="text-white/80 hover:text-white hover:bg-white/5 flex items-center gap-2"
+                  <div className="relative">
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      <LogIn className="w-4 h-4" />
-                      <span className="hidden sm:inline">Sign In</span>
-                    </Button>
-                  </motion.div>
-                  
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Sign in"
+                        aria-expanded={showSignInOptions}
+                        onClick={() => setShowSignInOptions(open => !open)}
+                        className="text-white/80 hover:text-white hover:bg-white/5 flex items-center gap-2"
+                      >
+                        <LogIn className="w-4 h-4" />
+                        <span className="hidden sm:inline">Sign In</span>
+                      </Button>
+                    </motion.div>
+                    <AnimatePresence>
+                      {showSignInOptions && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute top-full right-0 mt-2 w-64 bg-black/90 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl"
+                        >
+                          <AIThumbnailsSignInOptions />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -127,7 +140,10 @@ const ThumbnailLandingHeader: React.FC<ThumbnailLandingHeaderProps> = ({
                     <Button
                       variant="default"
                       size="sm"
-                      onClick={onSignUpClick}
+                      onClick={() => {
+                        startStudioAuth('sign-up', '/ai-thumbnails');
+                        navigate(STUDIO_SIGN_UP_PATH);
+                      }}
                       className="relative bg-[#fa7517] hover:bg-[#fa7517]/90 text-white flex items-center gap-2"
                     >
                       <UserPlus className="w-4 h-4" />

@@ -163,60 +163,6 @@ export const auditHandlers = [
 ];
 
 // ============================================================
-// GENERATE HANDLERS
-// ============================================================
-
-export const generateHandlers = [
-  // POST /api/v1/ctr/generate - Generate thumbnails
-  http.post(`${API_BASE}/api/v1/ctr/generate`, async ({ request }) => {
-    await delay(2000); // Simulate generation time
-    
-    const authHeader = request.headers.get('Authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return HttpResponse.json(
-        { success: false, error: { code: 'AUTHENTICATION_REQUIRED', message: 'Unauthorized' } },
-        { status: 401 }
-      );
-    }
-    
-    // Check quota
-    if (mockQuota.generate.used >= mockQuota.generate.limit) {
-      return HttpResponse.json(
-        { success: false, error: { code: 'GENERATE_QUOTA_EXCEEDED', message: 'Daily generation quota exceeded' } },
-        { status: 429 }
-      );
-    }
-    
-    const body = await request.json() as { 
-      prompt?: string;
-      title?: string;
-      mode?: 'creative' | 'ctr';
-    };
-    
-    if (!body?.prompt && !body?.title) {
-      return HttpResponse.json(
-        { success: false, error: { code: 'MISSING_TITLE', message: 'Prompt or title is required' } },
-        { status: 400 }
-      );
-    }
-    
-    mockQuota.generate.used++;
-    mockQuota.generate.remaining = Math.max(mockQuota.generate.limit - mockQuota.generate.used, 0);
-    
-    return HttpResponse.json({
-      success: true,
-      data: {
-        concepts: mockGeneratedConcepts,
-        detectedNiche: 'technology',
-        generationTime: 2000,
-        quotaInfo: mockQuota.generate,
-      },
-    });
-  }),
-];
-
-// ============================================================
 // FACE REFERENCE HANDLERS
 // ============================================================
 
@@ -360,7 +306,6 @@ export const galleryHandlers = [
 export const ctrHandlers = [
   ...quotaHandlers,
   ...auditHandlers,
-  ...generateHandlers,
   ...faceReferenceHandlers,
   ...galleryHandlers,
 ];

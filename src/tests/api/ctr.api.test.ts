@@ -161,6 +161,14 @@ describe('CTR API contract fixtures', () => {
     expect(mockAuditResponse.data.quotaInfo?.remaining).toBe(6);
   });
 
+  it('accepts an audit that was returned but could not be saved (auditId null)', () => {
+    const unsaved: AuditResponse = { ...mockAuditResponse, data: { ...mockAuditResponse.data, auditId: null } };
+    const unsavedYouTube: YouTubeAuditResponse = { ...mockYouTubeAuditResponse, data: { ...mockYouTubeAuditResponse.data, auditId: null } };
+    expect(unsaved.data.auditId).toBeNull();
+    expect(unsavedYouTube.data.auditId).toBeNull();
+    expect(unsaved.data.audit.overallScore).toBeGreaterThan(0);
+  });
+
   it('matches the YouTube audit response shape', () => {
     expect(mockYouTubeAuditResponse.data.thumbnailUrl).toBe('https://example.com/thumb.jpg');
     expect(mockYouTubeAuditResponse.data.videoMetadata.title).toBe('How I Doubled CTR');

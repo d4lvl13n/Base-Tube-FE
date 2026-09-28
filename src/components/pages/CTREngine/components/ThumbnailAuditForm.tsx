@@ -1,3 +1,4 @@
+import { StudioSelect } from "../../../common/ThumbnailSelect";
 // src/components/pages/CTREngine/components/ThumbnailAuditForm.tsx
 // Premium audit input form component
 
@@ -330,7 +331,8 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
 
           <div className="relative">
             {nicheMode === 'preset' ? (
-              <select
+              <StudioSelect
+                aria-label="Video niche"
                 value={COMMON_NICHES.includes((context.niche || '').trim()) ? (context.niche || '') : ''}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -357,7 +359,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
                   </option>
                 ))}
                 <option value="__custom__">Custom…</option>
-              </select>
+              </StudioSelect>
             ) : (
               <div className="flex gap-2">
                 <input
@@ -522,7 +524,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
         >
           <AlertCircle className="w-3.5 h-3.5" />
           {quotaRemaining} audit{quotaRemaining !== 1 ? 's' : ''} remaining today
-          {isAnonymous && ' • Sign in for more'}
+          {isAnonymous && ' • Sign in to keep auditing with credits'}
         </motion.p>
       )}
       {usageMode === 'quota' && quotaRemaining === 0 && (
@@ -533,7 +535,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
         >
           <AlertCircle className="w-3.5 h-3.5" />
           Daily limit reached
-          {isAnonymous ? ' • Sign in for 10 free audits daily' : ' • Resets at midnight UTC'}
+          {isAnonymous ? ' • Sign in to keep auditing with credits' : ' • Resets at midnight UTC'}
         </motion.p>
       )}
     </form>

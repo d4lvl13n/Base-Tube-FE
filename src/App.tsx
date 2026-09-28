@@ -18,6 +18,7 @@ import SignUpPage from './components/pages/SignUpPage';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import ReferralAttributionBridge from './components/common/ReferralAttributionBridge';
 import CryptoResumeBridge from './components/common/CryptoResumeBridge';
+import StudioFunnelBridge from './components/common/StudioFunnelBridge';
 import ChannelPage from './components/pages/ChannelPage';
 import ChannelDetailPage from './components/pages/ChannelDetailPage';
 import CreateChannelPage from './components/pages/CreateChannelPage';
@@ -63,11 +64,17 @@ import LandingPage from './components/pages/landingPage';
 import ThumbnailLanding from './components/pages/ThumbnailLanding';
 import { AuditPage as CTRAuditPage, ChannelAuditPage as CTRChannelAuditPage, GeneratePage as CTRGeneratePage, SettingsPage as CTRSettingsPage, GalleryPage as CTRGalleryPage } from './components/pages/CTREngine';
 import AuditHistoryPage from './components/pages/CTREngine/AuditHistoryPage';
+import { AIThumbnailsSignInPage, AIThumbnailsSignUpPage } from './components/pages/CTREngine/auth/AIThumbnailsAuthPage';
+import AIThumbnailsAuthContinue from './components/pages/CTREngine/auth/AIThumbnailsAuthContinue';
 import { UploadQueueProvider } from './contexts/UploadQueueContext';
 
 // Lazy-loaded components
 const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
 const CreateContentPass = lazy(() => import('./components/pages/CreatorHub/CreateContentPass/index'));
+const StudioProjectsPage = lazy(() => import('./components/pages/CTREngine/StudioProjectsPage'));
+const StudioProjectPage = lazy(() => import('./components/pages/CTREngine/StudioProjectPage'));
+const StudioProfilesPage = lazy(() => import('./components/pages/CTREngine/StudioProfilesPage'));
+const StudioBatchReview = lazy(() => import('./components/pages/CTREngine/StudioBatchReview'));
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -109,6 +116,18 @@ const AuthRouteAliasRedirect: React.FC<{ to: string }> = ({ to }) => {
   return <Navigate to={`${to}${location.search}`} replace />;
 };
 
+const studioPage = (page: React.ReactElement) => (
+  <Suspense fallback={<div className="min-h-screen bg-[#09090B] flex items-center justify-center text-zinc-400">Loading...</div>}>
+    {page}
+  </Suspense>
+);
+
+/** `/ai-thumbnails/studio/*` was the first name of the projects routes; keep old links working. */
+const StudioRouteRedirect: React.FC = () => {
+  const location = useLocation();
+  return <Navigate to={`${location.pathname.replace(/^\/ai-thumbnails\/studio/, '/ai-thumbnails/projects')}${location.search}`} state={location.state} replace />;
+};
+
 const isInternalMonitoringEnabled = process.env.REACT_APP_ENABLE_INTERNAL_MONITORING === 'true';
 
 function App() {
@@ -120,6 +139,8 @@ function App() {
               <div className="min-h-screen bg-black">
                 <ReferralAttributionBridge />
                 <CryptoResumeBridge />
+                {/* AI Thumbnails account gate and welcome credits: above the routes, so sign-in never unmounts them. */}
+                <StudioFunnelBridge />
                 <Routes>
                   {/* Public routes that don't need channel context */}
                   <Route path="/" element={<V2HomePage />} />
@@ -140,14 +161,26 @@ function App() {
                   {/* AI Thumbnail Landing Page */}
                   <Route path="/ai-thumbnails" element={<ThumbnailLanding />} />
 
+                  {/* AI Thumbnails' own sign-in and sign-up (Clerk's steps are sub-paths), and the
+                      one address they all end on. base.tube's /sign-in, /sign-up and onboarding are separate. */}
+                  <Route path="/ai-thumbnails/sign-in/*" element={<AIThumbnailsSignInPage />} />
+                  <Route path="/ai-thumbnails/sign-up/*" element={<AIThumbnailsSignUpPage />} />
+                  <Route path="/ai-thumbnails/auth/continue" element={<AIThumbnailsAuthContinue />} />
+
                   {/* CTR Thumbnail Engine Routes (under ai-thumbnails namespace) */}
                   <Route path="/ai-thumbnails/creative" element={<Navigate to="/ai-thumbnails/generate" replace />} />
                   <Route path="/ai-thumbnails/audit" element={<CTRAuditPage />} />
                   <Route path="/ai-thumbnails/channel-audit" element={<CTRChannelAuditPage />} />
                   <Route path="/ai-thumbnails/generate" element={<CTRGeneratePage />} />
+                  <Route path="/ai-thumbnails/projects" element={studioPage(<StudioProjectsPage />)} />
+                  <Route path="/ai-thumbnails/projects/profiles" element={studioPage(<StudioProfilesPage />)} />
+                  <Route path="/ai-thumbnails/projects/batch" element={studioPage(<StudioBatchReview />)} />
+                  <Route path="/ai-thumbnails/projects/:projectId" element={studioPage(<StudioProjectPage />)} />
+                  <Route path="/ai-thumbnails/studio/*" element={<StudioRouteRedirect />} />
                   <Route path="/ai-thumbnails/gallery" element={<CTRGalleryPage />} />
                   <Route path="/ai-thumbnails/history" element={<AuditHistoryPage />} />
                   <Route path="/ai-thumbnails/settings" element={<CTRSettingsPage />} />
+                  <Route path="/ai-thumbnails/settings/:section" element={<CTRSettingsPage />} />
 
                   {/* Content Pass Landing Page */}
                   <Route path="/content-passes" element={<LandingPage />} />

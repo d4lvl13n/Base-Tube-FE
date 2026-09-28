@@ -65,6 +65,24 @@ const isInsightsRegeneration = (config: AxiosRequestConfig): boolean => {
   return refresh === '1' || refresh === 1 || refresh === true;
 };
 
+/**
+ * A 429 that refuses a daily allowance (a quota, or the free audits for visitors
+ * used up on the platform today) cannot be waited out: a replay after a few
+ * seconds is refused again and only delays the page's explanation.
+ */
+const isSpentAllowance = (code: unknown): boolean =>
+  typeof code === 'string' && (code === 'ANONYMOUS_AUDIT_CAPACITY' || code.endsWith('QUOTA_EXCEEDED'));
+
+/**
+ * Studio uploads, imports, exports and YouTube source reads are limited per
+ * account over ten minutes (exports: 60, ZIP: 10). A replay after a few seconds
+ * is refused again and keeps the creator waiting; the page says how long to wait.
+ */
+const isLimitedStudioRequest = (config: AxiosRequestConfig): boolean =>
+  /\/thumbnail-studio\/(?:assets(?:\/from-thumbnail)?|profiles\/legacy-import|projects\/[^/?#]+\/youtube-source|versions\/[^/?#]+\/export|exports)(?:[?#]|$)/.test(
+    config.url || '',
+  );
+
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL,
   headers: {
@@ -146,6 +164,8 @@ api.interceptors.response.use(
           // A spent daily budget cannot be waited out, and replaying it would spend a
           // second one if it could.
           !isInsightsRegeneration(config) &&
+          !isSpentAllowance(error.response?.data?.error?.code) &&
+          !isLimitedStudioRequest(config) &&
           // Never auto-replay a binary body: the stream has already been
           // consumed, so a retried upload would re-send gigabytes (or fail).
           !config.__unreplayableBody &&

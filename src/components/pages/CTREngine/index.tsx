@@ -22,6 +22,5 @@ export { ThumbnailAuditResult } from './components/ThumbnailAuditResult';
 export { CTRGeneratorForm } from './components/CTRGeneratorForm';
 export { GeneratedConceptsGrid } from './components/GeneratedConceptsGrid';
 export { FaceReferenceUploader } from './components/FaceReferenceUploader';
-export { OptimizedPromptModal } from './components/OptimizedPromptModal';
 export { AuditStatsCard } from './components/AuditStatsCard';
 

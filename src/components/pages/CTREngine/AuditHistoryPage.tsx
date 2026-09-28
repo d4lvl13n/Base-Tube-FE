@@ -1,10 +1,10 @@
+import { StudioSelect } from "../../common/ThumbnailSelect";
 // src/components/pages/CTREngine/AuditHistoryPage.tsx
 // Audit History Page - View past thumbnail audits with stats
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { SignInButton } from '@clerk/clerk-react';
 import { 
   History, 
   TrendingUp, 
@@ -20,6 +20,7 @@ import {
   Filter
 } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
+import AIThumbnailsSignInOptions from './components/AIThumbnailsSignInOptions';
 import useCTREngine from '../../../hooks/useCTREngine';
 import { AuditHistoryItem } from '../../../types/ctr';
 import { getScoreColor, getScoreLabel } from '../../../api/ctr';
@@ -248,13 +249,9 @@ const AuditHistoryPage: React.FC = () => {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
+            className="mx-auto w-full max-w-sm"
           >
-            <SignInButton mode="modal">
-              <button className="py-3.5 px-6 bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 text-white rounded-xl font-semibold transition-all shadow-lg shadow-[#fa7517]/25 flex items-center justify-center gap-2 mx-auto">
-                <History className="w-5 h-5" />
-                Sign In to Continue
-              </button>
-            </SignInButton>
+            <AIThumbnailsSignInOptions />
           </motion.div>
         </div>
       </AIThumbnailsLayout>
@@ -359,7 +356,8 @@ const AuditHistoryPage: React.FC = () => {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-gray-400" />
-              <select
+              <StudioSelect
+                aria-label="Filter audits by niche"
                 value={filterNiche}
                 onChange={(e) => setFilterNiche(e.target.value)}
                 className="bg-black/50 border border-gray-800/30 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 hover:border-gray-800/50 transition-colors"
@@ -370,7 +368,7 @@ const AuditHistoryPage: React.FC = () => {
                     {niche}
                   </option>
                 ))}
-              </select>
+              </StudioSelect>
             </div>
             
             <div className="flex-1" />

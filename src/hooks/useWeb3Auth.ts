@@ -5,18 +5,38 @@ import { AuthenticationStep, User, AuthMethod } from '../types/auth';
 import { useNavigate } from 'react-router-dom';
 import { baseSepolia } from 'wagmi/chains';
 import { createWalletAuthPayload } from '../utils/walletAuth';
+import { STUDIO_SIGN_IN_PATH } from '../utils/studioAuth';
+
+/**
+ * A wallet sign-in on the AI Thumbnails sign-in page is finished by that page
+ * (`/ai-thumbnails/auth/continue`: back to AI Thumbnails, a new account without
+ * the onboarding screens). Anywhere else the routing after a wallet sign-in is
+ * unchanged.
+ */
+function onStudioWalletSignIn(): boolean {
+  if (typeof window === 'undefined') return false;
+  const { pathname } = window.location;
+  return pathname === STUDIO_SIGN_IN_PATH || pathname.startsWith(`${STUDIO_SIGN_IN_PATH}/`);
+}
 
 interface AuthState {
   step: AuthenticationStep;
   error: Error | null;
   isAuthenticated: boolean;
   user: User | null;
+  /**
+   * A stored wallet session is being restored (it is read after the first
+   * render). Until it resolves, the account is still loading: callers must not
+   * treat the visitor as signed out.
+   */
+  isRestoring: boolean;
 }
 
 type AuthAction =
   | { type: 'SET_STEP'; payload: AuthenticationStep }
   | { type: 'SET_ERROR'; payload: Error }
   | { type: 'SET_AUTHENTICATED'; payload: { user: User } }
+  | { type: 'RESTORE_DONE' }
   | { type: 'RESET' };
 
 function authReducer(state: AuthState, action: AuthAction): AuthState {
@@ -31,26 +51,42 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isAuthenticated: true,
         user: action.payload.user,
         step: AuthenticationStep.COMPLETED,
+        isRestoring: false,
       };
+    case 'RESTORE_DONE':
+      return state.isRestoring ? { ...state, isRestoring: false } : state;
     case 'RESET':
       return {
         step: AuthenticationStep.IDLE,
         error: null,
         isAuthenticated: false,
         user: null,
+        isRestoring: false,
       };
     default:
       return state;
   }
 }
 
+function hasStoredWeb3Session(): boolean {
+  try {
+    return (
+      localStorage.getItem('auth_method') === AuthMethod.WEB3 &&
+      Boolean(localStorage.getItem('auth_user'))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function useWeb3Auth() {
-  const [state, dispatch] = useReducer(authReducer, {
+  const [state, dispatch] = useReducer(authReducer, undefined, () => ({
     step: AuthenticationStep.IDLE,
     error: null,
     isAuthenticated: false,
     user: null,
-  });
+    isRestoring: hasStoredWeb3Session(),
+  }));
 
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -82,6 +118,7 @@ export function useWeb3Auth() {
         localStorage.removeItem('auth_method');
       }
     }
+    dispatch({ type: 'RESTORE_DONE' });
   }, []);
 
   /**
@@ -145,8 +182,8 @@ export function useWeb3Auth() {
         );
         const auth = await web3AuthApi.login(walletAddress, signature);
         handleAuthSuccess(auth);
-        
-        if (!isOnSuccessPage) {
+
+        if (!isOnSuccessPage && !onStudioWalletSignIn()) {
           navigate(
             auth.user.onboarding_status === 'PENDING' ? '/onboarding/web3' : '/',
             { replace: true }
@@ -171,7 +208,7 @@ export function useWeb3Auth() {
           const authData = await web3AuthApi.signup(walletAddress, signature);
           handleAuthSuccess(authData);
           const isOnSuccessPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/pay/success');
-          if (!isOnSuccessPage) {
+          if (!isOnSuccessPage && !onStudioWalletSignIn()) {
             navigate('/onboarding/web3', { replace: true });
           }
           return authData;

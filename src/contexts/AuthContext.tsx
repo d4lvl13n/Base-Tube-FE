@@ -12,6 +12,8 @@ interface AuthContextType {
   error: Error | null;
   isAuthenticated: boolean;
   user: User | null;
+  /** A stored wallet session is still being restored: the account is loading, not signed out. */
+  isRestoring: boolean;
   setUser: (user: User | null) => void;
 
   // Wallet State
@@ -32,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error,
     isAuthenticated,
     user,
+    isRestoring,
     setUser,
     
     // Wallet State
@@ -49,6 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error,
     isAuthenticated,
     user,
+    isRestoring,
     setUser,
     
     // Wallet State

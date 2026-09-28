@@ -26,9 +26,9 @@ export const creditsApi = {
     };
   },
 
-  getCreditLedger: async (): Promise<CreditLedgerEntry[]> => {
-    // Backend shape: { data: { balance, pricing, entries: [...], pagination } }
-    const response = await api.get<CreditLedgerResponse>(`${CREDITS_BASE_PATH}/ledger`);
+  getCreditLedger: async (params?: { limit?: number; offset?: number }): Promise<CreditLedgerEntry[]> => {
+    // Backend shape: { data: { balance, pricing, entries: [...], pagination } }, newest first; limit 1–100.
+    const response = await api.get<CreditLedgerResponse>(`${CREDITS_BASE_PATH}/ledger`, params ? { params } : undefined);
     return response.data.data.entries;
   },
 

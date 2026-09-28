@@ -5,45 +5,42 @@ jest.mock('../../../../../api/thumbnailPackaging', () => ({ thumbnailPackagingAp
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { GeneratedConceptsGrid } from '../GeneratedConceptsGrid';
 import { ctrApi } from '../../../../../api/ctr';
-import { thumbnailApi } from '../../../../../api/thumbnail';
-jest.mock('../../../../../api/ctr', () => ({ ctrApi: { getQuota: jest.fn(), auditThumbnail: jest.fn(), applyOverlay: jest.fn() } }));
-jest.mock('../../../../../api/thumbnail', () => ({ thumbnailApi: { refineThumbnailConversationally: jest.fn() } }));
-it('compares the edited images through persona audit instead of displaying a fabricated generation score', async () => {
+jest.mock('../../../../../api/ctr', () => ({ ctrApi: { getQuota: jest.fn(), auditThumbnail: jest.fn() } }));
+const original = (i: number) => `https://gateway.storjshare.io/basetube-thumbnails/${i}.png?X-Amz-Signature=original`;
+it('compares the concepts through persona audit without a fabricated score or a quota AI edit', async () => {
   (thumbnailPackagingApi.save as jest.Mock).mockResolvedValue({ id: 8, name: 'Music' });
   window.matchMedia = jest.fn(() => ({ matches: false, addListener: jest.fn(), removeListener: jest.fn() })) as any;
   (ctrApi.getQuota as jest.Mock).mockResolvedValue({ mode: 'credits', creditInfo: { available: 20, balance: 20, reserved: 0 }, pricing: { ctr: { auditWithPersonas: 3 } } });
   (ctrApi.auditThumbnail as jest.Mock).mockResolvedValue({ audit: { overallScore: 8, confidence: 'medium', strengths: [], weaknesses: [], suggestions: [] } });
-  (thumbnailApi.refineThumbnailConversationally as jest.Mock).mockResolvedValue({ data: { shareUrl: 'edited-share', thumbnailUrl: 'https://gateway.storjshare.io/basetube-thumbnails/ed17ed.png?X-Amz-Signature=edited' } });
-  const concepts = ['Subject spotlight', 'In context'].map((name, i) => ({ id: String(i), shareUrl: 'original-share', thumbnailUrl: `https://gateway.storjshare.io/basetube-thumbnails/${i}.png?X-Amz-Signature=original`, thumbnailPath: '', prompt: 'Camera', conceptName: name, conceptDescription: 'Camera concept', estimatedCTRScore: 7 }));
+  const concepts = ['Subject spotlight', 'In context'].map((name, i) => ({ id: String(i), shareUrl: 'original-share', thumbnailUrl: original(i), thumbnailPath: '', prompt: 'Camera', conceptName: name, conceptDescription: 'Camera concept', estimatedCTRScore: 7 }));
   render(<GeneratedConceptsGrid concepts={concepts} detectedNiche="tech" generationTime={1} onClear={jest.fn()} auditContext={{ title: 'Camera review' }} />);
   expect(ctrApi.auditThumbnail).not.toHaveBeenCalled();
   for (const image of screen.getAllByAltText('Subject spotlight')) {
     expect(image).toHaveAttribute('src', '/thumbnail-media/0.png?X-Amz-Signature=original');
   }
   expect(screen.queryByText('7.0')).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Apply edit' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getAllByRole('button', { name: 'Refine this' })[0]);
-  fireEvent.change(screen.getAllByLabelText('Edit instruction')[0], { target: { value: 'Blue background' } });
-  fireEvent.click(screen.getAllByRole('button', { name: 'Apply edit' })[0]);
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Back to concepts' })).toBeEnabled());
-  fireEvent.click(screen.getByRole('button', { name: 'Back to concepts' }));
-  fireEvent.click(screen.getAllByRole('button', { name: 'Refine this' })[0]);
-  expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Share', exact: true }));
+  expect(screen.queryByRole('button', { name: 'Refine this' })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Edit instruction')).not.toBeInTheDocument();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Share', exact: true })[0]);
   expect(screen.getByText('original-share')).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Thumbnail version'), { target: { value: '1' } });
-  expect(screen.getByText('edited-share')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Back to concepts' }));
   fireEvent.click(screen.getByText('Help me choose'));
   const comparison = screen.getByRole('region', { name: 'Concept comparison' });
-  await waitFor(() => expect(within(comparison).getByAltText('Subject spotlight')).toHaveAttribute('src', '/thumbnail-media/ed17ed.png?X-Amz-Signature=edited'));
+  expect(within(comparison).getByAltText('Subject spotlight')).toHaveAttribute('src', '/thumbnail-media/0.png?X-Amz-Signature=original');
   fireEvent.click(screen.getAllByRole('button', { name: 'Save style', exact: true })[0]);
   fireEvent.change(screen.getByLabelText('Channel or style name'), { target: { value: 'Music' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save channel style' }));
   await screen.findByText(/Saved as/);
-  expect(thumbnailPackagingApi.save).toHaveBeenCalledWith('https://gateway.storjshare.io/basetube-thumbnails/ed17ed.png?X-Amz-Signature=edited', 'Music');
+  expect(thumbnailPackagingApi.save).toHaveBeenCalledWith(original(0), 'Music');
   fireEvent.click(screen.getByRole('button', { name: 'Compare 2 concepts' }));
   await screen.findByRole('button', { name: 'Comparison complete' });
-  expect((ctrApi.auditThumbnail as jest.Mock).mock.calls[0][0]).toEqual({ imageUrl: 'https://gateway.storjshare.io/basetube-thumbnails/ed17ed.png?X-Amz-Signature=edited', includePersonas: true, context: { title: 'Camera review', niche: 'tech' } });
+  expect((ctrApi.auditThumbnail as jest.Mock).mock.calls[0][0]).toEqual({ imageUrl: original(0), includePersonas: true, context: { title: 'Camera review', niche: 'tech' } });
+});
+it('shows a usable single concept without an empty comparison or an edit offer', async () => {
+  const concept = { id: 'one', thumbnailUrl: '/one.png', thumbnailPath: '', prompt: 'Camera', conceptName: 'One concept', conceptDescription: 'Camera close-up', estimatedCTRScore: 7 };
+  render(<GeneratedConceptsGrid concepts={[concept]} detectedNiche={null} generationTime={1} onClear={jest.fn()} />);
+  expect(screen.queryByText('Help me choose')).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole('img', { name: 'One concept' })).toBeVisible());
+  expect(screen.getByRole('button', { name: 'Download' })).toBeEnabled();
+  expect(screen.queryByRole('button', { name: 'Refine this' })).not.toBeInTheDocument();
+  expect(screen.queryByText(/daily thumbnail allowance/)).not.toBeInTheDocument();
 });

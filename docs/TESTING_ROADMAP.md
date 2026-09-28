@@ -337,7 +337,7 @@ Comment API
 | Hook | Priority | Tests Required |
 |------|----------|----------------|
 | `useCTREngine` | 🟠 P1 | Audit flow, quota management |
-| `usePublicThumbnailGenerator` | 🟠 P1 | Generation flow, gallery, auth routing |
+| `useAnonymousStudio` | 🟠 P1 | Anonymous session, generation polling, output URL renewal |
 | `useComments` | 🟡 P2 | CRUD, optimistic updates |
 | `usePass` | 🟠 P1 | Pass ownership, signed URL |
 | `useOnchainPass` | 🟠 P1 | On-chain access verification |

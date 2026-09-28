@@ -1,3 +1,4 @@
+import { ChannelStudioHandoff, StudioExperimentAction } from './studio/ChannelStudioHandoff';
 // src/components/pages/CTREngine/components/ChannelAuditReport.tsx
 // Renders the v2 channel packaging audit (frozen contract:
 // base-be docs/specs/moat-phase-0-1-spec.md — "THE v2 AUDIT CONTRACT").
@@ -14,12 +15,10 @@
 // a hypothesis to TEST. v1 rows render through ChannelAuditLegacyReport.
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
   ArrowRight,
-  Wand2,
   Users,
   Eye,
   Compass,
@@ -232,7 +231,6 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
   onRerunAudit,
   isRerunning = false,
 }) => {
-  const navigate = useNavigate();
   const [isImportOpen, setIsImportOpen] = React.useState(false);
 
   // v1 rows are never cast into the v2 shape — they get their own thin view.
@@ -308,15 +306,6 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
   // Channel-level counts: strictly counts of what the audit itself contains.
   const observationCount = perVideo.reduce((sum, v) => sum + (v.observed?.length ?? 0), 0);
 
-  // "Generate this variant →" — hand the variant brief to the existing generator.
-  const handleGenerateVariant = (experiment: ChannelAuditV2Experiment) => {
-    const params = new URLSearchParams({
-      mode: 'ctr',
-      prompt: experiment.variantBrief.thumbnail,
-    });
-    navigate(`/ai-thumbnails/generate?${params.toString()}`);
-  };
-
   const swipeIsAspirational = swipeFile?.size?.match === 'aspirational';
 
   return (
@@ -336,6 +325,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
       </div>
 
       {/* ------------------------------------------------------------------ */}
+      <ChannelStudioHandoff key={v2.id} audit={v2} />
       {/* 1. POSITIONING — what this channel is, first and prominently        */}
       {/* ------------------------------------------------------------------ */}
       <motion.section
@@ -721,14 +711,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
                       </div>
                     )}
 
-                    <button
-                      onClick={() => handleGenerateVariant(experiment)}
-                      className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 bg-[#f97316] hover:bg-[#fb923c] text-white text-sm font-semibold rounded-xl transition-colors min-h-[44px]"
-                    >
-                      <Wand2 className="w-4 h-4" />
-                      Generate this variant
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
+                    <StudioExperimentAction auditId={v2.id} experiment={experiment} />
                   </div>
                 </div>
               </div>

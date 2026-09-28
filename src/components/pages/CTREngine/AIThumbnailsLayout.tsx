@@ -7,7 +7,7 @@ import { CTRUsageAccess } from '../../../types/ctr';
 import AIThumbnailsSidebar from './components/AIThumbnailsSidebar';
 import AIThumbnailsHeader from './components/AIThumbnailsHeader';
 import HelpCard from './components/HelpCard';
-import EmailGateModal from './components/EmailGateModal';
+import StudioWelcomeCard from './components/StudioWelcomeCard';
 import './styles/aiStudio.css';
 
 // Hook for responsive sidebar visibility
@@ -105,6 +105,8 @@ export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
             {/* Main Content - closer to sidebar */}
             <main className="flex-1 min-w-0 w-full">
               <div className="ai-studio-content max-w-5xl mx-auto">
+                {/* A new account from AI Thumbnails: its welcome, in place of base.tube's onboarding. */}
+                <StudioWelcomeCard />
                 {children}
               </div>
             </main>
@@ -114,11 +116,8 @@ export const AIThumbnailsLayout: React.FC<AIThumbnailsLayoutProps> = ({
 
       {/* Floating helper (does not affect layout flow) */}
       <HelpCard />
-
-      {/* Freemium email gate (Phase D) — self-mounting via the
-          `tool:email-gate:open` window event dispatched by
-          usePublicThumbnailGenerator when the anon quota is exhausted. */}
-      <EmailGateModal />
+      {/* The email gate is mounted once above the routes (StudioFunnelBridge in App):
+          signing in replaces this layout, and the gate must survive it. */}
     </div>
   );
 };

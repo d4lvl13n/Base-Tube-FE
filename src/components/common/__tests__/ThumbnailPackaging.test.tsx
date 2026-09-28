@@ -23,7 +23,7 @@ it('loads saved styles on return, uses a proxied preview and removes only the st
   const onChange = jest.fn();
   render(<ThumbnailStylePicker value={7} onChange={onChange} />);
   expect(await screen.findByRole('img', { name: 'Music' })).toHaveAttribute('src', '/thumbnail-media/abc-123.webp?signature=unchanged');
-  expect(screen.getByRole('combobox', { name: 'Channel style' })).toHaveValue('7');
+  expect(screen.getByRole('button', { name: 'Channel style' })).toHaveTextContent('Music');
   fireEvent.click(screen.getByRole('button', { name: 'Remove saved style' }));
   await waitFor(() => expect(onChange).toHaveBeenCalledWith(undefined));
   expect(thumbnailPackagingApi.remove).toHaveBeenCalledWith(7);
@@ -41,10 +41,12 @@ it('tells the logo picker whether the selected style includes an original logo',
   (thumbnailPackagingApi.list as jest.Mock).mockResolvedValue([{ id: 7, name: 'Music', imageUrl, hasLogo: true }]);
   const onChange = jest.fn();
   render(<ThumbnailStylePicker onChange={onChange} />);
-  await screen.findByRole('option', { name: 'Music' });
-  fireEvent.change(screen.getByRole('combobox', { name: 'Channel style' }), { target: { value: '7' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Channel style' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: 'Channel style' }));
+  fireEvent.click(screen.getByRole('option', { name: 'Music' }));
   expect(onChange).toHaveBeenLastCalledWith(7, true);
-  fireEvent.change(screen.getByRole('combobox', { name: 'Channel style' }), { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Channel style' }));
+  fireEvent.click(screen.getByRole('option', { name: 'Start without a saved style' }));
   expect(onChange).toHaveBeenLastCalledWith(undefined, undefined);
 });
 
@@ -56,14 +58,18 @@ it('adds a second style without hiding save or replacing the selected style', as
   (thumbnailPackagingApi.save as jest.Mock).mockResolvedValue(second);
   const onChange = jest.fn();
   render(<><ThumbnailStylePicker value={7} onChange={onChange} /><SaveThumbnailStyle imageUrl={nextUrl} /></>);
-  await screen.findByRole('option', { name: 'Music' });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Channel style' })).toBeEnabled());
   expect(screen.getByText(/To add another style/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Save style', exact: true }));
   fireEvent.change(screen.getByLabelText('Channel or style name'), { target: { value: 'Travel' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save channel style' }));
-  await screen.findByRole('option', { name: 'Travel' });
+  await screen.findByRole('button', { name: 'Rename style', exact: true });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Channel style' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: 'Channel style' }));
+  expect(await screen.findByRole('option', { name: 'Travel' })).toBeInTheDocument();
   expect(screen.getByRole('option', { name: 'Music' })).toBeInTheDocument();
-  expect(screen.getByRole('combobox')).toHaveValue('7');
+  expect(screen.getByRole('button', { name: 'Channel style' })).toHaveTextContent('Music');
+  fireEvent.keyDown(screen.getByRole('listbox', { name: 'Channel style' }), { key: 'Escape' });
   expect(screen.getByRole('button', { name: 'Rename style', exact: true })).toBeEnabled();
   expect(onChange).not.toHaveBeenCalled();
   expect(thumbnailPackagingApi.save).toHaveBeenCalledWith(nextUrl, 'Travel');

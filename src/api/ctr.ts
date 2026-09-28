@@ -3,22 +3,16 @@ import type { ThumbnailEditing } from '../types/thumbnail';
 // CTR Thumbnail Engine API Service
 
 import api from './index';
+import { plainApiError } from '../utils/plainApiError';
 import {
   AuditRequest,
   AuditResponse,
   YouTubeAuditRequest,
   YouTubeAuditResponse,
-  GenerateRequest,
-  CTRGenerationResponse,
   NichesResponse,
   FaceReference,
   FaceReferenceUploadResponse,
   CTRErrorResponse,
-  OptimizePromptRequest,
-  OptimizePromptResponse,
-  OptimizedPrompt,
-  OverlayTextPlan,
-  ApplyOverlayResponse,
   AuditHistoryResponse,
   AuditHistoryItem,
   AuditStats,
@@ -279,95 +273,6 @@ export const ctrApi = {
   },
 
   // ============================================================================
-  // GENERATION
-  // ============================================================================
-
-  /**
-   * Generate CTR-optimized thumbnail concepts
-   * Requires authentication
-   * 
-   * @param request - Generation parameters including title, niche, etc.
-   * @returns Array of generated concept thumbnails with scores
-   */
-  generateThumbnails: async (
-    request: GenerateRequest
-  ): Promise<CTRGenerationResponse['data']> => {
-    let payload: GenerateRequest | FormData = request;
-    if (request.subjectReference || request.subjectReferences?.length || request.logo) {
-      const form = new FormData();
-      Object.entries(request).forEach(([key, value]) => {
-        if (value !== undefined && !['subjectReference', 'subjectReferences', 'logo'].includes(key)) form.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
-      });
-      for (const file of request.subjectReferences || (request.subjectReference ? [request.subjectReference] : [])) form.append('subjectReference', file);
-      if (request.logo) form.append('logo', request.logo);
-      payload = form;
-    }
-    const response = await api.post<CTRGenerationResponse | CTRErrorResponse>(
-      `${CTR_BASE_PATH}/generate`, payload,
-      { timeout: 300000, ...(payload instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}) }
-    );
-    
-    if (!response.data.success) {
-      throw new Error((response.data as CTRErrorResponse).error.message);
-    }
-    
-    return (response.data as CTRGenerationResponse).data;
-  },
-
-  // ============================================================================
-  // BRAND OVERLAY (headline placement)
-  // ============================================================================
-
-  /**
-   * Composite a real headline (+ optional subhead) onto an already generated
-   * base image, in one of the five negative-space zones, using the user's Brand
-   * Kit. FREE for now (no credit metering). Requires authentication.
-   *
-   * @param baseImageUrl - The generated concept's image URL (http/https)
-   * @param textPlan - Headline, optional subhead, zone, optional emphasis word
-   * @returns The signed URL of the composited thumbnail
-   */
-  applyOverlay: async (
-    baseImageUrl: string,
-    textPlan: OverlayTextPlan
-  ): Promise<ApplyOverlayResponse['data']> => {
-    const response = await api.post<ApplyOverlayResponse | CTRErrorResponse>(
-      `${CTR_BASE_PATH}/overlay`,
-      { baseImageUrl, textPlan }
-    );
-
-    if (!response.data.success) {
-      throw new Error((response.data as CTRErrorResponse).error.message);
-    }
-
-    return (response.data as ApplyOverlayResponse).data;
-  },
-
-  // ============================================================================
-  // OPTIMIZE PROMPT
-  // ============================================================================
-
-  /**
-   * Generate an optimized prompt based on audit results
-   * Uses the audit weaknesses and suggestions to create a better prompt
-   * 
-   * @param request - Audit data and context for optimization
-   * @returns Optimized prompt with estimated score improvement
-   */
-  optimizePrompt: async (request: OptimizePromptRequest): Promise<OptimizedPrompt> => {
-    const response = await api.post<OptimizePromptResponse | CTRErrorResponse>(
-      `${CTR_BASE_PATH}/optimize-prompt`,
-      request
-    );
-    
-    if (!response.data.success) {
-      throw new Error((response.data as CTRErrorResponse).error.message);
-    }
-    
-    return (response.data as OptimizePromptResponse).data;
-  },
-
-  // ============================================================================
   // NICHES
   // ============================================================================
 
@@ -497,11 +402,8 @@ export const ctrApi = {
       if (error?.response?.status === 404) {
         throw new Error(ANALYTICS_IMPORT_UNAVAILABLE);
       }
-      throw new Error(
-        error?.response?.data?.error?.message ||
-          error?.message ||
-          'Could not read that export. Please try again.'
-      );
+      // The server's sentence, else a plain one (never axios' "Request failed with status code …").
+      throw new Error(plainApiError(error, 'Could not read that export. Please try again.').message);
     }
   },
 
@@ -531,11 +433,8 @@ export const ctrApi = {
       if (error?.response?.status === 404) {
         throw new Error(ANALYTICS_IMPORT_UNAVAILABLE);
       }
-      throw new Error(
-        error?.response?.data?.error?.message ||
-          error?.message ||
-          'Could not save that import. Please try again.'
-      );
+      // The server's sentence, else a plain one (never axios' "Request failed with status code …").
+      throw new Error(plainApiError(error, 'Could not save that import. Please try again.').message);
     }
   },
 
@@ -565,11 +464,8 @@ export const ctrApi = {
       if (error?.response?.status === 404) {
         throw new Error(ANALYTICS_IMPORT_UNAVAILABLE);
       }
-      throw new Error(
-        error?.response?.data?.error?.message ||
-          error?.message ||
-          'Could not finish that import. Please review it again.'
-      );
+      // The server's sentence, else a plain one (never axios' "Request failed with status code …").
+      throw new Error(plainApiError(error, 'Could not finish that import. Please review it again.').message);
     }
   },
 

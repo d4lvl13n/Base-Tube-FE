@@ -13,12 +13,6 @@ it('serializes the text brief separately from the intentional subject photo for 
   expect(form.get('referenceImage')).toBe(photo);
   expect(form.has('videoFile')).toBe(false);
 });
-it('serializes the same brief in standalone generation with a subject photo', async () => {
-  await ctrApi.generateThumbnails({ title: brief.title, creatorBrief: brief, subjectReference: new File(['PHOTO'], 'photo.png', { type: 'image/png' }) });
-  const form = post.mock.calls[0][1] as FormData;
-  expect(JSON.parse(String(form.get('creatorBrief')))).toEqual(brief);
-  expect(form.has('subjectReference')).toBe(true);
-});
 it('sends only a stable base ID and bounded rendering settings for final adjustments', async () => {
   const editing = { baseThumbnailId: 7, baseImageUrl: 'https://expired.example/base', textPlan: { headline: 'Exact Words', zone: 'bottom' as const }, textStyle: { font: 'DejaVu Sans' as const, color: '#FFFFFF', fontScale: 1, stroke: true } };
   await ctrApi.applyFinalAdjustments(editing);

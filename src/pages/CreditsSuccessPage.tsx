@@ -10,6 +10,9 @@ import { motion } from 'framer-motion';
 import { CheckCircle, Coins, Loader2, ArrowRight, Clock, AlertCircle } from 'lucide-react';
 import { creditsApi } from '../api/credits';
 import { CreditInfo } from '../types/ctr';
+import { creditsReturnDestination } from '../utils/studioDraft';
+import { plainApiError } from '../utils/plainApiError';
+import { TechnicalErrorDetail } from '../components/common/TechnicalErrorDetail';
 
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLLS = 6;
@@ -22,6 +25,8 @@ const CreditsSuccessPage: React.FC = () => {
 
   const [status, setStatus] = useState<Status>(sessionId ? 'polling' : 'no-session');
   const [creditInfo, setCreditInfo] = useState<CreditInfo | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [returnTo] = useState(creditsReturnDestination);
 
   const mountedRef = useRef(true);
   const pollsRef = useRef(0);
@@ -49,8 +54,9 @@ const CreditsSuccessPage: React.FC = () => {
         } else {
           timerRef.current = setTimeout(poll, POLL_INTERVAL_MS);
         }
-      } catch {
+      } catch (err) {
         if (!mountedRef.current) return;
+        setErrorDetail(plainApiError(err).technical);
         setStatus('error'); // balance unavailable (auth/network) — surface it, don't fake success
       }
     };
@@ -98,7 +104,10 @@ const CreditsSuccessPage: React.FC = () => {
         </div>
 
         <h1 className="text-xl font-semibold text-white mb-2">{heading}</h1>
-        <p className="text-sm text-gray-400 mb-6">{subline}</p>
+        <p className="text-sm text-gray-400 mb-6">
+          {subline}
+          {status === 'error' && <TechnicalErrorDetail detail={errorDetail} />}
+        </p>
 
         {status !== 'no-session' && status !== 'error' && (
           <div className="rounded-xl border border-gray-800/60 bg-black/40 p-5 mb-6">
@@ -124,7 +133,7 @@ const CreditsSuccessPage: React.FC = () => {
         )}
 
         <Link
-          to="/ai-thumbnails/generate"
+          to={returnTo}
           className="inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-gradient-to-r from-[#fa7517] to-orange-500 text-white text-sm font-semibold shadow-lg shadow-[#fa7517]/25 hover:opacity-95 transition-opacity"
         >
           Back to the studio

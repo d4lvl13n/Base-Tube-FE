@@ -17,7 +17,8 @@ it('accepts a subject photo and rejects invalid input without replacing it', () 
   expect(screen.getByAltText('Selected subject reference')).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Subject photo'), { target: { files: [new File(['bad'], 'bad.svg', { type: 'image/svg+xml' })] } });
   expect(screen.getByRole('alert')).toHaveTextContent('JPEG, PNG or WebP');
-  expect(screen.getByText(/Selected subject · subject.jpg/)).toBeInTheDocument();
+  expect(screen.getByText('subject.jpg')).toBeInTheDocument();
+  expect(screen.getByText('Added to this thumbnail')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Remove reference' }));
   expect(screen.queryByAltText('Selected subject reference')).not.toBeInTheDocument();
 });

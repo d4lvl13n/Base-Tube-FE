@@ -143,3 +143,132 @@ it('updates and removes model-rendered text from the selected image, with undo a
   fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
   expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ imageUrl: 'new-headline' }));
 });
+
+/** The Studio editor uses the base.tube select: open it, then pick the option. */
+const choose = (label: string, option: string) => {
+  fireEvent.click(screen.getByRole('button', { name: label }));
+  fireEvent.click(screen.getByRole('option', { name: option }));
+};
+describe('controlled saved versions', () => {
+  beforeEach(() => jest.clearAllMocks());
+  it('requests an edit of the exact server version without changing to its base ID or inventing a local version', () => {
+    const source = { id: 'server-version-2', imageUrl: 'signed-final', editing, parentVersionId: 'server-version-1' };
+    const first = { id: 'server-version-1', imageUrl: 'signed-original' };
+    const onRequestEdit = jest.fn((_source: unknown, _instruction: string, _target: string, _raw?: string) => ({ id: 'not-a-server-version', imageUrl: 'ignored-return' }) as unknown as void);
+    const onChange = jest.fn();
+    const onRefine = jest.fn();
+    const onSelectVersion = jest.fn();
+    render(<PreciseThumbnailEditor onRefine={onRefine} onChange={onChange} controlled={{ version: source, versions: [first, source], onRequestEdit, onSelectVersion }} />);
+    choose('Edit target', 'Background');
+    fireEvent.change(screen.getByLabelText('Edit instruction'), { target: { value: 'Make it blue' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply edit' }));
+    expect(onRequestEdit).toHaveBeenCalledWith(source, expect.stringContaining('Requested change (background): Make it blue'), 'background', 'Make it blue');
+    expect(onRequestEdit.mock.calls[0][0]).toBe(source);
+    expect(onRefine).not.toHaveBeenCalled();
+    expect(ctrApi.applyFinalAdjustments).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(onSelectVersion).toHaveBeenLastCalledWith(first);
+    expect(screen.getByRole('button', { name: 'Thumbnail version' })).toHaveTextContent('Version 2');
+    fireEvent.click(screen.getByRole('button', { name: 'Thumbnail version' }));
+    expect(screen.getAllByRole('option')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('option', { name: 'Original' }));
+    expect(onSelectVersion).toHaveBeenLastCalledWith(first);
+  });
+  it('passes exact words and removal separately from the generated instruction', () => {
+    const source = { id: 'server-version-1', imageUrl: 'model-text' };
+    const onRequestEdit = jest.fn();
+    render(<PreciseThumbnailEditor controlled={{ version: source, onRequestEdit }} />);
+    fireEvent.change(screen.getByLabelText('Headline'), { target: { value: 'EXACT "Words"?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Update text' }));
+    expect(onRequestEdit).toHaveBeenLastCalledWith(source, expect.any(String), 'headline', 'EXACT "Words"?');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove text' }));
+    expect(onRequestEdit).toHaveBeenLastCalledWith(source, expect.stringContaining('Remove the added headline'), 'headline', '');
+    expect(ctrApi.applyFinalAdjustments).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Thumbnail version' })).not.toBeInTheDocument();
+    // No helper text: each button says what it does and what it costs.
+    expect(screen.queryByText(/Uses AI image editing|Each button shows its price|Review the result before/)).not.toBeInTheDocument();
+  });
+  it('offers only supported overlay changes and uses the original server version, including after a URL refresh', () => {
+    const source = { id: 'server-version-2', imageUrl: 'signed-final', editing };
+    const onRequestOverlay = jest.fn();
+    const onRequestEdit = jest.fn();
+    const view = render(<PreciseThumbnailEditor controlled={{ version: source, onRequestEdit, onRequestOverlay }} />);
+    expect(screen.queryByLabelText('Subheading')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Text position')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Text font')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Headline'), { target: { value: 'My new headline' } });
+    const refreshed = { ...source, imageUrl: 'new-signed-final' };
+    view.rerender(<PreciseThumbnailEditor controlled={{ version: refreshed, onRequestEdit, onRequestOverlay }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Apply text · free' }));
+    expect(onRequestOverlay).toHaveBeenLastCalledWith(refreshed, 'My new headline');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove text · free' }));
+    expect(onRequestOverlay).toHaveBeenLastCalledWith(refreshed, '');
+    expect(ctrApi.applyFinalAdjustments).not.toHaveBeenCalled();
+    expect(onRequestEdit).not.toHaveBeenCalled();
+    const next = { id: 'server-version-3', imageUrl: 'next-signed', editing: { ...editing, textPlan: { ...editing.textPlan, headline: 'Server headline' } } };
+    view.rerender(<PreciseThumbnailEditor controlled={{ version: next, onRequestEdit, onRequestOverlay }} />);
+    expect(screen.getByLabelText('Headline')).toHaveValue('Server headline');
+  });
+  it('shows request errors and retries without using legacy fallbacks', () => {
+    const onRequestEdit = jest.fn().mockImplementationOnce(() => { throw new Error('Save your instructions first'); });
+    render(<PreciseThumbnailEditor controlled={{ version: { id: 'server-version-1', imageUrl: 'source' }, onRequestEdit }} />);
+    fireEvent.change(screen.getByLabelText('Edit instruction'), { target: { value: 'Blue background' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply edit' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Save your instructions first');
+    expect(screen.getByLabelText('Edit instruction')).toHaveValue('Blue background');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply edit' }));
+    expect(onRequestEdit).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+  it("shows the price of an AI edit on its buttons and the free text change as free", () => {
+    render(<PreciseThumbnailEditor controlled={{ version: { id: "v1", imageUrl: "source" }, onRequestEdit: jest.fn(), editCredits: 18 }} />);
+    expect(screen.getByRole("button", { name: "Update text · 18 credits" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Remove text · 18 credits" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Apply edit · 18 credits" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Edit instruction"), { target: { value: "Blue background" } });
+    expect(screen.getByRole("button", { name: "Apply edit · 18 credits" })).toBeEnabled();
+    expect(screen.queryByText(/price before/i)).not.toBeInTheDocument();
+  });
+  it("hands each action to the page as one click and clears the field once the edit started", async () => {
+    const onRequestEdit = jest.fn(async () => ({ id: "started" }));
+    const seen: string[] = [];
+    render(<PreciseThumbnailEditor controlled={{ version: { id: "v1", imageUrl: "source" }, onRequestEdit, renderAction: action => {
+      seen.push(`${action.kind}:${action.target}:${action.label}`);
+      return <><p>{`Summary: ${action.text}`}</p><button type="button" disabled={action.disabled} onClick={action.run}>{`${action.label} · 18 credits`}</button></>;
+    } }} />);
+    expect(seen).toEqual(expect.arrayContaining(["edit:headline:Update text", "edit:headline:Remove text", "edit:custom:Apply edit"]));
+    choose("Edit target", "Background");
+    fireEvent.change(screen.getByLabelText("Edit instruction"), { target: { value: "Dark blue" } });
+    expect(screen.getByText("Summary: Dark blue")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Apply edit · 18 credits" }));
+    expect(onRequestEdit).toHaveBeenCalledWith({ id: "v1", imageUrl: "source" }, expect.stringContaining("Dark blue"), "background", "Dark blue");
+    await waitFor(() => expect(screen.getByLabelText("Edit instruction")).toHaveValue(""));
+  });
+  it("keeps the field when the edit did not start", async () => {
+    const onRequestEdit = jest.fn(async () => undefined);
+    render(<PreciseThumbnailEditor controlled={{ version: { id: "v1", imageUrl: "source" }, onRequestEdit }} />);
+    fireEvent.change(screen.getByLabelText("Edit instruction"), { target: { value: "Dark blue" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply edit" }));
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByLabelText("Edit instruction")).toHaveValue("Dark blue");
+  });
+  it("shows one part at a time for the Refine tabs: the text, or what to change", () => {
+    const version = { id: "v1", imageUrl: "source" };
+    const view = render(<PreciseThumbnailEditor controlled={{ version, onRequestEdit: jest.fn(), panel: "text" }} />);
+    expect(screen.getByLabelText("Headline")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Edit instruction")).not.toBeInTheDocument();
+    view.rerender(<PreciseThumbnailEditor controlled={{ version, onRequestEdit: jest.fn(), panel: "change" }} />);
+    expect(screen.queryByLabelText("Headline")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Edit instruction")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit target" })).toHaveTextContent("Custom change");
+  });
+  it("never shows the transport wording when a change cannot start", async () => {
+    const onRequestEdit = jest.fn(async () => { throw Object.assign(new Error("Network Error"), { isAxiosError: true }); });
+    render(<PreciseThumbnailEditor controlled={{ version: { id: "v1", imageUrl: "source" }, onRequestEdit }} />);
+    fireEvent.change(screen.getByLabelText("Edit instruction"), { target: { value: "Dark blue" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply edit" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("We could not reach base.tube. Check your connection, then try again.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Network Error");
+  });
+});

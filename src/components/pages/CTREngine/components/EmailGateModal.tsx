@@ -1,383 +1,332 @@
 // src/components/pages/CTREngine/components/EmailGateModal.tsx
 //
-// Freemium email gate (Phase D). Fires when an anonymous user exhausts their
-// free previews (the `usePublicThumbnailGenerator` hook dispatches the
-// `tool:email-gate:open` window event, or a parent can drive it via the
-// `isOpen` prop). Collects an email + an EXPLICIT, opt-in (never pre-checked)
-// marketing-consent checkbox, then:
+// The AI Thumbnails account gate (spec §17.3). Shown when a visitor asks for
+// something that needs an account (generate, edit, audit, save) or when the
+// free audits for visitors are used up for today. It says why, offers the
+// welcome credits (GET /tool/welcome-offer) once the email is verified, and
+// has an explicit, never pre-checked marketing consent. Then, without leaving
+// the page:
 //
-//   1. POST /api/v1/tool/email-capture   (stash email + consent + referral)
-//   2. Open Clerk's sign-in/verification modal (reusing the app's Clerk flow —
-//      we do NOT build a new auth flow), prefilled with the email.
-//   3. The instant a Clerk session exists post-verification, POST
-//      /api/v1/tool/email-capture/confirm to claim the one-time +8 credits.
+//   1. "Create my free account" shows the AI Thumbnails sign-up in place (the
+//      same Clerk component and look as /ai-thumbnails/sign-up, routing
+//      "virtual"); "I already have an account" shows the AI Thumbnails sign-in
+//      in place, and the wallet sign-in (/ai-thumbnails/sign-in). In place,
+//      Clerk handles the email and its code; Google and Discord continue on
+//      the full AI Thumbnails page (see below). Every way ends on
+//      /ai-thumbnails/auth/continue, which comes straight back here without
+//      base.tube's onboarding (utils/studioAuth), and a new account sees the
+//      AI Thumbnails welcome card;
+//   2. once signed in, StudioFunnelBridge calls /tool/email-capture/confirm
+//      exactly once (consent, and the referral code of a sign-up started here)
+//      and this window shows the result.
 //
-// Self-mounting: renders through a portal to <body>, so it can live at the top
-// of a layout without disturbing page flow. Uncontrolled by default (listens to
-// the window event); pass `isOpen`/`onClose` to control it explicitly.
+// The window has no state of its own that matters: its phase lives in
+// sessionStorage (utils/studioFunnel) so it survives Google or Discord
+// redirects and full-page reloads, and it is mounted once above the
+// routes by StudioFunnelBridge (hidden on the sign-in, sign-up, continue and
+// onboarding pages).
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useUser, useClerk } from '@clerk/clerk-react';
-import { Mail, X, Sparkles, CheckCircle, Loader2, ShieldCheck, Gift } from 'lucide-react';
-import { emailCapture, confirmSignup, getToolFingerprint } from '../../../../api/toolFunnel';
-import type { ConfirmSignupData } from '../../../../types/toolFunnel';
+import { X, Sparkles, CheckCircle, Loader2, AlertCircle, ArrowLeft, Wallet } from 'lucide-react';
+import { AIThumbnailsSignIn, AIThumbnailsSignUp } from '../auth/AIThumbnailsClerk';
+import { StudioErrorDetail } from './studio/StudioErrorDetail';
+import { deferredWelcomeMessage, freeCreditsText, useWelcomeOffer, WELCOME_CREDITS_GIVEN_OUT } from '../../../../hooks/useWelcomeOffer';
+import { startStudioAuth, STUDIO_SIGN_IN_PATH, STUDIO_SIGN_UP_PATH } from '../../../../utils/studioAuth';
 import {
-  getPendingReferralCode,
-  clearPendingReferralCode,
-} from '../../../../utils/referralAttribution';
+  backToEmailGateOffer,
+  closeEmailGate,
+  EmailGateFlow,
+  EmailGateReason,
+  EmailGateRecord,
+  saveEmailGate,
+  startEmailGateSignIn,
+} from '../../../../utils/studioFunnel';
 
-export const EMAIL_GATE_OPEN_EVENT = 'tool:email-gate:open';
+const titles: Record<EmailGateReason, string> = {
+  generate: 'Generating needs a free account',
+  edit: 'Editing needs a free account',
+  audit: 'Auditing needs a free account',
+  save: 'Saving needs a free account',
+  audit_capacity: 'Free audits are used up for today',
+  account: 'Create your free account',
+};
 
-type GatePhase = 'form' | 'verifying' | 'granting' | 'done';
-
-interface EmailGateModalProps {
-  /** Controlled visibility. Omit to let the modal self-manage via the window event. */
-  isOpen?: boolean;
-  /** Called when the user dismisses the modal. */
-  onClose?: () => void;
-  /** Called after the signup grant succeeds (credits claimed). */
-  onGranted?: (data: ConfirmSignupData) => void;
+/**
+ * What to tell the creator when the welcome credits were not added. `message`:
+ * the server's own sentence for a refusal (never a server error's text), shown
+ * for an email already in use.
+ */
+export function emailGateRefusalMessage(code: string, cause: string | null, message?: string): string {
+  if (code === 'EMAIL_IN_USE')
+    return message || 'This email is already linked to another base.tube account, so its welcome credits were already used.';
+  if (code === 'EMAIL_DISPOSABLE') return 'Welcome credits need a permanent email address.';
+  if (code === 'WELCOME_LIMIT_NETWORK') return 'Welcome credits are limited per network. You can still buy credits.';
+  if (code === 'EMAIL_NOT_VERIFIED') {
+    if (cause === 'web3_no_email')
+      return 'Welcome credits are not available for wallet accounts. They need an account with a verified email address.';
+    if (cause === 'verification_check_failed' || cause === 'user_not_found')
+      return 'We could not check your email address just now. Try again in a moment.';
+    return 'Your email address is not verified yet. Verify it with the code or link we sent you, then select Try again.';
+  }
+  if (code === 'ACCOUNT_BANNED') return 'Welcome credits are not available for this account.';
+  return 'We could not add your credits yet. Try again in a moment.';
 }
 
-const isValidEmail = (value: string): boolean =>
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+interface EmailGateModalProps {
+  record: EmailGateRecord | null;
+  /** A signed-in visitor never sees the offer or the sign-in screens. */
+  signedIn: boolean;
+  /** Hidden on sign-in, sign-up and onboarding screens. */
+  hidden?: boolean;
+  onRetryConfirm: () => void;
+}
 
-export const EmailGateModal: React.FC<EmailGateModalProps> = ({
-  isOpen,
-  onClose,
-  onGranted,
-}) => {
-  const isControlled = isOpen !== undefined;
-  const { isSignedIn } = useUser();
-  const { openSignIn } = useClerk();
+export const EmailGateModal: React.FC<EmailGateModalProps> = ({ record, signedIn, hidden = false, onRetryConfirm }) => {
+  const location = useLocation();
+  const titleId = useId();
+  const offer = useWelcomeOffer();
+  const open = Boolean(record?.open) && !hidden && !(signedIn && record?.phase === 'form');
+  const view = !record ? null
+    : record.phase === 'awaiting_sign_in' ? (signedIn ? 'confirming' : record.flow)
+      : record.phase;
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = isControlled ? (isOpen as boolean) : internalOpen;
-
-  const [email, setEmail] = useState('');
-  const [marketingConsent, setMarketingConsent] = useState(false); // opt-in, never pre-checked
-  const [phase, setPhase] = useState<GatePhase>('form');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<ConfirmSignupData | null>(null);
-
-  // Tracks whether the email-capture step has completed for this session, so the
-  // confirm effect only fires after the user actually went through the gate.
-  const capturedRef = useRef(false);
-  // Single-flight guard for the confirm→grant call so it runs exactly once per
-  // engaged gate. Without this, the confirm effect (which calls setPhase) would
-  // re-trigger its own cleanup and discard the response, hanging on "granting".
-  const confirmingRef = useRef(false);
-
-  // Listen for the anon-quota-exhausted trigger dispatched by the generator hook.
+  // Focus returns to what opened the window (when it is still on the page).
+  const opener = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (isControlled) return;
-    const handler = () => setInternalOpen(true);
-    window.addEventListener(EMAIL_GATE_OPEN_EVENT, handler);
-    return () => window.removeEventListener(EMAIL_GATE_OPEN_EVENT, handler);
-  }, [isControlled]);
-
-  const close = useCallback(() => {
-    if (!isControlled) setInternalOpen(false);
-    onClose?.();
-  }, [isControlled, onClose]);
-
-  // Reset transient state whenever the modal transitions to closed.
-  useEffect(() => {
-    if (!open) {
-      capturedRef.current = false;
-      confirmingRef.current = false;
-      setPhase('form');
-      setSubmitting(false);
-      setError(null);
-      setResult(null);
-      setMarketingConsent(false);
+    if (open && !wasOpen.current) {
+      const active = document.activeElement;
+      opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
     }
+    if (!open && wasOpen.current) {
+      const target = opener.current;
+      opener.current = null;
+      const active = document.activeElement;
+      const lost = !active || active === document.body || !active.isConnected || Boolean(dialogRef.current?.contains(active));
+      if (target?.isConnected && lost) target.focus();
+    }
+    wasOpen.current = open;
   }, [open]);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!isValidEmail(email)) {
-        setError('Please enter a valid email address.');
-        return;
-      }
-      setSubmitting(true);
-      setError(null);
-
-      const trimmed = email.trim();
-      const fingerprint = getToolFingerprint();
-      const referralCode = getPendingReferralCode();
-
-      try {
-        await emailCapture({
-          email: trimmed,
-          marketingConsent,
-          referralCode,
-          fingerprint,
-        });
-        capturedRef.current = true;
-        setPhase('verifying');
-
-        // Reuse the app's existing Clerk flow — prefill the email so the user
-        // lands straight on verification. openSignIn resolves when the modal
-        // closes; the confirm step is driven off `isSignedIn` below so it fires
-        // regardless of how the session is established.
-        try {
-          await (openSignIn as (props?: unknown) => Promise<unknown> | void)({
-            initialValues: { emailAddress: trimmed },
-          });
-        } catch {
-          /* user closed the Clerk modal — the confirm effect still guards on isSignedIn */
-        }
-      } catch (err) {
-        const message =
-          (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data
-            ?.error?.message || 'Something went wrong. Please try again.';
-        setError(message);
-        setPhase('form');
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [email, marketingConsent, openSignIn]
-  );
-
-  // The moment a Clerk session exists after the gate was engaged, claim the
-  // one-time signup credits (idempotent server-side).
+  // Every step (including one restored after a redirect) starts on its heading or
+  // its main action, unless another window has the focus.
   useEffect(() => {
-    if (!open || !isSignedIn || !capturedRef.current) return;
-    if (confirmingRef.current) return; // single-flight: already confirmed / in flight
-    confirmingRef.current = true;
+    const dialog = dialogRef.current;
+    if (!open || !dialog) return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active !== document.body && !dialog.contains(active)
+      && active.closest('[role="dialog"], [aria-modal="true"], .cl-rootBox')) return;
+    dialog.querySelector<HTMLElement>('[data-gate-focus]')?.focus({ preventScroll: true });
+  }, [open, view]);
 
-    // `active` flips only on a REAL teardown (unmount, or open/isSignedIn change) —
-    // NOT when we call setPhase, because `phase` is intentionally not a dependency.
-    let active = true;
-    setPhase('granting');
-    setError(null);
-    (async () => {
-      try {
-        const data = await confirmSignup({
-          marketingConsent,
-          referralCode: getPendingReferralCode(),
-          fingerprint: getToolFingerprint(),
-        });
-        if (!active) return;
-        setResult(data);
-        setPhase('done');
-        clearPendingReferralCode();
-        onGranted?.(data);
-      } catch (err) {
-        if (!active) return;
-        confirmingRef.current = false; // allow a retry after a transient failure
-        const code = (err as { response?: { data?: { error?: { code?: string } } } })?.response
-          ?.data?.error?.code;
-        setError(
-          code === 'EMAIL_NOT_VERIFIED'
-            ? 'Please verify your email to claim your credits, then try again.'
-            : 'We could not confirm your account yet. Please try again in a moment.'
-        );
-        setPhase('verifying');
-      }
-    })();
-
+  // The page behind the window is hidden from assistive technology and cannot be
+  // reached with the keyboard. Only the app root: the window is outside it.
+  useEffect(() => {
+    if (!open) return;
+    const background = document.getElementById('root');
+    if (!background || background.contains(dialogRef.current)) return;
+    const inert = background.hasAttribute('inert');
+    const hiddenBefore = background.getAttribute('aria-hidden');
+    background.setAttribute('inert', '');
+    background.setAttribute('aria-hidden', 'true');
     return () => {
-      active = false;
+      if (!inert) background.removeAttribute('inert');
+      if (hiddenBefore === null) background.removeAttribute('aria-hidden');
+      else background.setAttribute('aria-hidden', hiddenBefore);
     };
-    // `phase` deliberately excluded: including it makes the effect cancel itself
-    // the instant it sets 'granting', discarding the confirm response.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isSignedIn, marketingConsent, onGranted]);
+  }, [open]);
+
+  // Tab stays in the window; Escape closes it only from inside it.
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      closeEmailGate();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ));
+    if (!focusable.length) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || !dialog.contains(active))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  // The anonymous screen saves its brief first, and this page is remembered as
+  // the one to come back to (utils/studioAuth), so the continue screen (or the
+  // signed-in create screen after a redirect) finds both.
+  const choose = (flow: EmailGateFlow) => {
+    if (record?.phase !== 'form') return;
+    startStudioAuth(flow, location.pathname + location.search, flow === 'sign-up' ? record.marketingConsent : undefined);
+    startEmailGateSignIn(flow, record.marketingConsent);
+  };
 
   if (typeof document === 'undefined') return null;
-
-  const grantedCredits = result?.signupCredits ?? 8;
+  const button = 'w-full py-3 px-4 rounded-xl font-semibold text-white bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 shadow-lg shadow-[#fa7517]/25 transition-all disabled:cursor-not-allowed disabled:bg-none disabled:bg-white/10 disabled:text-gray-400 disabled:shadow-none';
+  const secondary = 'w-full py-3 px-4 rounded-xl border border-white/15 text-sm font-medium text-white hover:bg-white/5';
+  const inPlace = view === 'sign-up' || view === 'sign-in';
+  const handOff = 'mt-3 flex items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/5';
+  const back = (label: string) => (
+    <div className="mb-3 flex items-center gap-2 pr-10">
+      <button type="button" onClick={() => backToEmailGateOffer()} aria-label="Back" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-white">
+        <ArrowLeft className="h-4 w-4" />
+      </button>
+      <h2 id={titleId} tabIndex={-1} data-gate-focus className="text-sm font-semibold text-white focus:outline-none">{label}</h2>
+    </div>
+  );
 
   return createPortal(
     <AnimatePresence>
-      {open && (
+      {open && record && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-          onClick={close}
+          className="fixed inset-0 z-[100] overflow-y-auto bg-black/70 backdrop-blur-sm"
+          onClick={() => closeEmailGate()}
         >
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.96 }}
-            transition={{ type: 'spring', damping: 24, stiffness: 260 }}
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md bg-gradient-to-br from-[#111114] to-[#0a0a0c] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
-          >
-            {/* Accent bar */}
-            <div className="h-1 w-full bg-gradient-to-r from-[#fa7517] to-orange-500" />
-
-            <button
-              onClick={close}
-              className="absolute top-3 right-3 p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-              aria-label="Close"
+          <div className="flex min-h-full items-center justify-center p-4">
+            <motion.div
+              ref={dialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              onKeyDown={onKeyDown}
+              initial={{ opacity: 0, y: 20, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.96 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 260 }}
+              onClick={(event) => event.stopPropagation()}
+              className={`relative w-full ${inPlace ? 'max-w-[440px]' : 'max-w-md'} bg-gradient-to-br from-[#111114] to-[#0a0a0c] border border-white/10 rounded-2xl shadow-2xl`}
             >
-              <X className="w-5 h-5" />
-            </button>
+              {/* No overflow clipping: the sign-up's own menus must not be cut. */}
+              <div className="h-1 w-full rounded-t-2xl bg-gradient-to-r from-[#fa7517] to-orange-500" />
+              <button
+                type="button"
+                onClick={() => closeEmailGate()}
+                className="absolute top-3 right-3 z-20 p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
 
-            <div className="p-6 sm:p-7">
-              {/* -------- FORM -------- */}
-              {phase === 'form' && (
-                <>
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#fa7517]/20 to-orange-500/20 flex items-center justify-center mb-4">
-                    <Sparkles className="w-6 h-6 text-[#fa7517]" />
-                  </div>
-                  <h2 className="text-xl font-bold text-white mb-2">
-                    Keep creating — it&apos;s free
-                  </h2>
-                  <p className="text-sm text-gray-400 mb-5">
-                    You&apos;ve used your free previews. Add your email and verify to unlock{' '}
-                    <span className="text-[#fa7517] font-semibold">+8 credits</span> and save your
-                    thumbnails.
-                  </p>
-
-                  <form onSubmit={handleSubmit}>
-                    <div className="relative mb-4">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        autoFocus
-                        className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm
-                                   placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50
-                                   focus:border-[#fa7517]/50 transition-all"
-                      />
+              <div className={inPlace ? 'p-3 sm:p-4' : 'p-6 sm:p-7'}>
+                {view === 'form' && record.phase === 'form' && (
+                  <>
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#fa7517]/20 to-orange-500/20 flex items-center justify-center mb-4">
+                      <Sparkles className="w-5 h-5 text-[#fa7517]" />
                     </div>
-
+                    <h2 id={titleId} className="pr-8 text-xl font-bold text-white">{titles[record.reason]}</h2>
+                    <p className="mt-2 text-sm text-gray-400">
+                      {offer.available
+                        ? <>New accounts get <span className="text-[#fa7517] font-semibold">{freeCreditsText(offer.credits)}</span> once the email is verified.</>
+                        : WELCOME_CREDITS_GIVEN_OUT}
+                    </p>
                     {/* Explicit opt-in — unchecked by default */}
-                    <label className="flex items-start gap-3 mb-5 cursor-pointer select-none">
+                    <label className="mt-5 flex items-start gap-3 cursor-pointer select-none">
                       <input
                         type="checkbox"
-                        checked={marketingConsent}
-                        onChange={(e) => setMarketingConsent(e.target.checked)}
-                        className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 text-[#fa7517]
-                                   focus:ring-[#fa7517]/50 focus:ring-offset-0 cursor-pointer accent-[#fa7517]"
+                        checked={record.marketingConsent}
+                        onChange={(event) => saveEmailGate({ ...record, marketingConsent: event.target.checked, updatedAt: Date.now() })}
+                        className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 cursor-pointer accent-[#fa7517]"
                       />
                       <span className="text-xs text-gray-400 leading-relaxed">
-                        Send me occasional product tips and updates. Optional — you can unsubscribe
-                        any time.
+                        Send me occasional product tips and updates. Optional — you can unsubscribe any time.
                       </span>
                     </label>
+                    <div className="mt-5 space-y-2">
+                      <button type="button" data-gate-focus className={button} onClick={() => choose('sign-up')}>Create my free account</button>
+                      <button type="button" className={secondary} onClick={() => choose('sign-in')}>I already have an account</button>
+                    </div>
+                  </>
+                )}
 
-                    {error && (
-                      <p className="text-sm text-red-400 mb-4" role="alert">
-                        {error}
-                      </p>
-                    )}
+                {/* In place, Clerk handles the email and its code. Its Google and Discord
+                    buttons hand off to the full AI Thumbnails page: in place ("virtual"),
+                    Clerk sends a sign-up's provider return to the dashboard's sign-up
+                    address (base.tube's /sign-up in production, the Account Portal in
+                    development), while the full pages get it, and Clerk's "continue"
+                    step, on their own sub-paths. The sign-in in place does the same. */}
+                {view === 'sign-up' && (
+                  <>
+                    {back('Create your free account')}
+                    <AIThumbnailsSignUp routing="virtual" withSocialButtons={false} />
+                    <Link to={STUDIO_SIGN_UP_PATH} className={handOff}>Continue with Google or Discord</Link>
+                  </>
+                )}
 
-                    <motion.button
-                      type="submit"
-                      disabled={submitting || !email.trim()}
-                      whileHover={{ scale: submitting || !email.trim() ? 1 : 1.02 }}
-                      whileTap={{ scale: submitting || !email.trim() ? 1 : 0.98 }}
-                      className={`w-full py-3.5 px-4 rounded-xl font-semibold text-white flex items-center justify-center gap-2 transition-all
-                                 ${
-                                   submitting || !email.trim()
-                                     ? 'bg-white/10 cursor-not-allowed text-gray-400'
-                                     : 'bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 shadow-lg shadow-[#fa7517]/25'
-                                 }`}
-                    >
-                      {submitting ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          Please wait...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-5 h-5" />
-                          Continue
-                        </>
-                      )}
-                    </motion.button>
-                    <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-gray-500">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      We&apos;ll send a verification link to confirm it&apos;s you.
-                    </p>
-                  </form>
-                </>
-              )}
+                {view === 'sign-in' && (
+                  <>
+                    {back('Sign in to your account')}
+                    <AIThumbnailsSignIn routing="virtual" withSocialButtons={false} />
+                    <Link to={STUDIO_SIGN_IN_PATH} className={handOff}>Continue with Google or Discord</Link>
+                    <Link to={STUDIO_SIGN_IN_PATH} state={{ wallet: true }} className={handOff}>
+                      <Wallet className="h-4 w-4 text-[#fa7517]" aria-hidden="true" />
+                      Sign in with a wallet
+                    </Link>
+                  </>
+                )}
 
-              {/* -------- VERIFYING -------- */}
-              {phase === 'verifying' && (
-                <div className="py-6 text-center">
-                  <div className="w-14 h-14 mx-auto rounded-full border-2 border-[#fa7517]/30 border-t-[#fa7517] animate-spin mb-5" />
-                  <h2 className="text-lg font-bold text-white mb-2">Check your email</h2>
-                  <p className="text-sm text-gray-400 mb-4">
-                    Verify your email in the sign-in window to claim your credits. This unlocks
-                    automatically once you&apos;re verified.
-                  </p>
-                  {error && (
-                    <p className="text-sm text-amber-400 mb-4" role="alert">
-                      {error}
-                    </p>
-                  )}
-                  <button
-                    onClick={() =>
-                      (openSignIn as (props?: unknown) => Promise<unknown> | void)({
-                        initialValues: { emailAddress: email.trim() },
-                      })
-                    }
-                    className="text-sm text-[#fa7517] hover:text-orange-400 font-medium transition-colors"
-                  >
-                    Reopen verification
-                  </button>
-                </div>
-              )}
-
-              {/* -------- GRANTING -------- */}
-              {phase === 'granting' && (
-                <div className="py-8 text-center">
-                  <Loader2 className="w-10 h-10 mx-auto text-[#fa7517] animate-spin mb-4" />
-                  <p className="text-sm text-gray-300 font-medium">Claiming your credits...</p>
-                </div>
-              )}
-
-              {/* -------- DONE -------- */}
-              {phase === 'done' && (
-                <div className="py-6 text-center">
-                  <motion.div
-                    initial={{ scale: 0.6, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="w-16 h-16 mx-auto rounded-full bg-green-500/15 flex items-center justify-center mb-4"
-                  >
-                    <CheckCircle className="w-9 h-9 text-green-400" />
-                  </motion.div>
-                  <h2 className="text-xl font-bold text-white mb-2">You&apos;re all set!</h2>
-                  <p className="text-sm text-gray-400 mb-4">
-                    {result?.alreadyGranted
-                      ? 'Your account is verified — welcome back.'
-                      : `We've added your welcome credits to your account.`}
-                  </p>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#fa7517]/10 border border-[#fa7517]/20 rounded-full mb-6">
-                    <Gift className="w-4 h-4 text-[#fa7517]" />
-                    <span className="text-[#fa7517] font-semibold">
-                      {result?.alreadyGranted ? 'Credits ready' : `+${grantedCredits} credits`}
-                    </span>
-                    {typeof result?.balance === 'number' && (
-                      <span className="text-gray-500 text-sm">• {result.balance} total</span>
-                    )}
+                {view === 'confirming' && (
+                  <div className="py-8 text-center" role="status">
+                    <Loader2 className="w-10 h-10 mx-auto text-[#fa7517] animate-spin mb-4" />
+                    <h2 id={titleId} tabIndex={-1} data-gate-focus className="text-sm text-gray-300 font-medium focus:outline-none">Adding your credits…</h2>
                   </div>
-                  <button
-                    onClick={close}
-                    className="w-full py-3.5 px-4 rounded-xl font-semibold text-white bg-gradient-to-r from-[#fa7517] to-orange-500 hover:from-[#fa7517]/90 hover:to-orange-500/90 shadow-lg shadow-[#fa7517]/25 transition-all"
-                  >
-                    Start creating
-                  </button>
-                </div>
-              )}
-            </div>
-          </motion.div>
+                )}
+
+                {view === 'granted' && record.phase === 'granted' && (
+                  <div className="py-2 text-center">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-green-500/15 flex items-center justify-center mb-4">
+                      <CheckCircle className="w-8 h-8 text-green-400" />
+                    </div>
+                    <h2 id={titleId} className="text-xl font-bold text-white mb-2">
+                      {record.granted ? record.credits ? `${record.credits} credits added` : 'Welcome credits added' : 'You’re signed in'}
+                    </h2>
+                    <p className="text-sm text-gray-400 mb-6" role="status">
+                      {record.granted
+                        ? typeof record.balance === 'number' ? `You now have ${record.balance} credits.` : 'They are in your account.'
+                        : record.deferred ? deferredWelcomeMessage(record.credits, record.grantOn)
+                          : 'Your account is ready. The welcome credits were not added.'}
+                    </p>
+                    <button type="button" data-gate-focus onClick={() => closeEmailGate()} className={button}>Continue</button>
+                  </div>
+                )}
+
+                {view === 'refused' && record.phase === 'refused' && (
+                  <div className="py-2 text-center">
+                    <AlertCircle className="w-10 h-10 mx-auto text-amber-400 mb-4" />
+                    <h2 id={titleId} tabIndex={-1} data-gate-focus className="text-lg font-bold text-white mb-2 focus:outline-none">You&apos;re signed in</h2>
+                    <p className="text-sm text-amber-200 mb-5" role="alert">
+                      {emailGateRefusalMessage(record.code, record.cause, record.message)}
+                      <StudioErrorDetail error={{ code: record.code, status: record.status }} />
+                    </p>
+                    <div className="space-y-2">
+                      {record.retryable && <button type="button" className={button} onClick={onRetryConfirm}>Try again</button>}
+                      <button type="button" className={secondary} onClick={() => closeEmailGate()}>Close</button>
+                    </div>
+                    {record.retryable && <p className="mt-3 text-xs text-gray-400">You can finish this later from AI Thumbnails.</p>}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>,

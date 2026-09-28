@@ -1,5 +1,7 @@
 # Backend Implementation: AI Thumbnail Generator - Clerk Integration
 
+> **Superseded for the web app (spec §17.4, FE-24, 26 September 2026).** The frontend no longer calls `/v1/images` and embeds no public API key. Anonymous visitors use `/api/v1/thumbnail-studio/anonymous`; see `docs/THUMBNAIL_STUDIO_FRONTEND.md`. `/v1/images` remains for API-key holders only.
+
 ## Overview
 
 This document specifies backend enhancements to integrate the AI Thumbnail Generator into the Base.Tube ecosystem using existing Clerk authentication. The approach prioritizes simplicity by reusing existing infrastructure rather than building parallel systems.

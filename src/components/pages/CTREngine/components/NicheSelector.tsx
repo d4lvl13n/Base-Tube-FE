@@ -1,3 +1,4 @@
+import { StudioSelect } from "../../../common/ThumbnailSelect";
 // src/components/pages/CTREngine/components/NicheSelector.tsx
 // Premium niche selection component
 
@@ -49,7 +50,8 @@ export const NicheSelector: React.FC<NicheSelectorProps> = ({
   if (variant === 'dropdown') {
     return (
       <div className={className}>
-        <select
+        <StudioSelect
+          aria-label="Content niche"
           value={selectedNiche || 'auto'}
           onChange={(e) => onSelect(e.target.value === 'auto' ? null : e.target.value)}
           disabled={isLoading}
@@ -62,7 +64,7 @@ export const NicheSelector: React.FC<NicheSelectorProps> = ({
               {nicheIcons[niche.id]?.emoji || '📁'} {niche.name}
             </option>
           ))}
-        </select>
+        </StudioSelect>
       </div>
     );
   }

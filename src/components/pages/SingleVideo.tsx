@@ -27,7 +27,10 @@ import { DiscoveryPanel } from '../common/Video/DiscoveryPanel';
 import { InfoPanel } from '../common/Video/InfoPanel';
 import { useDescriptionDock } from '../../contexts/DescriptionDockContext';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
+// The API origin the shared client uses. REACT_APP_API_BASE_URL is not set for the
+// production build, so it fell back to localhost there, and reading an unset
+// REACT_APP_* variable makes the build inline every REACT_APP_* value at this spot.
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
 const SingleVideo: React.FC = () => {
   const { id } = useParams<{ id: string }>();

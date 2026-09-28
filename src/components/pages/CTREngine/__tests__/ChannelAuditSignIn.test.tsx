@@ -1,0 +1,40 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import ChannelAuditPage from '../ChannelAuditPage';
+import useCTREngine from '../../../../hooks/useCTREngine';
+import ctrApi from '../../../../api/ctr';
+import { readStudioAuthOrigin } from '../../../../utils/studioAuth';
+jest.mock('../../../../hooks/useCTREngine', () => ({ __esModule: true, default: jest.fn() }));
+jest.mock('../../../../api/ctr', () => ({ __esModule: true, default: { listChannelAudits: jest.fn(), auditChannel: jest.fn(), getChannelAudit: jest.fn() } }));
+jest.mock('../AIThumbnailsLayout', () => ({ __esModule: true, default: ({ children }: any) => <main>{children}</main> }));
+jest.mock('../components/ChannelAuditReport', () => ({ ChannelAuditReport: () => <p>Report</p> }));
+const api = ctrApi as jest.Mocked<typeof ctrApi>;
+let engine: any;
+beforeEach(() => {
+  sessionStorage.clear();
+  window.matchMedia = jest.fn(() => ({ matches: false, addListener: jest.fn(), removeListener: jest.fn() })) as any;
+  engine = { usageAccess: null, isLoadingQuota: false, refreshQuota: jest.fn(), isAnonymous: false };
+  (useCTREngine as jest.Mock).mockImplementation(() => engine);
+  api.listChannelAudits.mockResolvedValue([]);
+});
+const page = () => <MemoryRouter initialEntries={['/ai-thumbnails/channel-audit']}><ChannelAuditPage /></MemoryRouter>;
+it('offers sign-in to anonymous visitors instead of a form that fails with 401', () => {
+  engine.isAnonymous = true;
+  render(page());
+  expect(screen.getByText(/Sign in to audit a channel/)).toBeInTheDocument();
+  const email = screen.getByRole('link', { name: /Sign In with Email/ });
+  expect(email).toHaveAttribute('href', '/ai-thumbnails/sign-in');
+  fireEvent.click(email);
+  expect(readStudioAuthOrigin()).toMatchObject({ destination: '/ai-thumbnails/channel-audit', intent: 'sign-in' });
+  expect(screen.queryByRole('button', { name: /Audit channel/ })).not.toBeInTheDocument();
+});
+it('turns a 401 from the audit into the sign-in choices, not an error message', async () => {
+  api.auditChannel.mockRejectedValue({ response: { status: 401 }, message: 'Request failed with status code 401' });
+  render(page());
+  const input = await screen.findByPlaceholderText(/yourchannel/);
+  fireEvent.change(input, { target: { value: '@mychannel' } });
+  fireEvent.click(screen.getByRole('button', { name: /Audit channel/ }));
+  expect(await screen.findByText(/Sign in to audit a channel/)).toBeInTheDocument();
+  expect(screen.queryByText(/status code 401/)).not.toBeInTheDocument();
+});

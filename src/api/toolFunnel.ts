@@ -15,6 +15,7 @@ import type {
   ConfirmSignupData,
   UnsubscribeData,
   ToolFunnelEnvelope,
+  WelcomeOffer,
 } from '../types/toolFunnel';
 
 const BASE_PATH = '/api/v1/tool';
@@ -81,6 +82,15 @@ export const confirmSignup = async (
 };
 
 /**
+ * GET /api/v1/tool/welcome-offer (public). The welcome credits a new account
+ * receives, and whether today's are still available.
+ */
+export const getWelcomeOffer = async (): Promise<WelcomeOffer> => {
+  const response = await api.get<ToolFunnelEnvelope<WelcomeOffer>>(`${BASE_PATH}/welcome-offer`);
+  return response.data.data;
+};
+
+/**
  * POST /api/v1/tool/unsubscribe (no auth). Token-based marketing unsubscribe.
  */
 export const unsubscribe = async (token: string): Promise<UnsubscribeData> => {
@@ -91,4 +101,4 @@ export const unsubscribe = async (token: string): Promise<UnsubscribeData> => {
   return response.data.data;
 };
 
-export default { emailCapture, confirmSignup, unsubscribe, getToolFingerprint };
+export default { emailCapture, confirmSignup, getWelcomeOffer, unsubscribe, getToolFingerprint };

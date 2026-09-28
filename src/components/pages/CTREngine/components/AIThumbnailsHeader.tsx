@@ -2,12 +2,14 @@
 // Header for AI Thumbnails - Identical to Header.tsx but without search bar
 
 import React, { useState } from 'react';
-import { UserCircle, LogIn, Wallet, Palette, Shield, Menu, X } from 'lucide-react';
+import { UserCircle, Palette, Shield, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../../../common/Button';
 import { Link } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useAuth } from '../../../../contexts/AuthContext';
+
+import AIThumbnailsSignInOptions from './AIThumbnailsSignInOptions';
 
 interface AIThumbnailsHeaderProps {
   className?: string;
@@ -34,37 +36,7 @@ const AIThumbnailsHeader: React.FC<AIThumbnailsHeaderProps> = ({
       exit={{ opacity: 0, y: 10 }}
       className="absolute top-full right-0 mt-2 w-64 bg-black/90 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl"
     >
-      <div className="p-2 space-y-1">
-        <Link to="/sign-in" className="block">
-          <button className="w-full group relative">
-            <div className="absolute -inset-1 bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-lg opacity-0 group-hover:opacity-100 blur transition-all duration-300" />
-            <div className="relative flex items-center gap-3 p-3 rounded-lg bg-black hover:bg-black/90 transition-colors">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#fa7517] to-orange-400 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-[#fa7517]/20 transition-shadow duration-300">
-                <LogIn className="w-4 h-4 text-white transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300" />
-              </div>
-              <div className="text-left transition-transform duration-300 group-hover:translate-x-1">
-                <p className="text-white font-medium">Sign In with Email</p>
-                <p className="text-white/50 text-xs group-hover:text-white/70 transition-colors duration-300">Use your email address</p>
-              </div>
-            </div>
-          </button>
-        </Link>
-        
-        <Link to="/sign-in-web3" className="block">
-          <button className="w-full group relative">
-            <div className="absolute -inset-1 bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-lg opacity-0 group-hover:opacity-100 blur transition-all duration-300" />
-            <div className="relative flex items-center gap-3 p-3 rounded-lg bg-black hover:bg-black/90 transition-colors">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#fa7517] to-orange-400 flex items-center justify-center group-hover:shadow-lg group-hover:shadow-[#fa7517]/20 transition-shadow duration-300">
-                <Wallet className="w-4 h-4 text-white transform group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300" />
-              </div>
-              <div className="text-left transition-transform duration-300 group-hover:translate-x-1">
-                <p className="text-white font-medium">Sign In with Wallet</p>
-                <p className="text-white/50 text-xs group-hover:text-white/70 transition-colors duration-300">Connect your Web3 wallet</p>
-              </div>
-            </div>
-          </button>
-        </Link>
-      </div>
+      <AIThumbnailsSignInOptions />
     </motion.div>
   );
 
@@ -156,6 +128,8 @@ const AIThumbnailsHeader: React.FC<AIThumbnailsHeaderProps> = ({
           <Button
             variant="ghost"
             size="sm"
+            aria-label="Sign in"
+            aria-expanded={showSignInOptions}
             onClick={() => setShowSignInOptions(!showSignInOptions)}
             className="relative text-white/80 hover:text-white hover:bg-white/5"
           >

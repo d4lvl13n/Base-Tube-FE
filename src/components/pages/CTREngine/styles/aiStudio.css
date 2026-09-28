@@ -340,6 +340,76 @@
   outline: 2px solid #fa7517;
   outline-offset: 4px;
 }
+.ai-studio-shell details > summary {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  list-style: none;
+  cursor: pointer;
+}
+.ai-studio-shell details > summary::-webkit-details-marker { display: none; }
+.ai-studio-shell details > summary::before {
+  content: '';
+  width: .5rem;
+  height: .5rem;
+  flex: none;
+  border-right: 1.5px solid #a1a1aa;
+  border-bottom: 1.5px solid #a1a1aa;
+  transform: rotate(-45deg);
+  transition: transform .18s ease, border-color .18s ease;
+}
+.ai-studio-shell details[open] > summary::before {
+  transform: rotate(45deg);
+  border-color: #fa7517;
+}
+.ai-studio-shell details > summary:hover { color: #fff; }
+.ai-studio-shell details > summary:hover::before { border-color: #fa7517; }
+.ai-studio-shell .thumbnail-look > summary::before { display: none; }
+.ai-studio-shell input[type="checkbox"],
+.ai-studio-shell input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+  margin: 0;
+  vertical-align: -0.2rem;
+  border: 1px solid rgba(161,161,170,.55) !important;
+  border-radius: .33rem;
+  background: #18181b !important;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.ai-studio-shell input[type="radio"] { border-radius: 50%; }
+.ai-studio-shell input[type="checkbox"]:checked,
+.ai-studio-shell input[type="radio"]:checked {
+  border-color: #fa7517 !important;
+  background: #fa7517 !important;
+}
+.ai-studio-shell input[type="checkbox"]:checked::after {
+  content: '';
+  width: .55rem;
+  height: .32rem;
+  border-left: 2px solid #111113;
+  border-bottom: 2px solid #111113;
+  transform: translateY(-.06rem) rotate(-45deg);
+}
+.ai-studio-shell input[type="radio"]:checked::after {
+  content: '';
+  width: .4rem;
+  height: .4rem;
+  border-radius: 50%;
+  background: #111113;
+}
+.ai-studio-shell input[type="checkbox"]:focus-visible,
+.ai-studio-shell input[type="radio"]:focus-visible {
+  outline: 2px solid #fa7517;
+  outline-offset: 3px;
+}
+.ai-studio-shell input[type="checkbox"]:disabled,
+.ai-studio-shell input[type="radio"]:disabled { cursor: not-allowed; opacity: .45; }
 .thumbnail-brief-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr); gap: 3rem; align-items: start; }
 .thumbnail-disclosure { border-top: 1px solid rgba(255,255,255,.1); padding-top: 1rem; }
 .thumbnail-disclosure > summary { cursor: pointer; color: #e4e4e7; font-size: .875rem; padding: .35rem 0; }
@@ -350,18 +420,15 @@
 .thumbnail-look-content > fieldset { border: 0; background: none; padding: 1rem 0; margin: 0; border-bottom: 1px solid rgba(255,255,255,.08); border-radius: 0; }
 .thumbnail-look-content > fieldset > legend { padding: 1rem 0 0; font-size: .75rem; color: #a1a1aa; }
 .thumbnail-look-content > fieldset > p { font-size: .75rem; }
-.thumbnail-look-content > fieldset > div > .h-20 { height: 3rem; width: 3rem; }
 .thumbnail-look-content > fieldset > div.flex > div.basis-40 { flex-basis: 8rem; }
 .thumbnail-flow form { padding-bottom: 10rem; }
 .thumbnail-generate-bar { position: fixed; bottom: max(1rem, env(safe-area-inset-bottom)); z-index: 20; margin-top: 2rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid rgba(255,255,255,.12); border-radius: 1rem; background: rgba(17,17,19,.97); padding: 1rem; box-shadow: 0 15px 45px rgba(0,0,0,.35); }
-.thumbnail-refine-card { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); align-items: start; }
-.thumbnail-refine-image { position: sticky; top: 1rem; }
 @media (max-width: 1023px) {
   .thumbnail-brief-grid { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
   .thumbnail-look > summary { cursor: pointer; }
-  .thumbnail-refine-card { grid-template-columns: minmax(0, 1fr); }
-  .thumbnail-refine-image { position: relative; top: auto; }
 }
+/* Studio steps (Brief, Choose, Refine) use the width of the workspace, not the reading column. */
+.ai-studio-content:has(.studio-wide) { max-width: 96rem; }
 @media (max-width: 600px) {
   .thumbnail-generate-bar { bottom: max(.5rem, env(safe-area-inset-bottom)); gap: .75rem; }
   .thumbnail-generate-bar > button[type=submit] { width: 100%; }

@@ -4,13 +4,17 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Target, TrendingUp, AlertCircle, X, ArrowLeft, RefreshCw, Coins } from 'lucide-react';
+import { Zap, Target, TrendingUp, AlertCircle, X, ArrowLeft, RefreshCw, Coins, Sparkles } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import { ThumbnailAuditForm } from './components/ThumbnailAuditForm';
 import { ThumbnailAuditResult } from './components/ThumbnailAuditResult';
 import { BuyCreditsModal } from './components/BuyCreditsModal';
 import useCTREngine from '../../../hooks/useCTREngine';
+import { auditCapacityMessage, useWelcomeOffer } from '../../../hooks/useWelcomeOffer';
+import { openEmailGate } from '../../../utils/studioFunnel';
 import { ThumbnailAudit } from '../../../types/ctr';
+import { plainApiError } from '../../../utils/plainApiError';
+import { TechnicalErrorDetail } from '../../common/TechnicalErrorDetail';
 
 // Note: Auth is handled inside useCTREngine which checks both Clerk and Web3
 
@@ -31,6 +35,7 @@ const AuditPage: React.FC = () => {
     usageAccess,
     isLoadingQuota,
     error,
+    errorDetail,
     errorCode,
     clearError,
     isAnonymous,
@@ -41,6 +46,9 @@ const AuditPage: React.FC = () => {
   const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
   const [historicalError, setHistoricalError] = useState<string | null>(null);
   const [isBuyCreditsOpen, setIsBuyCreditsOpen] = useState(false);
+  const offer = useWelcomeOffer();
+  // Free audits for visitors are used up on the platform today: an account gets credits.
+  const auditCapacity = errorCode === 'ANONYMOUS_AUDIT_CAPACITY';
   
   // Load historical audit if ID is in URL
   useEffect(() => {
@@ -53,10 +61,10 @@ const AuditPage: React.FC = () => {
           if (audit) {
             setHistoricalAudit(audit);
           } else {
-            setHistoricalError('Audit not found');
+            setHistoricalError('This audit could not be opened. It may have been removed.');
           }
-        } catch (err: any) {
-          setHistoricalError(err.message || 'Failed to load audit');
+        } catch (err) {
+          setHistoricalError(plainApiError(err, 'This audit could not be opened. Please try again.').message);
         } finally {
           setIsLoadingHistorical(false);
         }
@@ -91,8 +99,21 @@ const AuditPage: React.FC = () => {
             className="max-w-3xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3 backdrop-blur-sm"
           >
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-red-400">{error}</p>
+            <div className="flex-1" role="alert">
+              <p className="text-red-300">
+                {auditCapacity ? auditCapacityMessage(offer) : error}
+                <TechnicalErrorDetail detail={errorDetail} />
+              </p>
+              {auditCapacity && (
+                <button
+                  type="button"
+                  onClick={() => openEmailGate('audit_capacity')}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#fa7517] px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-500"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Create a free account
+                </button>
+              )}
               {errorCode === 'INSUFFICIENT_CREDITS' && (
                 <button
                   type="button"
@@ -105,7 +126,9 @@ const AuditPage: React.FC = () => {
               )}
             </div>
             <button
+              type="button"
               onClick={clearError}
+              aria-label="Dismiss"
               className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
             >
               <X className="w-4 h-4" />
@@ -136,7 +159,7 @@ const AuditPage: React.FC = () => {
           <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center backdrop-blur-sm">
             <AlertCircle className="w-10 h-10 text-red-400" />
           </div>
-          <h3 className="text-xl font-semibold text-white mb-2">Audit Not Found</h3>
+          <h3 className="text-xl font-semibold text-white mb-2">Audit unavailable</h3>
           <p className="text-gray-400 mb-6">{historicalError}</p>
           <button
             onClick={handleReset}

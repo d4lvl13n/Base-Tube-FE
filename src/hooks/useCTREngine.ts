@@ -7,18 +7,16 @@ import { useUser } from '@clerk/clerk-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthMethod } from '../types/auth';
 import { ctrApi, fileToBase64 } from '../api/ctr';
-import { updateCTRUsageFromOperation } from '../utils/usageAccess';
+import { useStudioBalance } from './useStudioBalance';
+import { plainApiError } from '../utils/plainApiError';
 import {
   CTRUsageAccess,
   ThumbnailAudit,
   YouTubeVideoMetadata,
-  GeneratedConcept,
   NicheOption,
   FaceReference,
   AuditContext,
-  GenerateRequest,
   AuditProgress,
-  GenerationProgress,
   CTRErrorCode,
   AuditHistoryItem,
   AuditStats,
@@ -36,7 +34,8 @@ interface UseCTREngineReturn {
   
   // Audit
   auditResult: ThumbnailAudit | null;
-  auditId: number | null;           // NEW - Persisted audit ID
+  /** The saved audit, or null (not saved yet, or the audit could not be saved): never link to a null id. */
+  auditId: number | null;
   auditThumbnailUrl: string | null; // NEW - Thumbnail URL from audit
   youtubeMetadata: YouTubeVideoMetadata | null;
   auditProgress: AuditProgress;
@@ -55,14 +54,6 @@ interface UseCTREngineReturn {
   loadAuditStats: () => Promise<void>;
   loadAuditById: (id: number) => Promise<ThumbnailAudit | null>;
   
-  // Generation
-  generatedConcepts: GeneratedConcept[];
-  detectedNiche: string | null;
-  generationTime: number | null;
-  generationProgress: GenerationProgress;
-  generateThumbnails: (request: GenerateRequest) => Promise<void>;
-  clearGeneratedConcepts: () => void;
-  
   // Niches
   niches: NicheOption[];
   isLoadingNiches: boolean;
@@ -77,7 +68,10 @@ interface UseCTREngineReturn {
   deleteFaceReference: () => Promise<void>;
   
   // Error handling
+  /** A sentence for people: the server's message, or what happened and what to do. */
   error: string | null;
+  /** HTTP status / server code of the last error, for a development-only suffix. */
+  errorDetail: string | null;
   errorCode: CTRErrorCode | null;
   clearError: () => void;
   
@@ -91,18 +85,23 @@ interface UseCTREngineReturn {
 // ============================================================================
 
 export const useCTREngine = (): UseCTREngineReturn => {
-  const { isSignedIn, isLoaded: isClerkLoaded } = useUser();
-  const { isAuthenticated: isWeb3Authenticated } = useAuth();
-  
+  const { isSignedIn, isLoaded: isClerkLoaded, user: clerkUser } = useUser();
+  const { isAuthenticated: isWeb3Authenticated, user: web3User, isRestoring: isWeb3Restoring } = useAuth();
+
   // Determine auth method and overall auth status
-  const authMethod = typeof window !== 'undefined' 
-    ? localStorage.getItem('auth_method') as AuthMethod 
+  const authMethod = typeof window !== 'undefined'
+    ? localStorage.getItem('auth_method') as AuthMethod
     : null;
-  const isAuthLoaded = authMethod === AuthMethod.WEB3 ? true : isClerkLoaded;
+  // A stored wallet session is restored after the first render: until then the
+  // account is loading, never anonymous (no sign-in flash, no anonymous page).
+  const web3Pending = Boolean(isWeb3Restoring);
+  const isAuthLoaded = authMethod === AuthMethod.WEB3 ? !web3Pending : isClerkLoaded;
   
   // Quota state
-  const [usageAccess, setUsageAccess] = useState<CTRUsageAccess | null>(null);
-  const [isLoadingQuota, setIsLoadingQuota] = useState(false);
+  const accountId = authMethod === AuthMethod.WEB3
+    ? (isWeb3Authenticated && web3User ? `web3:${web3User.id}` : 'anonymous')
+    : (isSignedIn && clerkUser ? `clerk:${clerkUser.id}` : 'anonymous');
+  const { usageAccess, isLoadingQuota, refreshQuota } = useStudioBalance(accountId, isAuthLoaded && (authMethod === AuthMethod.WEB3 ? !isWeb3Authenticated || Boolean(web3User) : !isSignedIn || Boolean(clerkUser)));
   
   // Audit state
   const [auditResult, setAuditResult] = useState<ThumbnailAudit | null>(null);
@@ -121,14 +120,6 @@ export const useCTREngine = (): UseCTREngineReturn => {
   const [auditStats, setAuditStats] = useState<AuditStats | null>(null);
   const [isLoadingAuditStats, setIsLoadingAuditStats] = useState(false);
   
-  // Generation state
-  const [generatedConcepts, setGeneratedConcepts] = useState<GeneratedConcept[]>([]);
-  const [detectedNiche, setDetectedNiche] = useState<string | null>(null);
-  const [generationTime, setGenerationTime] = useState<number | null>(null);
-  const [generationProgress, setGenerationProgress] = useState<GenerationProgress>({
-    status: 'idle',
-  });
-  
   // Niches state
   const [niches, setNiches] = useState<NicheOption[]>([]);
   const [isLoadingNiches, setIsLoadingNiches] = useState(false);
@@ -140,10 +131,10 @@ export const useCTREngine = (): UseCTREngineReturn => {
   
   // Error state
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<CTRErrorCode | null>(null);
   
   // Track if initial load has happened
-  const hasLoadedQuota = useRef(false);
   const hasLoadedNiches = useRef(false);
   
   // ============================================================================
@@ -154,22 +145,21 @@ export const useCTREngine = (): UseCTREngineReturn => {
   const isAuthenticated = authMethod === AuthMethod.WEB3 
     ? isWeb3Authenticated 
     : (isClerkLoaded && isSignedIn === true);
-  const isAnonymous = authMethod === AuthMethod.WEB3 
-    ? !isWeb3Authenticated 
+  const isAnonymous = authMethod === AuthMethod.WEB3
+    ? !web3Pending && !isWeb3Authenticated
     : (isClerkLoaded && isSignedIn === false);
   
   // ============================================================================
   // ERROR HANDLING
   // ============================================================================
   
-  const handleError = useCallback((err: unknown) => {
+  const handleError = useCallback((err: unknown, fallback?: string) => {
     const axiosError = axios.isAxiosError(err) ? err : null;
     const responseCode = axiosError?.response?.data?.error?.code;
-    const responseMessage =
-      axiosError?.response?.data?.error?.message ||
-      axiosError?.response?.data?.message;
-    const message = responseMessage || (err instanceof Error ? err.message : 'An unexpected error occurred');
-    setError(message);
+    // The server's sentence, else a plain one — never "Request failed with status code 503".
+    const plain = plainApiError(err, fallback);
+    setError(plain.message);
+    setErrorDetail(plain.technical);
     
     // Classify on the machine-readable error.code — NOT the human message.
     // Prod messages are sentences like "Daily audit limit of N reached.",
@@ -177,6 +167,8 @@ export const useCTREngine = (): UseCTREngineReturn => {
     const code = typeof responseCode === 'string' ? responseCode : '';
     if (axiosError?.response?.status === 402 || code === 'INSUFFICIENT_CREDITS') {
       setErrorCode('INSUFFICIENT_CREDITS');
+    } else if (code === 'ANONYMOUS_AUDIT_CAPACITY') {
+      setErrorCode('ANONYMOUS_AUDIT_CAPACITY');
     } else if (code.includes('QUOTA_EXCEEDED')) {
       if (code.startsWith('ANONYMOUS')) {
         setErrorCode('ANONYMOUS_AUDIT_QUOTA_EXCEEDED');
@@ -198,42 +190,9 @@ export const useCTREngine = (): UseCTREngineReturn => {
   
   const clearError = useCallback(() => {
     setError(null);
+    setErrorDetail(null);
     setErrorCode(null);
   }, []);
-  
-  // ============================================================================
-  // QUOTA
-  // ============================================================================
-  
-  const refreshQuota = useCallback(async () => {
-    if (!isAuthLoaded) return;
-    
-    setIsLoadingQuota(true);
-    try {
-      const quotaData = await ctrApi.getQuota();
-      setUsageAccess(quotaData);
-    } catch (err) {
-      console.error('Failed to fetch CTR quota:', err);
-      handleError(err);
-    } finally {
-      setIsLoadingQuota(false);
-    }
-  }, [isAuthLoaded, handleError]);
-  
-  // Load quota on mount and auth change
-  useEffect(() => {
-    if (isAuthLoaded && !hasLoadedQuota.current) {
-      hasLoadedQuota.current = true;
-      refreshQuota();
-    }
-  }, [isAuthLoaded, refreshQuota]);
-  
-  // Refresh quota when auth state changes
-  useEffect(() => {
-    if (isAuthLoaded && hasLoadedQuota.current) {
-      refreshQuota();
-    }
-  }, [isAuthenticated, isAuthLoaded, refreshQuota]);
   
   // ============================================================================
   // AUDIT
@@ -260,28 +219,24 @@ export const useCTREngine = (): UseCTREngineReturn => {
       });
       
       setAuditResult(result.audit);
-      setAuditId(result.auditId);  // Store the persisted audit ID
+      setAuditId(result.auditId ?? null);  // null: returned but not saved
       setAuditProgress({
         status: 'complete',
         includesPersonas: includePersonas,
         elapsedTime: Date.now() - startTime,
       });
       
-      const nextAccess = updateCTRUsageFromOperation(usageAccess, result, 'audit');
-      if (nextAccess) {
-        setUsageAccess(nextAccess);
-      } else {
-        await refreshQuota();
-      }
+      await refreshQuota();
     } catch (err) {
-      handleError(err);
+      void refreshQuota();
+      handleError(err, 'The audit did not finish. Please try again.');
       setAuditProgress({
         status: 'error',
         includesPersonas: includePersonas,
         elapsedTime: Date.now() - startTime,
       });
     }
-  }, [clearError, handleError, refreshQuota, usageAccess]);
+  }, [clearError, handleError, refreshQuota]);
   
   const auditByFile = useCallback(async (
     file: File,
@@ -305,28 +260,24 @@ export const useCTREngine = (): UseCTREngineReturn => {
       });
       
       setAuditResult(result.audit);
-      setAuditId(result.auditId);  // Store the persisted audit ID
+      setAuditId(result.auditId ?? null);  // null: returned but not saved
       setAuditProgress({
         status: 'complete',
         includesPersonas: includePersonas,
         elapsedTime: Date.now() - startTime,
       });
       
-      const nextAccess = updateCTRUsageFromOperation(usageAccess, result, 'audit');
-      if (nextAccess) {
-        setUsageAccess(nextAccess);
-      } else {
-        await refreshQuota();
-      }
+      await refreshQuota();
     } catch (err) {
-      handleError(err);
+      void refreshQuota();
+      handleError(err, 'The audit did not finish. Please try again.');
       setAuditProgress({
         status: 'error',
         includesPersonas: includePersonas,
         elapsedTime: Date.now() - startTime,
       });
     }
-  }, [clearError, handleError, refreshQuota, usageAccess]);
+  }, [clearError, handleError, refreshQuota]);
   
   const auditByYouTube = useCallback(async (
     youtubeUrl: string,
@@ -344,7 +295,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
       const result = await ctrApi.auditYouTubeThumbnail(youtubeUrl, includePersonas, context);
       
       setAuditResult(result.audit);
-      setAuditId(result.auditId);  // Store the persisted audit ID
+      setAuditId(result.auditId ?? null);  // null: returned but not saved
       setAuditThumbnailUrl(result.thumbnailUrl);  // Store the thumbnail URL
       setYoutubeMetadata(result.videoMetadata);
       setAuditProgress({
@@ -353,21 +304,17 @@ export const useCTREngine = (): UseCTREngineReturn => {
         elapsedTime: Date.now() - startTime,
       });
       
-      const nextAccess = updateCTRUsageFromOperation(usageAccess, result, 'audit');
-      if (nextAccess) {
-        setUsageAccess(nextAccess);
-      } else {
-        await refreshQuota();
-      }
+      await refreshQuota();
     } catch (err) {
-      handleError(err);
+      void refreshQuota();
+      handleError(err, 'The audit did not finish. Please try again.');
       setAuditProgress({
         status: 'error',
         includesPersonas: includePersonas,
         elapsedTime: Date.now() - startTime,
       });
     }
-  }, [clearError, handleError, refreshQuota, usageAccess]);
+  }, [clearError, handleError, refreshQuota]);
   
   const clearAuditResult = useCallback(() => {
     setAuditResult(null);
@@ -411,7 +358,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
       });
     } catch (err) {
       console.error('Failed to load audit history:', err);
-      handleError(err);
+      handleError(err, 'Could not load your audit history. Please try again.');
     } finally {
       setIsLoadingAuditHistory(false);
     }
@@ -429,7 +376,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
       setAuditStats(stats);
     } catch (err) {
       console.error('Failed to load audit stats:', err);
-      handleError(err);
+      handleError(err, 'Could not load your audit stats. Please try again.');
     } finally {
       setIsLoadingAuditStats(false);
     }
@@ -446,78 +393,10 @@ export const useCTREngine = (): UseCTREngineReturn => {
       return audit;
     } catch (err) {
       console.error('Failed to load audit by ID:', err);
-      handleError(err);
+      handleError(err, 'Could not open this audit. Please try again.');
       return null;
     }
   }, [handleError]);
-  
-  // ============================================================================
-  // GENERATION
-  // ============================================================================
-  
-  const generateThumbnails = useCallback(async (request: GenerateRequest) => {
-    if (!isAuthenticated) {
-      setError('Please sign in to generate thumbnails');
-      setErrorCode('AUTHENTICATION_REQUIRED');
-      return;
-    }
-    
-    clearError();
-    const conceptCount = request.concepts || 3;
-    setGenerationProgress({
-      status: 'generating',
-      totalConcepts: conceptCount,
-      currentConcept: 0,
-    });
-    
-    const startTime = Date.now();
-    
-    // Simulate progress updates (actual generation is single request)
-    const progressInterval = setInterval(() => {
-      setGenerationProgress((prev) => ({
-        ...prev,
-        elapsedTime: Date.now() - startTime,
-        estimatedTotal: conceptCount * 15000, // ~15s per concept estimate
-      }));
-    }, 1000);
-    
-    try {
-      const result = await ctrApi.generateThumbnails(request);
-      
-      clearInterval(progressInterval);
-      
-      setGeneratedConcepts(result.concepts);
-      setDetectedNiche(result.detectedNiche);
-      setGenerationTime(result.generationTime);
-      setGenerationProgress({
-        status: 'complete',
-        totalConcepts: conceptCount,
-        currentConcept: conceptCount,
-        elapsedTime: Date.now() - startTime,
-      });
-      
-      const nextAccess = updateCTRUsageFromOperation(usageAccess, result, 'generate');
-      if (nextAccess) {
-        setUsageAccess(nextAccess);
-      } else {
-        await refreshQuota();
-      }
-    } catch (err) {
-      clearInterval(progressInterval);
-      handleError(err);
-      setGenerationProgress({
-        status: 'error',
-        elapsedTime: Date.now() - startTime,
-      });
-    }
-  }, [isAuthenticated, clearError, handleError, refreshQuota, usageAccess]);
-  
-  const clearGeneratedConcepts = useCallback(() => {
-    setGeneratedConcepts([]);
-    setDetectedNiche(null);
-    setGenerationTime(null);
-    setGenerationProgress({ status: 'idle' });
-  }, []);
   
   // ============================================================================
   // NICHES
@@ -566,7 +445,8 @@ export const useCTREngine = (): UseCTREngineReturn => {
   
   const uploadFaceReference = useCallback(async (file: File) => {
     if (!isAuthenticated) {
-      setError('Please sign in to upload a face reference');
+      setError('Sign in to upload a face reference.');
+      setErrorDetail(null);
       setErrorCode('AUTHENTICATION_REQUIRED');
       return;
     }
@@ -584,7 +464,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
         faceReferenceKey: result.faceReferenceKey,
       });
     } catch (err) {
-      handleError(err);
+      handleError(err, 'Your face photo was not saved. Please try again.');
     } finally {
       setIsUploadingFaceReference(false);
     }
@@ -599,7 +479,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
       await ctrApi.deleteFaceReference();
       setFaceReference(null);
     } catch (err) {
-      handleError(err);
+      handleError(err, 'Your face photo was not deleted. Please try again.');
     }
   }, [isAuthenticated, clearError, handleError]);
   
@@ -641,14 +521,6 @@ export const useCTREngine = (): UseCTREngineReturn => {
     loadAuditStats,
     loadAuditById,
     
-    // Generation
-    generatedConcepts,
-    detectedNiche,
-    generationTime,
-    generationProgress,
-    generateThumbnails,
-    clearGeneratedConcepts,
-    
     // Niches
     niches,
     isLoadingNiches,
@@ -664,6 +536,7 @@ export const useCTREngine = (): UseCTREngineReturn => {
     
     // Error handling
     error,
+    errorDetail,
     errorCode,
     clearError,
     

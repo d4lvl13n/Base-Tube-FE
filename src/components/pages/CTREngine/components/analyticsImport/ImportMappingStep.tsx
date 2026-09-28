@@ -1,3 +1,4 @@
+import { StudioSelect } from "../../../../common/ThumbnailSelect";
 // Step (b) — column mapping. Only shown when `needsMapping` is true.
 //
 // The parser suggests from an alias registry, but value shapes only ever
@@ -150,7 +151,8 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({
             </div>
 
             {/* RIGHT: what we should call it */}
-            <select
+            <StudioSelect
+              aria-label={`Map ${column.header}`}
               value={assignments[column.index] ?? ''}
               onChange={(e) =>
                 assign(
@@ -167,7 +169,7 @@ export const ImportMappingStep: React.FC<ImportMappingStepProps> = ({
                   {field.required ? ' (required)' : ''}
                 </option>
               ))}
-            </select>
+            </StudioSelect>
           </div>
         ))}
       </div>
