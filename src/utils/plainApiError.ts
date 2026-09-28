@@ -16,6 +16,10 @@ export interface PlainApiError {
 
 export const PLAIN_ERROR_FALLBACK = 'Something went wrong. Please try again.';
 
+/** The platform's daily AI spending cap is reached (503 AI_DAILY_CAPACITY): same words on every page. */
+export const AI_DAILY_CAPACITY_MESSAGE =
+  "AI Thumbnails has reached today's capacity. Try again after midnight UTC. No credits were used.";
+
 /** Axios' own wording for a failed request. */
 const TRANSPORT_WORDING =
   /^(request failed with status code \d+|network error|timeout of \d+ms exceeded|timeout exceeded|canceled|cancelled|aborted)$/i;
@@ -76,6 +80,7 @@ export function plainApiError(error: unknown, fallback: string = PLAIN_ERROR_FAL
       .join(' · ') || null;
   const result = (message: string): PlainApiError => ({ message, technical, status, code: body.code });
 
+  if (body.code === 'AI_DAILY_CAPACITY') return result(AI_DAILY_CAPACITY_MESSAGE);
   if (body.message) return result(body.message);
   if (status !== null) return result(statusSentence(status, fallback));
   // "Request failed with status code 500" rethrown without its response.

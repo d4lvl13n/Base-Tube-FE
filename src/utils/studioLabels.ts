@@ -1,3 +1,5 @@
+import { AI_DAILY_CAPACITY_MESSAGE } from "./plainApiError";
+
 /** Public-facing names for the small server provenance vocabulary. */
 export function studioSourceLabels(fields: string[]): string {
   const names: Record<string, string> = {
@@ -60,6 +62,7 @@ export function studioOperationName(items: Array<{ action: string }>): string {
  * Why an output failed, from the item error code of the operation read.
  */
 export function studioItemFailureMessage(errorCode: string | null): string {
+  if (errorCode === "AI_DAILY_CAPACITY") return AI_DAILY_CAPACITY_MESSAGE;
   if (errorCode === "PROVIDER_NOT_REACHED")
     return "The image service could not be reached, so nothing was created and the credits for this result were released. You can retry it.";
   return "This result could not be completed. Other ready results are kept.";

@@ -10,6 +10,7 @@ import type {
 import { notifyStudioUsageChanged } from "./useStudioBalance";
 import { studioStartUnavailableMessage } from "./useStudioCapabilities";
 import { studioOperationName, studioStateLabels } from "../utils/studioLabels";
+import { AI_DAILY_CAPACITY_MESSAGE } from "../utils/plainApiError";
 /** Why a one-click action did not start, shown next to its button. */
 export interface StudioStartProblem {
   kind: "credits" | "retired" | "unavailable" | "retry" | "other";
@@ -56,6 +57,8 @@ function classifyStart(
     return { kind: "retired", message: STUDIO_START_FAILED };
   if (code === "STUDIO_PAUSED")
     return { kind: "unavailable", message: studioStartUnavailableMessage("paused") };
+  if (code === "AI_DAILY_CAPACITY")
+    return { kind: "unavailable", message: AI_DAILY_CAPACITY_MESSAGE };
   if (code === "STUDIO_UNAVAILABLE" || status === 503)
     return { kind: "unavailable", message: studioStartUnavailableMessage(null) };
   if (code === "OPERATION_ALREADY_STARTED")

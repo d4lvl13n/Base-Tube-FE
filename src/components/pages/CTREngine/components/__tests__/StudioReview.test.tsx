@@ -358,6 +358,9 @@ it("says when the image service was not reached: nothing created, credits releas
   op.items = [{ ...op.items[0], errorCode: "GENERATION_DECLINED" }];
   view.rerender(<StudioOperationPanel operation={op} onRetry={retry} busy={false} />);
   expect(screen.getByText("This result could not be completed. Other ready results are kept.")).toBeInTheDocument();
+  op.items = [{ ...op.items[0], errorCode: "AI_DAILY_CAPACITY" }];
+  view.rerender(<StudioOperationPanel operation={op} onRetry={retry} busy={false} />);
+  expect(screen.getByText("AI Thumbnails has reached today's capacity. Try again after midnight UTC. No credits were used.")).toBeInTheDocument();
 });
 
 it("does not call an unsettled or unknown outcome a failure", () => {

@@ -255,6 +255,7 @@ it.each([
   ["an expired quote", refused(409, "QUOTE_EXPIRED"), "retired", /^Couldn't start — try again\.$/],
   ["a paused Studio", refused(503, "STUDIO_PAUSED"), "unavailable", /paused for now. Your work is saved/],
   ["an unavailable worker", refused(503, "STUDIO_UNAVAILABLE"), "unavailable", /temporarily unavailable. Your work is saved/],
+  ["today's AI capacity reached", refused(503, "AI_DAILY_CAPACITY"), "unavailable", /^AI Thumbnails has reached today's capacity\. Try again after midnight UTC\. No credits were used\.$/],
   ["a lost connection", new Error("Network Error"), "retry", /could not be confirmed. You can retry this same start safely/],
   ["a server failure", refused(500, "INTERNAL_ERROR", "The studio could not complete this request."), "retry", /same start safely/],
   ["a refused account", refused(403, "FORBIDDEN", "This account cannot perform this action."), "other", /^This account cannot do this\. Your saved work is unchanged\.$/],

@@ -23,6 +23,16 @@ it("shows the server's sentence from either error envelope, with the status as t
   expect(serverErrorBody({ error: 'Legacy text' })).toEqual({ message: 'Legacy text', code: null });
 });
 
+it("words today's AI capacity the same way on every page, whatever the server sent", () => {
+  const capacity = plainApiError(http(503, { success: false, error: { code: 'AI_DAILY_CAPACITY', message: 'Other text' } }));
+  expect(capacity).toEqual({
+    message: "AI Thumbnails has reached today's capacity. Try again after midnight UTC. No credits were used.",
+    technical: 'HTTP 503 · AI_DAILY_CAPACITY',
+    status: 503,
+    code: 'AI_DAILY_CAPACITY',
+  });
+});
+
 it('never shows axios wording: a plain sentence says what happened and what to do', () => {
   for (const status of [500, 502, 503]) {
     const plain = plainApiError(http(status), 'The channel audit did not finish. Please try again.');
