@@ -49,14 +49,20 @@
     <!-- Add these meta tags for Cloudflare compatibility -->
     <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
     <meta http-equiv="Cross-Origin-Embedder-Policy" content="credentialless">
+    <!-- With JavaScript, every page shows its own legal links: hide the static footer below before
+         the first paint, so it never flashes at the top of the screen or sits under every page.
+         It stays in this HTML for crawlers that read it without running JavaScript. -->
+    <script>document.documentElement.classList.add('js');</script>
+    <style>html.js #static-legal-links { display: none; }</style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <!-- Static, always-crawlable legal links, OUTSIDE #root so React never
          removes them. Guarantees Google/YouTube OAuth verification finds the
-         Privacy Policy link on the home page even without full SPA rendering. -->
-    <footer style="text-align:center;padding:16px;font:12px/1.5 system-ui,sans-serif;color:#6b7280;background:#000">
+         Privacy Policy link on the home page even without full SPA rendering.
+         Hidden when JavaScript runs (see the head): the home page renders its own link. -->
+    <footer id="static-legal-links" style="text-align:center;padding:16px;font:12px/1.5 system-ui,sans-serif;color:#6b7280;background:#000">
       <a href="/privacy" style="color:#9ca3af;margin:0 8px">Privacy Policy</a>
       <a href="/terms" style="color:#9ca3af;margin:0 8px">Terms of Service</a>
       <a href="/refund" style="color:#9ca3af;margin:0 8px">Refunds</a>
