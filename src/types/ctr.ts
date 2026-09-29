@@ -3,6 +3,7 @@ import type { ThumbnailBrief, ThumbnailEditing } from './thumbnail';
 // CTR Thumbnail Engine Types
 
 import type { ThumbnailSizePreset, ThumbnailGenerationOptions } from './thumbnail';
+import type { CreditBreakdown } from './subscription';
 
 // ============================================================================
 // ACCESS TYPES
@@ -91,6 +92,8 @@ export interface CreditBalanceResponse {
   data: {
     balance: CreditInfo;
     pricing?: CreditPricingCatalog;
+    /** The balance by origin (subscription credits expire, pack credits do not). */
+    detail?: CreditBreakdown & { videosRemaining: number; videoCredits: number };
   };
 }
 

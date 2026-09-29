@@ -83,7 +83,7 @@ export function loadStudioDraft(id?: string | null, now = Date.now()): { id: str
 export function studioReturnDestination(value: string | null): string | undefined {
   if (!value) return undefined;
   const [requested, search = ''] = value.split('?');
-  if (!/^\/ai-thumbnails(?:\/(?:generate|audit|channel-audit|gallery|history|settings(?:\/(?:style|logos|face|preferences|credits|account))?|(?:studio|projects)(?:\/[a-zA-Z0-9_-]{1,80})?))?$/.test(requested)) return undefined;
+  if (!/^\/ai-thumbnails(?:\/(?:generate|audit|channel-audit|gallery|history|pricing|settings(?:\/(?:style|logos|face|preferences|credits|subscription|account))?|(?:studio|projects)(?:\/[a-zA-Z0-9_-]{1,80})?))?$/.test(requested)) return undefined;
   // Old `/ai-thumbnails/studio` links are redirected by the router; return to the current name.
   const pathname = requested.replace(/^\/ai-thumbnails\/studio/, '/ai-thumbnails/projects');
   const input = new URLSearchParams(search);
@@ -107,10 +107,90 @@ export function rememberCreditsReturn(path: string) {
     else sessionStorage.removeItem(CREDITS_RETURN_KEY);
   } catch { /* The default destination still works. */ }
 }
-export function creditsReturnDestination(): string {
+/**
+ * Where a checkout success page sends the creator back: the `return` page
+ * the checkout was opened with (only an allowed AI Thumbnails screen), else
+ * the one remembered in this tab, else `fallback`.
+ */
+export function creditsReturnDestination(returnParam?: string | null, fallback = '/ai-thumbnails/generate'): string {
+  const fromUrl = studioReturnDestination(returnParam ?? null);
+  if (fromUrl) return fromUrl;
   try {
-    return studioReturnDestination(sessionStorage.getItem(CREDITS_RETURN_KEY)) || '/ai-thumbnails/generate';
-  } catch { return '/ai-thumbnails/generate'; }
+    return studioReturnDestination(sessionStorage.getItem(CREDITS_RETURN_KEY)) || fallback;
+  } catch { return fallback; }
+}
+
+/**
+ * The priced action a creator could not pay for when they went to get
+ * credits (a pack, a plan or an upgrade). Back on that screen with more
+ * credits, the action is offered again as its one priced button. It is never
+ * started without a click.
+ */
+export interface PendingPaidAction {
+  /** The action's key on its page (or its label when it has none). */
+  id: string;
+  /** "Generate 3 concepts". */
+  label: string;
+  /** The price on its button. */
+  credits: number | null;
+}
+interface StoredPendingPaidAction extends PendingPaidAction {
+  /** The screen it is on (pathname only). */
+  path: string;
+  /** Available credits when the creator left; "your credits arrived" only once the balance is higher. */
+  availableBefore: number | null;
+  at: number;
+}
+const PENDING_ACTION_KEY = 'thumbnail-studio:pending-action:v1';
+export const PENDING_ACTION_TTL = 60 * 60 * 1000;
+/** Fired in this tab when the pending action is written (an upgrade in place, no page load). */
+export const PENDING_ACTION_EVENT = 'thumbnail-studio:pending-action';
+const pathnameOf = (path: string) => path.split(/[?#]/)[0];
+export function rememberPendingPaidAction(
+  action: PendingPaidAction | null | undefined,
+  path: string,
+  availableBefore: number | null | undefined,
+  now = Date.now(),
+) {
+  try {
+    if (!action || !studioReturnDestination(path)) sessionStorage.removeItem(PENDING_ACTION_KEY);
+    else {
+      const stored: StoredPendingPaidAction = {
+        id: action.id.slice(0, 300),
+        label: action.label.slice(0, 200),
+        credits: typeof action.credits === 'number' && Number.isFinite(action.credits) ? action.credits : null,
+        path: pathnameOf(path),
+        availableBefore: typeof availableBefore === 'number' && Number.isFinite(availableBefore) ? availableBefore : null,
+        at: now,
+      };
+      sessionStorage.setItem(PENDING_ACTION_KEY, JSON.stringify(stored));
+    }
+  } catch { /* Without storage the page simply does not offer the action again. */ }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(PENDING_ACTION_EVENT));
+}
+/** The pending action of this screen, if it is recent. */
+export function readPendingPaidAction(path: string, now = Date.now()): (PendingPaidAction & { availableBefore: number | null }) | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_ACTION_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as StoredPendingPaidAction;
+    const valid = value && typeof value.id === 'string' && typeof value.label === 'string' && typeof value.path === 'string'
+      && Number.isFinite(value.at) && value.at <= now + 60_000 && now - value.at <= PENDING_ACTION_TTL;
+    if (!valid) {
+      sessionStorage.removeItem(PENDING_ACTION_KEY);
+      return null;
+    }
+    if (value.path !== pathnameOf(path)) return null;
+    return {
+      id: value.id,
+      label: value.label,
+      credits: typeof value.credits === 'number' ? value.credits : null,
+      availableBefore: typeof value.availableBefore === 'number' ? value.availableBefore : null,
+    };
+  } catch { return null; }
+}
+export function clearPendingPaidAction() {
+  try { sessionStorage.removeItem(PENDING_ACTION_KEY); } catch { /* Storage may be disabled. */ }
 }
 
 /**

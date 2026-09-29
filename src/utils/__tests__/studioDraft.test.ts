@@ -30,7 +30,7 @@ it.each(['https://outside.example', '//outside.example', '/creator-hub', '/sign-
   expect(studioReturnDestination(destination)).toBeUndefined();
 });
 it('returns to the AI Thumbnails pages, never to its sign-in, sign-up or continue screens', () => {
-  for (const page of ['/ai-thumbnails', '/ai-thumbnails/generate', '/ai-thumbnails/audit', '/ai-thumbnails/channel-audit', '/ai-thumbnails/gallery', '/ai-thumbnails/history', '/ai-thumbnails/settings', '/ai-thumbnails/settings/credits', '/ai-thumbnails/settings/style']) expect(studioReturnDestination(page)).toBe(page);
+  for (const page of ['/ai-thumbnails', '/ai-thumbnails/generate', '/ai-thumbnails/audit', '/ai-thumbnails/channel-audit', '/ai-thumbnails/gallery', '/ai-thumbnails/history', '/ai-thumbnails/settings', '/ai-thumbnails/settings/credits', '/ai-thumbnails/settings/style', '/ai-thumbnails/pricing', '/ai-thumbnails/settings/subscription']) expect(studioReturnDestination(page)).toBe(page);
   for (const page of ['/ai-thumbnails/', '/ai-thumbnails-outside', '/ai-thumbnails/gallery/../../admin', '/ai-thumbnails/settings/other', '/ai-thumbnails/settings/credits/../../admin', '/ai-thumbnails/sign-in', '/ai-thumbnails/sign-up/verify-email-address', '/ai-thumbnails/auth/continue']) expect(studioReturnDestination(page)).toBeUndefined();
 });
 it('carries only supported source and batch options through auth', () => {
@@ -46,6 +46,9 @@ it('returns from checkout only to a thumbnail screen', () => {
   expect(creditsReturnDestination()).toBe('/ai-thumbnails/projects/project-1?source=image');
   rememberCreditsReturn('https://outside.example');
   expect(creditsReturnDestination()).toBe('/ai-thumbnails/generate');
+  // The success URL's own `return` wins; an unsafe one is ignored.
+  expect(creditsReturnDestination('/ai-thumbnails/pricing')).toBe('/ai-thumbnails/pricing');
+  expect(creditsReturnDestination('https://outside.example', '/ai-thumbnails/projects')).toBe('/ai-thumbnails/projects');
 });
 describe('signed-in create draft', () => {
   const brief = { ...emptyStudioBrief(), videoTitle: 'Camera review', subjectAssetIds: ['asset-1'], overrides: { text: { mode: 'exact' as const, value: 'BEST?' } } };

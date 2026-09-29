@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { QueryClient, useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ctrApi } from "../api/ctr";
 import { useStudioAccount } from "./useStudioAccount";
+import { subscriptionKey } from "./useSubscription";
 
 const CHANNEL = "thumbnail-studio-usage";
 const LOCAL_EVENT = "thumbnail-studio:usage-changed";
@@ -14,6 +15,8 @@ export async function invalidateStudioBalance(
   userId: string,
 ) {
   const queryKey = studioBalanceKey(userId);
+  // The plan detail (videos left, credits by origin) moves with the balance.
+  void client.invalidateQueries({ queryKey: subscriptionKey(userId), exact: true });
   // Reading the query signal below makes even a non-abortable legacy HTTP read cancellable.
   await client.cancelQueries({ queryKey, exact: true });
   await client.invalidateQueries({ queryKey, exact: true });
