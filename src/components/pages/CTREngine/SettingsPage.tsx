@@ -1,6 +1,6 @@
 // src/components/pages/CTREngine/SettingsPage.tsx
 // AI Thumbnails settings hub, /ai-thumbnails/settings/:section — channel style
-// (profiles), logos, face reference, preferences, credits and account in one place.
+// (profiles), logos, face reference, preferences, credits, subscription and account in one place.
 
 import React from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
@@ -23,6 +23,7 @@ import {
 import SettingsLogosSection from './components/settings/SettingsLogosSection';
 import SettingsPreferencesSection from './components/settings/SettingsPreferencesSection';
 import SettingsCreditsSection from './components/settings/SettingsCreditsSection';
+import SettingsSubscriptionSection from './components/settings/SettingsSubscriptionSection';
 import SettingsSavedStyles from './components/settings/SettingsSavedStyles';
 
 const secondaryLink =
@@ -182,6 +183,7 @@ const SettingsPage: React.FC = () => {
             {current.id === 'credits' && (
               <SettingsCreditsSection usageAccess={usageAccess} isLoadingQuota={isLoadingQuota} />
             )}
+            {current.id === 'subscription' && <SettingsSubscriptionSection />}
             {current.id === 'account' && <AccountSection />}
           </section>
         </div>

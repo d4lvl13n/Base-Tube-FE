@@ -10,6 +10,11 @@ jest.mock("@clerk/clerk-react", () => ({ useAuth: () => ({ isSignedIn: true }) }
 jest.mock("../../../../../contexts/AuthContext", () => ({ useAuth: () => ({ isAuthenticated: false }) }));
 jest.mock("../../../../../hooks/useStudioAccount", () => ({ useStudioAccount: () => "clerk:alice" }));
 jest.mock("../ReferralPanel", () => ({ __esModule: true, default: () => null }));
+// The plan (channel profile limit, videos left): not read in these tests.
+jest.mock("../../../../../api/subscriptions", () => ({
+  ...jest.requireActual("../../../../../api/subscriptions"),
+  subscriptionsApi: { getMe: jest.fn(() => new Promise(() => undefined)), getPlans: jest.fn(() => new Promise(() => undefined)) },
+}));
 const getQuota = ctrApi.getQuota as jest.Mock;
 const credits = (available: number) => ({ mode: "credits", creditInfo: { available, balance: available, reserved: 0 }, pricing: null });
 let client: QueryClient;

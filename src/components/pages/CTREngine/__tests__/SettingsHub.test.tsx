@@ -28,6 +28,11 @@ jest.mock("../components/BuyCreditsModal", () => ({
 jest.mock("../../../common/ThumbnailPackaging", () => ({ ThumbnailStylePicker: () => null }));
 jest.mock("../../../../api/thumbnailPackaging", () => ({ thumbnailPackagingApi: { list: jest.fn().mockResolvedValue([]), remove: jest.fn() } }));
 jest.mock("../../../../api/credits", () => ({ creditsApi: { getCreditLedger: jest.fn() } }));
+// The plan (channel profile limit): no plan read in these tests.
+jest.mock("../../../../api/subscriptions", () => ({
+  ...jest.requireActual("../../../../api/subscriptions"),
+  subscriptionsApi: { getMe: jest.fn(() => new Promise(() => undefined)), getPlans: jest.fn(() => new Promise(() => undefined)) },
+}));
 jest.mock("../../../../api/thumbnailStudio", () => ({
   thumbnailStudioApi: { profiles: jest.fn(), patchProfile: jest.fn(), createProfile: jest.fn(), upload: jest.fn(), asset: jest.fn() },
   studioError: (e: any) => e?.response?.data?.error || { message: e?.message || "Failed" },
@@ -95,6 +100,7 @@ it("puts every creator setting in one place, opening on Channel style", async ()
     "Face reference",
     "Preferences",
     "Credits120",
+    "Subscription",
     "Account",
   ]);
   expect(within(nav).getByRole("link", { name: "Channel style" })).toHaveAttribute("aria-current", "page");

@@ -1,11 +1,11 @@
 // The AI Thumbnails settings hub: one route per section, /ai-thumbnails/settings/:section.
 import type { LucideIcon } from 'lucide-react';
-import { Palette, Image, ScanFace, SlidersHorizontal, Coins, CircleUser } from 'lucide-react';
+import { Palette, Image, ScanFace, SlidersHorizontal, Coins, CircleUser, CreditCard } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { thumbnailStudioApi } from '../../../../../api/thumbnailStudio';
 import { useStudioAccount } from '../../../../../hooks/useStudioAccount';
 
-export type SettingsSectionId = 'style' | 'logos' | 'face' | 'preferences' | 'credits' | 'account';
+export type SettingsSectionId = 'style' | 'logos' | 'face' | 'preferences' | 'credits' | 'subscription' | 'account';
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -31,6 +31,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     intro: 'Language, headline and content rules come from your channel profiles.',
   },
   { id: 'credits', label: 'Credits', icon: Coins, intro: 'Your balance, what each action costs, and your top-ups.' },
+  {
+    id: 'subscription',
+    label: 'Subscription',
+    icon: CreditCard,
+    intro: 'Your plan, its credits and the next invoice. Change or cancel it on Stripe.',
+  },
   { id: 'account', label: 'Account', icon: CircleUser, intro: 'Your base.tube account.' },
 ];
 
