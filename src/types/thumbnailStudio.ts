@@ -72,6 +72,11 @@ export interface StudioProfile {
   youtubeChannelId: string | null;
   isDefault: boolean;
   archived: boolean;
+  /**
+   * Over the plan's channel profile quota (after a downgrade or an ended plan):
+   * kept and shown, but it cannot be edited or applied to new work.
+   */
+  readOnly?: boolean;
   createdAt: string;
   updatedAt: string;
 }

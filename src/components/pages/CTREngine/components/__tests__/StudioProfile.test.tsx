@@ -19,6 +19,11 @@ jest.mock("../../../../../api/thumbnailStudio", () => ({
   },
   studioError: (e: any) => e.response?.data?.error || { message: e.message },
 }));
+// The plan (channel profile limit, videos left): not read in these tests.
+jest.mock("../../../../../api/subscriptions", () => ({
+  ...jest.requireActual("../../../../../api/subscriptions"),
+  subscriptionsApi: { getMe: jest.fn(() => new Promise(() => undefined)), getPlans: jest.fn(() => new Promise(() => undefined)) },
+}));
 const api = thumbnailStudioApi as jest.Mocked<typeof thumbnailStudioApi>;
 let client: QueryClient;
 const profile = {

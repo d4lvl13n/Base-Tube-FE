@@ -204,8 +204,10 @@ export function ChannelStudioHandoff({
         >
           <option value="">No profile</option>
           {profiles.data?.items.map((value) => (
-            <option key={value.id} value={value.id}>
+            // A read-only profile (over the plan's limit) cannot be used for new work.
+            <option key={value.id} value={value.id} disabled={value.readOnly}>
               {value.name}
+              {value.readOnly ? " (read-only)" : ""}
             </option>
           ))}
         </StudioSelect>

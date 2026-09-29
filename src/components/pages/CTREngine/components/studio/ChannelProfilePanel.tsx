@@ -21,6 +21,14 @@ import {
 } from "./StudioControls";
 import { StyleFields, RuleListInput, LanguageSelect } from "./BriefReview";
 import { studioLanguages } from "../../../../../utils/studioLabels";
+import { subscriptionKey, useMySubscription, useSubscriptionPlans } from "../../../../../hooks/useSubscription";
+import {
+  profileLimitReached,
+  profileQuotaProblem,
+  ProfileQuotaNotice,
+  ReadOnlyBadge,
+  type ProfileQuotaProblem,
+} from "../billing/ProfileQuotaNotice";
 
 /** "English · DejaVu Sans · Suggested text": a profile at a glance. */
 export function studioProfileSummary(settings: StudioProfileSettings): string {
@@ -69,6 +77,10 @@ export function ChannelProfilePanel({
   const [conflict, setConflict] = useState(false);
   const [legacyStyleId, setLegacyStyleId] = useState<number | undefined>();
   const [warnings, setWarnings] = useState<string[]>([]);
+  // The plan's channel profile limit: a refused new profile, or a read-only one.
+  const [quota, setQuota] = useState<ProfileQuotaProblem | null>(null);
+  const plan = useMySubscription();
+  const plans = useSubscriptionPlans();
   useEffect(() => {
     if (acceptedStyle) {
       setSettings((previous) => ({
@@ -87,12 +99,22 @@ export function ChannelProfilePanel({
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
     setError("");
+    setQuota(null);
     try {
       await action();
       await client.invalidateQueries({
         queryKey: ["thumbnail-studio", account, "profiles"],
       });
+      // Profiles used against the plan's limit.
+      void client.invalidateQueries({ queryKey: subscriptionKey(account) });
     } catch (failure) {
+      const refused = profileQuotaProblem(failure);
+      if (refused) {
+        // Said once, with the plans; the form keeps what was typed.
+        setQuota(refused);
+        if (refused.kind === "readOnly") void profiles.refetch();
+        return;
+      }
       setError(studioError(failure).message);
       if (studioError(failure).code === "PROFILE_CHANGED") {
         setConflict(true);
@@ -103,6 +125,18 @@ export function ChannelProfilePanel({
     }
   };
   const edit = (profile?: StudioProfile) => {
+    setQuota(null);
+    if (profile?.readOnly) {
+      setQuota({ kind: "readOnly" });
+      return;
+    }
+    // At the plan's limit already: say so before a form is filled in.
+    const limit = profile ? null : profileLimitReached(plan.data, plans.data);
+    if (limit) {
+      setOpen(false);
+      setQuota({ kind: "limit", details: limit });
+      return;
+    }
     setEditing(profile || null);
     setName(profile?.name || "");
     setChannel(profile?.youtubeChannelId || "");
@@ -118,7 +152,7 @@ export function ChannelProfilePanel({
     const match = profiles.data?.items.find(
       (profile) => profile.id === editProfileId,
     );
-    if (match) {
+    if (match && !match.readOnly) {
       openedFor.current = editProfileId;
       edit(match);
     }
@@ -180,20 +214,23 @@ export function ChannelProfilePanel({
                           Default
                         </span>
                       )}
+                      {profile.readOnly && <ReadOnlyBadge />}
                     </span>
                     <span className="block truncate text-xs text-zinc-500">
                       {studioProfileSummary(profile.settings)}
                     </span>
                   </span>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    aria-label={`Edit ${profile.name}`}
-                    className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-zinc-200 hover:border-white/30 hover:text-white disabled:opacity-40"
-                    onClick={() => edit(profile)}
-                  >
-                    Edit
-                  </button>
+                  {!profile.readOnly && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-label={`Edit ${profile.name}`}
+                      className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-zinc-200 hover:border-white/30 hover:text-white disabled:opacity-40"
+                      onClick={() => edit(profile)}
+                    >
+                      Edit
+                    </button>
+                  )}
                 </div>
               ))}
               <button
@@ -212,7 +249,12 @@ export function ChannelProfilePanel({
                 key={profile.id}
                 className="flex items-center gap-1 rounded-xl border border-white/10 p-1"
               >
-                {onApply ? (
+                {profile.readOnly ? (
+                  <span className="flex items-center gap-2 px-3 text-sm text-zinc-400">
+                    {profile.name}
+                    <ReadOnlyBadge />
+                  </span>
+                ) : onApply ? (
                   <button
                     type="button"
                     disabled={busy}
@@ -232,14 +274,16 @@ export function ChannelProfilePanel({
                     {profile.isDefault ? " · default" : ""}
                   </span>
                 )}
-                <button
-                  type="button"
-                  disabled={busy}
-                  className="px-2 text-xs text-zinc-400 underline"
-                  onClick={() => edit(profile)}
-                >
-                  Edit
-                </button>
+                {!profile.readOnly && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="px-2 text-xs text-zinc-400 underline"
+                    onClick={() => edit(profile)}
+                  >
+                    Edit
+                  </button>
+                )}
               </div>
             ))}
             <button
@@ -500,6 +544,7 @@ export function ChannelProfilePanel({
             </form>
           )}
         </>
+      {quota && <ProfileQuotaNotice problem={quota} className="mt-3" />}
       {(error || profiles.error) && (
         <p role="alert" className="mt-3 text-sm text-red-300">
           {error || studioError(profiles.error).message}

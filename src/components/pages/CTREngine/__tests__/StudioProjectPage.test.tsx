@@ -49,6 +49,11 @@ jest.mock("../AIThumbnailsLayout", () => ({
   __esModule: true,
   default: ({ children }: any) => <main>{children}</main>,
 }));
+// The plan (channel profile limit): not read in these tests.
+jest.mock("../../../../api/subscriptions", () => ({
+  ...jest.requireActual("../../../../api/subscriptions"),
+  subscriptionsApi: { getMe: jest.fn(() => new Promise(() => undefined)), getPlans: jest.fn(() => new Promise(() => undefined)) },
+}));
 jest.mock("../components/BuyCreditsModal", () => ({ BuyCreditsModal: ({ isOpen }: any) => (isOpen ? <p>Credit packs</p> : null) }));
 jest.mock("../../../../api/thumbnailStudio", () => ({
   thumbnailStudioApi: {

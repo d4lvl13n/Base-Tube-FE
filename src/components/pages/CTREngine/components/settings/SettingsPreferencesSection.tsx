@@ -7,6 +7,7 @@ import { studioError } from '../../../../../api/thumbnailStudio';
 import type { StudioProfile, StudioRule } from '../../../../../types/thumbnailStudio';
 import { studioLanguages } from '../../../../../utils/studioLabels';
 import { settingsPath, useChannelProfiles } from './settingsSections';
+import { ReadOnlyBadge } from '../billing/ProfileQuotaNotice';
 
 const rule = (value: StudioRule) => (value === 'forbid' ? 'Not included' : 'Allowed');
 const languageName = (code: string) => studioLanguages.find(([id]) => id === code)?.[1] || code;
@@ -31,13 +32,19 @@ function PreferenceRow({ profile }: { profile: StudioProfile }) {
             Default
           </span>
         )}
-        <Link
-          to={settingsPath('style', `?profile=${encodeURIComponent(profile.id)}`)}
-          aria-label={`Edit ${profile.name} preferences`}
-          className="ml-auto shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-zinc-200 hover:border-white/30 hover:text-white"
-        >
-          Edit
-        </Link>
+        {profile.readOnly ? (
+          <span className="ml-auto">
+            <ReadOnlyBadge />
+          </span>
+        ) : (
+          <Link
+            to={settingsPath('style', `?profile=${encodeURIComponent(profile.id)}`)}
+            aria-label={`Edit ${profile.name} preferences`}
+            className="ml-auto shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-zinc-200 hover:border-white/30 hover:text-white"
+          >
+            Edit
+          </Link>
+        )}
       </div>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
         {facts.map(([term, value]) => (

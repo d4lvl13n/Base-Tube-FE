@@ -10,6 +10,7 @@ import { useStudioAccount } from '../../../../../hooks/useStudioAccount';
 import { useStudioAssets } from '../../../../../hooks/useStudioAssets';
 import { thumbnailMediaUrl } from '../../../../../utils/thumbnailMediaUrl';
 import { settingsPath, useChannelProfiles } from './settingsSections';
+import { PROFILE_READ_ONLY_MESSAGE, ReadOnlyBadge } from '../billing/ProfileQuotaNotice';
 
 const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const LOGO_MAX_BYTES = 10 * 1024 * 1024;
@@ -48,9 +49,11 @@ function LogoCard({
       setError(
         problem.code === 'PROFILE_CHANGED'
           ? 'This profile changed in another tab. The latest version is shown; try again.'
-          : problem.message,
+          : problem.code === 'PROFILE_READ_ONLY'
+            ? PROFILE_READ_ONLY_MESSAGE
+            : problem.message,
       );
-      if (problem.code === 'PROFILE_CHANGED') await onSaved();
+      if (problem.code === 'PROFILE_CHANGED' || problem.code === 'PROFILE_READ_ONLY') await onSaved();
     } finally {
       setBusy(null);
     }
@@ -87,6 +90,7 @@ function LogoCard({
               Default
             </span>
           )}
+          {profile.readOnly && <ReadOnlyBadge />}
         </p>
         <p role="status" className="truncate text-xs text-zinc-500">
           {busy === 'upload'
@@ -105,40 +109,43 @@ function LogoCard({
           </p>
         )}
       </div>
-      <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
-        <input
-          ref={input}
-          type="file"
-          className="hidden"
-          accept={LOGO_TYPES.join(',')}
-          aria-label={`${profile.name} logo file`}
-          onChange={(event) => {
-            choose(event.target.files?.[0]);
-            event.target.value = '';
-          }}
-        />
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={() => input.current?.click()}
-          className={`${action} border-[#fa7517]/30 bg-[#fa7517]/10 text-[#fb923c] hover:bg-[#fa7517]/20`}
-        >
-          {logoId ? <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> : <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />}
-          {logoId ? 'Replace' : 'Add logo'}
-        </button>
-        {logoId && (
+      {/* A read-only profile (over the plan's limit) keeps its logo but cannot be edited. */}
+      {!profile.readOnly && (
+        <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+          <input
+            ref={input}
+            type="file"
+            className="hidden"
+            accept={LOGO_TYPES.join(',')}
+            aria-label={`${profile.name} logo file`}
+            onChange={(event) => {
+              choose(event.target.files?.[0]);
+              event.target.value = '';
+            }}
+          />
           <button
             type="button"
             disabled={busy !== null}
-            onClick={() => void save('remove', async () => null)}
-            aria-label={`Remove the ${profile.name} logo`}
-            className={`${action} border-white/15 text-zinc-300 hover:bg-white/10`}
+            onClick={() => input.current?.click()}
+            className={`${action} border-[#fa7517]/30 bg-[#fa7517]/10 text-[#fb923c] hover:bg-[#fa7517]/20`}
           >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-            Remove
+            {logoId ? <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> : <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />}
+            {logoId ? 'Replace' : 'Add logo'}
           </button>
-        )}
-      </div>
+          {logoId && (
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => void save('remove', async () => null)}
+              aria-label={`Remove the ${profile.name} logo`}
+              className={`${action} border-white/15 text-zinc-300 hover:bg-white/10`}
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              Remove
+            </button>
+          )}
+        </div>
+      )}
     </li>
   );
 }
