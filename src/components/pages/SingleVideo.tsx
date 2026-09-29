@@ -306,7 +306,7 @@ const SingleVideo: React.FC = () => {
         <div className="video-content-wrapper flex flex-1 items-center justify-center">
           <div className="animate-pulse space-y-8 w-full max-w-screen-xl">
             {/* Video placeholder */}
-            <div className="aspect-w-16 aspect-h-9 bg-gray-800 rounded-lg" />
+            <div className="aspect-video bg-gray-800 rounded-lg" />
             {/* Title placeholder */}
             <div className="h-8 bg-gray-800 rounded w-3/4" />
             {/* Description placeholder */}
