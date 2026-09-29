@@ -1,6 +1,6 @@
 // src/pages/CreditsSuccessPage.tsx
 // Post-checkout return for credit purchases. Stripe redirects here
-// (/credits/success?session_id=...). The credit grant lands via an async Stripe
+// (/credits/success?session_id=...&return=<path>). The credit grant lands via an async Stripe
 // webhook, so we poll the balance briefly and model every outcome explicitly —
 // never a false "success" and never a permanent spinner.
 
@@ -26,7 +26,8 @@ const CreditsSuccessPage: React.FC = () => {
   const [status, setStatus] = useState<Status>(sessionId ? 'polling' : 'no-session');
   const [creditInfo, setCreditInfo] = useState<CreditInfo | null>(null);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
-  const [returnTo] = useState(creditsReturnDestination);
+  // The page the checkout was opened on (&return=), else the one remembered in this tab.
+  const [returnTo] = useState(() => creditsReturnDestination(searchParams.get('return')));
 
   const mountedRef = useRef(true);
   const pollsRef = useRef(0);

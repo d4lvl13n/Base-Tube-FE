@@ -1,11 +1,17 @@
-import React, { createContext, useCallback, useContext, useEffect, useId, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Coins } from "lucide-react";
+import { CheckCircle, Coins } from "lucide-react";
 import { BuyCreditsModal } from "../BuyCreditsModal";
 import { studioButton, studioSecondary } from "./StudioControls";
 import { StudioErrorDetail } from "./StudioErrorDetail";
 import { studioCreditsLabel } from "../../../../../utils/studioPricing";
 import type { StudioActionState } from "../../../../../hooks/useStudioOperation";
+import {
+  clearPendingPaidAction,
+  PENDING_ACTION_EVENT,
+  readPendingPaidAction,
+  type PendingPaidAction,
+} from "../../../../../utils/studioDraft";
 
 /**
  * A priced button inside a credits scope reports whether the credits stop it;
@@ -14,7 +20,7 @@ import type { StudioActionState } from "../../../../../hooks/useStudioOperation"
  * balance read looked enough.
  */
 type Shortfall = "short" | "refused" | null;
-type ShortfallReport = (id: string, shortfall: Shortfall) => void;
+type ShortfallReport = (id: string, shortfall: Shortfall, action?: PendingPaidAction) => void;
 const ShortfallContext = createContext<ShortfallReport | null>(null);
 
 /** "Not enough credits — you have Y", with a real button that opens the credit packs. */
@@ -47,18 +53,27 @@ export function StudioCreditsScope({ availableCredits, children, noticeClassName
   children: React.ReactNode;
   noticeClassName?: string;
 }) {
-  const [shortfalls, setShortfalls] = useState<Readonly<Record<string, Exclude<Shortfall, null>>>>({});
+  const [shortfalls, setShortfalls] = useState<
+    Readonly<Record<string, { shortfall: Exclude<Shortfall, null>; action?: PendingPaidAction }>>
+  >({});
   const [buying, setBuying] = useState(false);
-  const report = useCallback<ShortfallReport>((id, value) => {
+  const report = useCallback<ShortfallReport>((id, value, action) => {
     setShortfalls((previous) => {
-      if ((previous[id] ?? null) === value) return previous;
+      const old = previous[id];
+      if ((old?.shortfall ?? null) === value && old?.action?.id === action?.id && old?.action?.credits === action?.credits && old?.action?.label === action?.label)
+        return previous;
       const next = { ...previous };
-      if (value) next[id] = value;
+      if (value) next[id] = { shortfall: value, action };
       else delete next[id];
       return next;
     });
   }, []);
-  const reasons = Object.values(shortfalls);
+  const entries = Object.values(shortfalls);
+  const reasons = entries.map((entry) => entry.shortfall);
+  // The action to offer again after paying: the one the server refused (it was
+  // clicked), else the first one the balance does not cover.
+  const pendingAction =
+    (entries.find((entry) => entry.shortfall === "refused") ?? entries[0])?.action ?? null;
   return (
     <ShortfallContext.Provider value={report}>
       {reasons.length > 0 && (
@@ -70,9 +85,31 @@ export function StudioCreditsScope({ availableCredits, children, noticeClassName
         />
       )}
       {children}
-      {createPortal(<BuyCreditsModal isOpen={buying} onClose={() => setBuying(false)} />, document.body)}
+      {createPortal(
+        <BuyCreditsModal isOpen={buying} onClose={() => setBuying(false)} pendingAction={pendingAction} availableCredits={availableCredits} />,
+        document.body,
+      )}
     </ShortfallContext.Provider>
   );
+}
+
+/**
+ * The priced action this screen was waiting on when the creator left to get
+ * credits (studioDraft `rememberPendingPaidAction`), if it is this one. Read on
+ * load (back from Stripe) and when an upgrade in place writes it.
+ */
+function usePendingPaidAction(actionId: string) {
+  const [pending, setPending] = useState(() => readPendingPaidAction(window.location.pathname));
+  useEffect(() => {
+    const reread = () => setPending(readPendingPaidAction(window.location.pathname));
+    window.addEventListener(PENDING_ACTION_EVENT, reread);
+    return () => window.removeEventListener(PENDING_ACTION_EVENT, reread);
+  }, []);
+  const consume = useCallback(() => {
+    clearPendingPaidAction();
+    setPending(null);
+  }, []);
+  return { pending: pending && pending.id === actionId ? pending : null, consume };
 }
 
 /**
@@ -100,6 +137,7 @@ export function StudioPaidAction({
   className = "space-y-2",
   icon,
   children,
+  actionKey,
 }: {
   label: string;
   /** The price on the button; 0 reads "free"; null shows no price. */
@@ -128,6 +166,12 @@ export function StudioPaidAction({
   icon?: React.ReactNode;
   /** What the work changes and keeps, shown above the button. */
   children?: React.ReactNode;
+  /**
+   * The action's key on its page (useStudioOperation `actions[key]`): after
+   * the creator gets credits for it, this button is offered again.
+   * Defaults to the label.
+   */
+  actionKey?: string;
 }) {
   const [buyingCredits, setBuyingCredits] = useState(false);
   const scope = useContext(ShortfallContext);
@@ -139,22 +183,49 @@ export function StudioPaidAction({
     availableCredits < credits;
   const problem = state?.problem;
   const priceChange = state?.priceChange;
+  const resumeId = actionKey ?? label;
+  const { pending, consume } = usePendingPaidAction(resumeId);
+  // Back with more credits than when the creator left: this action is offered
+  // again as its one priced button. It never starts without the click.
+  const arrived =
+    pending !== null &&
+    !short &&
+    availableCredits !== undefined &&
+    (pending.availableBefore === null || availableCredits > pending.availableBefore);
   // The balance, or the server (402), says the credits do not cover it.
-  const shortfall: Shortfall = short ? "short" : problem?.kind === "credits" ? "refused" : null;
+  const shortfall: Shortfall = short ? "short" : problem?.kind === "credits" && !arrived ? "refused" : null;
   useEffect(() => {
-    scope?.(id, shortfall);
-  }, [scope, id, shortfall]);
+    scope?.(id, shortfall, { id: resumeId, label, credits });
+  }, [scope, id, shortfall, resumeId, label, credits]);
+  const button = useRef<HTMLButtonElement>(null);
+  const shown = useRef(false);
+  useEffect(() => {
+    if (!arrived || shown.current) return;
+    shown.current = true;
+    button.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  }, [arrived]);
+  const click = () => {
+    if (pending) consume();
+    if (type !== "submit") onRun();
+  };
   useEffect(() => () => {
     scope?.(id, null);
   }, [scope, id]);
   return (
     <div className={className}>
       {children}
+      {arrived && (
+        <p role="status" className="basis-full flex items-center gap-2 text-sm text-emerald-200">
+          <CheckCircle className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
+          Your credits arrived —
+        </p>
+      )}
       <button
+        ref={button}
         type={type}
-        className={buttonClassName || (secondary ? studioSecondary : studioButton)}
+        className={`${buttonClassName || (secondary ? studioSecondary : studioButton)}${arrived ? " ring-2 ring-emerald-400/70 ring-offset-2 ring-offset-[#09090B]" : ""}`}
         disabled={disabled || working || short || Boolean(unavailable)}
-        onClick={type === "submit" ? undefined : onRun}
+        onClick={click}
       >
         {icon}
         {working
@@ -168,7 +239,12 @@ export function StudioPaidAction({
           <CreditsNotice availableCredits={short ? availableCredits : undefined} onBuy={() => setBuyingCredits(true)} className="basis-full" />
           {/* Outside any form or fieldset around the button (the create form, the editor). */}
           {createPortal(
-            <BuyCreditsModal isOpen={buyingCredits} onClose={() => setBuyingCredits(false)} />,
+            <BuyCreditsModal
+              isOpen={buyingCredits}
+              onClose={() => setBuyingCredits(false)}
+              pendingAction={{ id: resumeId, label, credits }}
+              availableCredits={availableCredits}
+            />,
             document.body,
           )}
         </>

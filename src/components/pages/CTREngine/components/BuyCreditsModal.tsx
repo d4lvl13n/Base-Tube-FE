@@ -1,127 +1,72 @@
 // src/components/pages/CTREngine/components/BuyCreditsModal.tsx
-// Buy Credits — the pack catalog, what each pack buys at today's prices, and one
-// primary action that opens Stripe Checkout. Rendered in a portal on
-// document.body so no page card, helper or transformed parent can cover or clip it.
+// Get more credits — in one window: the monthly plans (no plan yet) or the
+// one-click upgrade to the next plan (a plan already), then the one-time
+// credit packs. Rendered in a portal on document.body so no page card, helper
+// or transformed parent can cover or clip it.
+//
+// Opened for a priced action the credits did not cover (`pendingAction`): after
+// paying on Stripe the creator comes back to the same screen, where that action
+// is offered again as its one priced button; after an upgrade in place the
+// window closes and the action's button works again. Nothing starts on its own.
 
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Coins, Loader2, AlertCircle, Lock } from 'lucide-react';
-import { creditsApi } from '../../../../api/credits';
-import type { CreditPack, CreditPricingCatalog } from '../../../../types/ctr';
-import { rememberCreditsReturn } from '../../../../utils/studioDraft';
+import { X, Coins } from 'lucide-react';
 import { useStudioPricing } from '../../../../hooks/useStudioCapabilities';
 import { useStudioBalance } from '../../../../hooks/useStudioBalance';
 import { useStudioAccount } from '../../../../hooks/useStudioAccount';
-import { plainApiError, type PlainApiError } from '../../../../utils/plainApiError';
-import { TechnicalErrorDetail } from '../../../common/TechnicalErrorDetail';
+import { hasLivePlan, useMySubscription, useSubscriptionPlans } from '../../../../hooks/useSubscription';
+import { rememberPendingPaidAction, type PendingPaidAction } from '../../../../utils/studioDraft';
+import { CreditPackPicker } from './billing/CreditPackPicker';
+import { PlanChoices } from './billing/PlanChoices';
+import { UpgradeAction } from './billing/UpgradeAction';
+import { currentStudioReturnPath, type CheckoutContext } from './billing/billingActions';
+
+export { formatMoney } from '../../../../utils/money';
+export { bestValuePackId, packYield } from './billing/CreditPackPicker';
 
 interface BuyCreditsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** The priced action the credits did not cover, offered again once they are there. */
+  pendingAction?: PendingPaidAction | null;
+  /** The balance the opening page shows, used until this window's own read has loaded. */
+  availableCredits?: number;
 }
 
-// Money comes from priceCents + currency only — never a hardcoded price.
-export const formatMoney = (priceCents: number, currency: string, maximumFractionDigits = 2): string => {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: (currency || 'usd').toUpperCase(),
-      minimumFractionDigits: 2,
-      maximumFractionDigits,
-    }).format(priceCents / 100);
-  } catch {
-    // The currency code is not one Intl knows.
-    return `${(priceCents / 100).toFixed(2)} ${(currency || '').toUpperCase()}`;
-  }
-};
-
-// Best value = most credits per unit of currency.
-export const bestValuePackId = (packs: CreditPack[]): string | null => {
-  if (packs.length === 0) return null;
-  let bestId = packs[0].id;
-  let bestRatio = -Infinity;
-  for (const pack of packs) {
-    const ratio = pack.priceCents > 0 ? pack.credits / pack.priceCents : Infinity;
-    if (ratio > bestRatio) {
-      bestRatio = ratio;
-      bestId = pack.id;
-    }
-  }
-  return bestId;
-};
-
-/**
- * What a pack buys at today's prices, each figure on its own:
- * "≈ 13 concepts · 11 edits · 100 audits". Null while prices are unknown.
- */
-export function packYield(credits: number, pricing: CreditPricingCatalog | null): string | null {
-  if (!pricing) return null;
-  const parts = ([
-    [pricing.ctr.generatePerConcept, 'concept'],
-    [pricing.thumbnail.editPerImage, 'edit'],
-    [pricing.ctr.audit, 'audit'],
-  ] as const)
-    .filter(([price]) => price > 0)
-    .map(([price, noun]) => {
-      const count = Math.floor(credits / price);
-      return `${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`;
-    });
-  return parts.length ? `≈ ${parts.join(' · ')}` : null;
-}
-
-const CHECKOUT_UNAVAILABLE: PlainApiError = {
-  message: 'Checkout is not available right now. Please try again in a moment.',
-  technical: 'no checkout URL in the response',
-  status: null,
-  code: null,
-};
-
-function BuyCreditsDialog({ onClose }: { onClose: () => void }) {
+function BuyCreditsDialog({
+  onClose,
+  pendingAction,
+  availableCredits,
+}: {
+  onClose: () => void;
+  pendingAction?: PendingPaidAction | null;
+  availableCredits?: number;
+}) {
   const titleId = useId();
   const pricing = useStudioPricing();
   const account = useStudioAccount();
   const { usageAccess } = useStudioBalance(account, account !== 'anonymous');
-  const available = usageAccess?.mode === 'credits' ? usageAccess.creditInfo.available : null;
+  const available = usageAccess?.mode === 'credits' ? usageAccess.creditInfo.available : availableCredits ?? null;
+  const me = useMySubscription();
+  const plans = useSubscriptionPlans();
 
-  const [packs, setPacks] = useState<CreditPack[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<PlainApiError | null>(null);
-  const [checkoutError, setCheckoutError] = useState<PlainApiError | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const checkingOut = useRef(false);
-  const mounted = useRef(true);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const checkingOutRef = useRef(false);
   const dialogRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  // Read once when the window opens: the screen Stripe brings the creator back to.
+  const [returnPath] = useState(currentStudioReturnPath);
+  const context: CheckoutContext = { returnPath, pendingAction, availableCredits: available };
 
-  const loadPacks = useCallback(async () => {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      const result = await creditsApi.getPacks();
-      if (!mounted.current) return;
-      setPacks(result);
-      // The best value pack starts selected, so the usual purchase is one click.
-      setSelectedId((current) => (current && result.some((pack) => pack.id === current) ? current : bestValuePackId(result)));
-    } catch (err) {
-      if (mounted.current) setLoadError(plainApiError(err, 'Credit packs did not load. Please try again.'));
-    } finally {
-      if (mounted.current) setIsLoading(false);
-    }
+  const setBusy = useCallback((busy: boolean) => {
+    checkingOutRef.current = busy;
+    setCheckingOut(busy);
   }, []);
-
-  useEffect(() => {
-    void loadPacks();
-  }, [loadPacks]);
 
   const close = useCallback(() => {
-    if (!checkingOut.current) onClose();
+    if (!checkingOutRef.current) onClose();
   }, [onClose]);
 
   useEffect(() => {
@@ -142,29 +87,23 @@ function BuyCreditsDialog({ onClose }: { onClose: () => void }) {
     };
   }, [close]);
 
-  const selected = packs.find((pack) => pack.id === selectedId) || null;
-  const bestId = packs.length > 1 ? bestValuePackId(packs) : null;
+  // A plan already: its next plan up, if any. No plan: the plans. Plan unknown (read failed): packs only.
+  const catalog = plans.data;
+  const live = hasLivePlan(me.data);
+  const nextPlan = live && me.data?.upgradeTo ? catalog?.plans.find((plan) => plan.id === me.data!.upgradeTo) ?? null : null;
+  const offerPlans = Boolean(catalog && catalog.plans.length > 0 && me.data?.canSubscribe);
+  const planName = me.data?.subscription?.planName;
 
-  const checkout = async () => {
-    if (!selected || checkingOut.current) return;
-    checkingOut.current = true;
-    setIsCheckingOut(true);
-    setCheckoutError(null);
-    try {
-      const session = await creditsApi.createCheckout(selected.id);
-      if (session?.url) {
-        // Stripe Checkout; the success page brings the creator back to this screen.
-        rememberCreditsReturn(window.location.pathname + window.location.search);
-        window.location.href = session.url;
-        return;
-      }
-      if (mounted.current) setCheckoutError(CHECKOUT_UNAVAILABLE);
-    } catch (err) {
-      if (mounted.current) setCheckoutError(plainApiError(err, 'Checkout did not open. Please try again.'));
+  const upgraded = () => {
+    // Back to the page: the action's own button works again and runs only when clicked.
+    if (pendingAction && returnPath) {
+      rememberPendingPaidAction(pendingAction, returnPath, available);
+      onClose();
     }
-    checkingOut.current = false;
-    if (mounted.current) setIsCheckingOut(false);
   };
+
+  const needs =
+    pendingAction && pendingAction.credits !== null ? ` ${pendingAction.label} costs ${pendingAction.credits.toLocaleString()}.` : '';
 
   return (
     <>
@@ -187,7 +126,7 @@ function BuyCreditsDialog({ onClose }: { onClose: () => void }) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97, y: 8 }}
           transition={{ duration: 0.18 }}
-          className="pointer-events-auto flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0e0e10] shadow-2xl shadow-black/60 outline-none"
+          className="pointer-events-auto flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0e0e10] shadow-2xl shadow-black/60 outline-none"
         >
           <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-5 py-4">
             <div className="flex min-w-0 items-center gap-3">
@@ -196,19 +135,18 @@ function BuyCreditsDialog({ onClose }: { onClose: () => void }) {
               </span>
               <div className="min-w-0">
                 <h2 id={titleId} className="text-base font-semibold text-white">
-                  Buy credits
+                  Get more credits
                 </h2>
                 <p className="text-xs text-zinc-400">
-                  {available !== null
-                    ? `You have ${available.toLocaleString()} credits · one-time purchase`
-                    : 'One-time purchase, no subscription'}
+                  {available !== null ? `You have ${available.toLocaleString()} credits.` : 'Pick a plan or a one-time pack.'}
+                  {needs}
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={close}
-              disabled={isCheckingOut}
+              disabled={checkingOut}
               className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
               aria-label="Close"
             >
@@ -216,114 +154,69 @@ function BuyCreditsDialog({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-            {isLoading ? (
-              <div role="status" aria-label="Loading credit packs" className="space-y-2">
-                {[0, 1, 2].map((row) => (
-                  <div key={row} className="h-[76px] animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.03]" />
-                ))}
-              </div>
-            ) : loadError ? (
-              <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-red-500/20 bg-red-500/10 p-3">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" aria-hidden="true" />
-                <div className="flex-1 text-sm text-red-200">
-                  {loadError.message}
-                  <TechnicalErrorDetail detail={loadError.technical} />
-                  <button
-                    type="button"
-                    onClick={() => void loadPacks()}
-                    className="mt-1 block text-xs font-medium text-[#fa7517] hover:text-orange-400"
-                  >
-                    Try again
-                  </button>
-                </div>
-              </div>
-            ) : packs.length === 0 ? (
-              <p className="py-8 text-center text-sm text-zinc-400">No credit packs are available right now.</p>
-            ) : (
-              <div role="radiogroup" aria-label="Credit packs" className="space-y-2">
-                {packs.map((pack) => {
-                  const isSelected = pack.id === selectedId;
-                  const yieldText = packYield(pack.credits, pricing);
-                  return (
-                    <button
-                      key={pack.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={isSelected}
-                      disabled={isCheckingOut}
-                      onClick={() => setSelectedId(pack.id)}
-                      className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed ${
-                        isSelected
-                          ? 'border-[#fa7517] bg-[#fa7517]/[0.08] ring-1 ring-[#fa7517]/40'
-                          : 'border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04]'
-                      }`}
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4">
+            {offerPlans && catalog && (
+              <section aria-labelledby={`${titleId}-plans`} className="space-y-3">
+                <div>
+                  <h3 id={`${titleId}-plans`} className="text-sm font-semibold text-white">
+                    Subscribe: credits for a set number of videos every month
+                  </h3>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    One video = {catalog.videoBreakdown.concepts} concepts, {catalog.videoBreakdown.edits} AI edits and{' '}
+                    {catalog.videoBreakdown.audits} audit ({catalog.videoCredits} credits).{' '}
+                    <Link
+                      to={`/ai-thumbnails/pricing${returnPath ? `?return=${encodeURIComponent(returnPath)}` : ''}`}
+                      onClick={() => {
+                        // A plan bought there brings the creator back here, with this action waiting.
+                        if (returnPath) rememberPendingPaidAction(pendingAction, returnPath, available);
+                        onClose();
+                      }}
+                      className="text-[#fb923c] underline hover:text-orange-300"
                     >
-                      <span
-                        aria-hidden="true"
-                        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                          isSelected ? 'border-[#fa7517]' : 'border-zinc-600'
-                        }`}
-                      >
-                        {isSelected && <span className="h-2 w-2 rounded-full bg-[#fa7517]" />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="text-sm font-semibold text-white">{pack.label}</span>
-                          {pack.id === bestId && (
-                            <span className="rounded-full bg-[#fa7517]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#fb923c]">
-                              Best value
-                            </span>
-                          )}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-zinc-300">{pack.credits.toLocaleString()} credits</span>
-                        {yieldText && <span className="mt-0.5 block text-xs text-zinc-500">{yieldText}</span>}
-                      </span>
-                      <span className="shrink-0 text-right">
-                        <span className="block text-base font-semibold text-white">
-                          {formatMoney(pack.priceCents, pack.currency)}
-                        </span>
-                        {pack.credits > 0 && (
-                          <span className="block text-[11px] text-zinc-500">
-                            {formatMoney(pack.priceCents / pack.credits, pack.currency, 3)} / credit
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                      Compare plans
+                    </Link>
+                  </p>
+                </div>
+                <PlanChoices
+                  catalog={catalog}
+                  me={me.data}
+                  signedIn
+                  variant="compact"
+                  context={context}
+                  disabled={checkingOut}
+                  onBusyChange={setBusy}
+                />
+              </section>
             )}
+
+            {nextPlan && (
+              <section aria-labelledby={`${titleId}-upgrade`} className="space-y-3">
+                <div>
+                  <h3 id={`${titleId}-upgrade`} className="text-sm font-semibold text-white">
+                    Upgrade to {nextPlan.name}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    {planName ? `You're on ${planName}. ` : ''}
+                    {`${nextPlan.name} gives ${nextPlan.videosPerMonth.toLocaleString()} videos a month (${nextPlan.creditsPerMonth.toLocaleString()} credits). The change is immediate.`}
+                  </p>
+                </div>
+                <UpgradeAction planId={nextPlan.id} planName={nextPlan.name} returnPath={returnPath} onUpgraded={upgraded} />
+              </section>
+            )}
+
+            <section aria-labelledby={`${titleId}-packs`} className="space-y-3">
+              <div>
+                <h3 id={`${titleId}-packs`} className="text-sm font-semibold text-white">
+                  {offerPlans || nextPlan ? 'Or buy a one-time pack' : 'Buy a one-time pack'}
+                </h3>
+                <p className="mt-0.5 text-xs text-zinc-400">No subscription. Pack credits never expire.</p>
+              </div>
+              <CreditPackPicker pricing={pricing} context={context} disabled={checkingOut} onBusyChange={setBusy} />
+            </section>
           </div>
 
-          <div className="border-t border-white/[0.08] px-5 py-4">
-            {checkoutError && (
-              <p role="alert" className="mb-3 text-sm text-red-300">
-                {checkoutError.message}
-                <TechnicalErrorDetail detail={checkoutError.technical} />
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => void checkout()}
-              disabled={!selected || isCheckingOut || isLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#fa7517] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#fa7517]/20 transition-colors hover:bg-[#fb8a3c] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {isCheckingOut ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  Opening secure checkout…
-                </>
-              ) : (
-                <>
-                  <Lock className="h-4 w-4" aria-hidden="true" />
-                  {selected
-                    ? `Continue to secure checkout · ${formatMoney(selected.priceCents, selected.currency)}`
-                    : 'Continue to secure checkout'}
-                </>
-              )}
-            </button>
-            <p className="mt-2.5 text-center text-[11px] text-zinc-500">Secure payment by Stripe. You'll come back to this page.</p>
+          <div className="border-t border-white/[0.08] px-5 py-3">
+            <p className="text-center text-[11px] text-zinc-500">Secure payment by Stripe. You'll come back to this page.</p>
           </div>
         </motion.div>
       </div>
@@ -331,10 +224,14 @@ function BuyCreditsDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClose }) => {
+export const BuyCreditsModal: React.FC<BuyCreditsModalProps> = ({ isOpen, onClose, pendingAction, availableCredits }) => {
   if (typeof document === 'undefined') return null;
   return createPortal(
-    <AnimatePresence>{isOpen && <BuyCreditsDialog key="buy-credits" onClose={onClose} />}</AnimatePresence>,
+    <AnimatePresence>
+      {isOpen && (
+        <BuyCreditsDialog key="buy-credits" onClose={onClose} pendingAction={pendingAction} availableCredits={availableCredits} />
+      )}
+    </AnimatePresence>,
     document.body,
   );
 };

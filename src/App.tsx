@@ -75,6 +75,8 @@ const StudioProjectsPage = lazy(() => import('./components/pages/CTREngine/Studi
 const StudioProjectPage = lazy(() => import('./components/pages/CTREngine/StudioProjectPage'));
 const StudioProfilesPage = lazy(() => import('./components/pages/CTREngine/StudioProfilesPage'));
 const StudioBatchReview = lazy(() => import('./components/pages/CTREngine/StudioBatchReview'));
+const AIThumbnailsPricingPage = lazy(() => import('./components/pages/CTREngine/PricingPage'));
+const AIThumbnailsBillingSuccessPage = lazy(() => import('./components/pages/CTREngine/BillingSuccessPage'));
 
 // Create a layout component for CreatorHub
 const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -181,6 +183,9 @@ function App() {
                   <Route path="/ai-thumbnails/history" element={<AuditHistoryPage />} />
                   <Route path="/ai-thumbnails/settings" element={<CTRSettingsPage />} />
                   <Route path="/ai-thumbnails/settings/:section" element={<CTRSettingsPage />} />
+                  {/* Monthly plans (videos per month) and the return from their Stripe Checkout. */}
+                  <Route path="/ai-thumbnails/pricing" element={studioPage(<AIThumbnailsPricingPage />)} />
+                  <Route path="/ai-thumbnails/billing/success" element={studioPage(<AIThumbnailsBillingSuccessPage />)} />
 
                   {/* Content Pass Landing Page */}
                   <Route path="/content-passes" element={<LandingPage />} />

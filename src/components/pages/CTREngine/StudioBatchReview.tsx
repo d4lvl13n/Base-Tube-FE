@@ -205,10 +205,11 @@ function Batch() {
   /** A priced one-click button wired to this page's action state. */
   const paid = (
     key: string,
-    props: Omit<React.ComponentProps<typeof StudioPaidAction>, "availableCredits" | "unavailable" | "state" | "working" | "onConfirm">,
+    props: Omit<React.ComponentProps<typeof StudioPaidAction>, "availableCredits" | "unavailable" | "state" | "working" | "onConfirm" | "actionKey">,
   ) => (
     <StudioPaidAction
       {...props}
+      actionKey={key}
       availableCredits={availableCredits}
       unavailable={start.message}
       state={operation.actions[key]}
