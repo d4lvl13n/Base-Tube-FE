@@ -29,6 +29,13 @@ export interface SubscriptionPlan {
   prices: { month: PlanMonthPrice; year: PlanYearPrice };
 }
 
+/** The free trial checkout adds for an account that never had a plan (the same on every plan). */
+export interface SubscriptionTrial {
+  days: number;
+  videos: number;
+  credits: number;
+}
+
 /** GET /api/v1/subscriptions/plans (public). */
 export interface SubscriptionCatalog {
   /** Credits one video costs (3 concepts, 2 edits, 1 audit, rounded). */
@@ -43,6 +50,8 @@ export interface SubscriptionCatalog {
   };
   rolloverMonths: number;
   free: { channelProfiles: number };
+  /** The free trial; null when trials are off (absent on older servers: read as null). */
+  trial?: SubscriptionTrial | null;
   plans: SubscriptionPlan[];
 }
 
@@ -91,12 +100,18 @@ export interface MySubscription {
   channelProfiles: { limit: number; used: number };
   canSubscribe: boolean;
   upgradeTo: SubscriptionPlanId | null;
+  /** Checkout adds the free trial: trials are on and the account never had a plan (absent on older servers: false). */
+  trialEligible?: boolean;
+  /** When the free trial ends and the plan is charged, while the subscription is `trialing`; else null. */
+  trialEndsAt?: string | null;
 }
 
 /** POST /api/v1/subscriptions/checkout. */
 export interface SubscriptionCheckoutSession {
   url: string;
   sessionId: string;
+  /** Free trial days this checkout includes; 0 without a trial. */
+  trialDays?: number;
 }
 
 /** GET /api/v1/subscriptions/upgrade-preview?planId=… */

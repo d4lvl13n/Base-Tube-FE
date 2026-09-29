@@ -99,3 +99,12 @@ it("after about a minute says plainly the payment is confirmed and the credits a
   await settle();
   expect(screen.getByRole("heading", { name: "You're on Creator — 6 videos this month" })).toBeInTheDocument();
 });
+
+it("a free trial counts as ready: says what it includes and that nothing is charged before it ends", async () => {
+  getMe.mockResolvedValue({ ...me("trialing", 180), trialEndsAt: "2026-10-06T12:00:00Z" });
+  show("/ai-thumbnails/billing/success?session_id=cs_trial");
+  await settle();
+  expect(screen.getByRole("heading", { name: "Your free trial of Creator has started — 2 videos to use" })).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent(/^Nothing is charged before Oct 6\. Cancel before Oct 6 in Settings › Subscription and you pay nothing\./);
+  expect(getMe).toHaveBeenCalledTimes(1);
+});

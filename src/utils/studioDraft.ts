@@ -1,4 +1,5 @@
 import type { ThumbnailOutputFormat } from '../types/thumbnail';
+import type { BillingInterval, SubscriptionPlanId } from '../types/subscription';
 import { emptyStudioBrief, type StudioBriefInputV1 } from '../types/thumbnailStudio';
 
 export const STUDIO_DRAFT_TTL = 24 * 60 * 60 * 1000;
@@ -118,6 +119,56 @@ export function creditsReturnDestination(returnParam?: string | null, fallback =
   try {
     return studioReturnDestination(sessionStorage.getItem(CREDITS_RETURN_KEY)) || fallback;
   } catch { return fallback; }
+}
+
+/**
+ * A plan a visitor chose before having an account ("Start 7-day free trial" on
+ * the landing or pricing page). The click is the intent: once the sign-up (or
+ * sign-in) is done, the continue screen opens Stripe Checkout for that plan,
+ * which is itself the confirmation page. Kept in this tab for 30 minutes at
+ * most (like the sign-in origin), and dropped by any other sign-in start.
+ */
+export interface PlanIntent {
+  planId: SubscriptionPlanId;
+  interval: BillingInterval;
+  /** The button promised a free trial: checkout opens only while the account can still have one. */
+  trial: boolean;
+  /** Where Stripe brings the creator back (an allowed AI Thumbnails page); none lets the server choose. */
+  returnPath?: string;
+}
+const PLAN_INTENT_KEY = 'thumbnail-studio:plan-intent:v1';
+export const PLAN_INTENT_TTL = 30 * 60 * 1000;
+const PLAN_IDS: SubscriptionPlanId[] = ['creator', 'pro', 'agency'];
+export function rememberPlanIntent(intent: PlanIntent, now = Date.now()) {
+  try {
+    const returnPath = studioReturnDestination(intent.returnPath ?? null);
+    sessionStorage.setItem(PLAN_INTENT_KEY, JSON.stringify({
+      planId: intent.planId,
+      interval: intent.interval,
+      trial: intent.trial === true,
+      ...(returnPath ? { returnPath } : {}),
+      at: now,
+    }));
+  } catch { /* Without storage the visitor signs up and picks the plan again. */ }
+}
+/** The recent plan intent of this tab, or null (an invalid or expired one is removed). */
+export function readPlanIntent(now = Date.now()): PlanIntent | null {
+  try {
+    const raw = sessionStorage.getItem(PLAN_INTENT_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw);
+    const valid = value && PLAN_IDS.includes(value.planId) && (value.interval === 'month' || value.interval === 'year')
+      && Number.isFinite(value.at) && value.at <= now + 60_000 && now - value.at <= PLAN_INTENT_TTL;
+    if (!valid) {
+      sessionStorage.removeItem(PLAN_INTENT_KEY);
+      return null;
+    }
+    const returnPath = studioReturnDestination(typeof value.returnPath === 'string' ? value.returnPath : null);
+    return { planId: value.planId, interval: value.interval, trial: value.trial === true, ...(returnPath ? { returnPath } : {}) };
+  } catch { return null; }
+}
+export function clearPlanIntent() {
+  try { sessionStorage.removeItem(PLAN_INTENT_KEY); } catch { /* Storage may be disabled. */ }
 }
 
 /**

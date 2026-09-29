@@ -4,7 +4,7 @@ import React, { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import type { MySubscription } from '../../../../../types/subscription';
-import { shortDate, videosLeftText } from '../../../../../hooks/useSubscription';
+import { planVideosLeftText, shortDate } from '../../../../../hooks/useSubscription';
 
 /** Plan credits are what "videos left" counts; shown for a plan being paid for, or while its credits last. */
 export function showsVideosLeft(me: MySubscription | null | undefined): me is MySubscription {
@@ -61,7 +61,7 @@ export function VideosLeftToggle({ me, onLinkClick }: { me: MySubscription; onLi
         onClick={() => setOpen((value) => !value)}
         className="flex w-full items-center justify-between gap-2 rounded-md text-left text-xs text-zinc-300 hover:text-white"
       >
-        <span>{videosLeftText(me.videosRemaining)}</span>
+        <span>{planVideosLeftText(me)}</span>
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
       {open && (

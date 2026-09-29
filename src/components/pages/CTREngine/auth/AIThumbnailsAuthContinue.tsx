@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
@@ -9,8 +9,13 @@ import {
   STUDIO_AUTH_DEFAULT_DESTINATION,
   STUDIO_NEW_ACCOUNT_WINDOW_MS,
 } from '../../../../utils/studioAuth';
+import { clearPlanIntent, readPlanIntent } from '../../../../utils/studioDraft';
 import { armStudioAuthConfirm } from '../../../../utils/studioFunnel';
 import { finishStudioWalletSignIn } from '../../../../utils/studioOnboarding';
+import { resumePlanIntent } from '../components/billing/billingActions';
+
+/** The pricing page's notice when the plan chosen before the sign-up could not open its checkout. */
+export type PlanIntentNotice = { planNotice: 'no-trial' } | { planNotice: 'failed'; message: string };
 
 /**
  * `/ai-thumbnails/auth/continue`: the one address every AI Thumbnails sign-in
@@ -21,23 +26,49 @@ import { finishStudioWalletSignIn } from '../../../../utils/studioOnboarding';
  * base.tube's onboarding:
  *
  *   - a Clerk sign-up (the sign-up page, or a new account made on the sign-in
- *     page) arms the welcome credits confirmation with the page's opt-in box;
- *     the gate's own sign-up or sign-in keeps its record (StudioFunnelBridge
+ *     page) arms the welcome confirmation with the page's opt-in box; the
+ *     gate's own sign-up or sign-in keeps its record (StudioFunnelBridge
  *     confirms);
  *   - a PENDING wallet account completes its onboarding quietly first (on
- *     failure it still goes on; the error is logged).
+ *     failure it still goes on; the error is logged);
+ *   - a plan chosen before the sign-up ("Start 7-day free trial", utils/studioDraft
+ *     PlanIntent) opens its Stripe Checkout at once. An account that already has
+ *     a plan goes on to its page; one that cannot have the promised trial, or
+ *     whose checkout did not open, goes to the pricing page, which says why.
  */
 export default function AIThumbnailsAuthContinue() {
   const navigate = useNavigate();
   const { account, resolved, createdAt = null } = useStudioAccountState();
   const { user: walletUser, setUser } = useAuth();
-  // Read once: StrictMode and later renders must not see it cleared.
+  // Read once: StrictMode and later renders must not see them cleared.
   const [origin] = useState(() => readStudioAuthOrigin());
+  const [planIntent] = useState(() => readPlanIntent());
+  const [openingCheckout, setOpeningCheckout] = useState(false);
+  // One checkout per visit, even when the effect runs again.
+  const checkoutStarted = useRef(false);
 
   useEffect(() => {
     if (!resolved) return undefined;
     clearStudioAuthOrigin();
-    const go = () => navigate(origin?.destination ?? STUDIO_AUTH_DEFAULT_DESTINATION, { replace: true });
+    clearPlanIntent();
+    const destination = origin?.destination ?? STUDIO_AUTH_DEFAULT_DESTINATION;
+    const go = () => {
+      if (!planIntent || account === 'anonymous') {
+        navigate(destination, { replace: true });
+        return;
+      }
+      if (checkoutStarted.current) return;
+      checkoutStarted.current = true;
+      setOpeningCheckout(true);
+      void resumePlanIntent(planIntent).then(outcome => {
+        if (outcome.kind === 'checkout') return;
+        if (outcome.kind === 'has-plan') navigate(destination, { replace: true });
+        else {
+          const state: PlanIntentNotice = outcome.kind === 'no-trial' ? { planNotice: 'no-trial' } : { planNotice: 'failed', message: outcome.message };
+          navigate('/ai-thumbnails/pricing', { replace: true, state });
+        }
+      });
+    };
     if (origin && account.startsWith('clerk:')) {
       const newAccount = createdAt !== null && Math.abs(Date.now() - createdAt) <= STUDIO_NEW_ACCOUNT_WINDOW_MS;
       if (origin.intent === 'sign-up' || newAccount)
@@ -46,13 +77,13 @@ export default function AIThumbnailsAuthContinue() {
     if (account.startsWith('web3:') && walletUser) return finishStudioWalletSignIn(walletUser, setUser, go);
     go();
     return undefined;
-  }, [resolved, account, createdAt, origin, walletUser, setUser, navigate]);
+  }, [resolved, account, createdAt, origin, planIntent, walletUser, setUser, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0a0a0b]">
       <p role="status" className="flex items-center gap-2 text-sm text-zinc-400">
         <Loader2 className="h-4 w-4 animate-spin text-[#fa7517]" aria-hidden="true" />
-        Signing you in…
+        {openingCheckout ? 'Opening secure checkout…' : 'Signing you in…'}
       </p>
     </div>
   );

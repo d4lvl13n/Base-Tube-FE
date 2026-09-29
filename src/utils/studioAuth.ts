@@ -1,4 +1,4 @@
-import { SAVE_STUDIO_DRAFT_EVENT, studioReturnDestination } from './studioDraft';
+import { clearPlanIntent, SAVE_STUDIO_DRAFT_EVENT, studioReturnDestination } from './studioDraft';
 import { noteStudioAuthStart } from './studioWelcome';
 
 /**
@@ -95,6 +95,8 @@ export function clearStudioAuthOrigin() {
  */
 export function startStudioAuth(intent: StudioAuthIntent, from: string, consent?: boolean, now = Date.now()) {
   window.dispatchEvent(new Event(SAVE_STUDIO_DRAFT_EVENT));
+  // A plan chosen before an earlier sign-in start does not carry over (the plan buttons set theirs after this).
+  clearPlanIntent();
   noteStudioAuthStart(now);
   write({
     destination: studioReturnDestination(from) ?? STUDIO_AUTH_DEFAULT_DESTINATION,

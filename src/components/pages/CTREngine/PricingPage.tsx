@@ -1,13 +1,16 @@
 // /ai-thumbnails/pricing — the monthly plans in videos per month (monthly or
 // yearly), then the one-time credit packs as top-ups. Every button carries its
-// price and is one click. A visitor goes to the AI Thumbnails sign-up page and
-// comes back here.
+// price and is one click. A visitor, or an account that never had a plan, sees
+// "Start 7-day free trial" (then the price) on every plan. A visitor goes to the
+// AI Thumbnails sign-up page, then straight on to Stripe Checkout for the plan
+// clicked (auth/AIThumbnailsAuthContinue).
 import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import useCTREngine from '../../../hooks/useCTREngine';
 import { useStudioPricing } from '../../../hooks/useStudioCapabilities';
-import { useMySubscription, useSubscriptionPlans } from '../../../hooks/useSubscription';
+import { catalogTrial, hasLivePlan, trialTermsText, useMySubscription, useSubscriptionPlans } from '../../../hooks/useSubscription';
 import { useStudioAccountState } from '../../../hooks/useStudioAccount';
 import { readPendingPaidAction, studioReturnDestination } from '../../../utils/studioDraft';
 import { plainApiError } from '../../../utils/plainApiError';
@@ -15,6 +18,7 @@ import { TechnicalErrorDetail } from '../../common/TechnicalErrorDetail';
 import { PlanChoices } from './components/billing/PlanChoices';
 import { CreditPackPicker } from './components/billing/CreditPackPicker';
 import type { CheckoutContext } from './components/billing/billingActions';
+import type { PlanIntentNotice } from './auth/AIThumbnailsAuthContinue';
 
 const PRICING_PATH = '/ai-thumbnails/pricing';
 
@@ -34,6 +38,12 @@ export default function PricingPage() {
   const [pendingAction] = useState(() => (returnPath ? readPendingPaidAction(returnPath) : null));
   const context: CheckoutContext = { returnPath, pendingAction, availableCredits: available };
   const catalog = plans.data;
+  // A visitor, or an account that never had a plan: every plan starts with the free trial.
+  const trial = catalogTrial(catalog);
+  const trialOffered = Boolean(trial) && (signedIn ? me.data?.trialEligible === true && !hasLivePlan(me.data) : resolved);
+  // The plan chosen before the sign-up could not open its checkout (AIThumbnailsAuthContinue).
+  const locationState = useLocation().state as PlanIntentNotice | null;
+  const notice = locationState?.planNotice ? locationState : null;
 
   return (
     <AIThumbnailsLayout usageAccess={access.usageAccess} isLoadingQuota={access.isLoadingQuota}>
@@ -42,6 +52,7 @@ export default function PricingPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#fa7517]">AI Thumbnails plans</p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Thumbnails for every video you publish</h1>
           <p className="text-base text-zinc-300">The price of one designer thumbnail, for your whole month.</p>
+          {trial && trialOffered && <p className="text-sm font-medium text-[#fb923c]">{trialTermsText(trial)}</p>}
           {catalog && (
             <p className="text-sm text-zinc-500">
               One video = {catalog.videoBreakdown.concepts} concepts, {catalog.videoBreakdown.edits} AI edits and{' '}
@@ -51,6 +62,14 @@ export default function PricingPage() {
         </header>
 
         <section aria-label="Plans" className="space-y-4">
+          {notice && (
+            <p role="alert" className="mx-auto flex max-w-2xl items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/[.06] px-4 py-3 text-sm text-amber-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" aria-hidden="true" />
+              {notice.planNotice === 'no-trial'
+                ? "This account can't start a free trial: the trial is for accounts that never had a plan. Pick a plan below."
+                : `${notice.message} Pick your plan again below.`}
+            </p>
+          )}
           {plans.isPending ? (
             <div role="status" aria-label="Loading plans" className="grid gap-4 md:grid-cols-3">
               {[0, 1, 2].map((card) => (

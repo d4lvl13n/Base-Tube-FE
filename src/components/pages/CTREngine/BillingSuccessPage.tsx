@@ -1,7 +1,8 @@
 // /ai-thumbnails/billing/success?session_id=…&return=<path> — back from Stripe
-// Checkout for a plan. The plan and its credits arrive through Stripe's
-// webhooks, so the plan is read every 2 seconds for about a minute until it is
-// active with its credits. Never a false "done", never an endless spinner.
+// Checkout for a plan (or its free trial: `trialing` counts as on). The plan
+// and its credits arrive through Stripe's webhooks, so the plan is read every
+// 2 seconds for about a minute until it is on with its credits. Never a false
+// "done", never an endless spinner.
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,7 +11,7 @@ import AIThumbnailsLayout from './AIThumbnailsLayout';
 import useCTREngine from '../../../hooks/useCTREngine';
 import { useStudioAccountState } from '../../../hooks/useStudioAccount';
 import { notifyStudioUsageChanged } from '../../../hooks/useStudioBalance';
-import { subscriptionKey } from '../../../hooks/useSubscription';
+import { shortDate, subscriptionKey } from '../../../hooks/useSubscription';
 import { subscriptionsApi } from '../../../api/subscriptions';
 import type { MySubscription } from '../../../types/subscription';
 import { creditsReturnDestination } from '../../../utils/studioDraft';
@@ -88,18 +89,30 @@ export default function BillingSuccessPage() {
 
   const planName = me?.subscription?.planName;
   const videos = me?.videosRemaining ?? 0;
+  const videoCount = `${videos.toLocaleString()} video${videos === 1 ? '' : 's'}`;
+  // A free trial: nothing was paid; the plan is charged when the trial ends.
+  const trialing = me?.subscription?.status === 'trialing';
+  const trialEnd = trialing ? shortDate(me?.trialEndsAt || me?.subscription?.currentPeriodEnd) : '';
 
   let icon = <Loader2 className="h-7 w-7 animate-spin text-[#fa7517]" aria-hidden="true" />;
   let heading = 'Confirming your plan…';
-  let text = 'Stripe confirmed your payment. Your plan and its credits are being set up.';
-  if (status === 'confirmed') {
+  let text = 'Stripe confirmed your checkout. Your plan and its credits are being set up.';
+  if (status === 'confirmed' && trialing) {
     icon = <CheckCircle className="h-7 w-7 text-emerald-400" aria-hidden="true" />;
-    heading = `You're on ${planName} — ${videos.toLocaleString()} video${videos === 1 ? '' : 's'} this month`;
+    heading = `Your free trial of ${planName} has started — ${videoCount} to use`;
+    text = trialEnd
+      ? `Nothing is charged before ${trialEnd}. Cancel before ${trialEnd} in Settings › Subscription and you pay nothing.`
+      : 'Nothing is charged until your trial ends. Cancel before then in Settings › Subscription and you pay nothing.';
+  } else if (status === 'confirmed') {
+    icon = <CheckCircle className="h-7 w-7 text-emerald-400" aria-hidden="true" />;
+    heading = `You're on ${planName} — ${videoCount} this month`;
     text = `${(me?.credits.subscription.available ?? 0).toLocaleString()} credits from your plan are in your balance.`;
   } else if (status === 'slow') {
     icon = <Clock className="h-7 w-7 text-amber-400" aria-hidden="true" />;
-    heading = 'Payment confirmed';
-    text = 'Stripe confirmed your payment. Your credits arrive within a minute. No need to pay again.';
+    heading = trialing ? 'Free trial confirmed' : 'Payment confirmed';
+    text = trialing
+      ? 'Stripe confirmed your free trial. Your credits arrive within a minute. Nothing is charged today.'
+      : 'Stripe confirmed your payment. Your credits arrive within a minute. No need to pay again.';
   } else if (status === 'no-session') {
     icon = <AlertCircle className="h-7 w-7 text-zinc-400" aria-hidden="true" />;
     heading = 'No checkout session';

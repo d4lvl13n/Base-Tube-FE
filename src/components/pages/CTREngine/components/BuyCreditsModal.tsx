@@ -1,8 +1,9 @@
 // src/components/pages/CTREngine/components/BuyCreditsModal.tsx
-// Get more credits — in one window: the monthly plans (no plan yet) or the
-// one-click upgrade to the next plan (a plan already), then the one-time
-// credit packs. Rendered in a portal on document.body so no page card, helper
-// or transformed parent can cover or clip it.
+// Get more credits — in one window: the free trial first for an account that
+// never had a plan, the monthly plans (no plan yet) or the one-click upgrade to
+// the next plan (a plan already), then the one-time credit packs. Rendered in
+// a portal on document.body so no page card, helper or transformed parent can
+// cover or clip it.
 //
 // Opened for a priced action the credits did not cover (`pendingAction`): after
 // paying on Stripe the creator comes back to the same screen, where that action
@@ -17,10 +18,18 @@ import { X, Coins } from 'lucide-react';
 import { useStudioPricing } from '../../../../hooks/useStudioCapabilities';
 import { useStudioBalance } from '../../../../hooks/useStudioBalance';
 import { useStudioAccount } from '../../../../hooks/useStudioAccount';
-import { hasLivePlan, useMySubscription, useSubscriptionPlans } from '../../../../hooks/useSubscription';
+import {
+  catalogTrial,
+  entryPlan,
+  hasLivePlan,
+  trialButtonLabel,
+  useMySubscription,
+  useSubscriptionPlans,
+} from '../../../../hooks/useSubscription';
 import { rememberPendingPaidAction, type PendingPaidAction } from '../../../../utils/studioDraft';
 import { CreditPackPicker } from './billing/CreditPackPicker';
-import { PlanChoices } from './billing/PlanChoices';
+import { PlanCheckoutButton } from './billing/PlanCheckoutButton';
+import { PlanChoices, planPriceText } from './billing/PlanChoices';
 import { UpgradeAction } from './billing/UpgradeAction';
 import { currentStudioReturnPath, type CheckoutContext } from './billing/billingActions';
 
@@ -93,6 +102,9 @@ function BuyCreditsDialog({
   const nextPlan = live && me.data?.upgradeTo ? catalog?.plans.find((plan) => plan.id === me.data!.upgradeTo) ?? null : null;
   const offerPlans = Boolean(catalog && catalog.plans.length > 0 && me.data?.canSubscribe);
   const planName = me.data?.subscription?.planName;
+  // An account that never had a plan: the free trial comes first (the smallest plan, monthly).
+  const trial = catalogTrial(catalog);
+  const trialPlan = offerPlans && trial && me.data?.trialEligible === true ? entryPlan(catalog) : null;
 
   const upgraded = () => {
     // Back to the page: the action's own button works again and runs only when clicked.
@@ -155,11 +167,32 @@ function BuyCreditsDialog({
           </div>
 
           <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4">
+            {trialPlan && trial && (
+              <section aria-labelledby={`${titleId}-trial`} className="space-y-3 rounded-xl border border-[#fa7517]/30 bg-[#fa7517]/[0.06] p-4">
+                <div>
+                  <h3 id={`${titleId}-trial`} className="text-sm font-semibold text-white">
+                    Try {trialPlan.name} free for {trial.days} days
+                  </h3>
+                  <p className="mt-0.5 text-xs text-zinc-300">
+                    {trial.videos.toLocaleString()} video{trial.videos === 1 ? '' : 's'} included. Then {planPriceText(trialPlan, 'month')}.
+                    Cancel before day {trial.days + 1} and you pay nothing.
+                  </p>
+                </div>
+                <PlanCheckoutButton
+                  planId={trialPlan.id}
+                  label={trialButtonLabel(trial)}
+                  context={context}
+                  disabled={checkingOut}
+                  onBusyChange={setBusy}
+                />
+              </section>
+            )}
+
             {offerPlans && catalog && (
               <section aria-labelledby={`${titleId}-plans`} className="space-y-3">
                 <div>
                   <h3 id={`${titleId}-plans`} className="text-sm font-semibold text-white">
-                    Subscribe: credits for a set number of videos every month
+                    {trialPlan ? 'Or pick a plan: credits for a set number of videos every month' : 'Subscribe: credits for a set number of videos every month'}
                   </h3>
                   <p className="mt-0.5 text-xs text-zinc-400">
                     One video = {catalog.videoBreakdown.concepts} concepts, {catalog.videoBreakdown.edits} AI edits and{' '}

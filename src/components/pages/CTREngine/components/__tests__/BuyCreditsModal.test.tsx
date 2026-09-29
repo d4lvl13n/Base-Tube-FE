@@ -178,6 +178,28 @@ describe("not enough credits for an action", () => {
     expect(readPendingPaidAction("/ai-thumbnails/projects/project-1")).toEqual({ ...generate, availableBefore: 42 });
   });
 
+  it("leads with the free trial for an account that never had a plan, one click to checkout, before the plans and packs", async () => {
+    billing.getPlans.mockResolvedValue({ ...catalog, trial: { days: 7, videos: 2, credits: 180 } } as any);
+    billing.getMe.mockResolvedValue({ ...noPlan, trialEligible: true } as any);
+    billing.createCheckout.mockResolvedValue({ url: "https://checkout.stripe.test/trial_1", sessionId: "cs_trial", trialDays: 7 });
+    open({ pendingAction: generate });
+    const dialog = await screen.findByRole("dialog", { name: "Get more credits" });
+    const trial = await within(dialog).findByRole("region", { name: "Try Creator free for 7 days" });
+    expect(trial).toHaveTextContent("2 videos included. Then $24/month. Cancel before day 8 and you pay nothing.");
+    // First in the window: before the plans and the packs.
+    const sections = within(dialog).getAllByRole("region").map((section) => section.getAttribute("aria-labelledby"));
+    expect(sections[0]).toBe(trial.getAttribute("aria-labelledby"));
+    // Every plan starts with the trial too, its price after it.
+    expect(within(dialog).getByRole("button", { name: "Start 7-day free trial · Pro" })).toBeEnabled();
+    expect(dialog).toHaveTextContent("then $49/month");
+    fireEvent.click(within(trial).getByRole("button", { name: "Start 7-day free trial" }));
+    await waitFor(() =>
+      expect(billing.createCheckout).toHaveBeenCalledWith({ planId: "creator", interval: "month", returnPath: "/ai-thumbnails/projects/project-1" }),
+    );
+    await waitFor(() => expect(window.location.href).toBe("https://checkout.stripe.test/trial_1"));
+    expect(readPendingPaidAction("/ai-thumbnails/projects/project-1")).toEqual({ ...generate, availableBefore: 42 });
+  });
+
   it("offers a subscriber the next plan with its charge read at once, upgrades in one click and hands the action back to the page", async () => {
     billing.getMe.mockResolvedValue(onCreator as any);
     billing.getUpgradePreview.mockResolvedValue(preview as any);

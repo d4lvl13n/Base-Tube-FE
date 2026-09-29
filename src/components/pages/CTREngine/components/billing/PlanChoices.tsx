@@ -12,20 +12,25 @@ import type {
   SubscriptionPlan,
 } from '../../../../../types/subscription';
 import { billingErrorDetails } from '../../../../../api/subscriptions';
-import { hasLivePlan, subscriptionKey } from '../../../../../hooks/useSubscription';
+import { catalogTrial, hasLivePlan, subscriptionKey, trialButtonLabel } from '../../../../../hooks/useSubscription';
 import { useStudioAccount } from '../../../../../hooks/useStudioAccount';
 import { formatPlanMoney } from '../../../../../utils/money';
 import { plainApiError, type PlainApiError } from '../../../../../utils/plainApiError';
-import { startStudioAuth, STUDIO_SIGN_UP_PATH } from '../../../../../utils/studioAuth';
+import { STUDIO_SIGN_UP_PATH } from '../../../../../utils/studioAuth';
 import { TechnicalErrorDetail } from '../../../../common/TechnicalErrorDetail';
-import { goToPlanCheckout, type CheckoutContext } from './billingActions';
+import { goToPlanCheckout, startPlanSignUp, type CheckoutContext } from './billingActions';
 import { ManageBillingButton } from './ManageBillingButton';
 import { UpgradeAction } from './UpgradeAction';
 
 /** "Start Creator · $24/month", "Start Creator · $199/year". */
 export function startPlanLabel(plan: SubscriptionPlan, interval: BillingInterval): string {
+  return `Start ${plan.name} · ${planPriceText(plan, interval)}`;
+}
+
+/** "$24/month", "$199/year". */
+export function planPriceText(plan: SubscriptionPlan, interval: BillingInterval): string {
   const price = plan.prices[interval];
-  return `Start ${plan.name} · ${formatPlanMoney(price.amountCents, price.currency)}/${interval}`;
+  return `${formatPlanMoney(price.amountCents, price.currency)}/${interval}`;
 }
 
 /** "6 videos a month". */
@@ -173,13 +178,36 @@ export function PlanChoices({
     compact ? '' : 'w-full'
   }`;
 
+  // A visitor, or an account that never had a plan: checkout adds the free trial (the server decides).
+  const trial = catalogTrial(catalog);
+  const trialOffered = Boolean(trial) && (signedIn ? me?.trialEligible === true && me.canSubscribe && !live : true);
+  const startLabel = (plan: SubscriptionPlan) => (trial && trialOffered ? trialButtonLabel(trial) : startPlanLabel(plan, interval));
+  // The trial buttons read the same on every plan: their accessible name says which plan.
+  const startName = (plan: SubscriptionPlan) => (trial && trialOffered ? `${trialButtonLabel(trial)} · ${plan.name}` : undefined);
+  /** A trial button says what follows it: "then $24/month". */
+  const withTrialTerms = (plan: SubscriptionPlan, button: React.ReactNode) =>
+    trialOffered ? (
+      <span className={compact ? 'inline-flex flex-col items-end gap-1' : 'block space-y-1.5'}>
+        {button}
+        <span className="block text-center text-xs text-zinc-400">then {planPriceText(plan, interval)}</span>
+      </span>
+    ) : (
+      button
+    );
+
   const action = (plan: SubscriptionPlan) => {
     if (!signedIn) {
-      // A visitor signs up on the AI Thumbnails page (never a modal) and comes back here.
-      return (
-        <Link to={STUDIO_SIGN_UP_PATH} onClick={() => startStudioAuth('sign-up', signUpReturnPath)} className={primary}>
-          {startPlanLabel(plan, interval)}
-        </Link>
+      // A visitor signs up on the AI Thumbnails page (never a modal); checkout for this plan opens right after.
+      return withTrialTerms(
+        plan,
+        <Link
+          to={STUDIO_SIGN_UP_PATH}
+          onClick={() => startPlanSignUp({ planId: plan.id, interval, trial: trialOffered, returnPath: context.returnPath }, signUpReturnPath)}
+          aria-label={startName(plan)}
+          className={primary}
+        >
+          {startLabel(plan)}
+        </Link>,
       );
     }
     if (live && current) {
@@ -204,17 +232,24 @@ export function PlanChoices({
       return <ManageBillingButton returnPath={context.returnPath} />;
     }
     if (live && !current) return <ManageBillingButton returnPath={context.returnPath} />;
-    return (
-      <button type="button" onClick={() => void start(plan)} disabled={disabled || meLoading || opening !== null} className={primary}>
+    return withTrialTerms(
+      plan,
+      <button
+        type="button"
+        onClick={() => void start(plan)}
+        disabled={disabled || meLoading || opening !== null}
+        aria-label={opening === plan.id ? undefined : startName(plan)}
+        className={primary}
+      >
         {opening === plan.id ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Opening secure checkout…
           </>
         ) : (
-          startPlanLabel(plan, interval)
+          startLabel(plan)
         )}
-      </button>
+      </button>,
     );
   };
 

@@ -3,10 +3,10 @@
 // (Stripe's customer portal). No plan: a short pitch and the pricing page.
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowUpRight } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Clock } from 'lucide-react';
 import type { AccountSubscription, MySubscription } from '../../../../../types/subscription';
-import { hasLivePlan, useMySubscription, videosLeftText } from '../../../../../hooks/useSubscription';
-import { formatMoney } from '../../../../../utils/money';
+import { hasLivePlan, planVideosLeftText, shortDate, useMySubscription } from '../../../../../hooks/useSubscription';
+import { formatMoney, formatPlanMoney } from '../../../../../utils/money';
 import { plainApiError } from '../../../../../utils/plainApiError';
 import { TechnicalErrorDetail } from '../../../../common/TechnicalErrorDetail';
 import { ManageBillingButton } from '../billing/ManageBillingButton';
@@ -20,13 +20,22 @@ const longDate = (iso: string | null | undefined) => {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
-/** The status in plain words, and whether it needs the creator. */
-export function subscriptionStatusText(subscription: AccountSubscription, now = Date.now()): { text: string; warning: boolean } {
+/** The status in plain words, and whether it needs the creator. `trialEndsAt`: GET /me's end of the free trial. */
+export function subscriptionStatusText(
+  subscription: AccountSubscription,
+  now = Date.now(),
+  trialEndsAt?: string | null,
+): { text: string; warning: boolean } {
   const end = longDate(subscription.currentPeriodEnd);
   const ended = Date.parse(subscription.currentPeriodEnd) <= now;
   switch (subscription.status) {
+    case 'trialing': {
+      const trialEnd = shortDate(trialEndsAt || subscription.currentPeriodEnd);
+      return subscription.cancelAtPeriodEnd
+        ? { text: `Free trial · canceled, ends ${trialEnd}`, warning: true }
+        : { text: `Free trial · ends ${trialEnd}`, warning: false };
+    }
     case 'active':
-    case 'trialing':
       return subscription.cancelAtPeriodEnd
         ? { text: `Canceled — ends on ${end}`, warning: true }
         : { text: 'Active', warning: false };
@@ -55,12 +64,29 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
+/** "Free trial · ends Oct 6. Then $24/month for Creator. Cancel before Oct 6 and you pay nothing." */
+export function trialNoticeText(me: MySubscription): string | null {
+  const subscription = me.subscription;
+  if (subscription?.status !== 'trialing') return null;
+  const end = shortDate(me.trialEndsAt || subscription.currentPeriodEnd);
+  if (subscription.cancelAtPeriodEnd) return `Free trial · ends ${end}. You canceled: nothing will be charged.`;
+  const price = `${formatPlanMoney(subscription.amountCents, subscription.currency)}/${subscription.interval}`;
+  return `Free trial · ends ${end}. Then ${price} for ${subscription.planName}. Cancel before ${end} and you pay nothing.`;
+}
+
 function PlanDetails({ me }: { me: MySubscription }) {
   const subscription = me.subscription!;
-  const status = subscriptionStatusText(subscription);
+  const status = subscriptionStatusText(subscription, Date.now(), me.trialEndsAt);
   const renews = !subscription.cancelAtPeriodEnd && subscription.nextInvoiceAt && subscription.status !== 'canceled';
+  const trialNotice = trialNoticeText(me);
   return (
     <div className="space-y-5">
+      {trialNotice && (
+        <p className="flex items-start gap-2 rounded-xl border border-[#fa7517]/25 bg-[#fa7517]/[.06] px-3 py-2.5 text-sm text-zinc-100">
+          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#fa7517]" aria-hidden="true" />
+          {trialNotice}
+        </p>
+      )}
       {status.warning && (subscription.status === 'past_due' || subscription.status === 'unpaid') && (
         <p role="alert" className="flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/[.06] px-3 py-2.5 text-sm text-amber-100">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" aria-hidden="true" />
@@ -77,7 +103,7 @@ function PlanDetails({ me }: { me: MySubscription }) {
         <Row label="Next invoice">
           {renews ? `${longDate(subscription.nextInvoiceAt)} · ${formatMoney(subscription.amountCents, subscription.currency)}` : 'None'}
         </Row>
-        <Row label="Videos left">{videosLeftText(me.videosRemaining)}</Row>
+        <Row label="Videos left">{planVideosLeftText(me)}</Row>
         <Row label="Subscription credits">{subscriptionCreditsLine(me)}</Row>
         <Row label="Other credits">{me.credits.other.available.toLocaleString()} from packs and gifts, no expiry</Row>
         <Row label="Channel profiles">
