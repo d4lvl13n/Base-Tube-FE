@@ -1,5 +1,5 @@
 import React, { StrictMode } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AIThumbnailsSignInPage, AIThumbnailsSignUpPage } from '../auth/AIThumbnailsAuthPage';
@@ -9,11 +9,14 @@ import SignUpPage from '../../SignUpPage';
 import OnboardingModal from '../../OnboardingModal';
 import SignInWeb3 from '../../SignInWeb3';
 import { onboardingApi } from '../../../../api/onboarding';
+import { subscriptionsApi } from '../../../../api/subscriptions';
 import { getWelcomeOffer } from '../../../../api/toolFunnel';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { readStudioAuthOrigin, startStudioAuth, STUDIO_AUTH_ORIGIN_KEY, STUDIO_AUTH_ORIGIN_TTL_MS } from '../../../../utils/studioAuth';
+import { PLAN_INTENT_TTL, readPlanIntent, rememberPlanIntent } from '../../../../utils/studioDraft';
 import { loadEmailGate, resetStudioFunnelForTests } from '../../../../utils/studioFunnel';
 import { resetStudioOnboardingForTests } from '../../../../utils/studioOnboarding';
+import { startPlanSignUp } from '../components/billing/billingActions';
 
 let mockClerk: { isLoaded: boolean; isSignedIn: boolean; user: any };
 // Clerk's components show the props they were given: where they go once done, and their links.
@@ -26,12 +29,29 @@ jest.mock('../../../../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('../../../common/WalletWrapper/ConnectWalletButton', () => ({ __esModule: true, default: ({ customText }: any) => <button type="button">{customText}</button> }));
 jest.mock('../../../../api/onboarding', () => ({ onboardingApi: { updateUsername: jest.fn(), completeOnboarding: jest.fn() } }));
 jest.mock('../../../../api/toolFunnel', () => ({ ...jest.requireActual('../../../../api/toolFunnel'), getWelcomeOffer: jest.fn() }));
+jest.mock('../../../../api/subscriptions', () => ({
+  ...jest.requireActual('../../../../api/subscriptions'),
+  subscriptionsApi: { getPlans: jest.fn(), getMe: jest.fn(), createCheckout: jest.fn() },
+}));
 jest.mock('../../../../hooks/useProfileData', () => ({ useApplyReferralCode: () => ({ isPending: false, mutate: jest.fn() }) }));
 jest.mock('../../OnboardingModal/OnboardingModalUI', () => ({ OnboardingModalUI: () => <p>base.tube onboarding screens</p> }));
 jest.mock('../../SignInWeb3/Styles', () => ({ SignInWeb3UI: () => <p>base.tube wallet sign-in</p> }));
 
 const CONTINUE = '/ai-thumbnails/auth/continue';
 const DAY = 24 * 60 * 60 * 1000;
+const billing = subscriptionsApi as jest.Mocked<typeof subscriptionsApi>;
+const creatorPlan = {
+  id: 'creator', name: 'Creator', rank: 1, videosPerMonth: 6, creditsPerMonth: 540, channelProfiles: 1, highlights: [],
+  prices: { month: { amountCents: 2400, currency: 'usd' }, year: { amountCents: 19900, currency: 'usd', monthlyEquivalentCents: 1658, savingsPercent: 31 } },
+};
+const catalog = {
+  videoCredits: 90,
+  videoBreakdown: { concepts: 3, conceptCredits: 15, edits: 2, editCredits: 18, audits: 1, auditCredits: 2 },
+  rolloverMonths: 1,
+  free: { channelProfiles: 1 },
+  trial: { days: 7, videos: 2, credits: 180 },
+  plans: [creatorPlan],
+};
 const Where = () => {
   const { pathname, search, hash } = useLocation();
   return <output data-testid="where">{pathname + search + hash}</output>;
@@ -66,9 +86,16 @@ beforeEach(() => {
   (useAuth as jest.Mock).mockReturnValue({ isAuthenticated: false, user: null, setUser: jest.fn(), isRestoring: false });
   (onboardingApi.completeOnboarding as jest.Mock).mockResolvedValue({ user: { onboarding_status: 'COMPLETED' } });
   (getWelcomeOffer as jest.Mock).mockResolvedValue({ credits: 50, available: true, resetsAt: '2030-01-02T00:00:00.000Z' });
+  billing.getPlans.mockResolvedValue(catalog as any);
+  billing.getMe.mockReset();
+  billing.createCheckout.mockReset();
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
-afterEach(() => client.clear());
+afterEach(() => {
+  client.clear();
+  // setupTests makes window.location writable; checkout sets its href.
+  Object.assign(window.location, { href: 'http://localhost:3000' });
+});
 
 describe('the AI Thumbnails sign-in and sign-up pages', () => {
   it.each([
@@ -98,8 +125,8 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     render(app('/ai-thumbnails/sign-up'));
     expect(screen.getByRole('heading', { name: 'Create your free AI Thumbnails account' })).toBeInTheDocument();
     expect(screen.getAllByRole('listitem').map(item => item.textContent)).toEqual([expect.stringMatching(/^Create\./), expect.stringMatching(/^Fix\./), expect.stringMatching(/^Audit\./)]);
-    // The amount comes from the welcome offer; no number until it is known.
-    expect(screen.getByText('Free credits once your email is verified.')).toBeInTheDocument();
+    // The gift comes from the welcome offer: nothing is promised until the server says so.
+    expect(screen.queryByText(/free credits/i)).not.toBeInTheDocument();
     expect(await screen.findByText('50 free credits once your email is verified.')).toBeInTheDocument();
     const box = screen.getByRole('checkbox', { name: /product tips and updates/ });
     expect(box).not.toBeChecked();
@@ -113,6 +140,28 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     (getWelcomeOffer as jest.Mock).mockResolvedValue({ credits: 50, available: false, resetsAt: '2030-01-02T00:00:00.000Z' });
     render(app('/ai-thumbnails/sign-up'));
     expect(await screen.findByText('Today’s welcome credits are all given — create your account now and get them tomorrow.')).toBeInTheDocument();
+  });
+
+  it('without the welcome gift (the default), neither page promises credits', async () => {
+    (getWelcomeOffer as jest.Mock).mockResolvedValue({ credits: 0, available: false, resetsAt: '2030-01-02T00:00:00.000Z' });
+    const view = render(app('/ai-thumbnails/sign-up'));
+    await waitFor(() => expect(getWelcomeOffer).toHaveBeenCalled());
+    await act(async () => undefined);
+    expect(screen.queryByText(/credits/i)).not.toBeInTheDocument();
+    view.unmount();
+    render(app('/ai-thumbnails/sign-in'));
+    await act(async () => undefined);
+    expect(screen.queryByText(/credits/i)).not.toBeInTheDocument();
+  });
+
+  it('after "Start 7-day free trial", the sign-up page says the trial checkout comes next', async () => {
+    (getWelcomeOffer as jest.Mock).mockResolvedValue({ credits: 0, available: false, resetsAt: '2030-01-02T00:00:00.000Z' });
+    startPlanSignUp({ planId: 'creator', interval: 'month', trial: true }, '/ai-thumbnails');
+    render(app('/ai-thumbnails/sign-up'));
+    expect(screen.getByRole('heading', { name: 'Create your account to start your free trial' })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Next: secure checkout for your 7-day free trial of Creator, 2 videos included. Your card is charged on day 8 unless you cancel.'),
+    ).toBeInTheDocument();
   });
 
   it('the sign-in page offers the wallet; a wallet sign-in there ends on the continue screen, back where it started', async () => {
@@ -174,6 +223,65 @@ describe('/ai-thumbnails/auth/continue', () => {
     expect(onboardingApi.completeOnboarding).toHaveBeenCalledTimes(1);
     expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ id: 7, onboarding_status: 'COMPLETED' }));
     expect(loadEmailGate()).toBeNull();
+  });
+
+  describe('a plan chosen before the sign-up ("Start 7-day free trial")', () => {
+    const noPlan = { subscription: null, canSubscribe: true, trialEligible: true };
+    const signUpFromLanding = () => startPlanSignUp({ planId: 'creator', interval: 'month', trial: true }, '/ai-thumbnails');
+
+    it('opens Stripe Checkout for that plan right after the sign-up, once, and forgets the plan', async () => {
+      signUpFromLanding();
+      clerkAccount(Date.now());
+      billing.getMe.mockResolvedValue(noPlan as any);
+      billing.createCheckout.mockResolvedValue({ url: 'https://checkout.stripe.test/cs_1', sessionId: 'cs_1', trialDays: 7 });
+      render(<StrictMode>{app(CONTINUE)}</StrictMode>);
+      await waitFor(() => expect(window.location.href).toBe('https://checkout.stripe.test/cs_1'));
+      expect(billing.createCheckout).toHaveBeenCalledTimes(1);
+      expect(billing.createCheckout).toHaveBeenCalledWith({ planId: 'creator', interval: 'month' });
+      expect(screen.getByRole('status')).toHaveTextContent('Opening secure checkout…');
+      expect(readPlanIntent()).toBeNull();
+      // The sign-up is still a sign-up: its confirmation is armed as before.
+      expect(loadEmailGate()).toMatchObject({ phase: 'awaiting_sign_in', flow: 'sign-up' });
+    });
+
+    it('never opens a paid checkout for a trial button: an account that had a plan goes to the pricing page', async () => {
+      signUpFromLanding();
+      clerkAccount(Date.now() - 30 * DAY);
+      billing.getMe.mockResolvedValue({ ...noPlan, trialEligible: false } as any);
+      render(app(CONTINUE));
+      await waitFor(() => expect(where().textContent).toBe('/ai-thumbnails/pricing'));
+      expect(billing.createCheckout).not.toHaveBeenCalled();
+    });
+
+    it('an account that already has a plan goes on to the page it came from', async () => {
+      signUpFromLanding();
+      clerkAccount(Date.now() - 30 * DAY);
+      billing.getMe.mockResolvedValue({ subscription: { status: 'active' }, canSubscribe: false, trialEligible: false } as any);
+      render(app(CONTINUE));
+      await waitFor(() => expect(where().textContent).toBe('/ai-thumbnails'));
+      expect(billing.createCheckout).not.toHaveBeenCalled();
+    });
+
+    it('a checkout that does not open sends the creator to the pricing page to try again', async () => {
+      signUpFromLanding();
+      clerkAccount(Date.now());
+      billing.getMe.mockResolvedValue(noPlan as any);
+      billing.createCheckout.mockRejectedValue(new Error('offline'));
+      render(app(CONTINUE));
+      await waitFor(() => expect(where().textContent).toBe('/ai-thumbnails/pricing'));
+    });
+
+    it('a plan remembered more than 30 minutes ago, or dropped by another sign-in start, is not used', () => {
+      startStudioAuth('sign-in', '/ai-thumbnails/gallery');
+      rememberPlanIntent({ planId: 'creator', interval: 'month', trial: true }, Date.now() - PLAN_INTENT_TTL - 1);
+      clerkAccount(Date.now() - 30 * DAY);
+      render(app(CONTINUE));
+      expect(where().textContent).toBe('/ai-thumbnails/gallery');
+      signUpFromLanding();
+      startStudioAuth('sign-in', '/ai-thumbnails/gallery');
+      expect(readPlanIntent()).toBeNull();
+      expect(billing.getMe).not.toHaveBeenCalled();
+    });
   });
 
   it('still goes back when that completion fails (the account can complete it later)', async () => {

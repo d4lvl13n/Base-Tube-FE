@@ -11,6 +11,7 @@ import { ThumbnailAuditResult } from './components/ThumbnailAuditResult';
 import { BuyCreditsModal } from './components/BuyCreditsModal';
 import useCTREngine from '../../../hooks/useCTREngine';
 import { auditCapacityMessage, useWelcomeOffer } from '../../../hooks/useWelcomeOffer';
+import { catalogTrial, useSubscriptionPlans } from '../../../hooks/useSubscription';
 import { openEmailGate } from '../../../utils/studioFunnel';
 import { ThumbnailAudit } from '../../../types/ctr';
 import { plainApiError } from '../../../utils/plainApiError';
@@ -47,8 +48,9 @@ const AuditPage: React.FC = () => {
   const [historicalError, setHistoricalError] = useState<string | null>(null);
   const [isBuyCreditsOpen, setIsBuyCreditsOpen] = useState(false);
   const offer = useWelcomeOffer();
-  // Free audits for visitors are used up on the platform today: an account gets credits.
+  // Free audits for visitors are used up on the platform today: an account (and its free trial) goes on.
   const auditCapacity = errorCode === 'ANONYMOUS_AUDIT_CAPACITY';
+  const plans = useSubscriptionPlans(auditCapacity && offer.credits === null);
   
   // Load historical audit if ID is in URL
   useEffect(() => {
@@ -101,7 +103,7 @@ const AuditPage: React.FC = () => {
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1" role="alert">
               <p className="text-red-300">
-                {auditCapacity ? auditCapacityMessage(offer) : error}
+                {auditCapacity ? auditCapacityMessage(offer, catalogTrial(plans.data)) : error}
                 <TechnicalErrorDetail detail={errorDetail} />
               </p>
               {auditCapacity && (

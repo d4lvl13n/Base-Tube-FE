@@ -7,6 +7,7 @@ import StudioFunnelBridge from '../../../common/StudioFunnelBridge';
 import useCTREngine from '../../../../hooks/useCTREngine';
 import { thumbnailStudioApi } from '../../../../api/thumbnailStudio';
 import { getWelcomeOffer } from '../../../../api/toolFunnel';
+import { subscriptionsApi } from '../../../../api/subscriptions';
 import { loadEmailGate, resetStudioFunnelForTests } from '../../../../utils/studioFunnel';
 import { loadStudioDraft } from '../../../../utils/studioDraft';
 
@@ -14,12 +15,22 @@ jest.mock('../../../../hooks/useCTREngine', () => ({ __esModule: true, default: 
 jest.mock('../../../../hooks/useStudioAccount', () => ({ useStudioAccount: () => 'anonymous', useStudioAccountState: () => ({ account: 'anonymous', resolved: true, email: null }) }));
 jest.mock('@clerk/clerk-react', () => ({}));
 jest.mock('../../../../api/toolFunnel', () => ({ getWelcomeOffer: jest.fn(), confirmSignup: jest.fn(), getToolFingerprint: () => 'fingerprint-1' }));
+jest.mock('../../../../api/subscriptions', () => ({ ...jest.requireActual('../../../../api/subscriptions'), subscriptionsApi: { getPlans: jest.fn() } }));
 jest.mock('../../../../api/thumbnailStudio', () => ({ thumbnailStudioApi: { createProject: jest.fn(), quote: jest.fn(), start: jest.fn() }, studioError: jest.fn() }));
 jest.mock('../AIThumbnailsLayout', () => ({ __esModule: true, default: ({ children }: any) => <>{children}</> }));
 jest.mock('../StudioCreatePage', () => ({ __esModule: true, default: () => <p>Studio create screen</p> }));
 jest.mock('../components/ThumbnailFormatSelector', () => ({ ThumbnailFormatSelector: ({ onFormatChange }: any) => <button type="button" onClick={() => onFormatChange('short')}>Portrait</button> }));
 
 const offer = getWelcomeOffer as jest.Mock;
+const plans = subscriptionsApi.getPlans as jest.Mock;
+const catalog = {
+  videoCredits: 90,
+  videoBreakdown: { concepts: 3, conceptCredits: 15, edits: 2, editCredits: 18, audits: 1, auditCredits: 2 },
+  rolloverMonths: 1,
+  free: { channelProfiles: 1 },
+  trial: { days: 7, videos: 2, credits: 180 },
+  plans: [],
+};
 const studio = thumbnailStudioApi as jest.Mocked<typeof thumbnailStudioApi>;
 let ctr: any;
 let client: QueryClient;
@@ -32,6 +43,7 @@ beforeEach(() => {
   ctr = { isAuthenticated: false, isAnonymous: true, usageAccess: null, isLoadingQuota: false };
   (useCTREngine as jest.Mock).mockImplementation(() => ctr);
   offer.mockResolvedValue({ credits: 50, available: true, resetsAt: '2030-01-02T00:00:00.000Z' });
+  plans.mockResolvedValue(catalog);
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => client.clear());
@@ -67,7 +79,7 @@ it('a visitor writes the brief on the same form, and the one button creates an a
   expect(screen.queryByRole('link', { name: /Sign in/ })).not.toBeInTheDocument();
 });
 
-it('says when today’s welcome credits are all given, and shows no number while the offer is unknown', async () => {
+it('says when today’s welcome credits are all given, and promises no credits while the offer is unknown', async () => {
   offer.mockResolvedValue({ credits: 50, available: false, resetsAt: '2030-01-02T00:00:00.000Z' });
   const view = render(page());
   expect(await screen.findByText('Today’s welcome credits are all given — create your account now and get them tomorrow.')).toBeInTheDocument();
@@ -76,8 +88,20 @@ it('says when today’s welcome credits are all given, and shows no number while
   offer.mockRejectedValue(new Error('Network Error'));
   render(page());
   await waitFor(() => expect(offer).toHaveBeenCalledTimes(2));
-  expect(await screen.findByText('New accounts get free credits.')).toBeInTheDocument();
-  expect(screen.queryByText(/\d+ free credits/)).not.toBeInTheDocument();
+  expect(await screen.findByText(/^The account is free\./)).toBeInTheDocument();
+  expect(screen.queryByText(/free credits/)).not.toBeInTheDocument();
+});
+
+it('without the welcome gift (the default), the button and the gate lead to the free trial, never to free credits', async () => {
+  offer.mockResolvedValue({ credits: 0, available: false, resetsAt: '2030-01-02T00:00:00.000Z' });
+  render(page());
+  expect(
+    await screen.findByText('The account is free. Then try any plan free for 7 days, with 2 videos included. Cancel before day 8 and you pay nothing.'),
+  ).toBeInTheDocument();
+  fireEvent.click(createAccount());
+  const gate = await screen.findByRole('dialog');
+  expect(gate).toHaveTextContent('The account is free. After signing up, try any plan free for 7 days, with 2 videos included.');
+  expect(gate).not.toHaveTextContent(/credits/);
 });
 
 it('opens the account gate for "generate", keeps the brief and starts nothing', async () => {

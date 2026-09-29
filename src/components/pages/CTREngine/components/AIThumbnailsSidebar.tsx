@@ -23,7 +23,16 @@ import { AI_THUMBNAILS_NAV_ITEMS, type AIThumbnailsNavItem } from './aiThumbnail
 import { useStudioBalanceLoadFailure } from '../../../../hooks/useStudioBalance';
 import { freeCreditsText, useWelcomeOffer, WELCOME_CREDITS_GIVEN_OUT } from '../../../../hooks/useWelcomeOffer';
 import { startStudioAuth, STUDIO_SIGN_UP_PATH } from '../../../../utils/studioAuth';
-import { useMySubscription, videosLeftText } from '../../../../hooks/useSubscription';
+import {
+  catalogTrial,
+  entryPlan,
+  planVideosLeftText,
+  trialButtonLabel,
+  useMySubscription,
+  useSubscriptionPlans,
+} from '../../../../hooks/useSubscription';
+import { startPlanSignUp } from './billing/billingActions';
+import { planPriceText } from './billing/PlanChoices';
 import { showsVideosLeft, VideosLeftToggle } from './billing/PlanCreditsSummary';
 
 export interface AIThumbnailsSidebarProps {
@@ -37,9 +46,11 @@ export interface AIThumbnailsSidebarProps {
 }
 
 /**
- * A visitor's allowance: the free audits a day (GET /ctr/quota) and a free
- * account with its welcome credits (GET /tool/welcome-offer). Visitors cannot
- * generate, so no create allowance is shown.
+ * A visitor's allowance: the free audits a day (GET /ctr/quota), and the way
+ * in: the free trial (the smallest plan, monthly; sign-up then Stripe
+ * Checkout) and a free account. While the welcome gift is on (GET
+ * /tool/welcome-offer), the free account with its credits instead. Visitors
+ * cannot generate, so no create allowance is shown.
  */
 function VisitorAllowance({ usageAccess, isLoadingQuota, isCollapsed, onLinkClick }: {
   usageAccess?: CTRUsageAccess | null;
@@ -48,20 +59,31 @@ function VisitorAllowance({ usageAccess, isLoadingQuota, isCollapsed, onLinkClic
   onLinkClick?: () => void;
 }) {
   const location = useLocation();
+  const from = location.pathname + location.search;
   const offer = useWelcomeOffer();
+  const plans = useSubscriptionPlans();
+  const trial = offer.credits === null ? catalogTrial(plans.data) : null;
+  const trialPlan = trial ? entryPlan(plans.data) : null;
   const audit = !isLoadingQuota && usageAccess?.mode === 'quota' && usageAccess.quota.audit.limit > 0
     ? usageAccess.quota.audit
     : null;
   const auditsLine = audit ? `${audit.limit} free audit${audit.limit === 1 ? '' : 's'} a day` : '';
   const leftLine = audit ? `${Math.max(audit.remaining, 0)} left today` : '';
   const auditProgress = audit ? Math.min((audit.used / audit.limit) * 100, 100) : 0;
-  const accountLine = offer.available
+  const accountLine = offer.credits !== null && !offer.givenOut
     ? `Create a free account — ${freeCreditsText(offer.credits)}`
     : 'Create a free account';
   const signUp = () => {
-    startStudioAuth('sign-up', location.pathname + location.search);
+    startStudioAuth('sign-up', from);
     onLinkClick?.();
   };
+  // The free trial leads when there is no welcome gift: sign-up, then Stripe Checkout at once.
+  const startTrial = () => {
+    if (trialPlan) startPlanSignUp({ planId: trialPlan.id, interval: 'month', trial: true }, from);
+    onLinkClick?.();
+  };
+  const primaryLine = trial && trialPlan ? trialButtonLabel(trial) : accountLine;
+  const primaryClick = trial && trialPlan ? startTrial : signUp;
 
   if (isCollapsed) {
     return (
@@ -88,9 +110,9 @@ function VisitorAllowance({ usageAccess, isLoadingQuota, isCollapsed, onLinkClic
         )}
         <Link
           to={STUDIO_SIGN_UP_PATH}
-          onClick={signUp}
-          aria-label={accountLine}
-          title={accountLine}
+          onClick={primaryClick}
+          aria-label={primaryLine}
+          title={primaryLine}
           className="w-10 h-10 rounded-full bg-black/60 border border-[#fa7517]/40 flex items-center justify-center text-[#fa7517] hover:bg-[#fa7517]/10"
         >
           <UserPlus className="w-4 h-4" />
@@ -122,13 +144,21 @@ function VisitorAllowance({ usageAccess, isLoadingQuota, isCollapsed, onLinkClic
       <div className="space-y-1">
         <Link
           to={STUDIO_SIGN_UP_PATH}
-          onClick={signUp}
+          onClick={primaryClick}
           className="flex items-start gap-1.5 text-xs font-medium text-[#fb923c] hover:text-orange-300"
         >
           <UserPlus className="w-3 h-3 mt-0.5 flex-shrink-0" />
-          <span>{accountLine}</span>
+          <span>{primaryLine}</span>
         </Link>
-        {!offer.available && <p className="text-xs text-gray-500">{WELCOME_CREDITS_GIVEN_OUT}</p>}
+        {trial && trialPlan && (
+          <p className="text-xs text-gray-500">
+            {trial.videos} video{trial.videos === 1 ? '' : 's'} free, then {planPriceText(trialPlan, 'month')}.{' '}
+            <Link to={STUDIO_SIGN_UP_PATH} onClick={signUp} className="text-gray-300 underline hover:text-white">
+              Or create a free account
+            </Link>
+          </p>
+        )}
+        {offer.givenOut && <p className="text-xs text-gray-500">{WELCOME_CREDITS_GIVEN_OUT}</p>}
       </div>
     </div>
   );
@@ -330,7 +360,7 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
                   <Coins className="w-4 h-4 text-[#fa7517]" />
                   <div className="absolute left-full ml-2 px-3 py-2 bg-black/90 border border-gray-800 rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 whitespace-nowrap">
                     <p className="text-xs text-gray-300">Available: {usageAccess.creditInfo.available}</p>
-                    {planCredits && <p className="text-xs text-gray-300">{videosLeftText(planCredits.videosRemaining)}</p>}
+                    {planCredits && <p className="text-xs text-gray-300">{planVideosLeftText(planCredits)}</p>}
                     <p className="text-xs text-gray-400">CTR generate: {formatCreditCost(usageAccess.pricing?.ctr.generatePerConcept ?? 0)}</p>
                   </div>
                 </div>

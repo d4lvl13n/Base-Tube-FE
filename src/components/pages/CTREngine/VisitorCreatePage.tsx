@@ -7,6 +7,7 @@ import { StudioLayoutPicker } from './components/studio/BriefReview';
 import { studioField } from './components/studio/StudioControls';
 import { StudioSelect } from './components/studio/StudioSelect';
 import { useWelcomeOffer, visitorWelcomeLine } from '../../../hooks/useWelcomeOffer';
+import { catalogTrial, useSubscriptionPlans } from '../../../hooks/useSubscription';
 import type { CTRUsageAccess } from '../../../types/ctr';
 import type { ThumbnailOutputFormat } from '../../../types/thumbnail';
 import type { StudioBriefInputV1 } from '../../../types/thumbnailStudio';
@@ -46,6 +47,8 @@ export default function VisitorCreatePage({ usageAccess, isLoadingQuota }: {
   }, []);
   const [params] = useSearchParams();
   const offer = useWelcomeOffer();
+  // Without the welcome gift, the line says what follows the sign-up: the free trial.
+  const plans = useSubscriptionPlans(offer.credits === null);
 
   const [restored] = useState(() => loadStudioDraft(params.get('draft')));
   const draftId = useRef(restored?.id || createStudioDraftId());
@@ -115,7 +118,7 @@ export default function VisitorCreatePage({ usageAccess, isLoadingQuota }: {
         <div className="thumbnail-generate-bar" style={barBounds}>
           <label className="flex items-center gap-2 text-sm text-zinc-300">Concepts<StudioSelect aria-label="Number of concepts" value={count} onChange={event => setCount(Number(event.target.value))} className="rounded-lg border border-white/10 px-3 py-2 text-white">{[1, 2, 3].map(number => <option key={number} value={number}>{number}</option>)}</StudioSelect></label>
           <button type="submit" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#fa7517] px-6 py-3 text-sm font-semibold text-white hover:bg-orange-500"><Sparkles className="h-4 w-4" />Create a free account to generate</button>
-          <p className="basis-full text-xs text-zinc-400">{visitorWelcomeLine(offer)}</p>
+          <p className="basis-full text-xs text-zinc-400">{visitorWelcomeLine(offer, catalogTrial(plans.data))}</p>
         </div>
       </form>
     </div>

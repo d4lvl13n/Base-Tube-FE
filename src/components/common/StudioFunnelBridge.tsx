@@ -67,9 +67,11 @@ export default function StudioFunnelBridge() {
   };
   // A closed gate whose confirmation can still succeed: a small reminder in the
   // AI Thumbnails area until the credits are added, refused for good, or the
-  // record expires (24 h). Dismiss hides it until the next page load.
+  // record expires (24 h). Dismiss hides it until the next page load. Only while
+  // the welcome gift is on (off by default since the free trial replaced it).
   const [creditsPromptDismissed, setCreditsPromptDismissed] = useState(false);
-  const creditsPrompt = signedIn && !onAuthScreen && pathname.startsWith('/ai-thumbnails')
+  const giftCredits = offer.credits;
+  const creditsPrompt = giftCredits !== null && signedIn && !onAuthScreen && pathname.startsWith('/ai-thumbnails')
     && isEmailGateRetryable(gate) && !gate.open && (!gate.account || gate.account === account) && !creditsPromptDismissed;
 
   const card = 'pointer-events-auto rounded-xl border border-white/10 bg-[#111113] p-4 text-sm text-zinc-200 shadow-2xl';
@@ -77,11 +79,11 @@ export default function StudioFunnelBridge() {
   const secondary = 'rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white';
   return <>
     <EmailGateModal record={gate} signedIn={signedIn} hidden={onAuthScreen} onRetryConfirm={retryConfirm} />
-    {creditsPrompt && <div className="pointer-events-none fixed bottom-4 left-1/2 z-[90] flex w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 flex-col gap-3">
+    {creditsPrompt && giftCredits !== null && <div className="pointer-events-none fixed bottom-4 left-1/2 z-[90] flex w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 flex-col gap-3">
       <section aria-label="Welcome credits" className={card}>
         <p>Your welcome credits were not added yet.</p>
         <div className="mt-3 flex gap-3">
-          <button type="button" className={primary} onClick={retryConfirm}>Finish claiming your {freeCreditsText(offer.credits)}</button>
+          <button type="button" className={primary} onClick={retryConfirm}>Finish claiming your {freeCreditsText(giftCredits)}</button>
           <button type="button" className={secondary} onClick={() => setCreditsPromptDismissed(true)}>Dismiss</button>
         </div>
       </section>

@@ -2,10 +2,11 @@
 //
 // The AI Thumbnails account gate (spec §17.3). Shown when a visitor asks for
 // something that needs an account (generate, edit, audit, save) or when the
-// free audits for visitors are used up for today. It says why, offers the
-// welcome credits (GET /tool/welcome-offer) once the email is verified, and
-// has an explicit, never pre-checked marketing consent. Then, without leaving
-// the page:
+// free audits for visitors are used up for today. It says why and what comes
+// with the account: the free trial after the sign-up (owner decision, 29
+// September 2026), or the welcome credits once the email is verified while
+// that gift is turned on (GET /tool/welcome-offer). It has an explicit, never
+// pre-checked marketing consent. Then, without leaving the page:
 //
 //   1. "Create my free account" shows the AI Thumbnails sign-up in place (the
 //      same Clerk component and look as /ai-thumbnails/sign-up, routing
@@ -33,7 +34,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, CheckCircle, Loader2, AlertCircle, ArrowLeft, Wallet } from 'lucide-react';
 import { AIThumbnailsSignIn, AIThumbnailsSignUp } from '../auth/AIThumbnailsClerk';
 import { StudioErrorDetail } from './studio/StudioErrorDetail';
-import { deferredWelcomeMessage, freeCreditsText, useWelcomeOffer, WELCOME_CREDITS_GIVEN_OUT } from '../../../../hooks/useWelcomeOffer';
+import {
+  deferredWelcomeMessage,
+  freeCreditsText,
+  gateOfferLine,
+  useWelcomeOffer,
+  WELCOME_CREDITS_GIVEN_OUT,
+} from '../../../../hooks/useWelcomeOffer';
+import { catalogTrial, useSubscriptionPlans } from '../../../../hooks/useSubscription';
 import { startStudioAuth, STUDIO_SIGN_IN_PATH, STUDIO_SIGN_UP_PATH } from '../../../../utils/studioAuth';
 import {
   backToEmailGateOffer,
@@ -89,6 +97,9 @@ export const EmailGateModal: React.FC<EmailGateModalProps> = ({ record, signedIn
   const titleId = useId();
   const offer = useWelcomeOffer();
   const open = Boolean(record?.open) && !hidden && !(signedIn && record?.phase === 'form');
+  // Without the welcome gift, the offer is the free trial that follows the sign-up (read once the gate opens).
+  const plans = useSubscriptionPlans(open && offer.credits === null);
+  const gift = offer.credits;
   const view = !record ? null
     : record.phase === 'awaiting_sign_in' ? (signedIn ? 'confirming' : record.flow)
       : record.phase;
@@ -235,9 +246,11 @@ export const EmailGateModal: React.FC<EmailGateModalProps> = ({ record, signedIn
                     </div>
                     <h2 id={titleId} className="pr-8 text-xl font-bold text-white">{titles[record.reason]}</h2>
                     <p className="mt-2 text-sm text-gray-400">
-                      {offer.available
-                        ? <>New accounts get <span className="text-[#fa7517] font-semibold">{freeCreditsText(offer.credits)}</span> once the email is verified.</>
-                        : WELCOME_CREDITS_GIVEN_OUT}
+                      {gift === null
+                        ? gateOfferLine(offer, catalogTrial(plans.data))
+                        : offer.givenOut
+                          ? WELCOME_CREDITS_GIVEN_OUT
+                          : <>New accounts get <span className="text-[#fa7517] font-semibold">{freeCreditsText(gift)}</span> once the email is verified.</>}
                     </p>
                     {/* Explicit opt-in — unchecked by default */}
                     <label className="mt-5 flex items-start gap-3 cursor-pointer select-none">
@@ -287,7 +300,7 @@ export const EmailGateModal: React.FC<EmailGateModalProps> = ({ record, signedIn
                 {view === 'confirming' && (
                   <div className="py-8 text-center" role="status">
                     <Loader2 className="w-10 h-10 mx-auto text-[#fa7517] animate-spin mb-4" />
-                    <h2 id={titleId} tabIndex={-1} data-gate-focus className="text-sm text-gray-300 font-medium focus:outline-none">Adding your credits…</h2>
+                    <h2 id={titleId} tabIndex={-1} data-gate-focus className="text-sm text-gray-300 font-medium focus:outline-none">{gift === null ? 'Setting up your account…' : 'Adding your credits…'}</h2>
                   </div>
                 )}
 
@@ -303,13 +316,25 @@ export const EmailGateModal: React.FC<EmailGateModalProps> = ({ record, signedIn
                       {record.granted
                         ? typeof record.balance === 'number' ? `You now have ${record.balance} credits.` : 'They are in your account.'
                         : record.deferred ? deferredWelcomeMessage(record.credits, record.grantOn)
-                          : 'Your account is ready. The welcome credits were not added.'}
+                          : gift === null ? 'Your account is ready.' : 'Your account is ready. The welcome credits were not added.'}
                     </p>
                     <button type="button" data-gate-focus onClick={() => closeEmailGate()} className={button}>Continue</button>
                   </div>
                 )}
 
-                {view === 'refused' && record.phase === 'refused' && (
+                {/* Without the welcome gift there is nothing to claim: a refusal only means the account is ready. */}
+                {view === 'refused' && record.phase === 'refused' && gift === null && (
+                  <div className="py-2 text-center">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-green-500/15 flex items-center justify-center mb-4">
+                      <CheckCircle className="w-8 h-8 text-green-400" />
+                    </div>
+                    <h2 id={titleId} tabIndex={-1} data-gate-focus className="text-xl font-bold text-white mb-2 focus:outline-none">You&apos;re signed in</h2>
+                    <p className="text-sm text-gray-400 mb-6" role="status">Your account is ready.</p>
+                    <button type="button" onClick={() => closeEmailGate()} className={button}>Continue</button>
+                  </div>
+                )}
+
+                {view === 'refused' && record.phase === 'refused' && gift !== null && (
                   <div className="py-2 text-center">
                     <AlertCircle className="w-10 h-10 mx-auto text-amber-400 mb-4" />
                     <h2 id={titleId} tabIndex={-1} data-gate-focus className="text-lg font-bold text-white mb-2 focus:outline-none">You&apos;re signed in</h2>

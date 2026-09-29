@@ -1,8 +1,9 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
-import { Coins, ScanSearch, Sparkles, Wallet, Wand2 } from 'lucide-react';
+import { Coins, CreditCard, ScanSearch, Sparkles, Wallet, Wand2 } from 'lucide-react';
 import { useStudioAccountState } from '../../../../hooks/useStudioAccount';
-import { freeCreditsText, useWelcomeOffer, WELCOME_CREDITS_GIVEN_OUT } from '../../../../hooks/useWelcomeOffer';
+import { useWelcomeOffer, WELCOME_CREDITS_GIVEN_OUT } from '../../../../hooks/useWelcomeOffer';
+import { catalogTrial, useSubscriptionPlans } from '../../../../hooks/useSubscription';
 import ConnectWalletButton from '../../../common/WalletWrapper/ConnectWalletButton';
 import { AIThumbnailsSignIn, AIThumbnailsSignUp } from './AIThumbnailsClerk';
 import {
@@ -13,7 +14,9 @@ import {
   touchStudioAuthOrigin,
   type StudioAuthIntent,
 } from '../../../../utils/studioAuth';
+import { readPlanIntent, type PlanIntent } from '../../../../utils/studioDraft';
 import { loadEmailGate, saveEmailGate } from '../../../../utils/studioFunnel';
+import { planPriceText } from '../components/billing/PlanChoices';
 import { noteStudioAuthStart } from '../../../../utils/studioWelcome';
 
 /**
@@ -58,19 +61,37 @@ function useStudioAuthScreen(intent: StudioAuthIntent) {
   return { redirect, location };
 }
 
-/** The sign-up page's welcome credits (GET /tool/welcome-offer): they need a verified email. */
-function WelcomeCreditsNote() {
+/**
+ * The sign-in and sign-up pages' note. On sign-up, the welcome credits when
+ * the gift is on (GET /tool/welcome-offer; they need a verified email). Else,
+ * when a plan button led here, what comes right after: Stripe Checkout for
+ * that plan (its free trial when the button promised one). Else nothing.
+ */
+function AuthNote({ planIntent, gift }: { planIntent: PlanIntent | null; gift: boolean }) {
   const offer = useWelcomeOffer();
-  const credits = freeCreditsText(offer.credits);
+  const plans = useSubscriptionPlans(Boolean(planIntent));
+  const trial = planIntent?.trial ? catalogTrial(plans.data) : null;
+  const plan = planIntent ? plans.data?.plans.find(({ id }) => id === planIntent.planId) ?? null : null;
+  let Icon = Coins;
+  let text: string | null = null;
+  if (gift && offer.credits !== null) text = offer.givenOut ? WELCOME_CREDITS_GIVEN_OUT : `${offer.credits} free credits once your email is verified.`;
+  else if (trial) {
+    Icon = CreditCard;
+    text = `Next: secure checkout for your ${trial.days}-day free trial${plan ? ` of ${plan.name}` : ''}, ${trial.videos} video${trial.videos === 1 ? '' : 's'} included. Your card is charged on day ${trial.days + 1} unless you cancel.`;
+  } else if (planIntent && plan && !planIntent.trial) {
+    Icon = CreditCard;
+    text = `Next: secure checkout for ${plan.name} (${planPriceText(plan, planIntent.interval)}).`;
+  }
+  if (!text) return null;
   return (
     <p className="mt-6 flex items-center gap-2 rounded-xl border border-[#fa7517]/25 bg-[#fa7517]/5 px-3 py-2.5 text-sm text-zinc-200">
-      <Coins className="h-4 w-4 shrink-0 text-[#fa7517]" aria-hidden="true" />
-      {offer.available ? `${credits.charAt(0).toUpperCase()}${credits.slice(1)} once your email is verified.` : WELCOME_CREDITS_GIVEN_OUT}
+      <Icon className="h-4 w-4 shrink-0 text-[#fa7517]" aria-hidden="true" />
+      {text}
     </p>
   );
 }
 
-function AuthLayout({ title, subtitle, credits, children }: { title: string; subtitle: string; credits?: boolean; children: React.ReactNode }) {
+function AuthLayout({ title, subtitle, note, children }: { title: string; subtitle: string; note?: React.ReactNode; children: React.ReactNode }) {
   const titleId = useId();
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
@@ -99,7 +120,7 @@ function AuthLayout({ title, subtitle, credits, children }: { title: string; sub
               </li>
             ))}
           </ul>
-          {credits && <WelcomeCreditsNote />}
+          {note}
         </section>
         <div className="min-w-0 space-y-4">{children}</div>
       </main>
@@ -118,16 +139,18 @@ export function AIThumbnailsSignInPage() {
     wallet.current?.scrollIntoView?.({ block: 'center' });
     wallet.current?.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
   }, [showWallet, redirect]);
+  const offer = useWelcomeOffer();
+  const [planIntent] = useState(() => readPlanIntent());
   if (redirect) return redirect;
   return (
-    <AuthLayout title="Sign in to AI Thumbnails" subtitle="Your base.tube account works here.">
+    <AuthLayout title="Sign in to AI Thumbnails" subtitle="Your base.tube account works here." note={<AuthNote planIntent={planIntent} gift={false} />}>
       <AIThumbnailsSignIn routing="path" />
       <section ref={wallet} aria-labelledby={walletTitleId} className="rounded-2xl border border-white/10 bg-[#111113] p-4">
         <h2 id={walletTitleId} tabIndex={-1} className="flex items-center gap-2 text-sm font-semibold text-white focus:outline-none">
           <Wallet className="h-4 w-4 text-[#fa7517]" aria-hidden="true" />
           Sign in with a wallet
         </h2>
-        <p className="mt-1 text-xs text-zinc-400">Welcome credits need an account with a verified email.</p>
+        {offer.credits !== null && <p className="mt-1 text-xs text-zinc-400">Welcome credits need an account with a verified email.</p>}
         <div className="mt-3">
           <ConnectWalletButton className="w-full" customText="Sign in with a wallet" />
         </div>
@@ -150,10 +173,16 @@ export function AIThumbnailsSignUpPage() {
     const gate = loadEmailGate();
     if (gate?.phase === 'awaiting_sign_in') saveEmailGate({ ...gate, marketingConsent: checked, updatedAt: Date.now() });
   };
+  // A plan button led here: its checkout opens right after the sign-up (AIThumbnailsAuthContinue).
+  const [planIntent] = useState(() => readPlanIntent());
   if (redirect) return redirect;
   return (
-    <AuthLayout title="Create your free AI Thumbnails account" subtitle="One account for AI Thumbnails and the rest of base.tube." credits>
-      {/* Read before the form is sent: the value goes with the welcome credits confirmation. */}
+    <AuthLayout
+      title={planIntent?.trial ? "Create your account to start your free trial" : "Create your free AI Thumbnails account"}
+      subtitle="One account for AI Thumbnails and the rest of base.tube."
+      note={<AuthNote planIntent={planIntent} gift />}
+    >
+      {/* Read before the form is sent: the value goes with the sign-up confirmation (consent). */}
       <label className="flex cursor-pointer select-none items-start gap-3 rounded-xl border border-white/10 bg-[#111113] px-3 py-2.5">
         <input
           type="checkbox"
