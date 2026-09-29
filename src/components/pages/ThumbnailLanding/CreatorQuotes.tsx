@@ -1,12 +1,13 @@
 import React from 'react';
-import { ExternalLink } from 'lucide-react';
+import { Check, ExternalLink } from 'lucide-react';
 import { CREATOR_QUOTES, type CreatorQuote } from './landingContent';
 import { FadeIn, RevealHeading, useSeen } from './motionKit';
 
-const PROBLEMS = [
-  { title: 'No feedback before you publish.', text: 'Your thumbnail looks fine to you. Your click rate says otherwise, a week later.' },
-  { title: 'A designer costs $10 to $100 a thumbnail.', text: 'And testing on YouTube takes three per video.' },
-  { title: 'AI thumbnails look like AI.', text: 'Viewers scroll past the plastic look in a split second.' },
+// What changes for the creator: outcomes, not features.
+const OUTCOMES = [
+  { title: 'Publish with confidence.', text: 'A review tells you what is weak and what to change, before the video goes live.' },
+  { title: 'Three strong options, every video.', text: 'Finished thumbnails for YouTube’s Test & Compare, so the data picks the winner, not your gut.' },
+  { title: 'Look like you, not like AI.', text: 'Your face, your colors and your style on every idea, so viewers know it is your channel.' },
 ];
 
 // Three kinds of note, taking turns, each a little tilted: white paper, solid orange, dark with an orange edge.
@@ -82,7 +83,7 @@ function Band({ quotes, offset, reverse, seconds, on }: { quotes: CreatorQuote[]
   );
 }
 
-/** The problem in three lines, then real quotes from public Reddit threads, each linking to its thread. Not reviews of the product. */
+/** The outcome in three lines, then what creators say about thumbnail day: real quotes from public Reddit threads, each linking to its thread. */
 const CreatorQuotes: React.FC = () => {
   const [bands, seen] = useSeen<HTMLDivElement>(0.3);
   const half = Math.ceil(CREATOR_QUOTES.length / 2);
@@ -92,28 +93,28 @@ const CreatorQuotes: React.FC = () => {
         <RevealHeading
           id="landing-quotes-title"
           className="lp-heading max-w-3xl text-4xl text-white sm:text-6xl"
-          parts={['Thumbnail day, in ', { accent: 'creators’ own words.' }]}
+          parts={['Thumbnail day, ', { accent: 'done in minutes.' }]}
         />
         <div className="mt-14 grid gap-10 md:grid-cols-3 md:gap-0 md:divide-x md:divide-white/[0.08]">
-          {PROBLEMS.map(({ title, text }, index) => (
+          {OUTCOMES.map(({ title, text }, index) => (
             <FadeIn key={title} delay={index * 0.12} className="md:px-8 md:first:pl-0 md:last:pr-0">
-              <p className="text-xl font-semibold leading-snug text-white">
-                <span className="mr-2 text-[#fa7517]">✕</span>
-                {title}
-              </p>
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#fa7517] text-white shadow-[0_8px_30px_-8px_rgba(250,117,23,0.8)]">
+                <Check className="h-5 w-5" strokeWidth={3} aria-hidden="true" />
+              </span>
+              <p className="mt-5 text-xl font-semibold leading-snug text-white">{title}</p>
               <p className="mt-3 text-base leading-relaxed text-zinc-400">{text}</p>
             </FadeIn>
           ))}
         </div>
       </div>
 
-      <div ref={bands} className="mt-14">
+      <p className="mx-auto mt-20 max-w-7xl px-5 text-lg font-medium text-zinc-400 sm:px-8">
+        What creators say about <span className="text-white">thumbnail day</span>:
+      </p>
+      <div ref={bands} className="mt-4">
         <Band quotes={CREATOR_QUOTES.slice(0, half)} offset={0} seconds={75} on={seen} />
         <Band quotes={CREATOR_QUOTES.slice(half)} offset={half + 1} reverse seconds={85} on={seen} />
       </div>
-      <p className="mx-auto mt-6 max-w-7xl px-5 text-sm text-zinc-500 sm:px-8">
-        From public Reddit threads about YouTube thumbnails. These are not reviews of AI Thumbnails.
-      </p>
     </section>
   );
 };

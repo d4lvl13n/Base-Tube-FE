@@ -97,7 +97,7 @@ const ThumbnailHero: React.FC<{ offer: StartOffer; signedIn: boolean }> = ({ off
             video, with <span className="font-semibold text-white">your face and your channel&apos;s style</span>, ready for YouTube&apos;s Test
             &amp; Compare. Change anything in plain words.
           </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <StartOfferButton offer={offer} className={primaryButton} />
             <ReviewButton signedIn={signedIn} />
           </div>

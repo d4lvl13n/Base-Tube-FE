@@ -8,7 +8,7 @@ import { useStudioAccountState } from '../../../hooks/useStudioAccount';
 import { startOffer, type StartOffer } from '../CTREngine/components/billing/StartOffer';
 import ThumbnailLandingHeader from './ThumbnailLandingHeader';
 import ThumbnailHero from './ThumbnailHero';
-import NumbersBar from './NumbersBar';
+import ProductVideo from './ProductVideo';
 import StudioDemo from './StudioDemo';
 import ChannelMemory from './ChannelMemory';
 import CreatorQuotes from './CreatorQuotes';
@@ -132,7 +132,7 @@ const ThumbnailLanding: React.FC = () => {
       <ThumbnailLandingHeader offer={offer} signedIn={signedIn} />
       <main>
         <ThumbnailHero offer={offer} signedIn={signedIn} />
-        <NumbersBar catalog={plans.data} loading={plans.isPending} />
+        <ProductVideo />
         <StudioDemo />
         <ChannelMemory catalog={plans.data} />
         <CreatorQuotes />

@@ -2,19 +2,13 @@
 // and the free trial are never written here: they come from GET
 // /api/v1/subscriptions/plans.
 
-/**
- * Market research, not a product number: the median price of one YouTube
- * thumbnail across 43 designer price quotes (the owner's study of Reddit
- * threads, September 2026).
- */
-export const DESIGNER_THUMBNAIL_PRICE = { price: '$25', quotes: 43 } as const;
-
-/** One video is three ideas: YouTube's Test & Compare takes up to three thumbnails. */
-export const THUMBNAILS_PER_VIDEO = 3;
-
 /** The hero's background video and its still (dropped in by the owner; the page works without them). */
 export const HERO_VIDEO_SRC = '/assets/ai-thumbnails/hero-background.mp4';
 export const HERO_POSTER_SRC = '/assets/ai-thumbnails/hero-poster.jpg';
+
+/** The product video under the hero (dropped in by the owner; the section stays hidden until the file loads). */
+export const PRODUCT_VIDEO_SRC = '/assets/ai-thumbnails/product-video.mp4';
+export const PRODUCT_VIDEO_POSTER_SRC = '/assets/ai-thumbnails/product-video-poster.jpg';
 
 export interface CreatorQuote {
   /** Verbatim, as posted. */

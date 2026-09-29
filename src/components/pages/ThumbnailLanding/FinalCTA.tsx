@@ -19,7 +19,7 @@ const FinalCTA: React.FC<{ offer: StartOffer; signedIn: boolean }> = ({ offer, s
           parts={['Your next upload deserves ', { accent: 'three good options.' }]}
         />
         <FadeIn delay={0.3}>
-          <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-4">
             <StartOfferButton offer={offer} className={primaryButton} />
             <ReviewButton signedIn={signedIn} />
           </div>
