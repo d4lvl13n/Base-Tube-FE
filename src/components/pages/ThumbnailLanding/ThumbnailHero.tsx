@@ -64,20 +64,6 @@ const ThumbnailHero: React.FC<{ offer: StartOffer; signedIn: boolean }> = ({ off
       <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-10 h-48 bg-gradient-to-b from-transparent to-[#070709]" />
 
       <div className="mx-auto w-full max-w-5xl px-5 pb-24 text-center sm:px-8">
-        <motion.a
-          href="#demo"
-          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-black/40 py-1.5 pl-2.5 pr-4 text-sm text-white/85 backdrop-blur-md transition-colors hover:border-[#fa7517]/60 hover:text-white"
-        >
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#fa7517] opacity-70 motion-reduce:hidden" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#fa7517]" />
-          </span>
-          See how it works
-        </motion.a>
-
         <RevealHeading
           as="h1"
           id="landing-hero-title"
