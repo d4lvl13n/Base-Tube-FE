@@ -4,6 +4,7 @@ import type { SubscriptionCatalog } from '../../../types/subscription';
 import { formatPlanMoney } from '../../../utils/money';
 import { videosPerMonthText } from '../CTREngine/components/billing/PlanChoices';
 import { DESIGNER_THUMBNAIL_PRICE, THUMBNAILS_PER_VIDEO } from './landingContent';
+import { CountUp } from './motionKit';
 
 /**
  * Four numbers set as type under the hero: the market price of one designer thumbnail, three
@@ -35,7 +36,7 @@ const NumbersBar: React.FC<{ catalog: SubscriptionCatalog | undefined; loading: 
             <div key={cell.label} className="flex flex-col-reverse gap-3 pr-4 lg:px-8 lg:first:pl-0">
               <dt className="max-w-[15rem] text-sm leading-relaxed text-zinc-400">{cell.label}</dt>
               <dd className="flex items-baseline gap-2">
-                <span className="lp-display text-5xl text-white sm:text-6xl">{cell.value}</span>
+                <CountUp value={cell.value} className="lp-display text-5xl text-white sm:text-6xl" />
                 {cell.unit && <span className="text-base font-medium text-[#fa7517]">{cell.unit}</span>}
               </dd>
             </div>

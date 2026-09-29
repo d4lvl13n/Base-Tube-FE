@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useInView, useReducedMotion } from 'framer-mot
 import { Check, Download, Link2, ScanSearch, Wand2 } from 'lucide-react';
 import ThumbnailArt from './ThumbnailArt';
 import { DEMO } from './landingContent';
+import { RevealHeading } from './motionKit';
 
 /**
  * The page's one orchestrated moment: the Studio at work, played when it scrolls into view.
@@ -60,9 +61,11 @@ const StudioDemo: React.FC = () => {
       <div aria-hidden="true" className="absolute left-1/2 top-1/3 -z-10 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-[#fa7517]/[0.07] blur-[140px]" />
       <div className="mx-auto grid max-w-7xl items-center gap-14 px-5 sm:px-8 lg:grid-cols-12">
         <div className="lg:col-span-4">
-          <h2 id="landing-demo-title" className="lp-heading text-4xl text-white sm:text-5xl">
-            From your video to three thumbnails you can test.
-          </h2>
+          <RevealHeading
+            id="landing-demo-title"
+            className="lp-heading text-4xl text-white sm:text-5xl"
+            parts={['From your video to ', { accent: 'three thumbnails' }, ' you can test.']}
+          />
           <ol className="mt-10 space-y-1">
             {STEPS.map((text, index) => {
               const active = index === step;
@@ -89,8 +92,14 @@ const StudioDemo: React.FC = () => {
           </p>
         </div>
 
-        <div ref={stage} className="lg:col-span-8">
-          <div className="relative rounded-[22px] border border-white/10 bg-[#0d0d11]/90 shadow-[0_50px_140px_-50px_rgba(250,117,23,0.45)] backdrop-blur">
+        <div ref={stage} className="lg:col-span-8 [perspective:1600px]">
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 70, rotateX: 16, scale: 0.97 }}
+            whileInView={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.25 }}
+            transition={{ duration: 1.1, ease: [0.2, 0.7, 0.2, 1] }}
+            className="relative origin-bottom rounded-[22px] border border-white/10 bg-[#0d0d11]/90 shadow-[0_50px_140px_-50px_rgba(250,117,23,0.45)] backdrop-blur"
+          >
             <div className="flex items-center gap-2 border-b border-white/[0.07] px-4 py-3">
               <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
               <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
@@ -211,7 +220,7 @@ const StudioDemo: React.FC = () => {
                 </span>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>

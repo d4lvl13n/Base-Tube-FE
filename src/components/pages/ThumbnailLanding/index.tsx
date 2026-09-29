@@ -17,6 +17,7 @@ import ThumbnailFeatures from './ThumbnailFeatures';
 import PricingTeaser from './PricingTeaser';
 import ThumbnailFAQ from './ThumbnailFAQ';
 import FinalCTA from './FinalCTA';
+import ScrollProgress from './ScrollProgress';
 import { useLandingFonts } from './useLandingFonts';
 import './landing.css';
 
@@ -127,6 +128,7 @@ const ThumbnailLanding: React.FC = () => {
 
   return (
     <div className="lp min-h-screen">
+      <ScrollProgress />
       <ThumbnailLandingHeader offer={offer} signedIn={signedIn} />
       <main>
         <ThumbnailHero offer={offer} signedIn={signedIn} />

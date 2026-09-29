@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import type { MySubscription, SubscriptionCatalog } from '../../../types/subscription';
 import { PlanChoices } from '../CTREngine/components/billing/PlanChoices';
+import { RevealHeading } from './motionKit';
 
 const LANDING_PATH = '/ai-thumbnails';
 
@@ -21,9 +22,11 @@ const PricingTeaser: React.FC<{
   <section id="pricing" aria-labelledby="landing-pricing-title" className="scroll-mt-16 border-t border-white/[0.06] py-24 sm:py-32">
     <div className="mx-auto max-w-6xl px-5 sm:px-8">
       <div className="max-w-2xl">
-        <h2 id="landing-pricing-title" className="lp-heading text-4xl text-white sm:text-5xl">
-          The price of one designer thumbnail, for your whole month.
-        </h2>
+        <RevealHeading
+          id="landing-pricing-title"
+          className="lp-heading text-4xl text-white sm:text-5xl"
+          parts={['The price of ', { accent: 'one designer thumbnail' }, ', for your whole month.']}
+        />
         {catalog && (
           <p className="mt-5 text-lg text-zinc-400">
             Plans are counted in videos. Each video is {catalog.videoBreakdown.concepts} ideas, {catalog.videoBreakdown.edits} edits and{' '}
