@@ -1,163 +1,52 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useUser } from '@clerk/clerk-react';
-import { LogIn, UserPlus, UserCircle } from 'lucide-react';
-import Button from '../../common/Button';
-import AIThumbnailsSignInOptions from '../CTREngine/components/AIThumbnailsSignInOptions';
-import { startStudioAuth, STUDIO_SIGN_UP_PATH } from '../../../utils/studioAuth';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { startStudioAuth, STUDIO_SIGN_IN_PATH } from '../../../utils/studioAuth';
+import { StartOfferButton, type StartOffer } from '../CTREngine/components/billing/StartOffer';
 
-/** Sign In offers AI Thumbnails' own sign-in (email or wallet); Get Started opens its sign-up. Both return here. */
-const ThumbnailLandingHeader: React.FC = () => {
-  const { isSignedIn, user } = useUser();
-  const navigate = useNavigate();
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showSignInOptions, setShowSignInOptions] = useState(false);
+const LANDING_PATH = '/ai-thumbnails';
 
-  const UserMenu = () => (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      className="absolute top-full right-0 mt-2 w-48 bg-black/90 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden"
-    >
-      <div className="p-2">
-        <div className="px-3 py-2 border-b border-white/10">
-          <p className="text-white font-medium text-sm">{user?.fullName || 'User'}</p>
-          <p className="text-white/60 text-xs">{user?.primaryEmailAddress?.emailAddress}</p>
-        </div>
-        <div className="mt-2 space-y-1">
-          <Link
-            to="/creator-hub"
-            className="flex items-center gap-2 px-3 py-2 text-white/80 hover:text-white hover:bg-white/5 rounded-md transition-colors text-sm"
-          >
-            <UserCircle className="w-4 h-4" />
-            Creator Hub
-          </Link>
-          <Link
-            to="/profile"
-            className="flex items-center gap-2 px-3 py-2 text-white/80 hover:text-white hover:bg-white/5 rounded-md transition-colors text-sm"
-          >
-            <UserCircle className="w-4 h-4" />
-            Profile
-          </Link>
-        </div>
-      </div>
-    </motion.div>
-  );
-
+/**
+ * The landing page's header: Features, Pricing, the free review, "Log in"
+ * (AI Thumbnails' own sign-in page, back here afterwards) and the start
+ * button ("Start free trial" for a visitor: sign-up, then Stripe Checkout).
+ */
+const ThumbnailLandingHeader: React.FC<{ offer: StartOffer; signedIn: boolean }> = ({ offer, signedIn }) => {
+  const link = 'text-sm text-white/70 transition-colors hover:text-white';
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 w-full">
-      <div className="bg-gradient-to-b from-black via-black/95 to-black/80 backdrop-blur-md border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-3 group">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="relative"
-              >
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-xl opacity-30 group-hover:opacity-50 blur transition duration-300" />
-                <img 
-                  src="/assets/basetubelogo.png" 
-                  alt="Base.Tube Logo" 
-                  className="relative w-12 h-12"
-                />
-              </motion.div>
-              <div className="flex flex-col">
-                <span className="text-xl font-bold bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-transparent">
-                  Base.Tube
-                </span>
-                <span className="text-xs text-white/60 -mt-1">
-                  AI Thumbnails
-                </span>
-              </div>
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-black/70 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <Link to="/" className="flex shrink-0 items-center gap-2.5">
+          <img src="/assets/basetubelogo.png" alt="Base.Tube Logo" className="h-9 w-9" />
+          <span className="flex flex-col leading-tight">
+            <span className="text-base font-bold text-white">Base.Tube</span>
+            <span className="text-xs text-white/60">AI Thumbnails</span>
+          </span>
+        </Link>
+
+        <nav aria-label="AI Thumbnails" className="flex items-center gap-4 sm:gap-6">
+          <a href="#features" className={`${link} hidden md:inline`}>
+            Features
+          </a>
+          <Link to="/ai-thumbnails/pricing" className={`${link} hidden md:inline`}>
+            Pricing
+          </Link>
+          <Link to="/ai-thumbnails/audit" className={`${link} hidden md:inline`}>
+            {signedIn ? 'Thumbnail review' : 'Free review'}
+          </Link>
+          {!signedIn && (
+            <Link to={STUDIO_SIGN_IN_PATH} onClick={() => startStudioAuth('sign-in', LANDING_PATH)} className={link}>
+              Log in
             </Link>
-
-            {/* Auth Section */}
-            <div className="flex items-center gap-4">
-              {isSignedIn ? (
-                <div className="relative">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="relative group"
-                  >
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-full opacity-75 group-hover:opacity-100 blur transition duration-300" />
-                    <img
-                      src={user?.imageUrl}
-                      alt="User Avatar"
-                      className="relative w-10 h-10 rounded-full border-2 border-[#fa7517]"
-                    />
-                  </motion.button>
-                  
-                  <AnimatePresence>
-                    {showUserMenu && <UserMenu />}
-                  </AnimatePresence>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label="Sign in"
-                        aria-expanded={showSignInOptions}
-                        onClick={() => setShowSignInOptions(open => !open)}
-                        className="text-white/80 hover:text-white hover:bg-white/5 flex items-center gap-2"
-                      >
-                        <LogIn className="w-4 h-4" />
-                        <span className="hidden sm:inline">Sign In</span>
-                      </Button>
-                    </motion.div>
-                    <AnimatePresence>
-                      {showSignInOptions && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          className="absolute top-full right-0 mt-2 w-64 bg-black/90 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl"
-                        >
-                          <AIThumbnailsSignInOptions />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="relative group"
-                  >
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-[#fa7517] to-orange-400 rounded-lg opacity-0 group-hover:opacity-100 blur transition-all duration-300" />
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => {
-                        startStudioAuth('sign-up', '/ai-thumbnails');
-                        navigate(STUDIO_SIGN_UP_PATH);
-                      }}
-                      className="relative bg-[#fa7517] hover:bg-[#fa7517]/90 text-white flex items-center gap-2"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span className="hidden sm:inline">Get Started</span>
-                    </Button>
-                  </motion.div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+          )}
+          <StartOfferButton
+            offer={offer}
+            short
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#fa7517] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#fb8a3c] disabled:cursor-not-allowed disabled:opacity-60"
+          />
+        </nav>
       </div>
     </header>
   );
 };
 
-export default ThumbnailLandingHeader; 
+export default ThumbnailLandingHeader;

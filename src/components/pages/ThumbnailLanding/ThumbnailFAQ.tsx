@@ -1,179 +1,85 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, HelpCircle, BarChart2 } from 'lucide-react';
-import { freeCreditsText, useWelcomeOffer } from '../../../hooks/useWelcomeOffer';
+import React from 'react';
+import { ChevronDown } from 'lucide-react';
+import { catalogTrial } from '../../../hooks/useSubscription';
+import type { SubscriptionCatalog } from '../../../types/subscription';
 
-interface FAQItemProps {
+interface FaqItem {
   question: string;
   answer: string;
-  isOpen: boolean;
-  onClick: () => void;
-  index: number;
 }
 
-const FAQItem: React.FC<FAQItemProps> = ({ question, answer, isOpen, onClick, index }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true }}
-    transition={{ delay: index * 0.05 }}
-    className={`border rounded-xl overflow-hidden transition-all duration-300 ${
-      isOpen 
-        ? 'bg-black/60 border-[#fa7517]/30' 
-        : 'bg-black/30 border-gray-800/30 hover:border-gray-700/50'
-    }`}
-  >
-    <button
-      onClick={onClick}
-      className="w-full px-6 py-5 flex items-center justify-between text-left"
-    >
-      <span className={`font-semibold transition-colors ${isOpen ? 'text-white' : 'text-gray-300'}`}>
-        {question}
-      </span>
-      <motion.div
-        animate={{ rotate: isOpen ? 180 : 0 }}
-        transition={{ duration: 0.2 }}
-        className={`flex-shrink-0 ml-4 ${isOpen ? 'text-[#fa7517]' : 'text-gray-500'}`}
-      >
-        <ChevronDown className="w-5 h-5" />
-      </motion.div>
-    </button>
-    
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="overflow-hidden"
-        >
-          <div className="px-6 pb-5 text-gray-400 leading-relaxed">
-            {answer}
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  </motion.div>
-);
-
-const ThumbnailFAQ: React.FC = () => {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
-  const { credits } = useWelcomeOffer();
-
-  const faqs = [
+/** The questions; the video, trial and expiry answers use the plan catalog's numbers (none are written here). */
+export function landingFaq(catalog: SubscriptionCatalog | undefined): FaqItem[] {
+  const trial = catalogTrial(catalog);
+  const video = catalog
+    ? (() => {
+        const { concepts, edits, audits } = catalog.videoBreakdown;
+        const reviews = audits === 1 ? 'a review' : `${audits} reviews`;
+        return `One video is ${concepts} ideas, ${edits} edits and ${reviews}: about ${catalog.videoCredits} credits. `;
+      })()
+    : '';
+  const planCredits = catalog?.rolloverMonths === 0
+    ? 'Plan credits stay usable until the end of the month they are for.'
+    : 'Plan credits stay usable until the end of the following month.';
+  const items: Array<FaqItem | null> = [
     {
-      question: "What exactly is a Thumbnail Review?",
-      answer: "A Thumbnail Review is an AI-powered analysis of your thumbnail that scores it against 15+ factors known to influence whether viewers click—color contrast, text readability, facial prominence, composition, mobile legibility, and more. Instead of generic feedback, you get an Attention Score and specific, actionable notes on what's helping and what's hurting."
+      question: 'Will this increase my views?',
+      answer:
+        'We can’t promise that, and anyone who does is guessing. Better thumbnails give your video a better chance. Connect YouTube to see your real click rate before and after.',
     },
     {
-      question: "Do you predict my CTR?",
-      answer: "No—and we're upfront about that. Real click-through rate depends on your title, topic, timing, audience, and the other thumbnails you're competing against in the feed, none of which a single image can know. What we give you is an Attention Score and specific feedback on what's weakening your thumbnail and why. The value is knowing exactly what to change—not a made-up percentage."
+      question: 'Will it look AI-made?',
+      answer: 'It starts from your video and your real face, in your channel’s style. You pick, and change anything in plain words.',
     },
     {
-      question: "What makes this different from other thumbnail generators?",
-      answer: "Most AI thumbnail tools focus solely on generation—making something that 'looks good.' We focus on feedback. Our Review tells you exactly why a thumbnail is strong or weak, then helps you either fix your existing thumbnail or generate a new one based on those insights. It's the difference between guessing and knowing what to change."
+      question: 'Can I use my face?',
+      answer: 'Yes. Add a photo to your channel profile once; it’s used in every idea you ask for.',
     },
     {
-      question: "Can I audit thumbnails I didn't create here?",
-      answer: "Absolutely! You can upload any thumbnail image or paste a YouTube URL to audit thumbnails from any video. This is great for analyzing competitor thumbnails, understanding what works in your niche, or auditing your existing catalog to find underperformers worth updating."
+      question: 'What’s a video, what’s a credit?',
+      answer: `${video}Plans are sold in videos; credits are how we count.`,
+    },
+    trial
+      ? {
+          question: 'How does the free trial work?',
+          answer: `${trial.days} days, ${trial.videos} video${trial.videos === 1 ? '' : 's'} included. Your card is charged on day ${trial.days + 1} unless you cancel, in one click from Settings.`,
+        }
+      : null,
+    {
+      question: 'Do credits expire?',
+      answer: `${planCredits}${trial ? ' Free trial credits end with the trial.' : ''} Credit packs never expire.`,
     },
     {
-      question: "What metrics does the audit analyze?",
-      answer: "The audit analyzes: Mobile Readability (how clear it is on small screens), Color Contrast (visibility and attention-grabbing potential), Composition Score (visual balance and focal points), Brightness (overall luminosity and appeal), Text Clarity (font size, legibility, and impact), Face Prominence (presence and positioning of faces), plus niche-specific factors based on your content category."
+      question: 'Why not Canva or Photoshop?',
+      answer: 'They’re great if you have the time and the eye. AI Thumbnails gives you three finished ideas per video, in your style.',
     },
     {
-      question: "How long does a review take?",
-      answer: "Most reviews complete in under 5 seconds. You'll get your Attention Score, detailed metric breakdown, and AI-generated recommendations almost instantly. No waiting around—iterate quickly and find your strongest thumbnail."
-    },
-    {
-      question: "Is it free to try?",
-      answer: `Yes. Visitors get up to 3 free thumbnail audits a day, no account needed. Generating and editing need a free account: new accounts get ${freeCreditsText(credits)} once the email is verified${credits ? ' — enough for one generation, one edit and an audit' : ''}. No credit card needed.`
-    },
-    {
-      question: "Can the AI generate thumbnails based on my audit results?",
-      answer: "Yes. After an audit, click “Create a new thumbnail for this video”: the Studio opens its create screen, with the video’s title filled in when the audit has one, and you review the brief before anything is generated. To fix an existing thumbnail, upload it in the Studio, audit it there, select the findings to fix and click “Apply N corrections · 18 credits” — one AI edit that makes those changes. Generating and editing need a free account, and every paid step shows its price on its button."
+      question: 'Can I cancel anytime?',
+      answer: 'Yes, from Settings › Subscription. Your credits stay usable until they expire.',
     },
   ];
+  return items.filter((item): item is FaqItem => item !== null);
+}
 
-  return (
-    <section id="faq" className="py-24 bg-gradient-to-b from-black to-[#09090B]">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-black/60 border border-gray-800/50 rounded-full text-xs font-medium text-gray-400 mb-6"
-          >
-            <HelpCircle className="w-3.5 h-3.5 text-[#fa7517]" />
-            FREQUENTLY ASKED
-          </motion.div>
-          
-          <motion.h2
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-            className="text-3xl md:text-4xl font-bold text-white mb-4"
-          >
-            Questions About Thumbnail Reviews
-          </motion.h2>
-          
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-            className="text-gray-400"
-          >
-            Everything you need to know about auditing and optimizing your thumbnails.
-          </motion.p>
-        </div>
-
-        {/* FAQ Items */}
-        <div className="space-y-3">
-          {faqs.map((faq, index) => (
-            <FAQItem
-              key={index}
-              question={faq.question}
-              answer={faq.answer}
-              isOpen={openIndex === index}
-              onClick={() => setOpenIndex(openIndex === index ? null : index)}
-              index={index}
-            />
-          ))}
-        </div>
-
-        {/* Bottom CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-12 text-center"
-        >
-          <p className="text-gray-400 mb-4">Still have questions?</p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a
-              href="mailto:support@base.tube"
-              className="text-[#fa7517] hover:text-orange-400 font-medium transition-colors"
-            >
-              Contact Support →
-            </a>
-            <span className="hidden sm:inline text-gray-600">or</span>
-            <a
-              href="/ai-thumbnails/audit"
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#fa7517]/10 hover:bg-[#fa7517]/20 border border-[#fa7517]/30 rounded-full text-[#fa7517] font-medium transition-colors"
-            >
-              <BarChart2 className="w-4 h-4" />
-              Try Your First Audit
-            </a>
-          </div>
-        </motion.div>
+const ThumbnailFAQ: React.FC<{ catalog: SubscriptionCatalog | undefined }> = ({ catalog }) => (
+  <section id="faq" aria-labelledby="landing-faq-title" className="scroll-mt-20 bg-white/[0.015] py-20 sm:py-24">
+    <div className="mx-auto max-w-3xl px-4 sm:px-6">
+      <h2 id="landing-faq-title" className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
+        Questions
+      </h2>
+      <div className="mt-10 space-y-3">
+        {landingFaq(catalog).map(({ question, answer }) => (
+          <details key={question} className="group rounded-2xl border border-white/[0.08] bg-[#111113] px-5 py-4 open:border-white/15">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-medium text-white [&::-webkit-details-marker]:hidden">
+              {question}
+              <ChevronDown className="h-5 w-5 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" aria-hidden="true" />
+            </summary>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-400">{answer}</p>
+          </details>
+        ))}
       </div>
-    </section>
-  );
-};
+    </div>
+  </section>
+);
 
 export default ThumbnailFAQ;
