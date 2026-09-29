@@ -13,6 +13,8 @@ import { clearPlanIntent, readPlanIntent } from '../../../../utils/studioDraft';
 import { armStudioAuthConfirm } from '../../../../utils/studioFunnel';
 import { finishStudioWalletSignIn } from '../../../../utils/studioOnboarding';
 import { resumePlanIntent } from '../components/billing/billingActions';
+import ThumbnailWall from '../../ThumbnailLanding/ThumbnailWall';
+import '../../ThumbnailLanding/landing.css';
 
 /** The pricing page's notice when the plan chosen before the sign-up could not open its checkout. */
 export type PlanIntentNotice = { planNotice: 'no-trial' } | { planNotice: 'failed'; message: string };
@@ -80,9 +82,12 @@ export default function AIThumbnailsAuthContinue() {
   }, [resolved, account, createdAt, origin, planIntent, walletUser, setUser, navigate]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a0a0b]">
-      <p role="status" className="flex items-center gap-2 text-sm text-zinc-400">
-        <Loader2 className="h-4 w-4 animate-spin text-[#fa7517]" aria-hidden="true" />
+    <div className="lp relative isolate flex min-h-screen items-center justify-center overflow-hidden">
+      {/* The landing page's wall under a heavy veil: the same world between the form and the next page. */}
+      <ThumbnailWall rows={5} className="-z-20 opacity-60" />
+      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_50%_45%_at_50%_50%,rgba(7,7,9,0.96)_0%,rgba(7,7,9,0.85)_60%,rgba(7,7,9,0.6)_100%)]" />
+      <p role="status" className="flex items-center gap-3 rounded-full border border-white/10 bg-black/60 px-5 py-3 text-base text-zinc-200 backdrop-blur-xl">
+        <Loader2 className="h-5 w-5 animate-spin text-[#fa7517]" aria-hidden="true" />
         {openingCheckout ? 'Opening secure checkout…' : 'Signing you in…'}
       </p>
     </div>

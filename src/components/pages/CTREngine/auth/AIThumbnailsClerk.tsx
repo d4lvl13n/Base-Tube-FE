@@ -2,35 +2,38 @@ import React from 'react';
 import { SignIn, SignUp } from '@clerk/clerk-react';
 import { dark } from '@clerk/themes';
 import { STUDIO_AUTH_CONTINUE_PATH, STUDIO_SIGN_IN_PATH, STUDIO_SIGN_UP_PATH } from '../../../../utils/studioAuth';
+// The landing page's button styles (lp-btn-primary) and fonts, shared with these forms.
+import '../../ThumbnailLanding/landing.css';
 
 type ClerkAppearance = React.ComponentProps<typeof SignUp>['appearance'];
 
 /**
- * AI Thumbnails' look for Clerk's sign-in and sign-up (adapted from base.tube's
- * sign-up look): dark panel, #fa7517 accent, compact. `withSocialButtons:
- * false` hides Clerk's Google and Discord buttons (the gate hands them off to
- * the full page, see EmailGateModal).
+ * AI Thumbnails' look for Clerk's sign-in and sign-up, matching the landing page: a dark glass
+ * panel, Archivo, the orange gradient button with its sweeping light, rounded fields.
+ * `withSocialButtons: false` hides Clerk's Google and Discord buttons (the gate hands them
+ * off to the full page, see EmailGateModal).
  */
 export function aiThumbnailsClerkAppearance({ withSocialButtons = true }: { withSocialButtons?: boolean } = {}): ClerkAppearance {
   return {
     baseTheme: dark,
     variables: {
       colorPrimary: '#fa7517',
-      colorBackground: '#111113',
+      colorBackground: '#101015',
+      fontFamily: "'Archivo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
       colorText: '#f4f4f5',
       colorTextSecondary: '#a1a1aa',
       colorInputBackground: '#18181b',
       colorInputText: '#ffffff',
-      borderRadius: '0.75rem',
+      borderRadius: '0.9rem',
     },
     elements: {
       rootBox: 'w-full',
       cardBox: 'w-full max-w-none shadow-none',
-      card: 'w-full max-w-none bg-[#111113] border border-white/10 shadow-none rounded-2xl',
-      headerTitle: 'text-lg font-semibold',
+      card: 'w-full max-w-none bg-[#101015]/90 backdrop-blur-xl border border-white/10 rounded-[22px] shadow-[0_40px_120px_-40px_rgba(250,117,23,0.4)]',
+      headerTitle: 'text-xl font-bold tracking-tight',
       headerSubtitle: 'text-zinc-400',
       socialButtonsBlockButton: 'border-white/10 bg-[#18181b] hover:bg-[#1f1f23] transition-colors',
-      formButtonPrimary: 'bg-[#fa7517] hover:bg-[#fa7517]/90 shadow-none transition-colors',
+      formButtonPrimary: 'lp-btn-primary h-12 rounded-full text-[15px] font-semibold normal-case',
       formFieldInput: {
         backgroundColor: '#18181b',
         borderColor: '#27272a',

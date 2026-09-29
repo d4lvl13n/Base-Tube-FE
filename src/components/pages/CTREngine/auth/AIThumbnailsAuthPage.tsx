@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
-import { Coins, CreditCard, ScanSearch, Sparkles, Wallet, Wand2 } from 'lucide-react';
+import { Check, Coins, CreditCard, Wallet } from 'lucide-react';
 import { useStudioAccountState } from '../../../../hooks/useStudioAccount';
 import { useWelcomeOffer, WELCOME_CREDITS_GIVEN_OUT } from '../../../../hooks/useWelcomeOffer';
 import { catalogTrial, useSubscriptionPlans } from '../../../../hooks/useSubscription';
@@ -18,6 +18,10 @@ import { readPlanIntent, type PlanIntent } from '../../../../utils/studioDraft';
 import { loadEmailGate, saveEmailGate } from '../../../../utils/studioFunnel';
 import { planPriceText } from '../components/billing/PlanChoices';
 import { noteStudioAuthStart } from '../../../../utils/studioWelcome';
+import ThumbnailWall from '../../ThumbnailLanding/ThumbnailWall';
+import { RevealHeading, type HeadingPart } from '../../ThumbnailLanding/motionKit';
+import { useLandingFonts } from '../../ThumbnailLanding/useLandingFonts';
+import '../../ThumbnailLanding/landing.css';
 
 /**
  * AI Thumbnails' own sign-in and sign-up pages (`/ai-thumbnails/sign-in/*`,
@@ -27,10 +31,11 @@ import { noteStudioAuthStart } from '../../../../utils/studioWelcome';
  * visitor came from (utils/studioAuth) without base.tube's onboarding.
  */
 
-const FEATURES = [
-  { Icon: Sparkles, title: 'Create', text: 'Thumbnails from a video title, a script, a YouTube link or an image.' },
-  { Icon: Wand2, title: 'Fix', text: 'Change the text, the face or a detail of a thumbnail you made.' },
-  { Icon: ScanSearch, title: 'Audit', text: 'Check a thumbnail, or a whole channel, before you publish.' },
+// What the account gets, as on the landing page: outcomes, not features.
+const OUTCOMES = [
+  'Three thumbnail ideas for every video, with your face.',
+  'A review that says exactly what to change.',
+  'Your channel’s style, remembered for every idea.',
 ];
 
 /**
@@ -84,45 +89,64 @@ function AuthNote({ planIntent, gift }: { planIntent: PlanIntent | null; gift: b
   }
   if (!text) return null;
   return (
-    <p className="mt-6 flex items-center gap-2 rounded-xl border border-[#fa7517]/25 bg-[#fa7517]/5 px-3 py-2.5 text-sm text-zinc-200">
-      <Icon className="h-4 w-4 shrink-0 text-[#fa7517]" aria-hidden="true" />
-      {text}
+    <p className="mt-8 flex items-start gap-3 rounded-2xl border border-[#fa7517]/30 bg-[#fa7517]/[0.08] px-4 py-3.5 text-sm leading-relaxed text-zinc-100 backdrop-blur-md">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#fa7517] text-white">
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      </span>
+      <span className="pt-0.5">{text}</span>
     </p>
   );
 }
 
-function AuthLayout({ title, subtitle, note, children }: { title: string; subtitle: string; note?: React.ReactNode; children: React.ReactNode }) {
+/**
+ * The two pages' frame, mirroring the landing page: on the left the drifting wall of thumbnails
+ * under a dark veil, a white and orange headline, the outcomes and the next step; on the right the
+ * form on a glass panel. On a phone the left side shortens to the headline above the form.
+ */
+function AuthLayout({ heading, subtitle, note, children }: { heading: HeadingPart[]; subtitle: string; note?: React.ReactNode; children: React.ReactNode }) {
+  useLandingFonts();
   const titleId = useId();
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
-      <header className="border-b border-white/[0.06]">
-        <div className="mx-auto flex h-16 max-w-5xl items-center px-4 sm:px-6">
+    <div className="lp relative isolate min-h-screen overflow-hidden text-zinc-100">
+      <ThumbnailWall rows={5} className="-z-20 opacity-80" />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(7,7,9,0.82)_0%,rgba(7,7,9,0.9)_45%,rgba(7,7,9,0.97)_60%,#070709_100%)] max-lg:bg-[linear-gradient(180deg,rgba(7,7,9,0.85)_0%,rgba(7,7,9,0.96)_40%,#070709_70%)]"
+      />
+      <div aria-hidden="true" className="absolute right-[12%] top-1/3 -z-10 h-[420px] w-[520px] rounded-full bg-[#fa7517]/[0.1] blur-[140px]" />
+
+      <header className="relative">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
           <Link to="/ai-thumbnails" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#fa7517]/30 bg-[#fa7517]/10">
-              <img src="/assets/basetubelogo.png" alt="" className="h-6 w-6" />
+            <img src="/assets/basetubelogo.png" alt="" className="h-8 w-8" />
+            <span className="flex flex-col leading-tight">
+              <span className="text-[15px] font-bold text-white">Base.Tube</span>
+              <span className="text-xs text-white/55">AI Thumbnails</span>
             </span>
-            <span className="text-[15px] font-semibold tracking-tight text-zinc-100">Base.Tube</span>
-            <span className="text-sm text-zinc-500">AI Thumbnails</span>
+          </Link>
+          <Link to="/ai-thumbnails" className="text-sm text-white/70 transition-colors hover:text-white">
+            Back to AI Thumbnails
           </Link>
         </div>
       </header>
-      <main className="mx-auto grid max-w-5xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-12 lg:py-14">
-        <section aria-labelledby={titleId} className="lg:pt-4">
-          <h1 id={titleId} className="text-2xl font-bold tracking-tight text-white sm:text-3xl">{title}</h1>
-          <p className="mt-2 text-sm text-zinc-400">{subtitle}</p>
-          <ul className="mt-6 space-y-3">
-            {FEATURES.map(({ Icon, title: name, text }) => (
-              <li key={name} className="flex items-start gap-3 text-sm">
-                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#fa7517]/10">
-                  <Icon className="h-4 w-4 text-[#fa7517]" aria-hidden="true" />
+
+      <main className="relative mx-auto grid max-w-7xl items-center gap-10 px-5 pb-16 pt-6 sm:px-8 lg:min-h-[calc(100vh-4rem)] lg:grid-cols-12 lg:gap-16 lg:pb-20">
+        <section aria-labelledby={titleId} className="lg:col-span-7">
+          <RevealHeading as="h1" id={titleId} immediate className="lp-display max-w-2xl text-[2.6rem] text-white sm:text-6xl lg:text-7xl" parts={heading} />
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-300">{subtitle}</p>
+          <ul className="mt-8 hidden space-y-3 sm:block">
+            {OUTCOMES.map((outcome) => (
+              <li key={outcome} className="flex items-center gap-3 text-base text-zinc-200">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#fa7517] text-white shadow-[0_8px_30px_-8px_rgba(250,117,23,0.8)]">
+                  <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
                 </span>
-                <span><span className="font-semibold text-white">{name}.</span> <span className="text-zinc-400">{text}</span></span>
+                {outcome}
               </li>
             ))}
           </ul>
           {note}
         </section>
-        <div className="min-w-0 space-y-4">{children}</div>
+        <div className="min-w-0 space-y-4 lg:col-span-5">{children}</div>
       </main>
     </div>
   );
@@ -143,9 +167,13 @@ export function AIThumbnailsSignInPage() {
   const [planIntent] = useState(() => readPlanIntent());
   if (redirect) return redirect;
   return (
-    <AuthLayout title="Sign in to AI Thumbnails" subtitle="Your base.tube account works here." note={<AuthNote planIntent={planIntent} gift={false} />}>
+    <AuthLayout
+      heading={['Welcome ', { accent: 'back.' }]}
+      subtitle="Sign in with your base.tube account to open your Studio, your projects and your channel profiles."
+      note={<AuthNote planIntent={planIntent} gift={false} />}
+    >
       <AIThumbnailsSignIn routing="path" />
-      <section ref={wallet} aria-labelledby={walletTitleId} className="rounded-2xl border border-white/10 bg-[#111113] p-4">
+      <section ref={wallet} aria-labelledby={walletTitleId} className="rounded-[22px] border border-white/10 bg-[#101015]/90 p-5 backdrop-blur-xl">
         <h2 id={walletTitleId} tabIndex={-1} className="flex items-center gap-2 text-sm font-semibold text-white focus:outline-none">
           <Wallet className="h-4 w-4 text-[#fa7517]" aria-hidden="true" />
           Sign in with a wallet
@@ -175,15 +203,25 @@ export function AIThumbnailsSignUpPage() {
   };
   // A plan button led here: its checkout opens right after the sign-up (AIThumbnailsAuthContinue).
   const [planIntent] = useState(() => readPlanIntent());
+  const plans = useSubscriptionPlans();
+  const trial = catalogTrial(plans.data);
+  const plan = planIntent ? plans.data?.plans.find(({ id }) => id === planIntent.planId) ?? null : null;
   if (redirect) return redirect;
+  // Why the visitor is here decides the headline: a trial button, a paid plan button, or just signing up.
+  const heading: HeadingPart[] = planIntent?.trial
+    ? ['Start your ', { accent: trial ? `${trial.days}-day free trial.` : 'free trial.' }]
+    : planIntent && plan
+      ? ['Create your account for ', { accent: `${plan.name}.` }]
+      : ['Make thumbnails that look like ', { accent: 'your channel.' }];
+  const subtitle = planIntent
+    ? 'Create your account, then a secure Stripe page opens. One account for AI Thumbnails and the rest of base.tube.'
+    : trial
+      ? `Create your free account. Then try any plan free for ${trial.days} days, with ${trial.videos} video${trial.videos === 1 ? '' : 's'} included.`
+      : 'Create your free account. One account for AI Thumbnails and the rest of base.tube.';
   return (
-    <AuthLayout
-      title={planIntent?.trial ? "Create your account to start your free trial" : "Create your free AI Thumbnails account"}
-      subtitle="One account for AI Thumbnails and the rest of base.tube."
-      note={<AuthNote planIntent={planIntent} gift />}
-    >
+    <AuthLayout heading={heading} subtitle={subtitle} note={<AuthNote planIntent={planIntent} gift />}>
       {/* Read before the form is sent: the value goes with the sign-up confirmation (consent). */}
-      <label className="flex cursor-pointer select-none items-start gap-3 rounded-xl border border-white/10 bg-[#111113] px-3 py-2.5">
+      <label className="flex cursor-pointer select-none items-start gap-3 rounded-2xl border border-white/10 bg-[#101015]/90 px-4 py-3 backdrop-blur-xl">
         <input
           type="checkbox"
           checked={consent}

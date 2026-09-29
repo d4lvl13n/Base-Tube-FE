@@ -123,8 +123,8 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
   it('the sign-up page says what AI Thumbnails does, promises the credits only on a verified email, and keeps an unticked opt-in', async () => {
     startStudioAuth('sign-up', '/ai-thumbnails/gallery');
     render(app('/ai-thumbnails/sign-up'));
-    expect(screen.getByRole('heading', { name: 'Create your free AI Thumbnails account' })).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem').map(item => item.textContent)).toEqual([expect.stringMatching(/^Create\./), expect.stringMatching(/^Fix\./), expect.stringMatching(/^Audit\./)]);
+    expect(screen.getByRole('heading', { name: 'Make thumbnails that look like your channel.' })).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem').map(item => item.textContent)).toEqual([expect.stringMatching(/^Three thumbnail ideas/), expect.stringMatching(/^A review/), expect.stringMatching(/^Your channel/)]);
     // The gift comes from the welcome offer: nothing is promised until the server says so.
     expect(screen.queryByText(/free credits/i)).not.toBeInTheDocument();
     expect(await screen.findByText('50 free credits once your email is verified.')).toBeInTheDocument();
@@ -158,7 +158,7 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     (getWelcomeOffer as jest.Mock).mockResolvedValue({ credits: 0, available: false, resetsAt: '2030-01-02T00:00:00.000Z' });
     startPlanSignUp({ planId: 'creator', interval: 'month', trial: true }, '/ai-thumbnails');
     render(app('/ai-thumbnails/sign-up'));
-    expect(screen.getByRole('heading', { name: 'Create your account to start your free trial' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Start your 7-day free trial.' })).toBeInTheDocument();
     expect(
       await screen.findByText('Next: secure checkout for your 7-day free trial of Creator, 2 videos included. Your card is charged on day 8 unless you cancel.'),
     ).toBeInTheDocument();
@@ -167,7 +167,7 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
   it('the sign-in page offers the wallet; a wallet sign-in there ends on the continue screen, back where it started', async () => {
     startStudioAuth('sign-in', '/ai-thumbnails/history');
     const view = render(app('/ai-thumbnails/sign-in'));
-    expect(screen.getByRole('heading', { name: 'Sign in to AI Thumbnails' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Welcome back.' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign in with a wallet' })).toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     walletAccount('COMPLETED');
