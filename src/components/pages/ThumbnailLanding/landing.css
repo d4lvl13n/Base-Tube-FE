@@ -1,0 +1,106 @@
+/* AI Thumbnails landing page. Fonts are loaded by useLandingFonts (Archivo with its width axis,
+   Anton for titles printed on thumbnails). Motion stops under prefers-reduced-motion. */
+
+.lp {
+  font-family: 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-stretch: 100%;
+  background: #070709;
+  color: #f4f4f5;
+}
+
+/* Headlines: Archivo widened and heavy, set tight. */
+.lp-display {
+  font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+  font-stretch: 115%;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+
+.lp-heading {
+  font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+  font-stretch: 110%;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.lp-accent {
+  background: linear-gradient(100deg, #fa7517 10%, #ffb067 60%, #ffd9b0 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* A thumbnail's own title, as creators set it: condensed caps with a hard outline. */
+.lp-thumb {
+  container-type: inline-size;
+}
+.lp-thumb-title {
+  font-family: 'Anton', Impact, 'Arial Narrow', sans-serif;
+  text-transform: uppercase;
+  line-height: 0.92;
+  letter-spacing: 0.005em;
+  font-size: 10.5cqw;
+  -webkit-text-stroke: 0.09em #0a0a0a;
+  paint-order: stroke fill;
+  text-shadow: 0 0.05em 0 rgba(0, 0, 0, 0.55);
+}
+
+/* The drifting wall behind the hero and the final call to action. */
+.lp-wall-plane {
+  transform: perspective(1600px) rotateX(24deg) rotateZ(-9deg) scale(1.28);
+  transform-origin: 50% 40%;
+}
+.lp-drift {
+  display: flex;
+  width: max-content;
+  animation: lp-drift-left var(--lp-drift, 90s) linear infinite;
+}
+.lp-drift.lp-reverse {
+  animation-name: lp-drift-right;
+}
+@keyframes lp-drift-left {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+@keyframes lp-drift-right {
+  from { transform: translate3d(-50%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+/* Quote bands: they stop while hovered or focused so a quote can be read. */
+.lp-band:hover .lp-drift,
+.lp-band:focus-within .lp-drift {
+  animation-play-state: paused;
+}
+
+.lp-caret::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: #fa7517;
+  animation: lp-blink 1s steps(1) infinite;
+}
+@keyframes lp-blink {
+  50% { opacity: 0; }
+}
+
+.lp-glow {
+  box-shadow: 0 0 0 1px rgba(250, 117, 23, 0.55), 0 12px 40px -8px rgba(250, 117, 23, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-drift,
+  .lp-caret::after {
+    animation: none;
+  }
+  /* Still quote bands: every quote visible, wrapped, once. */
+  .lp-band { mask-image: none; -webkit-mask-image: none; }
+  .lp-band .lp-drift { width: auto; padding: 0 1.25rem; }
+  .lp-band .lp-drift > ul { flex-wrap: wrap; }
+  .lp-band .lp-drift > ul[aria-hidden] { display: none; }
+}

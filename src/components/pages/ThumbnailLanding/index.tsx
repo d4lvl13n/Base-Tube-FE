@@ -1,6 +1,6 @@
 // /ai-thumbnails — the AI Thumbnails landing page. Only true claims: prices,
 // videos and the free trial come from GET /api/v1/subscriptions/plans; the one
-// market figure and the Reddit quotes are in landingContent.ts with their source.
+// market figure, the Reddit quotes and the example images are in landingContent.ts with their source.
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useMySubscription, useSubscriptionPlans } from '../../../hooks/useSubscription';
@@ -9,44 +9,43 @@ import { startOffer, type StartOffer } from '../CTREngine/components/billing/Sta
 import ThumbnailLandingHeader from './ThumbnailLandingHeader';
 import ThumbnailHero from './ThumbnailHero';
 import NumbersBar from './NumbersBar';
-import ProblemSection from './ProblemSection';
+import StudioDemo from './StudioDemo';
+import ChannelMemory from './ChannelMemory';
 import CreatorQuotes from './CreatorQuotes';
-import HowItWorks from './HowItWorks';
+import ReviewSection from './ReviewSection';
 import ThumbnailFeatures from './ThumbnailFeatures';
-import MeasuredNotPredicted from './MeasuredNotPredicted';
 import PricingTeaser from './PricingTeaser';
-import FreeReviewCard from './FreeReviewCard';
 import ThumbnailFAQ from './ThumbnailFAQ';
 import FinalCTA from './FinalCTA';
+import { useLandingFonts } from './useLandingFonts';
+import './landing.css';
 
-const footerLink = 'block text-sm text-gray-400 transition-colors hover:text-[#fa7517]';
+const footerLink = 'block text-sm text-zinc-400 transition-colors hover:text-white';
 
 function LandingFooter() {
   return (
-    <footer className="border-t border-gray-800/30 bg-black py-16">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-8 md:grid-cols-4">
+    <footer className="border-t border-white/[0.06] py-16">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="grid gap-10 md:grid-cols-4">
           <div>
             <div className="mb-4 flex items-center gap-3">
-              <img src="/assets/basetubelogo.png" alt="Base.Tube Logo" className="h-10 w-10" />
-              <div>
-                <span className="bg-gradient-to-r from-[#fa7517] to-orange-400 bg-clip-text text-lg font-bold text-transparent">Base.Tube</span>
-                <p className="text-xs text-gray-400">AI Thumbnails</p>
+              <img src="/assets/basetubelogo.png" alt="Base.Tube Logo" className="h-9 w-9" />
+              <div className="leading-tight">
+                <p className="text-base font-bold text-white">Base.Tube</p>
+                <p className="text-xs text-zinc-500">AI Thumbnails</p>
               </div>
             </div>
-            <p className="text-sm leading-relaxed text-gray-400">
-              AI thumbnails in your channel&apos;s style, and reviews that say what to change.
-            </p>
+            <p className="max-w-xs text-sm leading-relaxed text-zinc-500">Thumbnails in your channel&apos;s style, and reviews that say what to change.</p>
           </div>
 
-          <div>
-            <h3 className="mb-4 font-semibold text-white">Product</h3>
-            <div className="space-y-2">
+          <nav aria-label="Product">
+            <p className="mb-4 text-sm font-semibold text-white">Product</p>
+            <div className="space-y-2.5">
               <Link to="/ai-thumbnails/pricing" className={footerLink}>
                 Pricing
               </Link>
               <Link to="/ai-thumbnails/audit" className={footerLink}>
-                Free review
+                Thumbnail review
               </Link>
               <Link to="/ai-thumbnails/projects" className={footerLink}>
                 Studio
@@ -55,11 +54,11 @@ function LandingFooter() {
                 Features
               </a>
             </div>
-          </div>
+          </nav>
 
-          <div>
-            <h3 className="mb-4 font-semibold text-white">Company</h3>
-            <div className="space-y-2">
+          <nav aria-label="Company">
+            <p className="mb-4 text-sm font-semibold text-white">Company</p>
+            <div className="space-y-2.5">
               <a href="/" className={footerLink}>
                 Base.Tube Platform
               </a>
@@ -73,11 +72,11 @@ function LandingFooter() {
                 Contact
               </a>
             </div>
-          </div>
+          </nav>
 
-          <div>
-            <h3 className="mb-4 font-semibold text-white">Support</h3>
-            <div className="space-y-2">
+          <nav aria-label="Support">
+            <p className="mb-4 text-sm font-semibold text-white">Support</p>
+            <div className="space-y-2.5">
               <a href="mailto:support@base.tube" className={footerLink}>
                 Help Center
               </a>
@@ -94,23 +93,21 @@ function LandingFooter() {
                 FAQ
               </a>
             </div>
-          </div>
+          </nav>
         </div>
 
-        <div className="mt-12 border-t border-gray-800/30 pt-8">
-          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-            <div className="text-sm text-gray-500">© 2026 Base.Tube. All rights reserved.</div>
-            <div className="flex items-center gap-6">
-              <a href="https://twitter.com/basetube" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 transition-colors hover:text-[#fa7517]">
-                Twitter
-              </a>
-              <a href="https://youtube.com/@basetube" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 transition-colors hover:text-[#fa7517]">
-                YouTube
-              </a>
-              <a href="https://discord.gg/basetube" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 transition-colors hover:text-[#fa7517]">
-                Discord
-              </a>
-            </div>
+        <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-white/[0.06] pt-8 md:flex-row">
+          <p className="text-sm text-zinc-600">© 2026 Base.Tube. All rights reserved.</p>
+          <div className="flex items-center gap-6">
+            <a href="https://twitter.com/basetube" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-500 transition-colors hover:text-white">
+              Twitter
+            </a>
+            <a href="https://youtube.com/@basetube" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-500 transition-colors hover:text-white">
+              YouTube
+            </a>
+            <a href="https://discord.gg/basetube" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-500 transition-colors hover:text-white">
+              Discord
+            </a>
           </div>
         </div>
       </div>
@@ -119,6 +116,7 @@ function LandingFooter() {
 }
 
 const ThumbnailLanding: React.FC = () => {
+  useLandingFonts();
   const { account, resolved } = useStudioAccountState();
   const signedIn = account !== 'anonymous';
   const plans = useSubscriptionPlans();
@@ -128,16 +126,16 @@ const ThumbnailLanding: React.FC = () => {
     : { kind: 'loading' };
 
   return (
-    <div className="min-h-screen bg-[#09090B] text-white">
+    <div className="lp min-h-screen">
       <ThumbnailLandingHeader offer={offer} signedIn={signedIn} />
       <main>
         <ThumbnailHero offer={offer} signedIn={signedIn} />
         <NumbersBar catalog={plans.data} loading={plans.isPending} />
-        <ProblemSection />
+        <StudioDemo />
+        <ChannelMemory catalog={plans.data} />
         <CreatorQuotes />
-        <HowItWorks />
+        <ReviewSection signedIn={signedIn} resolved={resolved} />
         <ThumbnailFeatures />
-        <MeasuredNotPredicted />
         <PricingTeaser
           catalog={plans.data}
           loading={plans.isPending}
@@ -145,7 +143,6 @@ const ThumbnailLanding: React.FC = () => {
           me={me.data}
           meLoading={signedIn && (me.isPending || !resolved)}
         />
-        {resolved && !signedIn && <FreeReviewCard />}
         <ThumbnailFAQ catalog={plans.data} />
         <FinalCTA offer={offer} signedIn={signedIn} />
       </main>

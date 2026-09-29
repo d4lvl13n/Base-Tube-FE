@@ -12,20 +12,18 @@ const FEATURES = [
 ];
 
 const ThumbnailFeatures: React.FC = () => (
-  <section id="features" aria-labelledby="landing-features-title" className="scroll-mt-20 bg-white/[0.015] py-20 sm:py-24">
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <h2 id="landing-features-title" className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
-        Features
+  <section id="features" aria-labelledby="landing-features-title" className="scroll-mt-16 border-t border-white/[0.06] py-24 sm:py-32">
+    <div className="mx-auto max-w-7xl px-5 sm:px-8">
+      <h2 id="landing-features-title" className="lp-heading text-4xl text-white sm:text-5xl">
+        Everything in one place.
       </h2>
-      <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="mt-14 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map(({ Icon, title, text }) => (
-          <li key={title} className="flex items-start gap-4 rounded-2xl border border-white/[0.08] bg-[#111113] p-6">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fa7517]/10">
-              <Icon className="h-5 w-5 text-[#fa7517]" aria-hidden="true" />
-            </span>
+          <li key={title} className="flex gap-4 border-t border-white/[0.08] py-7">
+            <Icon className="mt-1 h-5 w-5 shrink-0 text-[#fa7517]" aria-hidden="true" />
             <span>
-              <span className="block text-base font-semibold text-white">{title}</span>
-              <span className="mt-1 block text-sm text-zinc-400">{text}</span>
+              <span className="block text-lg font-semibold text-white">{title}</span>
+              <span className="mt-1.5 block text-base leading-relaxed text-zinc-400">{text}</span>
             </span>
           </li>
         ))}

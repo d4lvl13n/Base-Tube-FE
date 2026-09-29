@@ -62,19 +62,28 @@ export function landingFaq(catalog: SubscriptionCatalog | undefined): FaqItem[] 
 }
 
 const ThumbnailFAQ: React.FC<{ catalog: SubscriptionCatalog | undefined }> = ({ catalog }) => (
-  <section id="faq" aria-labelledby="landing-faq-title" className="scroll-mt-20 bg-white/[0.015] py-20 sm:py-24">
-    <div className="mx-auto max-w-3xl px-4 sm:px-6">
-      <h2 id="landing-faq-title" className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
-        Questions
-      </h2>
-      <div className="mt-10 space-y-3">
+  <section id="faq" aria-labelledby="landing-faq-title" className="scroll-mt-16 border-t border-white/[0.06] py-24 sm:py-32">
+    <div className="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-12">
+      <div className="lg:col-span-4">
+        <h2 id="landing-faq-title" className="lp-heading text-4xl text-white sm:text-5xl">
+          Questions
+        </h2>
+        <p className="mt-5 text-base text-zinc-400">
+          Something else? Write to{' '}
+          <a href="mailto:support@base.tube" className="text-[#fb923c] hover:text-orange-300">
+            support@base.tube
+          </a>
+          .
+        </p>
+      </div>
+      <div className="divide-y divide-white/[0.08] border-y border-white/[0.08] lg:col-span-8">
         {landingFaq(catalog).map(({ question, answer }) => (
-          <details key={question} className="group rounded-2xl border border-white/[0.08] bg-[#111113] px-5 py-4 open:border-white/15">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-medium text-white [&::-webkit-details-marker]:hidden">
+          <details key={question} className="group py-5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-lg font-medium text-white [&::-webkit-details-marker]:hidden">
               {question}
               <ChevronDown className="h-5 w-5 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" aria-hidden="true" />
             </summary>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-400">{answer}</p>
+            <p className="mt-3 max-w-2xl text-base leading-relaxed text-zinc-400">{answer}</p>
           </details>
         ))}
       </div>

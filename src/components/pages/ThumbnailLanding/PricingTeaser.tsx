@@ -18,13 +18,18 @@ const PricingTeaser: React.FC<{
   me: MySubscription | undefined;
   meLoading: boolean;
 }> = ({ catalog, loading, signedIn, me, meLoading }) => (
-  <section id="pricing" aria-labelledby="landing-pricing-title" className="scroll-mt-20 py-20 sm:py-24">
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-      <div className="text-center">
-        <h2 id="landing-pricing-title" className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          Pricing
+  <section id="pricing" aria-labelledby="landing-pricing-title" className="scroll-mt-16 border-t border-white/[0.06] py-24 sm:py-32">
+    <div className="mx-auto max-w-6xl px-5 sm:px-8">
+      <div className="max-w-2xl">
+        <h2 id="landing-pricing-title" className="lp-heading text-4xl text-white sm:text-5xl">
+          The price of one designer thumbnail, for your whole month.
         </h2>
-        <p className="mt-3 text-base text-zinc-300">The price of one designer thumbnail, for your whole month.</p>
+        {catalog && (
+          <p className="mt-5 text-lg text-zinc-400">
+            Plans are counted in videos. Each video is {catalog.videoBreakdown.concepts} ideas, {catalog.videoBreakdown.edits} edits and{' '}
+            {catalog.videoBreakdown.audits === 1 ? 'a review' : `${catalog.videoBreakdown.audits} reviews`}.
+          </p>
+        )}
       </div>
       <div className="mt-10">
         {catalog ? (
