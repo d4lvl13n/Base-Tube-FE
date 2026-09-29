@@ -154,9 +154,6 @@ const StudioDemo: React.FC = () => {
                               >
                                 <ThumbnailArt
                                   src={edited && 'edited' in idea ? idea.edited : idea.src}
-                                  title={idea.title}
-                                  place={idea.place}
-                                  tone={idea.tone}
                                   alt={idea.alt}
                                   lazy
                                   className="h-full w-full"

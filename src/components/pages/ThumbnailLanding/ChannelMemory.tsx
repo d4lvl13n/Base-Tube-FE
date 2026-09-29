@@ -38,9 +38,6 @@ const ChannelMemory: React.FC<{ catalog: SubscriptionCatalog | undefined }> = ({
               <div className="lp-float" style={{ animationDelay: FAN[index].float }}>
                 <ThumbnailArt
                   src={idea.src}
-                  title={idea.title}
-                  place={idea.place}
-                  tone={idea.tone}
                   lazy
                   className="rounded-xl shadow-2xl shadow-black/70 ring-1 ring-white/10"
                 />

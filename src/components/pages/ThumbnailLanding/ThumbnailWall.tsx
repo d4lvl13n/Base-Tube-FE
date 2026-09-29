@@ -7,7 +7,7 @@ function rotate<T>(list: readonly T[], by: number): T[] {
 }
 
 /**
- * The wall of thumbnails drifting on a tilted plane (behind the hero and the final call to action).
+ * The wall of thumbnails drifting on a tilted plane (behind the final call to action and the sign-in pages).
  * Each row is its set twice so the loop is seamless; decorative, hidden from screen readers.
  */
 const ThumbnailWall: React.FC<{ rows?: number; lazy?: boolean; className?: string }> = ({ rows = 4, lazy = false, className = '' }) => {
@@ -22,7 +22,7 @@ const ThumbnailWall: React.FC<{ rows?: number; lazy?: boolean; className?: strin
             style={{ ['--lp-drift' as string]: `${110 + row * 18}s` }}
           >
             {[...line, ...line].map((thumb, index) => (
-              <ThumbnailArt key={`${row}-${index}`} {...thumb} lazy={lazy} className="mr-4 w-[300px] shrink-0 rounded-xl ring-1 ring-white/10 sm:w-[340px]" />
+              <ThumbnailArt key={`${row}-${index}`} src={thumb.src} lazy={lazy} className="mr-4 w-[300px] shrink-0 rounded-xl ring-1 ring-white/10 sm:w-[340px]" />
             ))}
           </div>
         ))}

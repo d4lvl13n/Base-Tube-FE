@@ -2,15 +2,15 @@ import React, { useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { StartOfferButton, startOfferTerms, type StartOffer } from '../CTREngine/components/billing/StartOffer';
 import { HERO_POSTER_SRC, HERO_VIDEO_SRC } from './landingContent';
-import ThumbnailWall from './ThumbnailWall';
+import ThumbnailFeed from './ThumbnailFeed';
 import { RevealHeading } from './motionKit';
 import { primaryButton, ReviewButton } from './LandingButtons';
 
 /**
  * The hero. Behind it: the owner's background video when the file exists
- * (`/assets/ai-thumbnails/hero-background.mp4`), otherwise the drifting wall of example
- * thumbnails. The dark veil opens where the cursor is, so the wall shows through; the headline
- * lands word by word, white then orange.
+ * (`/assets/ai-thumbnails/hero-background.mp4`), otherwise a YouTube feed of example thumbnails.
+ * The dark veil opens where the cursor is, so the feed shows through; the headline lands word by
+ * word, white then orange.
  */
 const ThumbnailHero: React.FC<{ offer: StartOffer; signedIn: boolean }> = ({ offer, signedIn }) => {
   const reduceMotion = useReducedMotion();
@@ -33,7 +33,7 @@ const ThumbnailHero: React.FC<{ offer: StartOffer; signedIn: boolean }> = ({ off
       aria-labelledby="landing-hero-title"
       className="relative isolate flex min-h-[100svh] items-center overflow-hidden pt-20"
     >
-      <ThumbnailWall rows={5} className="-z-30" />
+      <ThumbnailFeed className="-z-30" />
       {!reduceMotion && !videoFailed && (
         <video
           aria-hidden="true"

@@ -5,13 +5,14 @@ import { ctrApi } from '../../../api/ctr';
 import { ReviewButton } from './LandingButtons';
 import { FadeIn, RevealHeading, useSeen } from './motionKit';
 
-// An example review on one example thumbnail (made-up channel): where each note points, and what it says.
-const EXAMPLE_SRC = '/assets/ai-thumbnails/examples/phone.webp';
-const SCORE = 6;
+// A real review by AI Thumbnails (the free review, 29 September 2026) of one of its own thumbnails:
+// its score and its three suggestions, lightly shortened; the pins mark where each one applies.
+const EXAMPLE_SRC = '/assets/ai-thumbnails/examples/deadlift-day-90.webp';
+const SCORE = 8;
 const NOTES = [
-  { x: 50, y: 34, text: 'Clear face, clear emotion. Keep it.' },
-  { x: 16, y: 46, text: 'The left third is empty: put three or four words of title here.' },
-  { x: 73, y: 52, text: 'The phone is dark and turned away. Show its screen: it is what the video is about.' },
+  { x: 24, y: 60, text: 'Brighten the left side to match the energy of the right.' },
+  { x: 91, y: 50, text: 'Simplify the background so the eye stays on the faces and the title.' },
+  { x: 40, y: 13, text: 'Add a subtle outline or glow to the title so it reads on small screens.' },
 ];
 
 function ScoreRing({ score, play }: { score: number; play: boolean }) {
@@ -137,7 +138,7 @@ const ReviewSection: React.FC<{ signedIn: boolean; resolved: boolean }> = ({ sig
             transition={{ duration: 0.9, ease: [0.2, 0.7, 0.2, 1] }}
             className="relative overflow-hidden rounded-2xl shadow-[0_40px_120px_-40px_rgba(250,117,23,0.35)] ring-1 ring-white/10"
           >
-            <img src={EXAMPLE_SRC} alt="An example thumbnail: a surprised man holding a new phone" loading="lazy" className="aspect-video w-full object-cover" />
+            <img src={EXAMPLE_SRC} alt="An example thumbnail: the same athlete tired on day 1 and strong on day 90, “Day 1 vs day 90”" loading="lazy" className="aspect-video w-full object-cover" />
             {NOTES.map((note, index) => (
               <motion.span
                 key={note.text}

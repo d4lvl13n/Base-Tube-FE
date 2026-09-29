@@ -72,48 +72,93 @@ export const CREATOR_QUOTES: CreatorQuote[] = [
 ];
 
 /**
- * Example thumbnails for the page's visuals. The pictures were made with Grok Imagine, the image
- * model the Studio uses for new images (29 September 2026); titles are real type set on top, as the
- * Studio's text works. Fictional videos and people. Replace with real Studio outputs when there are some.
+ * Example thumbnails for the page's visuals, made with AI Thumbnails itself (the Studio's batch
+ * command, 29 September 2026): the headline is part of each image. Invented creators, channels and
+ * videos, except the logos, which are the owner's own brands (Final Boss, Amazing Aerial, Codolie,
+ * Procyon Metals, base.tube). The hero shows them as a YouTube feed: title, channel and length,
+ * never view counts (they would claim results these thumbnails never had).
  */
 export interface ExampleThumbnail {
   src: string;
+  alt: string;
+  /** The video's title under the thumbnail in the feed. */
   title: string;
-  /** Where the title sits on the picture. */
-  place: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-  tone: 'yellow' | 'white';
+  channel: string;
+  /** The channel's round picture; null shows its initial. */
+  avatar: string | null;
+  duration: string;
 }
 
 const EXAMPLES_DIR = '/assets/ai-thumbnails/examples';
+const CHANNELS_DIR = '/assets/ai-thumbnails/channels';
+const CHANNELS: Record<string, { name: string; avatar: string | null }> = {
+  finalboss: { name: 'Final Boss', avatar: 'finalboss' },
+  amazingaerial: { name: 'Amazing Aerial', avatar: 'amazingaerial' },
+  codolie: { name: 'Codolie', avatar: 'codolie' },
+  procyon: { name: 'Procyon Metals', avatar: 'procyon' },
+  basetube: { name: 'base.tube', avatar: 'basetube' },
+  retire: { name: 'Retire Smart', avatar: 'sam' },
+  garage: { name: 'Sam’s Garage', avatar: 'sam' },
+  ana: { name: 'Ana Reviews', avatar: 'ana' },
+  paris: { name: 'Paris Sessions', avatar: 'maya' },
+  leo: { name: 'Leo Plays', avatar: 'leo' },
+  tom: { name: 'Tom Trades', avatar: 'tom' },
+  kai: { name: 'Kai Builds', avatar: 'kai' },
+  kaiFr: { name: 'Kai Joue', avatar: 'kai' },
+  ben: { name: 'Ben Publishes', avatar: 'ben' },
+  sky: { name: 'Night Sky Club', avatar: null },
+  money: { name: 'Money Leaks', avatar: null },
+};
+const example = (name: string, alt: string, title: string, channel: keyof typeof CHANNELS, duration: string): ExampleThumbnail => ({
+  src: `${EXAMPLES_DIR}/${name}.webp`, alt, title, duration,
+  channel: CHANNELS[channel].name, avatar: CHANNELS[channel].avatar && `${CHANNELS_DIR}/${CHANNELS[channel].avatar}.webp`,
+});
 
 export const EXAMPLE_THUMBNAILS: ExampleThumbnail[] = [
-  { src: `${EXAMPLES_DIR}/phone.webp`, title: 'It’s finally here', place: 'top-left', tone: 'yellow' },
-  { src: `${EXAMPLES_DIR}/burger.webp`, title: 'Smash burger at home', place: 'top-left', tone: 'white' },
-  { src: `${EXAMPLES_DIR}/fjord.webp`, title: 'Norway on $50 a day', place: 'top-left', tone: 'yellow' },
-  { src: `${EXAMPLES_DIR}/gamer.webp`, title: 'I broke the record', place: 'bottom-left', tone: 'yellow' },
-  { src: `${EXAMPLES_DIR}/garage.webp`, title: 'Barn find revival', place: 'top-right', tone: 'white' },
-  { src: `${EXAMPLES_DIR}/receipts.webp`, title: 'Where my money went', place: 'top-left', tone: 'yellow' },
-  { src: `${EXAMPLES_DIR}/deadlift.webp`, title: '90 days of deadlifts', place: 'bottom-left', tone: 'white' },
-  { src: `${EXAMPLES_DIR}/paint.webp`, title: '$200 room makeover', place: 'top-left', tone: 'yellow' },
-  { src: `${EXAMPLES_DIR}/telescope.webp`, title: 'See Saturn tonight', place: 'bottom-right', tone: 'white' },
-  { src: `${EXAMPLES_DIR}/tomato.webp`, title: 'Giant tomatoes, 1 trick', place: 'top-left', tone: 'yellow' },
-  { src: `${EXAMPLES_DIR}/van.webp`, title: 'Living in a van', place: 'top-left', tone: 'white' },
-  { src: `${EXAMPLES_DIR}/latte.webp`, title: 'Café latte at home', place: 'top-left', tone: 'white' },
+  example('finalboss-world-record', 'Final Boss: a gamer shocked in front of his screen, “New world record”', 'I beat the world record by 3 seconds', 'finalboss', '18:42'),
+  example('lazy-money-300-day', 'A relaxed man with his feet on the desk and an app notification, “$300/day”', 'I tried the laziest way to make money with AI', 'retire', '33:19'),
+  example('amazingaerial-norway', 'Amazing Aerial: a Norwegian fjord from above, “Norway from above”', 'Norway’s fjords from 400 feet', 'amazingaerial', '9:07'),
+  example('before-you-buy', 'A woman in a blazer raising both palms, “Before you buy”', 'The new VR headset: before you buy', 'ana', '12:55'),
+  example('codolie-automation', 'Codolie: a developer among purple cubes, “20 lines”', 'I automated my whole job with 20 lines of code', 'codolie', '14:21'),
+  example('french-hits-2026', 'A DJ in a red beret on a Paris street, “Les plus beaux hits”', 'Playlist française 2026 : les plus beaux hits', 'paris', '59:35'),
+  example('procyon-silver-gold', 'Procyon Metals: silver bars and a gold bar, “Silver vs gold”', 'Is silver the new gold?', 'procyon', '11:48'),
+  example('reaction-no-way', 'A streamer with his hands on his head, laughing, “No way...”', 'He challenged me again... and quit again', 'leo', '22:50'),
+  example('basetube-30-days', 'base.tube: a creator holding a camera, “30 days, 30 videos”', 'I posted a video every day for 30 days', 'basetube', '16:03'),
+  example('day-trading-live', 'A serious trader next to a rising chart, “Day trading live”', 'Day trading live: I call every entry before the fill', 'tom', '1:19:22'),
+  example('saturn-tonight', 'A telescope under the stars and Saturn, “Saturn tonight”', 'See Saturn’s rings tonight with a cheap telescope', 'sky', '8:36'),
+  example('app-50k-month', 'A founder holding up a booking app, “$50K/month”', 'This simple widget makes $50K a month', 'kai', '13:39'),
+  example('finalboss-200-hours', 'Final Boss: a gamer raising a glowing sword, “200 hours”', 'The rarest item in the game took me 200 hours', 'finalboss', '27:14'),
+  example('made-200-books', 'A creator thinking in front of four book covers, “I made 200 books”', 'I made 200 books: how much money did I make?', 'ben', '16:42'),
+  example('amazingaerial-lava', 'Amazing Aerial: a lava field from above, “Chasing the lava”', 'Flying a drone over an erupting volcano in Iceland', 'amazingaerial', '10:12'),
+  example('premier-avis-1h', 'A creator in front of fantasy heroes, “1er avis après 1h de test”', 'Nouveau RPG : 1er avis après 1h de test', 'kaiFr', '26:24'),
+  example('codolie-dev-tools', 'Codolie: a developer pointing at five glowing cubes, “5 dev tools”', '5 tools every developer needs in 2026', 'codolie', '11:05'),
+  example('subscription-leaks', 'A long receipt and a card on white, “$1,100 a year”', '7 subscriptions quietly draining your money', 'money', '9:58'),
+  example('procyon-gold-phone', 'Procyon Metals: an opened phone with gold flakes, “Gold in your phone?”', 'How much gold is inside a smartphone?', 'procyon', '13:27'),
+  example('basetube-first-1000', 'base.tube: a creator celebrating in orange confetti, “1,000 subs”', 'My first 1,000 subscribers: what actually worked', 'basetube', '15:31'),
+  example('barn-find-1972', 'An old rusty pickup in a barn with its owner, no text', 'Barn find: will this 1972 truck run again?', 'garage', '31:40'),
+  example('finalboss-no-armor', 'Final Boss: a gamer facing a giant pixel monster, “No armor”', 'I fought the hardest boss with no armor', 'finalboss', '24:18'),
+  example('amazingaerial-city-night', 'Amazing Aerial: a city at night from above, “The city at night”', 'A megacity at night from 500 feet', 'amazingaerial', '7:44'),
+  example('codolie-mini-pc', 'Codolie: a developer holding a tiny computer, “$200 setup”', 'I replaced my laptop with a $200 mini PC', 'codolie', '17:52'),
+  example('procyon-silver-mistakes', 'Procyon Metals: a collector holding a silver coin, “3 mistakes”', 'Buying silver coins: 3 mistakes to avoid', 'procyon', '12:09'),
+  example('basetube-30-min-edit', 'base.tube: a creator with a stopwatch at her desk, “30-minute edit”', 'How I edit a full video in 30 minutes', 'basetube', '19:26'),
 ];
 
 const DEMO_DIR = '/assets/ai-thumbnails/demo';
 
-/** The Studio demo: one fictional channel, its face photo, three ideas for one video and one edit. */
+/**
+ * The Studio demo: one invented channel, the face photo the Studio used, the three ideas it made
+ * for one video, and one of them after the edit below (all made with AI Thumbnails).
+ */
 export const DEMO = {
   channel: 'Maya’s Coffee Lab',
   face: `${DEMO_DIR}/face.webp`,
   swatches: ['#f2b300', '#6b3f1d', '#f3e7d3'],
-  rules: ['Warm café light', 'Yellow apron in frame', 'Four words of title at most'],
-  link: 'youtube.com/watch?v=… “I tested 5 budget espresso machines”',
+  rules: ['Warm café light', 'Yellow apron in frame', 'Five words of title at most'],
+  link: 'youtube.com/watch?v=… “Cafe latte art at home with a $20 milk frother”',
   edit: 'Warmer light, more steam',
   ideas: [
-    { src: `${DEMO_DIR}/idea1.webp`, edited: `${DEMO_DIR}/idea1-edit.webp`, title: 'This $49 one won', place: 'top-right' as const, tone: 'yellow' as const, alt: 'The creator sipping an espresso, surprised, a steaming machine behind her' },
-    { src: `${DEMO_DIR}/idea2.webp`, title: '5 machines, 1 winner', place: 'top-left' as const, tone: 'white' as const, alt: 'The creator behind five espresso machines in a row, arms crossed' },
-    { src: `${DEMO_DIR}/idea3.webp`, title: 'Don’t buy this one', place: 'top-right' as const, tone: 'yellow' as const, alt: 'The creator pointing at a small red machine next to a large chrome one' },
+    { src: `${DEMO_DIR}/idea1.webp`, edited: `${DEMO_DIR}/idea1-edit.webp`, alt: 'The creator pointing at a latte with a heart and a small frother, “$20 milk frother magic”' },
+    { src: `${DEMO_DIR}/idea2.webp`, alt: 'The creator holding up a latte with a heart, “No machine needed!”' },
+    { src: `${DEMO_DIR}/idea3.webp`, alt: 'A latte with a heart close to the camera, the creator smiling behind it, “Cafe latte art at home”' },
   ],
 } as const;
