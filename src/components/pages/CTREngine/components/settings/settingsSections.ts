@@ -23,7 +23,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     intro: 'Colours, font, logo, face, style image and rules. Pick a profile when you create; earlier projects keep their version.',
   },
   { id: 'logos', label: 'Logos', icon: Image, intro: 'The logo saved in each channel profile.' },
-  { id: 'face', label: 'Face reference', icon: ScanFace, intro: 'Used when "Include my face" is on in Create.' },
+  {
+    id: 'face',
+    label: 'Face reference',
+    icon: ScanFace,
+    intro: 'Your account’s face photo. To use it in new thumbnails, add it to a channel profile: Channel style › “Review my existing logo, face and brand settings”.',
+  },
   {
     id: 'preferences',
     label: 'Preferences',

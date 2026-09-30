@@ -16,11 +16,8 @@ export { ScoreGauge, ScoreBadge } from './components/ScoreGauge';
 export { CTRQuotaDisplay, QuotaIndicator } from './components/CTRQuotaDisplay';
 export { PersonaVotesDisplay, PersonaVotesSummary } from './components/PersonaVotesDisplay';
 export { NicheSelector, NicheBadge } from './components/NicheSelector';
-export { HeuristicScores } from './components/HeuristicScores';
 export { ThumbnailAuditForm } from './components/ThumbnailAuditForm';
 export { ThumbnailAuditResult } from './components/ThumbnailAuditResult';
-export { CTRGeneratorForm } from './components/CTRGeneratorForm';
 export { GeneratedConceptsGrid } from './components/GeneratedConceptsGrid';
 export { FaceReferenceUploader } from './components/FaceReferenceUploader';
-export { AuditStatsCard } from './components/AuditStatsCard';
 

@@ -9,7 +9,6 @@ import {
   Brain,
   ScanFace,
   Layers,
-  Palette
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
@@ -21,76 +20,58 @@ interface HelpContent {
   features: string[];
 }
 
+// What each page really does. No prediction, score target or button that does not exist.
 const HELP_CONTENT: Record<string, HelpContent> = {
-  '/ai-thumbnails/creative': {
-    title: 'Creative Studio',
-    icon: Palette,
-    description:
-      'Free-form thumbnail generation for exploration. Use this when you want to iterate visually without strict CTR constraints.',
-    features: [
-      'Prompt-based creative generation',
-      'Fast iteration for style discovery',
-      'Export-ready thumbnails',
-      'Pairs well with Audit → Optimize flow',
-    ],
-    tips: [
-      'Describe the emotion + focal subject first (e.g. “shocked face + huge red arrow”).',
-      'Keep on-image text under 5 words for mobile.',
-      'After you like a concept, run a Review to identify quick upgrades.',
-      'Save variants you like, then A/B test on your next uploads.',
-    ],
-  },
   '/ai-thumbnails/generate': {
-    title: 'Generation Protocols',
+    title: 'Create a thumbnail',
     icon: Brain,
-    description: 'Our engine transforms semantic titles into high-performing visual concepts. For maximum performance, align your input with the specific "Niche Bias" of your channel.',
+    description:
+      'Describe your video, or start from a YouTube link, a script or an image. AI Thumbnails turns it into 1 to 3 thumbnail ideas in your channel’s style.',
     features: [
-      'Face ID Consistency (Upload in Settings)',
-      'Niche-Specific Style Weights',
-      'High-Contrast Text Overlay Engine',
-      'Multi-Concept A/B Generation'
+      'Your face, logo and colours from your channel profile',
+      '1 to 3 ideas per click, to upload to YouTube’s Test & Compare',
+      'Change any idea in plain words',
+      'A review that lists what to fix',
     ],
     tips: [
-      'For vlogs/personal brands, always enable "Face Consistency".',
-      'Keep text overlays under 5 words for mobile readability.',
-      'Use the "Advanced" tab to force specific concept counts (3+ recommended).',
-      'Select a Niche manually if the auto-detect feels generic.'
-    ]
+      'Say the most interesting thing viewers will discover in one sentence: the ideas are built on it.',
+      'Keep the text on the thumbnail to four or five words so it reads on a phone.',
+      'Set your face, logo and colours once in Settings › Channel style.',
+      'Compare the ideas at YouTube size before you keep one.',
+    ],
   },
   '/ai-thumbnails/audit': {
-    title: 'CTR Audit & Forensics',
+    title: 'Thumbnail review',
     icon: ScanFace,
-    description: 'A 15-point algorithmic inspection of your thumbnail before deployment. We simulate computer vision attention maps to predict click probability.',
+    description:
+      'Upload a thumbnail, paste its link or a YouTube video link. You get a score out of 10 and what to change, in plain words. It reviews the image; it does not predict your click rate.',
     features: [
-      'Computer Vision Saliency Map',
-      'Mobile Viewport Emulation',
-      'Generative "One-Click Fix" Engine',
-      'Persona-based Sentiment Analysis'
+      'A score out of 10',
+      'Mobile readability, contrast, composition and brightness',
+      'Strengths and what to improve',
+      'Optional opinions from AI viewer personas',
     ],
     tips: [
-      'Target a Score > 7.5 for "Viral Potential".',
-      'Check "Mobile Readability" first (80% of traffic).',
-      'If Contrast is low, use the "Fix with AI" button immediately.',
-      'Use Persona Feedback to spot subjective biases (e.g., confusing expressions).'
-    ]
+      'Give the real video title: the review checks the image against it.',
+      'Fix mobile readability first: most viewers see thumbnails small.',
+      'From the result, start a new thumbnail for the same video in one click.',
+      'Your real click rate is in YouTube Studio: check it there after you change a thumbnail.',
+    ],
   },
   '/ai-thumbnails/history': {
-    title: 'Performance Logs',
+    title: 'Review history',
     icon: Layers,
-    description: 'Track your visual optimization velocity. Identify which niches and styles are yielding the highest pre-publish scores over time.',
+    description: 'Every thumbnail review you ran, with its score.',
     features: [
-      'Longitudinal Score Tracking',
-      'Niche Performance Breakdown',
-      'Improvement Delta (+%) Analysis',
-      'Exportable Audit Data'
+      'Your average and best score',
+      'Filter by topic',
+      'Open any past review',
     ],
     tips: [
-      'Review your "Average Score" trend weekly.',
-      'Identify patterns in your top 10% highest-scoring thumbnails.',
-      'Re-audit old thumbnails to find optimization opportunities.',
-      'Compare "Before/After" scores to validate your design changes.'
-    ]
-  }
+      'Reopen a past review to see what it asked you to change.',
+      'Review the new version of a thumbnail to compare the two scores.',
+    ],
+  },
 };
 
 const HelpCard: React.FC = () => {
