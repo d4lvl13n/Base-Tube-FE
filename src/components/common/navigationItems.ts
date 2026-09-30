@@ -1,4 +1,4 @@
-import { Compass, Flame, Home, LucideIcon, Palette, PlayCircle, Trophy, Tv, User } from 'lucide-react';
+import { Compass, Flame, Home, ImagePlus, LucideIcon, Palette, PlayCircle, Trophy, Tv, User } from 'lucide-react';
 
 export interface NavigationItem {
   path: string;
@@ -51,6 +51,13 @@ export const navigationItems: NavigationItem[] = [
     Icon: Palette,
     label: 'Creator Hub',
     description: 'Access creator tools',
+  },
+  {
+    // The tool's Create page: a visitor can write a brief there, a signed-in creator generates.
+    path: '/ai-thumbnails/generate',
+    Icon: ImagePlus,
+    label: 'AI Thumbnails',
+    description: 'Make and review thumbnails',
   },
   {
     path: '/leaderboard',
