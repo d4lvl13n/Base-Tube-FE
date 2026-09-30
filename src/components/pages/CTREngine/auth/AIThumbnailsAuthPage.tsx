@@ -10,13 +10,15 @@ import {
   cleanStudioAuthUrl,
   readStudioAuthOrigin,
   setStudioAuthConsent,
+  startStudioAuth,
   STUDIO_AUTH_CONTINUE_PATH,
   touchStudioAuthOrigin,
   type StudioAuthIntent,
 } from '../../../../utils/studioAuth';
-import { readPlanIntent, type PlanIntent } from '../../../../utils/studioDraft';
+import { planIntentFromLink, readPlanIntent, rememberPlanIntent, withoutPlanLink, type PlanIntent } from '../../../../utils/studioDraft';
 import { loadEmailGate, saveEmailGate } from '../../../../utils/studioFunnel';
 import { planPriceText } from '../components/billing/PlanChoices';
+import { STUDIO_HOME_PATH } from '../components/billing/StartOffer';
 import { noteStudioAuthStart } from '../../../../utils/studioWelcome';
 import ThumbnailWall from '../../ThumbnailLanding/ThumbnailWall';
 import { RevealHeading, type HeadingPart } from '../../ThumbnailLanding/motionKit';
@@ -39,30 +41,43 @@ const OUTCOMES = [
 ];
 
 /**
- * What both pages do before Clerk renders: a visitor already signed in goes to
- * the continue screen; a foreign Clerk redirect in the URL is dropped (Clerk
- * ranks it above its props); the origin marker is kept up to date.
+ * What both pages do before Clerk renders: a plan link from base.tube is
+ * remembered and taken out of the address; then a visitor already signed in
+ * goes to the continue screen; a foreign Clerk redirect in the URL is dropped
+ * (Clerk ranks it above its props); the origin marker is kept up to date.
  */
 function useStudioAuthScreen(intent: StudioAuthIntent) {
   const location = useLocation();
   const { account, resolved } = useStudioAccountState();
+  // On the first render, before anything else reads it: the continue screen
+  // (where a signed-in visitor goes at once) opens this plan's checkout. The
+  // Studio is where the visitor goes if the account already has a plan.
+  useState(() => {
+    const planIntent = planIntentFromLink(location.search);
+    if (!planIntent) return;
+    startStudioAuth(intent, STUDIO_HOME_PATH);
+    rememberPlanIntent(planIntent);
+  });
+  const planLinkSearch = withoutPlanLink(location.search);
   // A Clerk session that appears while the page is open is Clerk's own sign-in
   // finishing: Clerk goes to the continue screen itself. A wallet sign-in on the
   // sign-in page is finished here.
   const [clerkAtMount] = useState(() => account.startsWith('clerk:'));
   const signedIn = resolved && (account.startsWith('web3:') || (clerkAtMount && account.startsWith('clerk:')));
   const cleaned = cleanStudioAuthUrl(location.search, location.hash);
-  const ready = !signedIn && !cleaned;
+  const ready = planLinkSearch === null && !signedIn && !cleaned;
   useEffect(() => {
     if (!ready) return;
     touchStudioAuthOrigin(intent);
     noteStudioAuthStart();
   }, [ready, intent]);
-  const redirect = signedIn
-    ? <Navigate to={STUDIO_AUTH_CONTINUE_PATH} replace />
-    : cleaned
-      ? <Navigate to={{ pathname: location.pathname, search: cleaned.search, hash: cleaned.hash }} replace />
-      : null;
+  const redirect = planLinkSearch !== null
+    ? <Navigate to={{ pathname: location.pathname, search: planLinkSearch, hash: location.hash }} replace />
+    : signedIn
+      ? <Navigate to={STUDIO_AUTH_CONTINUE_PATH} replace />
+      : cleaned
+        ? <Navigate to={{ pathname: location.pathname, search: cleaned.search, hash: cleaned.hash }} replace />
+        : null;
   return { redirect, location };
 }
 

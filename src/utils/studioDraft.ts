@@ -167,6 +167,27 @@ export function readPlanIntent(now = Date.now()): PlanIntent | null {
     return { planId: value.planId, interval: value.interval, trial: value.trial === true, ...(returnPath ? { returnPath } : {}) };
   } catch { return null; }
 }
+/**
+ * base.tube/ai-thumbnails (another site: it cannot write this tab's storage) passes the plan in the
+ * sign-up address: `/ai-thumbnails/sign-up?plan=creator&interval=month&trial=1`. Its plan intent, or
+ * null when there is none or the plan or interval is unknown (the visitor then picks a plan later).
+ */
+const PLAN_LINK_PARAMS = ['plan', 'interval', 'trial'];
+export function planIntentFromLink(search: string): PlanIntent | null {
+  const params = new URLSearchParams(search);
+  const planId = params.get('plan') as SubscriptionPlanId | null;
+  const interval = params.get('interval') ?? 'month';
+  if (!planId || !PLAN_IDS.includes(planId) || (interval !== 'month' && interval !== 'year')) return null;
+  return { planId, interval, trial: params.get('trial') === '1' };
+}
+/** The address without a plan link's parameters, or null when it has none. */
+export function withoutPlanLink(search: string): string | null {
+  const params = new URLSearchParams(search);
+  if (!PLAN_LINK_PARAMS.some(name => params.has(name))) return null;
+  PLAN_LINK_PARAMS.forEach(name => params.delete(name));
+  const rest = params.toString();
+  return rest ? `?${rest}` : '';
+}
 export function clearPlanIntent() {
   try { sessionStorage.removeItem(PLAN_INTENT_KEY); } catch { /* Storage may be disabled. */ }
 }

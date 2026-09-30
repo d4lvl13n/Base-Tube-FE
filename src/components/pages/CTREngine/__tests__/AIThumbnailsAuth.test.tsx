@@ -164,6 +164,22 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     ).toBeInTheDocument();
   });
 
+  it('a plan link from base.tube is remembered and taken out of the address; the page says the trial checkout comes next', async () => {
+    (getWelcomeOffer as jest.Mock).mockResolvedValue({ credits: 0, available: false, resetsAt: '2030-01-02T00:00:00.000Z' });
+    render(<StrictMode>{app('/ai-thumbnails/sign-up?plan=creator&interval=month&trial=1')}</StrictMode>);
+    expect(where().textContent).toBe('/ai-thumbnails/sign-up');
+    expect(readPlanIntent()).toEqual({ planId: 'creator', interval: 'month', trial: true });
+    expect(readStudioAuthOrigin()).toMatchObject({ destination: '/ai-thumbnails/projects', intent: 'sign-up' });
+    expect(await screen.findByRole('heading', { name: 'Start your 7-day free trial.' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Clerk sign-up' })).toHaveAttribute('data-done', CONTINUE);
+  });
+
+  it('a link with an unknown plan or interval remembers nothing and keeps the rest of the address', () => {
+    render(app('/ai-thumbnails/sign-up?plan=enterprise&interval=week&trial=1&utm_source=base.tube'));
+    expect(where().textContent).toBe('/ai-thumbnails/sign-up?utm_source=base.tube');
+    expect(readPlanIntent()).toBeNull();
+  });
+
   it('the sign-in page offers the wallet; a wallet sign-in there ends on the continue screen, back where it started', async () => {
     startStudioAuth('sign-in', '/ai-thumbnails/history');
     const view = render(app('/ai-thumbnails/sign-in'));
@@ -242,6 +258,17 @@ describe('/ai-thumbnails/auth/continue', () => {
       expect(readPlanIntent()).toBeNull();
       // The sign-up is still a sign-up: its confirmation is armed as before.
       expect(loadEmailGate()).toMatchObject({ phase: 'awaiting_sign_in', flow: 'sign-up' });
+    });
+
+    it('a visitor already signed in who follows a plan link from base.tube goes straight to that plan\'s checkout', async () => {
+      clerkAccount(Date.now() - 30 * DAY);
+      billing.getMe.mockResolvedValue(noPlan as any);
+      billing.createCheckout.mockResolvedValue({ url: 'https://checkout.stripe.test/cs_2', sessionId: 'cs_2', trialDays: 0 });
+      render(app('/ai-thumbnails/sign-up?plan=pro&interval=year'));
+      await waitFor(() => expect(window.location.href).toBe('https://checkout.stripe.test/cs_2'));
+      expect(billing.createCheckout).toHaveBeenCalledTimes(1);
+      expect(billing.createCheckout).toHaveBeenCalledWith({ planId: 'pro', interval: 'year' });
+      expect(screen.queryByRole('region', { name: 'Clerk sign-up' })).not.toBeInTheDocument();
     });
 
     it('never opens a paid checkout for a trial button: an account that had a plan goes to the pricing page', async () => {
