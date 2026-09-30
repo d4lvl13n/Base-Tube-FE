@@ -61,7 +61,7 @@ import { PassDetailView } from './components/pages/CreatorHub/ManagePasses';
 import MyPasses from './components/pages/MyPasses';
 import YouTubeAuthCallback from './components/pages/CreatorHub/YouTubeAuthCallback';
 import LandingPage from './components/pages/landingPage';
-import ThumbnailLanding from './components/pages/ThumbnailLanding';
+import LandingMoved from './components/pages/ThumbnailLanding/LandingMoved';
 import { AuditPage as CTRAuditPage, ChannelAuditPage as CTRChannelAuditPage, GeneratePage as CTRGeneratePage, SettingsPage as CTRSettingsPage, GalleryPage as CTRGalleryPage } from './components/pages/CTREngine';
 import AuditHistoryPage from './components/pages/CTREngine/AuditHistoryPage';
 import { AIThumbnailsSignInPage, AIThumbnailsSignUpPage } from './components/pages/CTREngine/auth/AIThumbnailsAuthPage';
@@ -161,7 +161,7 @@ function App() {
                   <Route path="/leaderboard" element={<Leaderboard />} />
 
                   {/* AI Thumbnail Landing Page */}
-                  <Route path="/ai-thumbnails" element={<ThumbnailLanding />} />
+                  <Route path="/ai-thumbnails" element={<LandingMoved />} />
 
                   {/* AI Thumbnails' own sign-in and sign-up (Clerk's steps are sub-paths), and the
                       one address they all end on. base.tube's /sign-in, /sign-up and onboarding are separate. */}

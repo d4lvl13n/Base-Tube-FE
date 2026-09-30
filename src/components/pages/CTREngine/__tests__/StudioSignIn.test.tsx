@@ -9,8 +9,7 @@ import AIThumbnailsHeader from '../components/AIThumbnailsHeader';
 import GalleryPage from '../GalleryPage';
 import AuditHistoryPage from '../AuditHistoryPage';
 import SettingsPage from '../SettingsPage';
-import ThumbnailLandingHeader from '../../ThumbnailLanding/ThumbnailLandingHeader';
-import { loadStudioDraft, readPlanIntent, saveStudioDraft, SAVE_STUDIO_DRAFT_EVENT } from '../../../../utils/studioDraft';
+import { loadStudioDraft, saveStudioDraft, SAVE_STUDIO_DRAFT_EVENT } from '../../../../utils/studioDraft';
 import { readStudioAuthOrigin } from '../../../../utils/studioAuth';
 
 // Any direct Clerk auth rendering from these Studio gates is a regression.
@@ -115,27 +114,4 @@ it.each([
   fireEvent.click(screen.getByRole('link', { name: /Sign In with Wallet/ }));
   expect(screen.getByTestId('destination').textContent).toBe(`${SIGN_IN} (wallet)`);
   expect(readStudioAuthOrigin()).toMatchObject({ destination: url, intent: 'sign-in' });
-});
-
-it('the AI Thumbnails landing page logs in and starts the trial on the AI Thumbnails pages, then comes back to it', () => {
-  const landing = '/ai-thumbnails';
-  const plan = { id: 'creator', name: 'Creator', rank: 1, videosPerMonth: 6, creditsPerMonth: 540, channelProfiles: 1, highlights: [], prices: { month: { amountCents: 2400, currency: 'usd' }, year: { amountCents: 19900, currency: 'usd', monthlyEquivalentCents: 1658, savingsPercent: 31 } } } as const;
-  const offer = { kind: 'trial', plan, trial: { days: 7, videos: 2, credits: 180 }, signedIn: false } as const;
-  render(<MemoryRouter initialEntries={[landing]}><Routes><Route path={landing} element={<ThumbnailLandingHeader offer={offer as any} signedIn={false} />} /><Route path="/ai-thumbnails/sign-in" element={<Destination />} /><Route path="/ai-thumbnails/sign-up" element={<Destination />} /></Routes></MemoryRouter>);
-  expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', SIGN_IN);
-  expectNoGeneralAuthLinks();
-  fireEvent.click(screen.getByRole('link', { name: 'Log in' }));
-  expect(screen.getByTestId('destination').textContent).toBe(SIGN_IN);
-  expect(readStudioAuthOrigin()).toMatchObject({ destination: landing, intent: 'sign-in' });
-});
-
-it('the landing page\'s "Start free trial" opens the AI Thumbnails sign-up and remembers the plan for checkout', () => {
-  const landing = '/ai-thumbnails';
-  const plan = { id: 'creator', name: 'Creator', rank: 1, videosPerMonth: 6, creditsPerMonth: 540, channelProfiles: 1, highlights: [], prices: { month: { amountCents: 2400, currency: 'usd' }, year: { amountCents: 19900, currency: 'usd', monthlyEquivalentCents: 1658, savingsPercent: 31 } } } as const;
-  const offer = { kind: 'trial', plan, trial: { days: 7, videos: 2, credits: 180 }, signedIn: false } as const;
-  render(<MemoryRouter initialEntries={[landing]}><Routes><Route path={landing} element={<ThumbnailLandingHeader offer={offer as any} signedIn={false} />} /><Route path="/ai-thumbnails/sign-up" element={<Destination />} /></Routes></MemoryRouter>);
-  fireEvent.click(screen.getByRole('link', { name: 'Start free trial' }));
-  expect(screen.getByTestId('destination').textContent).toBe('/ai-thumbnails/sign-up');
-  expect(readStudioAuthOrigin()).toMatchObject({ destination: landing, intent: 'sign-up' });
-  expect(readPlanIntent()).toEqual({ planId: 'creator', interval: 'month', trial: true });
 });

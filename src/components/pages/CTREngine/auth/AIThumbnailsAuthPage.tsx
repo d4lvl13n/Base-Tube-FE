@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { Link, Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Check, Coins, CreditCard, Wallet } from 'lucide-react';
 import { useStudioAccountState } from '../../../../hooks/useStudioAccount';
 import { useWelcomeOffer, WELCOME_CREDITS_GIVEN_OUT } from '../../../../hooks/useWelcomeOffer';
@@ -23,6 +23,7 @@ import { noteStudioAuthStart } from '../../../../utils/studioWelcome';
 import ThumbnailWall from '../../ThumbnailLanding/ThumbnailWall';
 import { RevealHeading, type HeadingPart } from '../../ThumbnailLanding/motionKit';
 import { useLandingFonts } from '../../ThumbnailLanding/useLandingFonts';
+import { AI_THUMBNAILS_LANDING_URL } from '../../ThumbnailLanding/LandingMoved';
 import '../../ThumbnailLanding/landing.css';
 
 /**
@@ -132,16 +133,16 @@ function AuthLayout({ heading, subtitle, note, children }: { heading: HeadingPar
 
       <header className="relative">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Link to="/ai-thumbnails" className="flex items-center gap-2.5">
+          <a href={AI_THUMBNAILS_LANDING_URL} className="flex items-center gap-2.5">
             <img src="/assets/basetubelogo.png" alt="" className="h-8 w-8" />
             <span className="flex flex-col leading-tight">
               <span className="text-[15px] font-bold text-white">Base.Tube</span>
               <span className="text-xs text-white/55">AI Thumbnails</span>
             </span>
-          </Link>
-          <Link to="/ai-thumbnails" className="text-sm text-white/70 transition-colors hover:text-white">
+          </a>
+          <a href={AI_THUMBNAILS_LANDING_URL} className="text-sm text-white/70 transition-colors hover:text-white">
             Back to AI Thumbnails
-          </Link>
+          </a>
         </div>
       </header>
 
