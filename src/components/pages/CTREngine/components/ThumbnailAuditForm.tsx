@@ -49,6 +49,8 @@ interface ThumbnailAuditFormProps {
   pricing?: CreditPricingCatalog | null;
   hasInsufficientCredits?: boolean;
   isAnonymous?: boolean;
+  /** An image to review, from "Audit this thumbnail" in the gallery: the form opens on it. */
+  initialImageUrl?: string;
   className?: string;
 }
 
@@ -63,10 +65,11 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
   pricing,
   hasInsufficientCredits = false,
   isAnonymous = false,
+  initialImageUrl,
   className = '',
 }) => {
   const [inputMode, setInputMode] = useState<InputMode>('url');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState(initialImageUrl ?? '');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [includePersonas, setIncludePersonas] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -512,8 +515,8 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
               {auditCreditCost > 0 ? ` • ${auditCreditCost} for this audit` : ''}
             </span>
           </div>
-          <a href="/pricing" className="text-[#fa7517] hover:text-orange-400 transition-colors whitespace-nowrap">
-            Buy credits soon
+          <a href="/ai-thumbnails/pricing" className="text-[#fa7517] hover:text-orange-400 transition-colors whitespace-nowrap">
+            Buy credits
           </a>
         </motion.div>
       ) : quotaRemaining !== undefined && quotaRemaining <= 2 && quotaRemaining > 0 && (

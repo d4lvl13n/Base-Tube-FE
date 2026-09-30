@@ -44,6 +44,7 @@ const GalleryPage: React.FC = () => {
     loadGallery,
     deleteFromGallery,
     downloadThumbnail,
+    error: galleryError,
   } = useThumbnailGallery();
 
   // UI State
@@ -369,6 +370,12 @@ const GalleryPage: React.FC = () => {
         </motion.div>
       )}
 
+      {galleryError && (
+        <div role="alert" className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {galleryError}
+        </div>
+      )}
+
       {/* Thumbnails Grid */}
       {filteredThumbnails.length > 0 && (
         <motion.div
@@ -415,7 +422,8 @@ const GalleryPage: React.FC = () => {
                   >
                     <Download className="w-4 h-4" />
                   </motion.button>
-                  <motion.button
+                  {/* A Studio image is private: it has no share link. */}
+                  {thumbnail.shareUrl && <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={(e) => handleShare(thumbnail, e)}
@@ -423,7 +431,7 @@ const GalleryPage: React.FC = () => {
                     title="Share"
                   >
                     <Share2 className="w-4 h-4" />
-                  </motion.button>
+                  </motion.button>}
                   <Link
                     to={`/ai-thumbnails/audit?url=${encodeURIComponent(thumbnail.thumbnailUrl)}`}
                     onClick={(e) => e.stopPropagation()}
@@ -432,7 +440,8 @@ const GalleryPage: React.FC = () => {
                   >
                     <BarChart2 className="w-4 h-4" />
                   </Link>
-                  <motion.button
+                  {/* A Studio image belongs to its project: hide the project instead. */}
+                  {!thumbnail.studio && <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={(e) => handleDelete(thumbnail.id, e)}
@@ -445,7 +454,7 @@ const GalleryPage: React.FC = () => {
                     ) : (
                       <Trash2 className="w-4 h-4" />
                     )}
-                  </motion.button>
+                  </motion.button>}
                 </div>
 
                 {/* Download count badge */}

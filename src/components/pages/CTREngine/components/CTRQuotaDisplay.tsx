@@ -260,7 +260,7 @@ export const CTRQuotaDisplay: React.FC<CTRQuotaDisplayProps> = ({
           Fresh start at {resetTime}
         </span>
         {quota.tier === 'free' && (
-          <a href="/pricing" className="text-xs font-medium text-[#fa7517] hover:text-orange-400 transition-colors flex items-center gap-1">
+          <a href="/ai-thumbnails/pricing" className="text-xs font-medium text-[#fa7517] hover:text-orange-400 transition-colors flex items-center gap-1">
             Get more
             <TrendingUp className="w-3 h-3" />
           </a>

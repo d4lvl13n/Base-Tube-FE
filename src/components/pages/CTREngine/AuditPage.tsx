@@ -22,6 +22,8 @@ import { TechnicalErrorDetail } from '../../common/TechnicalErrorDetail';
 const AuditPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const auditIdParam = searchParams.get('id');
+  // "Audit this thumbnail" in the gallery opens the form on that image.
+  const imageUrlParam = searchParams.get('url') ?? undefined;
   
   const {
     auditByUrl,
@@ -207,6 +209,7 @@ const AuditPage: React.FC = () => {
                 pricing={usageAccess?.mode === 'credits' ? usageAccess.pricing : null}
                 hasInsufficientCredits={errorCode === 'INSUFFICIENT_CREDITS'}
                 isAnonymous={isAnonymous}
+                initialImageUrl={imageUrlParam}
               />
 
               {/* Feature Highlights */}

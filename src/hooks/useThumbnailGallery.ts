@@ -13,12 +13,15 @@ export interface GalleryThumbnail {
   style: string;
   downloadCount: number;
   createdAt: string;
-  shareUrl: string;
+  /** Null for a Studio image: those are private. */
+  shareUrl: string | null;
+  /** A Studio output: it belongs to a project, so it cannot be shared or deleted from the gallery. */
+  studio?: boolean;
 }
 
-/** Downloads one of the account's saved thumbnails (`/api/v1/thumbnails/:id/download`). */
+/** Downloads one of the account's own images, Studio outputs included (`/api/v1/users/me/thumbnails/:id/download`). */
 export async function downloadGalleryThumbnail(thumbnailId: string | number): Promise<void> {
-  const response = await api.get<Blob>(`/api/v1/thumbnails/${encodeURIComponent(String(thumbnailId))}/download`, { responseType: 'blob' });
+  const response = await api.get<Blob>(`/api/v1/users/me/thumbnails/${encodeURIComponent(String(thumbnailId))}/download`, { responseType: 'blob' });
   const type = response.data.type || '';
   const extension = type.includes('webp') ? 'webp' : type.includes('jpeg') ? 'jpg' : 'png';
   const url = URL.createObjectURL(response.data);

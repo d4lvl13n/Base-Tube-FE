@@ -281,7 +281,7 @@ const ThumbnailDetailDrawerBody: React.FC<ThumbnailDetailDrawerProps & { gallery
                     )}
                   </Button>
 
-                  {controlled ? controlled.onSelect && <button type="button" disabled={controlled.selected} onClick={() => current && controlled.onSelect?.(current)} className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 font-semibold text-white disabled:opacity-60">{controlled.selected ? 'Selected version' : 'Keep this version'}</button> : (
+                  {controlled ? controlled.onSelect && <button type="button" disabled={controlled.selected} onClick={() => current && controlled.onSelect?.(current)} className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 font-semibold text-white disabled:opacity-60">{controlled.selected ? 'Selected version' : 'Keep this version'}</button> : hasShareUrl && (
                   <button
                     type="button"
                     onClick={handleShare}
