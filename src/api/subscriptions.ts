@@ -29,6 +29,8 @@ export const subscriptionsApi = {
     planId: SubscriptionPlanId;
     interval: BillingInterval;
     returnPath?: string;
+    /** GA4 client id: the server reports the trial or the payment under this visitor. */
+    gaClientId?: string;
   }): Promise<SubscriptionCheckoutSession> =>
     (await api.post<Envelope<SubscriptionCheckoutSession>>(`${BASE}/checkout`, body)).data.data,
 

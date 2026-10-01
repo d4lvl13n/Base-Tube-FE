@@ -13,6 +13,7 @@ import {
 } from '../../../../../utils/studioDraft';
 import { startStudioAuth } from '../../../../../utils/studioAuth';
 import { plainApiError } from '../../../../../utils/plainApiError';
+import { ga4ClientId, trackEvent } from '../../../../../utils/analytics';
 
 /** The current screen when it is one checkout may return to (only /ai-thumbnails pages). */
 export function currentStudioReturnPath(): string | undefined {
@@ -39,12 +40,15 @@ function rememberBeforeLeaving(context: CheckoutContext) {
 
 /** One click: Stripe Checkout for a plan. Resolves false when there was no URL to go to. */
 export async function goToPlanCheckout(planId: SubscriptionPlanId, interval: BillingInterval, context: CheckoutContext): Promise<boolean> {
+  const gaClientId = ga4ClientId();
   const session = await subscriptionsApi.createCheckout({
     planId,
     interval,
     ...(context.returnPath ? { returnPath: context.returnPath } : {}),
+    ...(gaClientId ? { gaClientId } : {}),
   });
   if (!session?.url) return false;
+  trackEvent('begin_checkout', { items: [{ item_id: planId, item_category: 'plan', item_variant: interval }] });
   rememberBeforeLeaving(context);
   window.location.href = session.url;
   return true;
@@ -52,8 +56,9 @@ export async function goToPlanCheckout(planId: SubscriptionPlanId, interval: Bil
 
 /** One click: Stripe Checkout for a credit pack. Resolves false when there was no URL to go to. */
 export async function goToPackCheckout(packId: string, context: CheckoutContext): Promise<boolean> {
-  const session = await creditsApi.createCheckout(packId, context.returnPath);
+  const session = await creditsApi.createCheckout(packId, context.returnPath, ga4ClientId() ?? undefined);
   if (!session?.url) return false;
+  trackEvent('begin_checkout', { items: [{ item_id: packId, item_category: 'credit_pack' }] });
   rememberBeforeLeaving(context);
   window.location.href = session.url;
   return true;

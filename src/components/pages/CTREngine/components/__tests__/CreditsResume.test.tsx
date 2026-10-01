@@ -85,7 +85,7 @@ it("after a pack bought on Stripe, offers the refused action again as one priced
   fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "Buy credits" }));
   const dialog = await screen.findByRole("dialog", { name: "Get more credits" });
   fireEvent.click(await within(dialog).findByRole("button", { name: /Continue to secure checkout · \$14\.99/ }));
-  await waitFor(() => expect(packs.createCheckout).toHaveBeenCalledWith("pro", PAGE));
+  await waitFor(() => expect(packs.createCheckout).toHaveBeenCalledWith("pro", PAGE, undefined));
   await waitFor(() => expect(window.location.href).toBe("https://checkout.stripe.test/cs_1"));
   expect(readPendingPaidAction(PAGE)).toEqual({ id: "generate:3:high", label: "Generate 3 concepts", credits: 45, availableBefore: 50 });
   unmount();

@@ -42,10 +42,10 @@ export const creditsApi = {
   // AUTH — create a Stripe Checkout session for the chosen pack.
   // Returns { sessionId, url, pack }; caller redirects the browser to `url`.
   // `returnPath` (an /ai-thumbnails page) comes back on the success URL as `&return=`.
-  createCheckout: async (packId: string, returnPath?: string): Promise<CreditCheckoutSession> => {
+  createCheckout: async (packId: string, returnPath?: string, gaClientId?: string): Promise<CreditCheckoutSession> => {
     const response = await api.post<CreditCheckoutResponse>(
       `${CREDITS_BASE_PATH}/checkout`,
-      returnPath ? { packId, returnPath } : { packId }
+      { packId, ...(returnPath ? { returnPath } : {}), ...(gaClientId ? { gaClientId } : {}) }
     );
     return response.data.data;
   },

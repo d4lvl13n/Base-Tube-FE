@@ -1,7 +1,7 @@
 // src/index.tsx
-import React, { useEffect } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, useLocation } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import '@coinbase/onchainkit/styles.css';
 import '@rainbow-me/rainbowkit/styles.css';
@@ -35,22 +35,8 @@ if (!ONCHAINKIT_API_KEY) throw new Error('Missing OnchainKit API Key');
 window.Buffer = window.Buffer || Buffer;
 
 
-// GA4 page-view tracking for the SPA. The gtag snippet in public/index.html
-// has send_page_view disabled; this fires one page_view per route change,
-// including the initial load. No-op if gtag is blocked (ad blockers).
-function PageViewTracker() {
-  const location = useLocation();
-  useEffect(() => {
-    const gtag = (window as any).gtag;
-    if (typeof gtag === 'function') {
-      gtag('event', 'page_view', {
-        page_path: location.pathname + location.search,
-        page_location: window.location.href,
-      });
-    }
-  }, [location]);
-  return null;
-}
+// GA4 page views are GA4's own: the first load (public/index.html) and every route change
+// (the stream's enhanced measurement follows browser history), as on base.tube.
 
 window.addEventListener('auth:rate-limited', () => {
   // No invalidation; informational only
@@ -60,7 +46,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AuthQueryProvider>
       <BrowserRouter>
-        <PageViewTracker />
           <NavigationProvider>
             <WagmiProvider config={wagmiConfig}>
               <AuthProvider>

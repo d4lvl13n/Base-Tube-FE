@@ -120,7 +120,7 @@ it("starts Stripe Checkout for the selected pack and returns to the same page", 
   api.createCheckout.mockResolvedValue({ sessionId: "cs_1", url: "https://checkout.stripe.test/cs_1", pack: packs[1] });
   open();
   fireEvent.click(await screen.findByRole("button", { name: /Continue to secure checkout · \$14\.99/ }));
-  await waitFor(() => expect(api.createCheckout).toHaveBeenCalledWith("pro", "/ai-thumbnails/settings/credits"));
+  await waitFor(() => expect(api.createCheckout).toHaveBeenCalledWith("pro", "/ai-thumbnails/settings/credits", undefined));
   await waitFor(() => expect(window.location.href).toBe("https://checkout.stripe.test/cs_1"));
   expect(creditsReturnDestination()).toBe("/ai-thumbnails/settings/credits");
   expect(screen.getByRole("button", { name: /Opening secure checkout/ })).toBeDisabled();

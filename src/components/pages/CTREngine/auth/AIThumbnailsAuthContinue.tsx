@@ -14,6 +14,7 @@ import { armStudioAuthConfirm } from '../../../../utils/studioFunnel';
 import { finishStudioWalletSignIn } from '../../../../utils/studioOnboarding';
 import { resumePlanIntent } from '../components/billing/billingActions';
 import ThumbnailWall from '../../ThumbnailLanding/ThumbnailWall';
+import { trackSignUp } from '../../../../utils/analytics';
 import '../../ThumbnailLanding/landing.css';
 
 /** The pricing page's notice when the plan chosen before the sign-up could not open its checkout. */
@@ -75,7 +76,10 @@ export default function AIThumbnailsAuthContinue() {
       const newAccount = createdAt !== null && Math.abs(Date.now() - createdAt) <= STUDIO_NEW_ACCOUNT_WINDOW_MS;
       if (origin.intent === 'sign-up' || newAccount)
         armStudioAuthConfirm({ marketingConsent: origin.consent === true, signUpStartedAt: origin.startedAt });
+      if (newAccount) trackSignUp(account, 'clerk');
     }
+    // A PENDING wallet account is one created by this sign-in.
+    if (account.startsWith('web3:') && walletUser?.onboarding_status === 'PENDING') trackSignUp(account, 'wallet');
     if (account.startsWith('web3:') && walletUser) return finishStudioWalletSignIn(walletUser, setUser, go);
     go();
     return undefined;
