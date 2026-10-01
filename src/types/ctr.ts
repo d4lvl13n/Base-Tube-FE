@@ -218,6 +218,7 @@ export interface YouTubeAuditRequest {
 }
 
 export interface YouTubeVideoMetadata {
+  videoId?: string;
   title: string;
   description: string;
   channelTitle: string;

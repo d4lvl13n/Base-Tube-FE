@@ -325,12 +325,14 @@ export function isEmptyStudioCreateDraft(value: StudioCreateDraft): boolean {
 /**
  * 'Create a new thumbnail for this video': open the create screen with the
  * video title filled in, through the same drafts the create screens restore.
+ * A signed-in creator also gets the video itself (?video=id), offered there as
+ * the source to read.
  */
-export function studioCreateUrlForTitle(videoTitle: string, account: string): string {
+export function studioCreateUrlForTitle(videoTitle: string, account: string, videoId?: string | null): string {
   const title = videoTitle.trim().slice(0, 500);
   if (account !== 'anonymous') {
     if (title) saveStudioCreateDraft(account, { brief: { ...emptyStudioBrief(), videoTitle: title }, count: 2, quality: 'high' });
-    return '/ai-thumbnails/generate';
+    return videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId) ? `/ai-thumbnails/generate?video=${videoId}` : '/ai-thumbnails/generate';
   }
   if (!title) return '/ai-thumbnails/generate';
   const id = createStudioDraftId();

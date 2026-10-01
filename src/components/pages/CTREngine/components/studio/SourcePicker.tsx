@@ -21,6 +21,7 @@ export function SourcePicker({
   onProposal,
   disabled,
   initialSource = "idea",
+  initialUrl = "",
 }: {
   project: StudioProject;
   onSave: () => Promise<StudioProject>;
@@ -29,11 +30,13 @@ export function SourcePicker({
   onProposal: (artifact: StudioArtifact, operationId: string) => void;
   disabled?: boolean;
   initialSource?: StudioEntrySource;
+  /** A video link to read, e.g. the video of a review. */
+  initialUrl?: string;
 }) {
   const [source, setSource] = useState<"idea" | "youtube" | "script" | "image">(
     initialSource,
   );
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(initialUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<StudioErrorInfo | null>(null);
   const run = async (work: () => Promise<void>) => {

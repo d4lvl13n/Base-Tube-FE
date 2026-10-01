@@ -47,6 +47,7 @@ import { ChannelProfilePanel } from "./components/studio/ChannelProfilePanel";
 import { SourcePicker } from "./components/studio/SourcePicker";
 import {
   studioEntrySource,
+  studioVideoId,
   StudioEntryState,
 } from "../../../utils/studioEntry";
 import { StudioOperationPanel } from "./components/studio/StudioOperationPanel";
@@ -836,6 +837,10 @@ function Workspace({ projectId }: { projectId: string }) {
                   initialSource={studioEntrySource(
                     new URLSearchParams(location.search).get("source"),
                   )}
+                  initialUrl={(() => {
+                    const video = studioVideoId(new URLSearchParams(location.search).get("video"));
+                    return video ? `https://www.youtube.com/watch?v=${video}` : "";
+                  })()}
                   onSave={() => project.save()}
                   onProposal={reviewProposal}
                   onImage={async (asset) => {

@@ -9,7 +9,7 @@ jest.mock('../../../../../hooks/useStudioAccount', () => ({ useStudioAccount: je
 const audit = { overallScore: 6, confidence: 'high', detectedNiche: 'tech', heuristics: {}, strengths: ['Clear subject'], weaknesses: ['Small headline'], suggestions: ['Enlarge headline'] } as any;
 const Destination = () => { const location = useLocation(); return <output data-testid="destination">{location.pathname + location.search}</output>; };
 const view = () => render(<MemoryRouter initialEntries={['/ai-thumbnails/audit']}><Routes>
-  <Route path="/ai-thumbnails/audit" element={<ThumbnailAuditResult audit={audit} youtubeMetadata={{ title: 'My camera review' } as any} onClear={jest.fn()} />} />
+  <Route path="/ai-thumbnails/audit" element={<ThumbnailAuditResult audit={audit} youtubeMetadata={{ title: 'My camera review', videoId: 'abcdefghijk' } as any} onClear={jest.fn()} />} />
   <Route path="/ai-thumbnails/generate" element={<Destination />} />
 </Routes></MemoryRouter>);
 beforeEach(() => {
@@ -26,7 +26,7 @@ it('shows the assessment without presenting global confidence or an invented fut
 it('opens the Studio create screen with the video title instead of generating images', () => {
   view();
   fireEvent.click(screen.getByRole('button', { name: 'Create a new thumbnail for this video' }));
-  expect(screen.getByTestId('destination')).toHaveTextContent('/ai-thumbnails/generate');
+  expect(screen.getByTestId('destination')).toHaveTextContent('/ai-thumbnails/generate?video=abcdefghijk');
   expect(loadStudioCreateDraft('clerk:alice')?.brief.videoTitle).toBe('My camera review');
 });
 it('prefills the anonymous create screen through its draft', () => {

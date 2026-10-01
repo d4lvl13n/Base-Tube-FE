@@ -19,7 +19,7 @@ import {
   saveStudioCreateDraft,
   StudioCreateDraft,
 } from "../../../utils/studioDraft";
-import { studioBriefFromDraft, StudioEntrySource } from "../../../utils/studioEntry";
+import { studioBriefFromDraft, StudioEntrySource, studioVideoId } from "../../../utils/studioEntry";
 import { useStudioCapabilities, useStudioStartAvailability } from "../../../hooks/useStudioCapabilities";
 import { studioItemCredits } from "../../../utils/studioPricing";
 import { StudioCreditsScope, StudioPaidAction } from "./components/studio/StudioPaidAction";
@@ -45,6 +45,8 @@ export default function StudioCreatePage({
   // this account's create draft; nothing is saved as a project or started until
   // the creator clicks Generate.
   const [visitorDraft] = useState(() => loadStudioDraft(params.get("draft")));
+  // The video of a review ("Create a new thumbnail for this video"), offered as the source to read.
+  const reviewedVideo = studioVideoId(params.get("video"));
   const [kept] = useState<StudioCreateDraft | null>(() => visitorDraft
     ? { brief: studioBriefFromDraft(visitorDraft.draft), count: visitorDraft.draft.count, quality: visitorDraft.draft.quality === "high" ? "high" : "standard" }
     : loadStudioCreateDraft(account));
@@ -102,7 +104,7 @@ export default function StudioCreatePage({
       clearStudioCreateDraft(account);
       // Generate: the project opens on step 2 and starts this generation at the price shown
       // (one click). A source opens its panel on the brief instead.
-      navigate(`/ai-thumbnails/projects/${project.id}${source === "idea" ? "" : `?source=${source}`}`, {
+      navigate(`/ai-thumbnails/projects/${project.id}${source === "idea" ? "" : `?source=${source}${source === "youtube" && reviewedVideo ? `&video=${reviewedVideo}` : ""}`}`, {
         state: { studioEntry: { conceptCount: count, quality, startGeneration: source === "idea", ...(source === "idea" ? { generationCredits } : {}) } },
       });
     } catch (failure) { setError(studioError(failure)); }
@@ -130,7 +132,7 @@ export default function StudioCreatePage({
             <label className="block text-sm text-zinc-300">Channel profile<StudioSelect aria-label="Channel profile" className={studioField} value={brief.profile?.id || ""} disabled={profileLoading} onChange={event => { const profile = profiles.find(item => item.id === event.target.value); setBrief(current => ({ ...current, profile: profile ? { id: profile.id, version: profile.version } : null })); }}><option value="">No channel profile</option>{profiles.map(profile => <option key={profile.id} value={profile.id} disabled={profile.readOnly}>{profile.name}{profile.isDefault ? " (default)" : ""}{profile.readOnly ? " (read-only)" : ""}</option>)}</StudioSelect><span className="text-xs text-zinc-400">Reuse this profile’s language, rules and references. Changes for this video stay in this video.</span></label>
             {profileError && <p role="alert" className="text-sm text-amber-200">Profiles could not be loaded: <StudioErrorText error={profileError} /></p>}
           </>}
-          aside={<details className="thumbnail-disclosure"><summary>Add a video, script or existing image <span className="text-zinc-500">Optional</span></summary><div className="mt-3 flex flex-wrap gap-2">{([{ source: "youtube", label: "Add a YouTube link" }, { source: "script", label: "Add a script" }, { source: "image", label: "Use an existing image" }] as const).map(option => <button key={option.source} type="button" className={studioSecondary} disabled={busy || referencesBusy} onClick={() => void create(option.source)}>{option.label}</button>)}</div></details>}
+          aside={<details className="thumbnail-disclosure" open={Boolean(reviewedVideo)}><summary>Add a video, script or existing image <span className="text-zinc-500">Optional</span></summary>{reviewedVideo && <p className="mt-3 text-sm text-zinc-300">The video you reviewed is ready: “Use the reviewed video” reads its public information and current thumbnail. You review the proposal before it changes your brief.</p>}<div className="mt-3 flex flex-wrap gap-2">{([{ source: "youtube", label: reviewedVideo ? "Use the reviewed video" : "Add a YouTube link" }, { source: "script", label: "Add a script" }, { source: "image", label: "Use an existing image" }] as const).map(option => <button key={option.source} type="button" className={studioSecondary} disabled={busy || referencesBusy} onClick={() => void create(option.source)}>{option.label}</button>)}</div></details>}
         />
         {error && <p role="alert" className="mt-5 text-sm text-red-300"><StudioErrorText error={error} /> Your instructions are still here.</p>}
         <div className="thumbnail-generate-bar" style={barBounds}>

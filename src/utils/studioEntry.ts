@@ -14,6 +14,10 @@ export interface StudioEntryState {
   conceptCount?: number;
   quality?: "standard" | "high";
 }
+/** A YouTube video id from a link parameter ("Create a new thumbnail for this video"), or null. */
+export function studioVideoId(value: string | null): string | null {
+  return value && /^[A-Za-z0-9_-]{11}$/.test(value) ? value : null;
+}
 export function studioEntrySource(value: string | null): StudioEntrySource {
   return value === "youtube" || value === "image" || value === "script"
     ? value

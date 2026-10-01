@@ -35,7 +35,7 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
   const account = useStudioAccount();
   // The Studio replaces 'Generate better' (spec §17.4): open the create screen with this
   // video's title; the creator reviews the brief; every paid step shows its price on its button.
-  const createForVideo = () => navigate(studioCreateUrlForTitle(youtubeMetadata?.title || '', account));
+  const createForVideo = () => navigate(studioCreateUrlForTitle(youtubeMetadata?.title || '', account, youtubeMetadata?.videoId));
 
   // Get the image URL from props or YouTube metadata
   const imageUrl = thumbnailUrl || youtubeMetadata?.thumbnailUrl;
@@ -331,7 +331,7 @@ export const ThumbnailAuditResult: React.FC<ThumbnailAuditResultProps> = ({
           Create a new thumbnail for this video
         </button>
         <p className="text-center text-xs text-gray-500">
-          Opens the thumbnail creator{youtubeMetadata?.title ? ' with this video’s title' : ''}. You review the brief before anything is created; every paid step shows its price on its button.
+          Opens the thumbnail creator{youtubeMetadata?.title ? ' with this video’s title' : ''}{youtubeMetadata?.videoId && account !== 'anonymous' ? ', ready to read its public information' : ''}. You review the brief before anything is created; every paid step shows its price on its button.
         </p>
       </motion.div>
 
