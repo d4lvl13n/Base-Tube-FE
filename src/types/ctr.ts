@@ -132,6 +132,8 @@ export type CTRUsageAccess =
       quota?: undefined;
       creditInfo: CreditInfo;
       pricing: CreditPricingCatalog | null;
+      /** A signed-in account's free reviews today, used before credits. */
+      freeAudits?: { used: number; limit: number; remaining: number };
     };
 
 export type GeneratorUsageAccess =

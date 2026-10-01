@@ -51,6 +51,8 @@ interface ThumbnailAuditFormProps {
   isAnonymous?: boolean;
   /** An image to review, from "Audit this thumbnail" in the gallery: the form opens on it. */
   initialImageUrl?: string;
+  /** A signed-in account's free reviews left today: one is used before any credit. */
+  freeReviewsLeft?: number;
   className?: string;
 }
 
@@ -66,6 +68,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
   hasInsufficientCredits = false,
   isAnonymous = false,
   initialImageUrl,
+  freeReviewsLeft = 0,
   className = '',
 }) => {
   const [inputMode, setInputMode] = useState<InputMode>('url');
@@ -88,7 +91,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
     ? pricing?.ctr.auditWithPersonas ?? 0
     : pricing?.ctr.audit ?? 0;
   const canSubmit = usageMode === 'credits'
-    ? (availableCredits ?? 0) >= auditCreditCost
+    ? freeReviewsLeft > 0 || (availableCredits ?? 0) >= auditCreditCost
     : quotaRemaining === undefined || quotaRemaining > 0;
   const hasRequiredContext =
     Boolean(context.title?.trim()) && Boolean(context.niche?.trim());
@@ -511,8 +514,9 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
           <div className="flex items-center gap-2">
             <Coins className="w-4 h-4 text-[#fa7517]" />
             <span>
-              {availableCredits ?? 0} available credits
-              {auditCreditCost > 0 ? ` • ${auditCreditCost} for this audit` : ''}
+              {freeReviewsLeft > 0
+                ? `${freeReviewsLeft} free review${freeReviewsLeft === 1 ? '' : 's'} left today • this one is free`
+                : `${availableCredits ?? 0} available credits${auditCreditCost > 0 ? ` • ${auditCreditCost} for this audit` : ''}`}
             </span>
           </div>
           <a href="/ai-thumbnails/pricing" className="text-[#fa7517] hover:text-orange-400 transition-colors whitespace-nowrap">

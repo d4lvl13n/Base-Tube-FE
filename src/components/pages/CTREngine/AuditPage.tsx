@@ -210,6 +210,7 @@ const AuditPage: React.FC = () => {
                 hasInsufficientCredits={errorCode === 'INSUFFICIENT_CREDITS'}
                 isAnonymous={isAnonymous}
                 initialImageUrl={imageUrlParam}
+                freeReviewsLeft={usageAccess?.mode === 'credits' ? usageAccess.freeAudits?.remaining ?? 0 : 0}
               />
 
               {/* Feature Highlights */}

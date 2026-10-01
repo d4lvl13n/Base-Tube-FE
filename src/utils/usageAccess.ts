@@ -120,10 +120,15 @@ export const normalizeUsageAccessResponse = (
     const creditInfo = normalizeCreditInfo(payload.creditInfo);
     if (!creditInfo) return null;
 
+    const free = payload.freeAudits;
+    const freeAudits = free && typeof free === 'object' && [free.used, free.limit, free.remaining].every((value: unknown) => typeof value === 'number')
+      ? { used: free.used as number, limit: free.limit as number, remaining: free.remaining as number }
+      : undefined;
     return {
       mode: 'credits',
       creditInfo,
       pricing: normalizeCreditPricingCatalog(payload.pricing),
+      ...(freeAudits ? { freeAudits } : {}),
     };
   }
 
