@@ -40,7 +40,7 @@ export function StudioExperimentAction({
           ?.scrollIntoView({ behavior: "smooth", block: "start" });
       }}
     >
-      Prepare this experiment in a project
+      Use this suggestion in AI Thumbnail
     </button>
   );
 }
@@ -86,7 +86,7 @@ export function ChannelStudioHandoff({
     window.addEventListener("studio:choose-experiment", choose);
     return () => window.removeEventListener("studio:choose-experiment", choose);
   }, [context.data]);
-  if (!enabled) return null;
+  if (!enabled || !audit.experiments.length) return null;
   const experiments = [...audit.experiments].sort(
     (a, b) => a.priority - b.priority,
   );
@@ -124,13 +124,13 @@ export function ChannelStudioHandoff({
       className="mb-8 scroll-mt-20 space-y-4 rounded-2xl border border-orange-500/25 bg-orange-500/[0.04] p-5"
     >
       <h2 className="text-xl font-semibold text-white">
-        Three experiments to start with
+        Build a suggested variant in AI Thumbnail
       </h2>
       <p className="text-sm text-zinc-400">
         These follow the report's priority order. They are ideas to test, not a
         promise of more clicks.
       </p>
-      <ol className="space-y-2">
+      {!audit.publicReview && <ol className="space-y-2">
         {experiments.slice(0, 3).map((experiment, index) => (
           <li key={experiment.id} className="text-sm text-zinc-200">
             <strong>
@@ -141,7 +141,7 @@ export function ChannelStudioHandoff({
             </p>
           </li>
         ))}
-      </ol>
+      </ol>}
       <label className="block text-sm text-zinc-300">
         Videos to prepare
         <StudioSelect

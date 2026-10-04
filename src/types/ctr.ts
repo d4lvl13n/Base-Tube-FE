@@ -1,3 +1,5 @@
+import type { ConnectedAuditAnalysis, AuditExperimentTracking } from './connectedChannelAudit';
+import type { PublicResearch, PublicReview } from './publicChannelAudit';
 import type { ThumbnailBrief, ThumbnailEditing } from './thumbnail';
 // src/types/ctr.ts
 // CTR Thumbnail Engine Types
@@ -788,6 +790,10 @@ export type ChannelAuditConnectionStatus =
 
 /** The frozen v2 audit contract. */
 export interface ChannelPackagingAuditV2 {
+  connectedAnalysis?: ConnectedAuditAnalysis;
+  experimentTracking?: AuditExperimentTracking[];
+  publicResearch?: PublicResearch;
+  publicReview?: PublicReview;
   schemaVersion: 2;
   mode: 'preview' | 'connected';
   id?: number;
@@ -828,6 +834,7 @@ export function isChannelAuditV2(
 
 /** POST /api/v1/ctr/channel-audit request body. */
 export interface ChannelAuditRequest {
+  creatorGoal?: string;
   channelUrl: string;
 }
 

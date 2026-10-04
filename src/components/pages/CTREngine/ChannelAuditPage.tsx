@@ -24,7 +24,7 @@ import {
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import useCTREngine from '../../../hooks/useCTREngine';
 import ctrApi from '../../../api/ctr';
-import type { ChannelAuditResult, ChannelAuditSummary } from '../../../types/ctr';
+import { type ChannelAuditResult, type ChannelAuditSummary, isChannelAuditV2 } from '../../../types/ctr';
 import { ChannelAuditReport } from './components/ChannelAuditReport';
 import ChannelAuditProgress from './components/ChannelAuditProgress';
 import AIThumbnailsSignInOptions from './components/AIThumbnailsSignInOptions';
@@ -146,7 +146,7 @@ const DATA_MODE_LABELS: Record<string, string> = {
  * message), so trying again is always safe.
  */
 type ChannelAuditError = PlainApiError & {
-  retry: { kind: 'audit'; channel: string } | { kind: 'open'; summary: ChannelAuditSummary };
+  retry: { kind: 'audit'; channel: string; goal?: string } | { kind: 'open'; summary: ChannelAuditSummary };
 };
 
 /** Sending the same request again can help (server trouble, a limit, no answer), unlike a bad channel. */
@@ -166,6 +166,7 @@ const ChannelAuditPage: React.FC = () => {
   const [channelUrl, setChannelUrl] = useState(() =>
     oauthNotice ? readLastAuditUrl() : ''
   );
+  const [creatorGoal, setCreatorGoal] = useState('');
   const [audit, setAudit] = useState<ChannelAuditResult | null>(null);
   const [isAuditing, setIsAuditing] = useState(false);
   const [error, setError] = useState<ChannelAuditError | null>(null);
@@ -205,6 +206,7 @@ const ChannelAuditPage: React.FC = () => {
       const stored = await ctrApi.getChannelAudit(summary.id);
       if (opRef.current !== op) return;
       setAudit(stored);
+      setCreatorGoal(isChannelAuditV2(stored) ? stored.publicResearch?.creatorGoal || '' : '');
       setReportChannelRef(summary.channelRef || '');
       if (summary.channelRef) setChannelUrl(summary.channelRef);
     } catch (err: any) {
@@ -251,6 +253,7 @@ const ChannelAuditPage: React.FC = () => {
         // Generation 0 still current ⇒ no user action happened ⇒ the audit
         // slot is empty; the restored report (and ITS channel ref) land as one.
         setAudit((current) => current ?? stored);
+        setCreatorGoal(isChannelAuditV2(stored) ? stored.publicResearch?.creatorGoal || '' : '');
         setReportChannelRef(latest.channelRef || '');
         if (latest.channelRef) {
           setChannelUrl((current) => current || latest.channelRef);
@@ -308,7 +311,7 @@ const ChannelAuditPage: React.FC = () => {
     };
   }, []);
 
-  const runAudit = async (rawUrl: string) => {
+  const runAudit = async (rawUrl: string, goal = creatorGoal) => {
     const trimmed = rawUrl.trim();
     if (!trimmed || isAuditing || openingAuditId !== null) return;
     const op = ++opRef.current;
@@ -324,7 +327,7 @@ const ChannelAuditPage: React.FC = () => {
     setError(null);
     setIsAuditing(true);
     try {
-      const result = await ctrApi.auditChannel(trimmed);
+      const result = await ctrApi.auditChannel(trimmed, goal || undefined);
       if (opRef.current !== op) return;
       setAudit(result);
       setReportChannelRef(trimmed);
@@ -343,7 +346,7 @@ const ChannelAuditPage: React.FC = () => {
             ? 'The audit did not finish, and no incomplete report was saved. Please try again.'
             : 'The channel audit did not finish. Please try again.'
         ),
-        retry: { kind: 'audit', channel: trimmed },
+        retry: { kind: 'audit', channel: trimmed, goal },
       });
     } finally {
       void refreshQuota();
@@ -354,7 +357,7 @@ const ChannelAuditPage: React.FC = () => {
   const retryAfterError = () => {
     const retry = error?.retry;
     if (!retry) return;
-    if (retry.kind === 'audit') void runAudit(retry.channel);
+    if (retry.kind === 'audit') void runAudit(retry.channel, retry.goal);
     else void openAudit(retry.summary);
   };
 
@@ -540,7 +543,7 @@ const ChannelAuditPage: React.FC = () => {
               // Re-run targets the DISPLAYED report's channel — never the form
               // draft, which the user may have edited under this report.
               onRerunAudit={
-                reportChannelRef ? () => runAudit(reportChannelRef) : undefined
+                reportChannelRef ? () => runAudit(reportChannelRef, audit && isChannelAuditV2(audit) ? audit.publicResearch?.creatorGoal || '' : '') : undefined
               }
               isRerunning={isAuditing}
             />
@@ -565,9 +568,8 @@ const ChannelAuditPage: React.FC = () => {
                 Channel Packaging Audit
               </h1>
               <p className="text-base sm:text-lg leading-relaxed text-zinc-400 max-w-xl mx-auto">
-                See what a strategist would change — and how to prove it. Paste a channel
-                and get what's actually observable in your packaging, plus the experiments
-                that would settle it.
+                Find what to keep, what to improve and how to test it. We inspect up to eight thumbnails,
+                review the viewer promise and research competitive examples. No YouTube connection required.
               </p>
             </div>
 
@@ -593,6 +595,11 @@ const ChannelAuditPage: React.FC = () => {
                             placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50
                             focus:border-[#fa7517]/50 backdrop-blur-sm transition-all"
                 />
+                <label htmlFor="channel-audit-goal" className="mt-3 text-sm font-semibold text-white">What should viewers get from your channel? <span className="font-normal text-zinc-500">Optional</span></label>
+                <input id="channel-audit-goal" value={creatorGoal} onChange={e => setCreatorGoal(e.target.value)} maxLength={280} disabled={isAuditing}
+                  placeholder="e.g. Relaxing aerial journeys to watch on a television"
+                  className="px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50" />
+                <p className="text-xs text-zinc-400">This helps us assess the right promise. If left blank, the report will state its assumption.</p>
                 <motion.button
                   type="submit"
                   disabled={isAuditing || openingAuditId !== null || !channelUrl.trim()}

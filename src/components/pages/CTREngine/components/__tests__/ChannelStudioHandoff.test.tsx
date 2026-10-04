@@ -123,7 +123,7 @@ it("makes no companion request for anonymous visitors", () => {
 it("offers only the project handoff for an experiment, and nothing to anonymous visitors", () => {
   const { StudioExperimentAction } = require("../studio/ChannelStudioHandoff");
   const view = render(<StudioExperimentAction auditId={42} experiment={audit.experiments[0]} />);
-  expect(screen.getByRole("button", { name: "Prepare this experiment in a project" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Use this suggestion in AI Thumbnail" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Generate this variant/ })).not.toBeInTheDocument();
   view.unmount();
   (useStudioAccount as jest.Mock).mockReturnValue("anonymous");

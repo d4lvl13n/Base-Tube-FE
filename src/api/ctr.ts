@@ -1,3 +1,4 @@
+import type { AuditTestUpdate, AuditExperimentTracking } from '../types/connectedChannelAudit';
 import type { ThumbnailEditing } from '../types/thumbnail';
 // src/api/ctr.ts
 // CTR Thumbnail Engine API Service
@@ -154,7 +155,7 @@ export const ctrApi = {
    * @param channelUrl - Channel URL, @handle, or channel id
    * @returns The full packaging audit report (v2, or a legacy v1 row)
    */
-  auditChannel: async (channelUrl: string): Promise<ChannelAuditResult> => {
+  auditChannel: async (channelUrl: string, creatorGoal?: string): Promise<ChannelAuditResult> => {
     // Stable for any transport-level retry of this request. The backend replays
     // the settled row and atomically rejects same-account concurrent work.
     const idempotencyKey =
@@ -162,7 +163,7 @@ export const ctrApi = {
       `audit-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const response = await api.post<ChannelAuditResponse | CTRErrorResponse>(
       `${CTR_BASE_PATH}/channel-audit`,
-      { channelUrl } as ChannelAuditRequest,
+      { channelUrl, ...(creatorGoal?.trim() ? { creatorGoal: creatorGoal.trim() } : {}) } as ChannelAuditRequest,
       { headers: { 'Idempotency-Key': idempotencyKey } }
     );
 
@@ -178,6 +179,19 @@ export const ctrApi = {
    * server-side). Returns [] on ANY failure — history is a convenience, and a
    * broken list must never block running a fresh audit.
    */
+  updateAuditExperiment: async (id: number, experimentId: string, update: AuditTestUpdate): Promise<AuditExperimentTracking[]> => {
+    const response = await api.patch<{ success: true; data: { experimentTracking: AuditExperimentTracking[] } } | CTRErrorResponse>(
+      `${CTR_BASE_PATH}/channel-audit/${id}/experiments/${encodeURIComponent(experimentId)}`, update
+    );
+    if (!response.data.success) throw new Error(response.data.error.message);
+    return response.data.data.experimentTracking;
+  },
+
+  exportChannelAudit: async (id: number): Promise<Blob> => {
+    const response = await api.get(`${CTR_BASE_PATH}/channel-audit/${id}/export`, { responseType: 'blob' });
+    return response.data;
+  },
+
   listChannelAudits: async (): Promise<ChannelAuditSummary[]> => {
     try {
       const response = await api.get<

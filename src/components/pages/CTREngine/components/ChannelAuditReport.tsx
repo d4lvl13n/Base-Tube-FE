@@ -1,3 +1,6 @@
+import { ConnectedAuditReview } from './ConnectedAuditReview';
+import { AuditExperimentTracker } from './AuditExperimentTracker';
+import { PublicChannelAuditReview } from './PublicChannelAuditReview';
 import { ChannelStudioHandoff, StudioExperimentAction } from './studio/ChannelStudioHandoff';
 // src/components/pages/CTREngine/components/ChannelAuditReport.tsx
 // Renders the v2 channel packaging audit (frozen contract:
@@ -115,7 +118,7 @@ const EVIDENCE_CHIP: Record<
   },
 };
 
-const MetricsRow: React.FC<{ metrics: ChannelAuditV2VideoMetrics }> = ({ metrics }) => {
+const MetricsRow: React.FC<{ metrics: ChannelAuditV2VideoMetrics; showBaseline?: boolean }> = ({ metrics, showBaseline = true }) => {
   const chip = EVIDENCE_CHIP[metrics.evidenceStrength] ?? EVIDENCE_CHIP.insufficient;
   const muted = metrics.evidenceStrength === 'insufficient';
 
@@ -154,7 +157,7 @@ const MetricsRow: React.FC<{ metrics: ChannelAuditV2VideoMetrics }> = ({ metrics
           Mostly seen via <span className="text-gray-400">{metrics.dominantTrafficSource}</span>
         </p>
       )}
-      {metrics.baselineDelta && (
+      {showBaseline && metrics.baselineDelta && (
         <p className="text-xs text-gray-400 mt-1">{metrics.baselineDelta}</p>
       )}
     </div>
@@ -325,7 +328,6 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      <ChannelStudioHandoff key={v2.id} audit={v2} />
       {/* 1. POSITIONING — what this channel is, first and prominently        */}
       {/* ------------------------------------------------------------------ */}
       <motion.section
@@ -373,6 +375,11 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
           </p>
         )}
       </motion.section>
+
+      <ConnectedAuditReview audit={v2} />
+      <PublicChannelAuditReview key={`public-${v2.id}`} audit={v2} />
+      <ChannelStudioHandoff key={v2.id} audit={v2} />
+      <AuditExperimentTracker key={`tests-${v2.id}`} audit={v2} />
 
       {/* Connect / reconnect / wrong-channel — the report's main ask when it has
           no real numbers to show. Placed straight under Positioning so it is the
@@ -555,6 +562,8 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
                       {video.title}
                     </a>
 
+                    {v2.publicResearch?.thumbnailSnapshots?.filter(s=>s.videoId===video.videoId).map(snapshot=><div key={snapshot.sha256} className="mt-3 text-xs text-zinc-400">{snapshot.comparison.status==='changed' && <p className="text-amber-300">The thumbnail differs from the previous audit; the diagnosis was reassessed. The cause is unknown.</p>}<details className="thumbnail-disclosure"><summary>Exact image analysed</summary><div className="mt-2 break-words"><p>Retrieved: {snapshot.fetchedAt}</p><p>SHA256: {snapshot.sha256}</p><p>{snapshot.width} × {snapshot.height} · {snapshot.mime} · {snapshot.byteSize} bytes</p><p>{snapshot.comparison.explanation}</p></div></details></div>)}
+
                     {/* Observed — countable facts */}
                     {video.observed && video.observed.length > 0 && (
                       <>
@@ -576,7 +585,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
                     )}
 
                     {/* Hypothesis — visually hedged: dashed border, muted, labelled */}
-                    {video.hypothesis && (
+                    {!v2.publicReview && video.hypothesis && (
                       <div className="mt-4 p-3 bg-white/[0.02] border border-dashed border-gray-700 rounded-xl">
                         <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
                           <HelpCircle className="w-3.5 h-3.5" />
@@ -597,11 +606,11 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
                     {isPerVideoMetricsV21(video.metrics) ? (
                       <VideoMetricCards metrics={video.metrics} />
                     ) : (
-                      video.metrics && <MetricsRow metrics={video.metrics} />
+                      video.metrics && <MetricsRow showBaseline={!v2.connectedAnalysis} metrics={video.metrics} />
                     )}
 
                     {/* Link to the experiment that covers this video */}
-                    {experiment && (
+                    {!v2.publicReview && experiment && (
                       <button
                         onClick={() => scrollToAnchor(experimentAnchorId(experiment.id))}
                         className="mt-4 inline-flex items-center gap-2 px-3 py-2 bg-[#fa7517]/10 hover:bg-[#fa7517]/20 border border-[#fa7517]/25 rounded-lg text-xs font-semibold text-[#fa7517] transition-colors"
@@ -622,7 +631,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
       {/* ------------------------------------------------------------------ */}
       {/* 3. EXPERIMENTS TO RUN                                               */}
       {/* ------------------------------------------------------------------ */}
-      {orderedExperiments.length > 0 && (
+      {!v2.publicReview && orderedExperiments.length > 0 && (
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -723,7 +732,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
       {/* ------------------------------------------------------------------ */}
       {/* 4. SWIPE FILE                                                       */}
       {/* ------------------------------------------------------------------ */}
-      {swipeFile && (
+      {!v2.publicResearch && swipeFile && (
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

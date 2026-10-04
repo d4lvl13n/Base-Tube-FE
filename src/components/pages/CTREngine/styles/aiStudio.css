@@ -340,15 +340,15 @@
   outline: 2px solid #fa7517;
   outline-offset: 4px;
 }
-.ai-studio-shell details > summary {
+:is(.ai-studio-shell, .ai-audit-report) details > summary {
   display: flex;
   align-items: center;
   gap: .5rem;
   list-style: none;
   cursor: pointer;
 }
-.ai-studio-shell details > summary::-webkit-details-marker { display: none; }
-.ai-studio-shell details > summary::before {
+:is(.ai-studio-shell, .ai-audit-report) details > summary::-webkit-details-marker { display: none; }
+:is(.ai-studio-shell, .ai-audit-report) details > summary::before {
   content: '';
   width: .5rem;
   height: .5rem;
@@ -358,12 +358,12 @@
   transform: rotate(-45deg);
   transition: transform .18s ease, border-color .18s ease;
 }
-.ai-studio-shell details[open] > summary::before {
+:is(.ai-studio-shell, .ai-audit-report) details[open] > summary::before {
   transform: rotate(45deg);
   border-color: #fa7517;
 }
-.ai-studio-shell details > summary:hover { color: #fff; }
-.ai-studio-shell details > summary:hover::before { border-color: #fa7517; }
+:is(.ai-studio-shell, .ai-audit-report) details > summary:hover { color: #fff; }
+:is(.ai-studio-shell, .ai-audit-report) details > summary:hover::before { border-color: #fa7517; }
 .ai-studio-shell .thumbnail-look > summary::before { display: none; }
 .ai-studio-shell input[type="checkbox"],
 .ai-studio-shell input[type="radio"] {

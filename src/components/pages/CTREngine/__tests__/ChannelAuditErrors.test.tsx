@@ -34,7 +34,7 @@ it('says the audit did not finish in the server\'s words and runs the same chann
   expect(screen.queryByText(/HTTP 503/)).not.toBeInTheDocument();
   api.auditChannel.mockResolvedValueOnce({ version: 2 } as any);
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
-  await waitFor(() => expect(api.auditChannel).toHaveBeenLastCalledWith('@mychannel'));
+  await waitFor(() => expect(api.auditChannel).toHaveBeenLastCalledWith('@mychannel', undefined));
   expect(await screen.findByText('Report')).toBeInTheDocument();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
