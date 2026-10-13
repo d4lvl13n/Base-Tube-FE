@@ -40,6 +40,9 @@ const LABEL = 'block text-xs font-medium text-gray-400';
 const LINK_BUTTON =
   'inline-flex min-h-[44px] items-center gap-1.5 rounded text-xs text-[#fa7517] transition-colors ' +
   'hover:text-[#ff8c3a] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
+const ICON_BUTTON =
+  'inline-flex h-10 w-10 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-white/5 hover:text-white ' +
+  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600';
 const QUIET_BUTTON =
   'inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 text-sm text-gray-300 transition-colors ' +
   'hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600';
@@ -427,20 +430,37 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
 
   return (
     <div className="flex h-full min-h-0 flex-col" aria-label={title} role="region">
-      {/* The inspector head names the video and the file it came from (AA `ig-inspector-head`). */}
-      <header className="flex items-start justify-between gap-3 border-b border-gray-800 px-5 py-4">
+      {/* The inspector head: 72 px, the height of the workspace header, so both
+          bottom borders line up. The title, then where the video stands as
+          content: saved or not, private or published, and its channel. */}
+      <header className="flex h-[72px] shrink-0 items-center justify-between gap-3 border-b border-white/10 px-5">
         <div className="min-w-0">
-          <strong className="block break-words text-[15px] font-semibold text-white">{title}</strong>
-          <small className="mt-1 block break-all text-xs text-gray-500">
-            {[entry?.filename ?? record.filename, channel?.name].filter(Boolean).join(' · ')}
-          </small>
+          <strong className="block truncate text-[15px] font-semibold text-white" title={title}>
+            {title}
+          </strong>
+          <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-gray-500">
+            <span className="shrink-0" aria-live="polite">
+              {saveLine}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className={`inline-flex shrink-0 items-center gap-1 ${published ? 'text-green-400' : 'text-gray-400'}`}>
+              {published ? <Check className="h-3 w-3" aria-hidden="true" /> : <Lock className="h-3 w-3" aria-hidden="true" />}
+              {editorialLabel(draft)}
+            </span>
+            {channel?.name && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="truncate">{channel.name}</span>
+              </>
+            )}
+          </div>
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label={workspaceCopy.closeInspector}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-800 text-gray-400
-                     transition-colors hover:border-gray-600 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-gray-400
+                     transition-colors hover:border-white/25 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -648,7 +668,9 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
             </div>
             {/* The shared editor has no blur callback: leaving its container is the blur. */}
             <div
-              className="mt-2"
+              // One frame only: the shared editor draws its own; restyle it to the
+              // panel's fields instead of nesting a second border inside.
+              className="mt-2 [&>div]:rounded-md [&>div]:border-gray-800 [&>div]:bg-black/20 [&>div:focus-within]:border-[#fa7517]/60"
               aria-labelledby={`draft-description-label-${key}`}
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget as Node | null)) workspace.commit(key);
@@ -657,7 +679,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
               <RichTextEditor
                 content={record.desired.description ?? ''}
                 onChange={(html) => workspace.edit(key, { description: hasEditorContent(html) ? html : null })}
-                className="w-full rounded-md border border-gray-800 bg-black/40 text-sm text-white"
+                className="text-sm text-white"
                 placeholder="What is this video about?"
                 minHeight="320px"
               />
@@ -690,7 +712,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
             </div>
           )}
 
-          <div className="border-t border-gray-800/60 pt-4">
+          <div className="border-t border-white/10 pt-4">
             <button
               type="button"
               aria-expanded={moreOpen}
@@ -812,105 +834,102 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
       </div>
       </div>
 
-      {/* The inspector foot: the save state and the editorial state once, why
-          Publish is unavailable (never only a disabled button), Publish for
-          THIS video, and previous / next (AA `ig-inspector-nav`). */}
-      {/* Right padding keeps Publish clear of the site's floating help button. */}
-      <footer className="border-t border-gray-800 bg-[#09090B] py-3 pl-5 pr-20" aria-label="Publication">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-          <span aria-live="polite">{saveLine}</span>
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
-              published ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-gray-400'
-            }`}
+      {/* The inspector foot: one 72 px row, the same height as the workspace
+          command row so both top borders line up. Previous / next and Preview
+          on the left; why Publish is unavailable in one line (full list in the
+          tooltip and for screen readers), never only a disabled button; Publish
+          for THIS video. Right padding keeps Publish clear of the site's
+          floating help button. */}
+      <footer
+        className="flex h-[72px] shrink-0 items-center gap-3 border-t border-white/10 bg-[#09090B] pl-3 pr-20"
+        aria-label="Publication"
+      >
+        <div className="flex shrink-0 items-center">
+          <button
+            type="button"
+            onClick={onPrevious ?? undefined}
+            disabled={!onPrevious}
+            aria-label={workspaceCopy.previousVideo}
+            className={`${ICON_BUTTON} disabled:opacity-30`}
           >
-            {published ? <Check className="h-3 w-3" aria-hidden="true" /> : <Lock className="h-3 w-3" aria-hidden="true" />}
-            {editorialLabel(draft)}
-          </span>
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={onNext ?? undefined}
+            disabled={!onNext}
+            aria-label={workspaceCopy.nextVideo}
+            className={`${ICON_BUTTON} disabled:opacity-30`}
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-pressed={previewMode === 'presentation'}
+            onClick={() => {
+              setPreviewMode((mode) => (mode === 'presentation' ? 'video' : 'presentation'));
+              previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }}
+            className={`${QUIET_BUTTON} min-h-[40px]`}
+          >
+            {previewMode === 'presentation' ? workspaceCopy.backToEditing : workspaceCopy.preview}
+          </button>
         </div>
-        {!published && !canPublish && !publishBusy && blockers.length > 0 && (
-          <p id={`draft-blockers-${key}`} className="mt-1.5 text-xs text-gray-400">
-            {workspaceCopy.notYet} {blockers.map((blocker) => blocker.text).join(' ')}
-          </p>
-        )}
-        {runtime.publishError && (
-          <p className="mt-1.5 text-xs text-yellow-400" role="alert">
-            {runtime.publishError}
-          </p>
-        )}
 
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={onPrevious ?? undefined}
-              disabled={!onPrevious}
-              aria-label={workspaceCopy.previousVideo}
-              className={`${QUIET_BUTTON} disabled:opacity-30`}
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={onNext ?? undefined}
-              disabled={!onNext}
-              aria-label={workspaceCopy.nextVideo}
-              className={`${QUIET_BUTTON} disabled:opacity-30`}
-            >
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              aria-pressed={previewMode === 'presentation'}
-              onClick={() => {
-                setPreviewMode((mode) => (mode === 'presentation' ? 'video' : 'presentation'));
-                previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-              }}
-              className={QUIET_BUTTON}
-            >
-              {previewMode === 'presentation' ? workspaceCopy.backToEditing : workspaceCopy.preview}
-            </button>
-          </div>
+        <p
+          id={`draft-blockers-${key}`}
+          className={`min-w-0 flex-1 truncate text-xs ${runtime.publishError ? 'text-yellow-400' : 'text-gray-500'}`}
+          title={blockers.map((blocker) => blocker.text).join(' ')}
+          role={runtime.publishError ? 'alert' : undefined}
+        >
+          {runtime.publishError
+            ? runtime.publishError
+            : !published && !canPublish && !publishBusy && blockers.length > 0
+              ? `${workspaceCopy.notYet} ${blockers[0]!.text}${blockers.length > 1 ? ` ${workspaceCopy.andMore(blockers.length - 1)}` : ''}`
+              : ''}
+          {!runtime.publishError && blockers.length > 1 && (
+            <span className="sr-only"> {blockers.slice(1).map((blocker) => blocker.text).join(' ')}</span>
+          )}
+        </p>
 
-          <div className="flex flex-wrap items-center justify-end gap-1">
-            {published ? (
-              <>
-                {server?.videoId && (
-                  <Link to={`/video/${server.videoId}`} className={QUIET_BUTTON}>
-                    <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                    {workspaceCopy.viewVideo}
-                  </Link>
-                )}
-                {videoUrl && (
-                  <button type="button" onClick={() => void copyLink()} className={QUIET_BUTTON}>
-                    <Copy className="h-4 w-4" aria-hidden="true" />
-                    {linkCopied ? workspaceCopy.linkCopied : workspaceCopy.copyLink}
-                  </button>
-                )}
-              </>
-            ) : runtime.publish === 'verifying' || (record.publication && runtime.publish !== 'publishing') ? (
-              <span className="inline-flex min-h-[44px] items-center gap-2 px-3 text-sm text-gray-300">
-                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                {workspaceCopy.verifyingPublication}
-                {runtime.publish !== 'verifying' && (
-                  <button type="button" onClick={() => workspace.verifyPublication(key)} className={LINK_BUTTON}>
-                    {workspaceCopy.checkAgain}
-                  </button>
-                )}
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void workspace.publish(key)}
-                disabled={!canPublish}
-                aria-describedby={!canPublish && blockers.length > 0 ? `draft-blockers-${key}` : undefined}
-                className={PRIMARY_BUTTON}
-              >
-                {runtime.publish === 'publishing' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-                {runtime.publish === 'publishing' ? workspaceCopy.publishing : workspaceCopy.publish}
-              </button>
-            )}
-          </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {published ? (
+            <>
+              {server?.videoId && (
+                <Link to={`/video/${server.videoId}`} className={`${QUIET_BUTTON} min-h-[40px]`}>
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  {workspaceCopy.viewVideo}
+                </Link>
+              )}
+              {videoUrl && (
+                <button type="button" onClick={() => void copyLink()} className={`${QUIET_BUTTON} min-h-[40px]`}>
+                  <Copy className="h-4 w-4" aria-hidden="true" />
+                  {linkCopied ? workspaceCopy.linkCopied : workspaceCopy.copyLink}
+                </button>
+              )}
+            </>
+          ) : runtime.publish === 'verifying' || (record.publication && runtime.publish !== 'publishing') ? (
+            <span className="inline-flex items-center gap-2 text-sm text-gray-300">
+              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              {workspaceCopy.verifyingPublication}
+              {runtime.publish !== 'verifying' && (
+                <button type="button" onClick={() => workspace.verifyPublication(key)} className={LINK_BUTTON}>
+                  {workspaceCopy.checkAgain}
+                </button>
+              )}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void workspace.publish(key)}
+              disabled={!canPublish}
+              aria-describedby={!canPublish && blockers.length > 0 ? `draft-blockers-${key}` : undefined}
+              className={`${PRIMARY_BUTTON} min-h-[40px]`}
+            >
+              {runtime.publish === 'publishing' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {runtime.publish === 'publishing' ? workspaceCopy.publishing : workspaceCopy.publish}
+            </button>
+          )}
         </div>
       </footer>
 

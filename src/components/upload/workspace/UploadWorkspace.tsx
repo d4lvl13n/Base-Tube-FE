@@ -415,14 +415,26 @@ const UploadWorkspace: React.FC = () => {
     <section
       aria-labelledby="upload-workspace-title"
       {...pageDrop}
-      className="relative flex flex-col px-4 pb-0 pt-5 sm:px-6"
-      style={{ paddingRight: inspectorBeside ? `calc(${INSPECTOR_WIDTH} + 1.5rem)` : undefined, minHeight: `calc(100vh - ${HEADER_HEIGHT}px)` }}
+      className="relative flex flex-col px-4 sm:px-6"
+      // Room for the fixed header (72 px) and command row (72 px) around the grid.
+      style={{
+        paddingRight: inspectorBeside ? `calc(${INSPECTOR_WIDTH} + 1.5rem)` : undefined,
+        paddingTop: 72 + 20,
+        paddingBottom: 72 + 24,
+        minHeight: `calc(100vh - ${HEADER_HEIGHT}px)`,
+      }}
     >
       <p className="sr-only" role="status" aria-live="polite">
         {announcement}
       </p>
 
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-3">
+      {/* Fixed under the site header, between the sidebar and the inspector,
+          72 px like the inspector head: their bottom borders line up. (Sticky
+          would not hold: the hub column has overflow-x hidden.) */}
+      <header
+        className="fixed z-20 flex h-[72px] items-center justify-between gap-x-4 border-b border-white/10 bg-[#09090B]/95 px-4 backdrop-blur-md sm:px-6"
+        style={{ top: HEADER_HEIGHT, left: 'var(--bt-hub-sidebar-width, 0px)', right: inspectorBeside ? INSPECTOR_WIDTH : 0 }}
+      >
         <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2">
           <h1 id="upload-workspace-title" className="text-xl font-semibold text-white">
             {workspaceCopy.pageTitle}
@@ -544,24 +556,23 @@ const UploadWorkspace: React.FC = () => {
         </section>
       )}
 
-      <div className="h-8 shrink-0" aria-hidden="true" />
 
       {/* The one command row (AA `ig-action-bar`): where things stand, then
           the next useful action. Publishing is per video, in the inspector. */}
       {items.length > 0 && (
         <footer
           aria-label={workspaceCopy.commands}
-          // Pinned to the bottom of the screen even with a short grid.
-          style={{ marginTop: 'auto' }}
-          className="sticky bottom-0 z-30 -mx-4 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-t border-white/20
-                     bg-[#09090B]/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6"
+          // Fixed like the header, 72 px like the inspector foot: their top borders line up.
+          style={{ left: 'var(--bt-hub-sidebar-width, 0px)', right: inspectorBeside ? INSPECTOR_WIDTH : 0 }}
+          className="fixed bottom-0 z-30 flex h-[72px] items-center justify-between gap-x-5 border-t border-white/10
+                     bg-[#09090B]/95 px-4 backdrop-blur-md sm:px-6"
         >
           <div className="min-w-0" role="status">
-            <strong className="block text-[13px] font-semibold text-white">
+            <strong className="block truncate text-[13px] font-semibold text-white">
               {workspaceCopy.summaryCount(items.length)}
               {summaryParts.length > 0 ? ` · ${summaryParts.join(' · ')}` : ''}
             </strong>
-            <span className="block text-xs text-gray-400">
+            <span className="block truncate text-xs text-gray-400">
               {sending > 0 ? workspaceCopy.keepTabOpen : allDurable ? workspaceCopy.canCloseTab : workspaceCopy.commandsHint}
             </span>
           </div>

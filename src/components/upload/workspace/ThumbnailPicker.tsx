@@ -68,11 +68,11 @@ const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
       </span>
       <div
         className="mt-1.5 flex gap-3"
-        style={{ flexDirection: stacked ? 'column' : 'row', alignItems: stacked ? 'stretch' : 'center' }}
+        style={{ flexDirection: stacked ? 'column' : 'row', alignItems: stacked ? 'stretch' : 'flex-start' }}
       >
         <div
           className="relative aspect-video shrink-0 overflow-hidden rounded-md bg-black ring-1 ring-gray-800"
-          style={{ width: stacked ? '100%' : '8.5rem' }}
+          style={{ width: stacked ? '100%' : '7.5rem' }}
         >
           {previewUrl ? (
             <img src={previewUrl} alt="Selected thumbnail" className="h-full w-full object-cover" />
