@@ -25,7 +25,6 @@ import type { WorkspaceDraft } from '../../../hooks/useDraftWorkspace';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 import NoChannelView from '../../pages/CreatorHub/NoChannelView';
 import { UploadRow } from '../../pages/CreatorHub/ContentStudio';
-import { formatBytes } from '../uploadPhase';
 import { describeUploadError } from '../uploadCopy';
 import DraftEditor from './DraftEditor';
 import DraftList from './DraftList';
@@ -53,7 +52,7 @@ const UploadWorkspace: React.FC = () => {
   const workspace = useDraftWorkspaceContext();
   const queue = useUploadQueueContext();
   const session = useUploadSession();
-  const { channels, selectedChannelId, isLoading: channelsLoading } = useChannelSelection();
+  const { channels, selectedChannelId, selectedChannel, isLoading: channelsLoading } = useChannelSelection();
   const { draftId } = useParams<{ draftId?: string }>();
   const navigate = useNavigate();
   const online = useOnline();
@@ -286,6 +285,11 @@ const UploadWorkspace: React.FC = () => {
               {queue.paused ? workspaceCopy.resumeNext : workspaceCopy.holdNext}
             </button>
           )}
+          {items.length > 0 && selectedChannel && (
+            <span className="px-2 text-xs text-gray-500">
+              {workspaceCopy.destinationNext} <span className="text-gray-300">{selectedChannel.name}</span>
+            </span>
+          )}
           {items.length > 0 && (
             <button
               ref={addButtonRef}
@@ -385,7 +389,9 @@ const UploadWorkspace: React.FC = () => {
       )}
 
       {/* ── resume: one place to give every waiting video its file back ── */}
-      {workspace.waitingForFile.length > 0 && (
+      {/* Several videos waiting for their files: one line, one batch action.
+          With a single one, the video card already says it and asks for it. */}
+      {workspace.waitingForFile.length > 1 && (
         <section
           aria-label={workspaceCopy.resumeTitle(workspace.waitingForFile.length)}
           onDragOver={(event) => {
@@ -398,42 +404,25 @@ const UploadWorkspace: React.FC = () => {
             setResumeDrag(false);
             void resumeFiles(Array.from(event.dataTransfer.files ?? []));
           }}
-          className={`mt-6 rounded-lg border p-4 transition-colors ${
-            resumeDrag ? 'border-[#fa7517] bg-[#fa7517]/[0.06]' : 'border-yellow-500/30 bg-yellow-500/[0.04]'
+          className={`mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border px-4 py-2.5 transition-colors ${
+            resumeDrag ? 'border-[#fa7517] bg-[#fa7517]/[0.06]' : 'border-yellow-500/25 bg-yellow-500/[0.04]'
           }`}
         >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 max-w-2xl">
-              <h2 className="flex items-center gap-2 text-base font-medium text-yellow-100">
-                <AlertCircle className="h-4 w-4 shrink-0 text-yellow-400" aria-hidden="true" />
-                {workspaceCopy.resumeTitle(workspace.waitingForFile.length)}
-              </h2>
-              <p className="mt-1 text-sm text-gray-400">{workspaceCopy.resumeBody}</p>
-              <ul className="mt-3 space-y-1 text-sm">
-                {workspace.waitingForFile.map((waiting) => (
-                  <li key={waiting.key} className="flex min-w-0 items-baseline gap-2">
-                    <span className="truncate text-gray-200" title={waiting.filename}>
-                      {waiting.filename}
-                    </span>
-                    <span className="shrink-0 text-xs text-gray-500">{formatBytes(waiting.sizeBytes)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="flex shrink-0 flex-col items-center gap-1">
-              <button
-                type="button"
-                onClick={() => resumeInputRef.current?.click()}
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#fa7517] px-4 text-sm font-medium
-                           text-black transition-colors hover:bg-[#ff8c3a]
-                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/60"
-              >
-                <UploadCloud className="h-4 w-4" aria-hidden="true" />
-                {workspaceCopy.resumeAction}
-              </button>
-              <span className="text-xs text-gray-500">{workspaceCopy.resumeDrop}</span>
-            </div>
-          </div>
+          <AlertCircle className="h-4 w-4 shrink-0 text-yellow-400" aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-sm text-gray-300">
+            <span className="font-medium text-yellow-100">{workspaceCopy.resumeTitle(workspace.waitingForFile.length)}.</span>{' '}
+            {workspaceCopy.resumeBody}
+          </p>
+          <span className="text-xs text-gray-500">{workspaceCopy.resumeDrop}</span>
+          <button
+            type="button"
+            onClick={() => resumeInputRef.current?.click()}
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#fa7517] px-4 text-sm font-medium
+                       text-black transition-colors hover:bg-[#ff8c3a]
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/60"
+          >
+            {workspaceCopy.resumeActionCount(workspace.waitingForFile.length)}
+          </button>
           <input
             ref={resumeInputRef}
             type="file"
@@ -526,9 +515,6 @@ const UploadWorkspace: React.FC = () => {
                 onClose={backToList}
                 onAnnounce={setAnnouncement}
               />
-              {/* New files go to the selector's channel; the open video keeps its own. */}
-              <div className="mt-6">{destination}</div>
-              {selectedChannelId ? dropZone(true) : null}
             </div>
           )}
         </div>

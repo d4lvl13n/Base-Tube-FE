@@ -10,7 +10,6 @@ import {
   type TechnicalTone,
 } from './draftStatus';
 import { workspaceCopy } from './workspaceCopy';
-import { formatBytes } from '../uploadPhase';
 
 /** Colour backs a word and an icon, never replaces them (UP-UX §13). */
 const TONE_TEXT: Record<TechnicalTone, string> = {
@@ -19,6 +18,14 @@ const TONE_TEXT: Record<TechnicalTone, string> = {
   ready: 'text-green-500',
   attention: 'text-yellow-400',
 };
+
+/** Shortens from the middle, so the distinguishing end of a camera filename stays visible. */
+function middleEllipsis(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const head = Math.ceil((max - 1) * 0.4);
+  const tail = max - 1 - head;
+  return `${text.slice(0, head)}…${text.slice(text.length - tail)}`;
+}
 
 function ToneIcon({ tone }: { tone: TechnicalTone }) {
   if (tone === 'ready') return <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />;
@@ -59,7 +66,7 @@ const DraftList: React.FC<DraftListProps> = ({
   rowRefs,
 }) => (
   <nav aria-label={workspaceCopy.videosList} className="min-w-0">
-    <ul className="divide-y divide-gray-800/60 overflow-hidden rounded-lg border border-gray-800/60 bg-[#0f0f0f]">
+    <ul className="space-y-1">
       {items.map((draft) => {
         const technical = technicalState(draft, statusContext(draft));
         const selected = draft.key === selectedKey;
@@ -67,11 +74,11 @@ const DraftList: React.FC<DraftListProps> = ({
         const published = isPublished(draft);
         const ready = !published && isReady(draft.key);
         const channel = showChannel ? channelName(draft.record.channelId) : null;
-        // Two videos often share a camera prefix: the file name and size tell them apart.
-        const filename = draft.entry?.filename ?? draft.record.filename;
-        const fileLine = filename
-          ? `${filename}${draft.entry ? ` · ${formatBytes(draft.entry.sizeBytes)}` : ''}`
-          : null;
+        const title = displayTitle(draft);
+        // One status line: the editorial state only when it is the news
+        // (published, ready); otherwise the file's state.
+        const statusText = published ? editorialLabel(draft) : ready ? workspaceCopy.readyToPublish : technical.label;
+        const statusTone = published || ready ? 'ready' : technical.tone;
         return (
           <li key={draft.key} className="relative">
             <button
@@ -82,36 +89,33 @@ const DraftList: React.FC<DraftListProps> = ({
               }}
               onClick={() => onSelect(draft.key)}
               aria-current={selected ? 'true' : undefined}
-              className={`flex min-h-[64px] w-full items-center gap-3 px-3 py-2.5 text-left transition-colors
+              title={title}
+              className={`relative flex min-h-[56px] w-full items-center gap-3 overflow-hidden rounded-lg px-2 py-2 text-left transition-colors
                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#fa7517]/60 ${
-                            selected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'
+                            selected ? 'bg-white/[0.07]' : 'hover:bg-white/[0.04]'
                           }`}
             >
-              <span className="relative aspect-video w-20 shrink-0 overflow-hidden rounded border border-gray-800 bg-black">
+              {selected && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-[#fa7517]" aria-hidden="true" />}
+              <span className="relative aspect-video w-16 shrink-0 overflow-hidden rounded bg-black ring-1 ring-gray-800">
                 {thumbnail ? (
                   <img src={thumbnail} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <span className="flex h-full w-full items-center justify-center">
-                    <Film className="h-4 w-4 text-gray-700" aria-hidden="true" />
+                    <Film className="h-3.5 w-3.5 text-gray-700" aria-hidden="true" />
                   </span>
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm text-gray-100">{displayTitle(draft)}</span>
-                {fileLine && (
-                  <span className="mt-0.5 block truncate text-[11px] text-gray-600" title={fileLine}>
-                    {fileLine}
+                {/* Camera files share long prefixes: keep the end, where they differ. */}
+                <span className="block truncate text-sm text-gray-100">{middleEllipsis(title, 30)}</span>
+                <span className={`mt-0.5 flex items-center gap-1 text-xs ${TONE_TEXT[statusTone]}`}>
+                  <ToneIcon tone={statusTone} />
+                  <span className="truncate">
+                    {statusText}
+                    {technical.percent !== null ? ` · ${technical.percent}%` : ''}
                   </span>
-                )}
-                <span className={`mt-1 flex items-start gap-1 text-xs ${TONE_TEXT[technical.tone]}`}>
-                  <span className="mt-px"><ToneIcon tone={technical.tone} /></span>
-                  <span className="line-clamp-2">{technical.label}</span>
                 </span>
-                <span className="mt-0.5 block truncate text-xs text-gray-500">
-                  {editorialLabel(draft)}
-                  {ready ? ` · ${workspaceCopy.readyToPublish}` : ''}
-                  {channel ? ` · ${channel}` : ''}
-                </span>
+                {channel && <span className="mt-0.5 block truncate text-[11px] text-gray-600">{channel}</span>}
               </span>
               {selected && <span className="sr-only">(selected)</span>}
             </button>

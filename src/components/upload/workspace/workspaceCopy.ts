@@ -33,9 +33,9 @@ export const workspaceCopy = {
     `Choose “${filename}” (${size}) again. Only the parts not yet received are sent.`,
   resumeTitle: (count: number) =>
     count === 1 ? '1 video is waiting for its file' : `${count} videos are waiting for their files`,
-  resumeBody:
-    'Your browser lets go of files when the page reloads. Choose the same files again — nothing is sent twice.',
+  resumeBody: 'The page reload dropped them; the parts already sent are kept.',
   resumeAction: 'Choose the files',
+  resumeActionCount: (count: number) => `Choose the ${count} files`,
   resumeDrop: 'or drop them here',
   resumeDone: (count: number) => `${count} video${count === 1 ? '' : 's'} resumed.`,
   resumeUnmatched: (names: string) => `Not one of the waiting files: ${names}. Use “Add videos” to add new ones.`,
@@ -162,6 +162,10 @@ export const workspaceCopy = {
   customThumbnailPlaceholder: 'Custom thumbnail',
   supportReference: (code: string) => `Support reference: ${code}`,
   persistenceWarning: 'This browser keeps nothing after a reload. Finish saving before you leave.',
+  notYet: 'Not ready to publish:',
+  andMore: (count: number) => `and ${count} more`,
+  backToEditing: 'Back to the video',
+  previewLocalShort: 'playing from this device',
 } as const;
 
 const BLOCKER_COPY: Record<LocalPublishBlocker, string> = {

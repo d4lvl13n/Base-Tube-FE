@@ -22,11 +22,13 @@ import type { Channel } from '../../../types/channel';
 import AIAssistantPanel from '../../common/AIAssistantPanel';
 import AIThumbnailPanel from '../../common/AIThumbnailPanel';
 import RichTextEditor from '../../common/RichTextEditor';
-import DraftPreview, { type PreviewMode } from './DraftPreview';
+import MediaCard from './MediaCard';
 import ThumbnailPicker from './ThumbnailPicker';
 import type { WorkspaceLayout } from './useWorkspaceLayout';
 import { displayTitle, editorialLabel, isPublished, type TechnicalState } from './draftStatus';
 import { fieldProblemCopy, localBlockerCopy, serverBlockerCopy, workspaceCopy } from './workspaceCopy';
+
+type PreviewMode = 'video' | 'presentation';
 
 const FIELD =
   'w-full rounded-md border border-gray-800 bg-black/40 px-3 py-2 text-sm text-white ' +
@@ -231,78 +233,32 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
     retry_create: workspaceCopy.retry,
   };
 
-  const statusBlock = (
-    <div className="rounded-lg border border-gray-800/60 bg-[#0f0f0f] px-4 py-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <p
-          className={`min-w-0 flex-1 text-sm ${
-            technical.tone === 'attention'
-              ? 'text-yellow-300'
-              : technical.tone === 'ready'
-                ? 'text-green-400'
-                : technical.tone === 'active'
-                  ? 'text-[#fa7517]'
-                  : 'text-gray-300'
-          }`}
-        >
-          {technical.tone === 'attention' && <AlertCircle className="mr-1.5 inline h-4 w-4 align-[-3px]" aria-hidden="true" />}
-          {technical.tone === 'ready' && <Check className="mr-1.5 inline h-4 w-4 align-[-3px]" aria-hidden="true" />}
-          {technical.label}
-        </p>
-        {actionLabel[technical.action] && (
-          <button
-            type="button"
-            onClick={() => void runAction()}
-            // The one thing the creator has to do is the primary button of the screen.
-            className={
-              technical.action === 'cancel'
-                ? QUIET_BUTTON
-                : technical.tone === 'attention'
-                  ? PRIMARY_BUTTON
-                  : `${QUIET_BUTTON} text-[#fa7517] hover:text-[#ff8c3a]`
-            }
-          >
-            {actionLabel[technical.action]}
-          </button>
-        )}
-        {technical.action === 'verify_cancel' && entry && (
-          <button type="button" onClick={() => void queue.abortEntry(entry.localId)} className={QUIET_BUTTON}>
-            {workspaceCopy.cancel}
-          </button>
-        )}
-      </div>
-      {technical.detail && <p className="mt-1 text-xs text-gray-500">{technical.detail}</p>}
-      {technical.percent !== null && (
-        <div
-          className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5"
-          role="progressbar"
-          aria-label={`Sending ${title}`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={technical.percent}
-        >
-          <div className="h-full bg-[#fa7517] transition-[width] duration-300 ease-out" style={{ width: `${technical.percent}%` }} />
-        </div>
-      )}
-      {(fileMessage || actionMessage) && (
-        <p className="mt-2 text-xs text-yellow-400" role="alert">
-          {fileMessage ?? actionMessage}
-        </p>
-      )}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo"
-        className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = '';
-          if (!file) return;
-          setFileMessage(null);
-          void workspace.attachFile(key, file).then(setFileMessage);
-        }}
-      />
-    </div>
+  // The single action of the video card. Anything the creator must do is the
+  // primary button; a cancel or a retry the queue would do anyway stays quiet.
+  const actionText = actionLabel[technical.action];
+  const mediaAction =
+    actionText === null
+      ? null
+      : {
+          label: actionText,
+          primary: technical.tone === 'attention' && technical.action !== 'cancel',
+          onClick: () => void runAction(),
+        };
+
+  const fileInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept=".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo"
+      className="hidden"
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        setFileMessage(null);
+        void workspace.attachFile(key, file).then(setFileMessage);
+      }}
+    />
   );
 
   // ── save status line ─────────────────────────────────────────────────────
@@ -463,35 +419,11 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
     <article aria-label={title} className="min-w-0">
       {/* Below 768 px the list and the editor are two views: an explicit way back. */}
       {layout === 'compact' && (
-      <button type="button" onClick={onBack} className={`${QUIET_BUTTON} -ml-3 mb-2`}>
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        {workspaceCopy.back}
-      </button>
+        <button type="button" onClick={onBack} className={`${QUIET_BUTTON} -ml-3 mb-2`}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {workspaceCopy.back}
+        </button>
       )}
-
-      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-        <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h2 className="min-w-0 truncate text-lg font-semibold text-white">{title}</h2>
-            {/* The editorial state, apart from the file state (UP-UX §9). */}
-            <span
-              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
-                published ? 'border-green-500/40 text-green-400' : 'border-gray-700 text-gray-400'
-              }`}
-            >
-              {published ? <Check className="h-3 w-3" aria-hidden="true" /> : <Lock className="h-3 w-3" aria-hidden="true" />}
-              {editorialLabel(draft)}
-            </span>
-          </div>
-          <p className="mt-0.5 text-xs text-gray-500">
-            {workspaceCopy.destinationFixed}{' '}
-            <span className="text-gray-300">{channel?.name ?? `channel #${record.channelId}`}</span>
-          </p>
-        </div>
-        <p className="text-xs" aria-live="polite">
-          {saveLine}
-        </p>
-      </header>
 
       {published && !runtime.publishedJustNow && (
         <p className="mt-3 rounded-md border border-gray-800/60 bg-white/[0.03] px-3 py-2 text-xs text-gray-300">
@@ -571,28 +503,36 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
       )}
 
       <div
-        className="mt-5 grid gap-6"
+        className="mt-4 grid gap-8"
         // Side by side only in the wide layout; inline, so no stylesheet can override it.
-        style={layout === 'wide' ? { gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)' } : undefined}
+        style={layout === 'wide' ? { gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 6fr)', alignItems: 'start' } : undefined}
       >
-        <div ref={previewRef} className="min-w-0">
-          <DraftPreview
+        <div ref={previewRef} className="min-w-0" style={layout === 'wide' ? { position: 'sticky', top: '5rem' } : undefined}>
+          <MediaCard
             draft={draft}
-            mode={previewMode}
-            onModeChange={setPreviewMode}
+            technical={technical}
+            presentation={previewMode === 'presentation'}
             thumbnailUrl={thumbnailUrl}
             serverPlaybackUrl={serverPreview?.playback?.url ?? null}
             channelName={channel?.name ?? null}
             channelImageUrl={channel?.channel_image_url ?? null}
-            status={statusBlock}
+            action={mediaAction}
+            secondaryAction={
+              technical.action === 'verify_cancel' && entry
+                ? { label: workspaceCopy.cancel, primary: false, onClick: () => void queue.abortEntry(entry.localId) }
+                : null
+            }
+            message={fileMessage ?? actionMessage}
           />
+          {fileInput}
         </div>
 
-        <div className="min-w-0 space-y-6 rounded-lg border border-gray-800/60 bg-[#0f0f0f] p-4 sm:p-5">
+        <div className="min-w-0 space-y-7">
           <div>
             <label className={LABEL} htmlFor={`draft-title-${key}`}>
               {workspaceCopy.title}
             </label>
+            {/* The title field is the heading of the video: no second copy of it above. */}
             <input
               id={`draft-title-${key}`}
               type="text"
@@ -601,7 +541,12 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
               onBlur={() => workspace.commit(key)}
               aria-invalid={titleProblems.length > 0 ? true : undefined}
               aria-describedby={titleProblems.length > 0 ? `draft-title-problem-${key}` : undefined}
-              className={`mt-2 ${FIELD} ${titleProblems.length > 0 ? 'border-red-500/70' : ''}`}
+              className={`mt-1.5 w-full rounded-md border bg-transparent px-3 py-2.5 text-lg font-semibold text-white
+                          placeholder:text-gray-600 transition-colors focus:outline-none focus-visible:ring-1 ${
+                            titleProblems.length > 0
+                              ? 'border-red-500/70 focus-visible:ring-red-500/60'
+                              : 'border-gray-800 hover:border-gray-700 focus:border-[#fa7517]/60 focus-visible:ring-[#fa7517]/60'
+                          }`}
             />
             {titleProblems.length > 0 && (
               <p id={`draft-title-problem-${key}`} className="mt-1.5 text-xs text-red-400">
@@ -638,7 +583,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
                 onChange={(html) => workspace.edit(key, { description: hasEditorContent(html) ? html : null })}
                 className="w-full rounded-md border border-gray-800 bg-black/40 text-sm text-white"
                 placeholder="What is this video about?"
-                minHeight="140px"
+                minHeight="110px"
               />
             </div>
             {otherProblems.includes('DESCRIPTION_TOO_LONG') && (
@@ -807,81 +752,104 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
         </div>
       </div>
 
-      {/* Why Publish is not available — always next to the button, never only a disabled state. */}
-      {!published && !canPublish && !publishBusy && blockers.length > 0 && (
-        <section aria-label={workspaceCopy.blockedTitle} id={`draft-blockers-${key}`} className="mt-5 text-xs">
-          <p className="font-medium text-gray-400">{workspaceCopy.blockedTitle}</p>
-          <ul className="mt-1 space-y-0.5 text-gray-500">
-            {blockers.map(({ text, reference }) => (
-              <li key={`${text}${reference ?? ''}`}>
-                {text}
-                {reference ? <span className="text-gray-600"> ({workspaceCopy.supportReference(reference)})</span> : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {(runtime.publish === 'failed' || runtime.publishError) && (
-        <p className="mt-3 text-xs text-yellow-400" role="alert">
-          {runtime.publishError}
-        </p>
-      )}
-
+      {/* The publish bar: where the video stands as content, once, next to the
+          action that changes it. Why Publish is unavailable is said here too,
+          never only through a disabled button. */}
       <footer
-        className="sticky bottom-0 z-10 mt-5 flex flex-wrap items-center justify-between gap-2 rounded-lg border
-                   border-gray-800/60 bg-[#09090B]/95 px-4 py-2 backdrop-blur-sm"
+        className="sticky bottom-0 z-10 mt-6 border-t border-gray-800 bg-[#09090B]/95 py-3 backdrop-blur-sm"
+        aria-label="Publication"
       >
-        <button type="button" onClick={onClose} className={`${QUIET_BUTTON} -ml-3`}>
-          {workspaceCopy.close}
-        </button>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setPreviewMode('presentation');
-              previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }}
-            className={QUIET_BUTTON}
-          >
-            {workspaceCopy.preview}
-          </button>
-          {published ? (
-            <>
-              {server?.videoId && (
-                <Link to={`/video/${server.videoId}`} className={QUIET_BUTTON}>
-                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                  {workspaceCopy.viewVideo}
-                </Link>
-              )}
-              {videoUrl && (
-                <button type="button" onClick={() => void copyLink()} className={QUIET_BUTTON}>
-                  <Copy className="h-4 w-4" aria-hidden="true" />
-                  {linkCopied ? workspaceCopy.linkCopied : workspaceCopy.copyLink}
-                </button>
-              )}
-            </>
-          ) : runtime.publish === 'verifying' || (record.publication && runtime.publish !== 'publishing') ? (
-            <span className="inline-flex items-center gap-2 text-sm text-gray-300">
-              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              {workspaceCopy.verifyingPublication}
-              {runtime.publish !== 'verifying' && (
-                <button type="button" onClick={() => workspace.verifyPublication(key)} className={LINK_BUTTON}>
-                  {workspaceCopy.checkAgain}
-                </button>
-              )}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <span aria-live="polite">{saveLine}</span>
+            <span className="text-gray-500">
+              {channel?.name ?? `channel #${record.channelId}`}
             </span>
-          ) : (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
+                published ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-gray-400'
+              }`}
+            >
+              {published ? <Check className="h-3 w-3" aria-hidden="true" /> : <Lock className="h-3 w-3" aria-hidden="true" />}
+              {editorialLabel(draft)}
+            </span>
+            {!published && !canPublish && !publishBusy && blockers.length > 0 && (
+              <span id={`draft-blockers-${key}`} className="text-gray-400">
+                {workspaceCopy.notYet} {blockers[0]!.text}
+                {blockers.length > 1 && (
+                  <span className="text-gray-600" title={blockers.slice(1).map((blocker) => blocker.text).join(' ')}>
+                    {' '}
+                    {workspaceCopy.andMore(blockers.length - 1)}
+                  </span>
+                )}
+                <span className="sr-only">
+                  {blockers
+                    .slice(1)
+                    .map(({ text, reference }) => `${text}${reference ? ` (${workspaceCopy.supportReference(reference)})` : ''}`)
+                    .join(' ')}
+                </span>
+              </span>
+            )}
+            {runtime.publishError && (
+              <span className="text-yellow-400" role="alert">
+                {runtime.publishError}
+              </span>
+            )}
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-1">
+            <button type="button" onClick={onClose} className={QUIET_BUTTON}>
+              {workspaceCopy.close}
+            </button>
             <button
               type="button"
-              onClick={() => void workspace.publish(key)}
-              disabled={!canPublish}
-              aria-describedby={!canPublish && blockers.length > 0 ? `draft-blockers-${key}` : undefined}
-              className={PRIMARY_BUTTON}
+              aria-pressed={previewMode === 'presentation'}
+              onClick={() => {
+                setPreviewMode((mode) => (mode === 'presentation' ? 'video' : 'presentation'));
+                previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }}
+              className={QUIET_BUTTON}
             >
-              {runtime.publish === 'publishing' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-              {runtime.publish === 'publishing' ? workspaceCopy.publishing : workspaceCopy.publish}
+              {previewMode === 'presentation' ? workspaceCopy.backToEditing : workspaceCopy.preview}
             </button>
-          )}
+            {published ? (
+              <>
+                {server?.videoId && (
+                  <Link to={`/video/${server.videoId}`} className={QUIET_BUTTON}>
+                    <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                    {workspaceCopy.viewVideo}
+                  </Link>
+                )}
+                {videoUrl && (
+                  <button type="button" onClick={() => void copyLink()} className={QUIET_BUTTON}>
+                    <Copy className="h-4 w-4" aria-hidden="true" />
+                    {linkCopied ? workspaceCopy.linkCopied : workspaceCopy.copyLink}
+                  </button>
+                )}
+              </>
+            ) : runtime.publish === 'verifying' || (record.publication && runtime.publish !== 'publishing') ? (
+              <span className="inline-flex min-h-[44px] items-center gap-2 px-3 text-sm text-gray-300">
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                {workspaceCopy.verifyingPublication}
+                {runtime.publish !== 'verifying' && (
+                  <button type="button" onClick={() => workspace.verifyPublication(key)} className={LINK_BUTTON}>
+                    {workspaceCopy.checkAgain}
+                  </button>
+                )}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void workspace.publish(key)}
+                disabled={!canPublish}
+                aria-describedby={!canPublish && blockers.length > 0 ? `draft-blockers-${key}` : undefined}
+                className={PRIMARY_BUTTON}
+              >
+                {runtime.publish === 'publishing' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                {runtime.publish === 'publishing' ? workspaceCopy.publishing : workspaceCopy.publish}
+              </button>
+            )}
+          </div>
         </div>
       </footer>
 

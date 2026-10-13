@@ -1,11 +1,7 @@
 import React, { useRef } from 'react';
-import { AlertCircle, Check, ImageIcon, Loader2, Sparkles, Upload, Wand2 } from 'lucide-react';
+import { AlertCircle, ImageIcon, Loader2, Sparkles, Upload, Wand2 } from 'lucide-react';
 import type { WorkspaceDraft } from '../../../hooks/useDraftWorkspace';
 import { workspaceCopy } from './workspaceCopy';
-
-const CHOICE =
-  'inline-flex min-h-[44px] items-center gap-1.5 rounded-md border px-3 text-xs transition-colors ' +
-  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
 
 interface ThumbnailPickerProps {
   draft: WorkspaceDraft;
@@ -20,10 +16,15 @@ interface ThumbnailPickerProps {
   stacked: boolean;
 }
 
+const SEGMENT =
+  'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 px-3 text-sm transition-colors ' +
+  'focus-visible:relative focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
+
 /**
- * Three choices next to the title (UP-UX §8): the automatic poster, an image
- * from disk, or the existing AI tool. A choice reads "saved" only once the
- * server has selected it — never on the strength of a local preview.
+ * Three choices (UP-UX §8): the automatic poster, an image from disk, or the
+ * existing AI tool. The selected segment already says which one is in use, so
+ * a status line appears only while saving, or when something went wrong. A
+ * choice is never shown as saved on the strength of a local preview.
  */
 const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
   draft,
@@ -38,45 +39,27 @@ const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const choice = draft.record.thumbnail;
   const server = draft.record.server;
-  const automaticActive = choice ? choice.kind === 'automatic' : (server?.thumbnail.source ?? 'automatic') === 'automatic';
+  const current: 'automatic' | 'import' | 'ai' = choice
+    ? choice.kind === 'automatic'
+      ? 'automatic'
+      : choice.source === 'ai'
+        ? 'ai'
+        : 'import'
+    : server?.thumbnail.source === 'custom'
+      ? 'import'
+      : 'automatic';
   const saving = !!choice && ['pending_upload', 'uploading', 'uploaded', 'selecting'].includes(choice.status);
 
-  let status: React.ReactNode;
-  if (choice?.status === 'failed') {
-    status = (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-yellow-400" role="alert">
-        <span className="inline-flex items-center gap-1">
-          <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
-          {workspaceCopy.thumbnailFailed} {choice.errorMessage}
-        </span>
-        {choice.errorCode !== 'THUMBNAIL_FILE_MISSING' && (
-          <button type="button" onClick={onRetry} className="min-h-[44px] text-[#fa7517] hover:text-[#ff8c3a]">
-            {workspaceCopy.retry}
-          </button>
-        )}
-        <button type="button" onClick={onAutomatic} className="min-h-[44px] text-gray-300 hover:text-white">
-          {workspaceCopy.thumbnailUseAutomatic}
-        </button>
-      </div>
-    );
-  } else if (saving) {
-    status = (
-      <p className="inline-flex items-center gap-1 text-xs text-gray-400">
-        <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-        {choice?.kind === 'automatic' ? workspaceCopy.thumbnailAutomaticPending : workspaceCopy.thumbnailUploading}
-      </p>
-    );
-  } else if (choice?.status === 'selected' || server) {
-    const custom = choice ? choice.kind === 'custom' : server?.thumbnail.source === 'custom';
-    status = (
-      <p className="inline-flex items-center gap-1 text-xs text-gray-400">
-        <Check className="h-3.5 w-3.5 text-green-500" aria-hidden="true" />
-        {custom ? workspaceCopy.thumbnailCustomSaved : workspaceCopy.thumbnailAutomaticActive}
-      </p>
-    );
-  } else {
-    status = <p className="text-xs text-gray-600">{workspaceCopy.thumbnailNote}</p>;
-  }
+  const segments: Array<{ id: typeof current; label: string; icon: React.ReactNode; onClick: () => void }> = [
+    { id: 'automatic', label: workspaceCopy.thumbnailAutomatic, icon: <Wand2 className="h-4 w-4" aria-hidden="true" />, onClick: onAutomatic },
+    {
+      id: 'import',
+      label: workspaceCopy.thumbnailImport,
+      icon: <Upload className="h-4 w-4" aria-hidden="true" />,
+      onClick: () => inputRef.current?.click(),
+    },
+    { id: 'ai', label: workspaceCopy.thumbnailAi, icon: <Sparkles className="h-4 w-4" aria-hidden="true" />, onClick: onOpenAi },
+  ];
 
   return (
     <div>
@@ -84,61 +67,77 @@ const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
         {workspaceCopy.thumbnail}
       </span>
       <div
-        className="mt-2 flex gap-3"
-        style={{ flexDirection: stacked ? 'column' : 'row', alignItems: stacked ? 'stretch' : 'flex-start' }}
+        className="mt-1.5 flex gap-3"
+        style={{ flexDirection: stacked ? 'column' : 'row', alignItems: stacked ? 'stretch' : 'center' }}
       >
         <div
-          className="relative aspect-video shrink-0 overflow-hidden rounded border border-gray-800 bg-black"
-          style={{ width: stacked ? '100%' : '10rem' }}
+          className="relative aspect-video shrink-0 overflow-hidden rounded-md bg-black ring-1 ring-gray-800"
+          style={{ width: stacked ? '100%' : '8.5rem' }}
         >
           {previewUrl ? (
             <img src={previewUrl} alt="Selected thumbnail" className="h-full w-full object-cover" />
           ) : (
-            <span className="flex h-full w-full flex-col items-center justify-center gap-1">
+            <span className="flex h-full w-full items-center justify-center">
               <ImageIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
-              <span className="text-[11px] text-gray-600">
-                {automaticActive ? workspaceCopy.automaticThumbnailPlaceholder : workspaceCopy.customThumbnailPlaceholder}
-              </span>
+            </span>
+          )}
+          {saving && (
+            <span className="absolute inset-0 flex items-center justify-center bg-black/60">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-300 motion-reduce:animate-none" aria-hidden="true" />
             </span>
           )}
         </div>
+
         <div className="min-w-0 flex-1">
-          <div role="group" aria-labelledby={`thumbnail-${draft.key}`} className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              aria-pressed={automaticActive}
-              onClick={onAutomatic}
-              className={`${CHOICE} ${automaticActive ? 'border-[#fa7517]/60 text-white' : 'border-gray-800 text-gray-400 hover:text-white'}`}
-            >
-              <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
-              {workspaceCopy.thumbnailAutomatic}
-            </button>
-            <button
-              type="button"
-              aria-pressed={choice?.kind === 'custom' && choice.source === 'import'}
-              onClick={() => inputRef.current?.click()}
-              className={`${CHOICE} border-gray-800 text-gray-400 hover:text-white`}
-            >
-              <Upload className="h-3.5 w-3.5" aria-hidden="true" />
-              {workspaceCopy.thumbnailImport}
-            </button>
-            <button
-              type="button"
-              aria-pressed={choice?.kind === 'custom' && choice.source === 'ai'}
-              onClick={onOpenAi}
-              className={`${CHOICE} border-gray-800 text-[#fa7517] hover:text-[#ff8c3a]`}
-            >
-              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              {workspaceCopy.thumbnailAi}
-            </button>
+          <div
+            role="group"
+            aria-labelledby={`thumbnail-${draft.key}`}
+            className="flex divide-x divide-gray-800 overflow-hidden rounded-md border border-gray-800"
+          >
+            {segments.map((segment) => {
+              const active = current === segment.id;
+              return (
+                <button
+                  key={segment.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={segment.onClick}
+                  className={`${SEGMENT} ${active ? 'bg-white/[0.08] text-white' : 'text-gray-400 hover:bg-white/[0.04] hover:text-white'}`}
+                >
+                  {segment.icon}
+                  {segment.label}
+                </button>
+              );
+            })}
           </div>
-          <div className="mt-2" aria-live="polite">
-            {status}
+
+          <div aria-live="polite">
+            {saving && (
+              <p className="mt-2 text-xs text-gray-400">
+                {choice?.kind === 'automatic' ? workspaceCopy.thumbnailAutomaticPending : workspaceCopy.thumbnailUploading}
+              </p>
+            )}
+            {choice?.status === 'failed' && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 text-xs text-yellow-300" role="alert">
+                <span className="inline-flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  {workspaceCopy.thumbnailFailed} {choice.errorMessage}
+                </span>
+                {choice.errorCode !== 'THUMBNAIL_FILE_MISSING' && (
+                  <button type="button" onClick={onRetry} className="min-h-[44px] text-[#fa7517] hover:text-[#ff8c3a]">
+                    {workspaceCopy.retry}
+                  </button>
+                )}
+                <button type="button" onClick={onAutomatic} className="min-h-[44px] text-gray-300 hover:text-white">
+                  {workspaceCopy.thumbnailUseAutomatic}
+                </button>
+              </div>
+            )}
+            {choice && !choice.blobPersisted && choice.status !== 'selected' && (
+              <p className="mt-2 text-xs text-yellow-500/80">{workspaceCopy.thumbnailNotKept}</p>
+            )}
+            {notice && <p className="mt-2 text-xs text-yellow-500/80">{notice}</p>}
           </div>
-          {choice && !choice.blobPersisted && choice.status !== 'selected' && (
-            <p className="mt-1 text-xs text-yellow-500/80">{workspaceCopy.thumbnailNotKept}</p>
-          )}
-          {notice && <p className="mt-1 text-xs text-yellow-500/80">{notice}</p>}
         </div>
       </div>
       <input
