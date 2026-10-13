@@ -382,11 +382,8 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
   };
 
   const handleAiThumbnail = (thumbnailUrl: string) => {
-    void fetch(thumbnailUrl)
-      .then((response) => response.blob())
-      .then((blob) => workspace.chooseThumbnailFile(key, blob, 'ai-thumbnail.jpg', 'ai'))
-      .then((result) => setThumbnailNotice(result.message))
-      .catch(() => setThumbnailNotice('The AI thumbnail could not be applied. Try again or upload an image.'));
+    void workspace.chooseAiThumbnail(key, thumbnailUrl)
+      .then((result) => setThumbnailNotice(result.message));
   };
 
   // ── publication ──────────────────────────────────────────────────────────

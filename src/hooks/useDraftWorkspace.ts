@@ -170,6 +170,7 @@ export interface DraftWorkspaceApi {
     filename: string,
     source: 'import' | 'ai',
   ) => Promise<ThumbnailChoiceResult>;
+  chooseAiThumbnail: (key: string, thumbnailUrl: string) => Promise<ThumbnailChoiceResult>;
   chooseAutomaticThumbnail: (key: string) => void;
   retryThumbnail: (key: string) => void;
   thumbnailPreviewUrl: (key: string) => string | null;
@@ -1303,7 +1304,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
   );
 
   const chooseThumbnailFile = useCallback(
-    async (key: string, image: Blob, filename: string, source: 'import' | 'ai'): Promise<ThumbnailChoiceResult> => {
+    async (key: string, image: Blob, filename: string, source: 'import' | 'ai', reservedSeq?: number): Promise<ThumbnailChoiceResult> => {
       if (!rec(key)) return { ok: false, message: 'This draft is no longer open.' };
       // A refused imported file is refused before it takes a number, so it never
       // cancels a valid choice still being stored.
@@ -1313,8 +1314,10 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
       }
       // The number is reserved now, before any await: two quick choices never
       // share one, and only the last one asked for is kept.
-      const seq = reserveThumbnailSeq(key);
+      const seq = reservedSeq ?? reserveThumbnailSeq(key);
+      if (thumbnailSeqRef.current.get(key) !== seq) return { ok: false, message: null };
       const accepted = source === 'ai' ? await asAcceptedImage(image) : image;
+      if (thumbnailSeqRef.current.get(key) !== seq) return { ok: false, message: null };
       if (!accepted || !THUMBNAIL_TYPES.includes(accepted.type)) {
         return { ok: false, message: 'Choose a JPG or PNG image.' };
       }
@@ -1357,11 +1360,13 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
           errorMessage: null,
         },
       });
-      setPreview(key, accepted);
+      const stillCurrent = thumbnailSeqRef.current.get(key) === seq && rec(key)?.thumbnail?.seq === seq;
+      if (stillCurrent) setPreview(key, accepted);
       if (previousBlob && previousBlob !== blobKey) {
         memoryBlobsRef.current.delete(previousBlob);
         void storeRef.current.removeBlob(previousBlob).catch(() => undefined);
       }
+      if (!stillCurrent) return { ok: false, message: null };
       void processThumbnail(key);
       return {
         ok: true,
@@ -1371,6 +1376,25 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
       };
     },
     [processThumbnail, putRecord, rec, reserveThumbnailSeq, setPreview],
+  );
+
+  const chooseAiThumbnail = useCallback(
+    async (key: string, thumbnailUrl: string): Promise<ThumbnailChoiceResult> => {
+      if (!rec(key)) return { ok: false, message: 'This draft is no longer open.' };
+      // Reserve at the click, before downloading, converting or storing the image.
+      const seq = reserveThumbnailSeq(key);
+      try {
+        const response = await fetch(thumbnailUrl);
+        if (thumbnailSeqRef.current.get(key) !== seq) return { ok: false, message: null };
+        if (!response.ok) throw new Error('AI thumbnail download failed');
+        const image = await response.blob();
+        return await chooseThumbnailFile(key, image, 'ai-thumbnail.jpg', 'ai', seq);
+      } catch {
+        if (thumbnailSeqRef.current.get(key) !== seq) return { ok: false, message: null };
+        return { ok: false, message: 'The AI thumbnail could not be applied. Try again or upload an image.' };
+      }
+    },
+    [chooseThumbnailFile, rec, reserveThumbnailSeq],
   );
 
   const chooseAutomaticThumbnail = useCallback(
@@ -1810,6 +1834,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
     retrySave,
     resolveConflict,
     chooseThumbnailFile,
+    chooseAiThumbnail,
     chooseAutomaticThumbnail,
     retryThumbnail,
     thumbnailPreviewUrl: (key: string) => previewUrls[key] ?? null,
