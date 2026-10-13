@@ -109,6 +109,8 @@ const UploadWorkspace: React.FC = () => {
   const [tileMessage, setTileMessage] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const [missingDraft, setMissingDraft] = useState(false);
+  const [confirmRemoveWaiting, setConfirmRemoveWaiting] = useState(false);
+  const [removingWaiting, setRemovingWaiting] = useState(false);
 
   const workspaceItems = workspace?.items;
   const items = useMemo(() => workspaceItems ?? [], [workspaceItems]);
@@ -209,6 +211,30 @@ const UploadWorkspace: React.FC = () => {
     if (unmatched.length > 0) parts.push(workspaceCopy.resumeUnmatched(unmatched.map((file) => file.name).join(', ')));
     setNotice({ added: 0, rejected: [], resume: parts.join(' ') });
     if (resumed > 0) setAnnouncement(workspaceCopy.resumeDone(resumed));
+  };
+
+  /** Deletes one video: its draft and any unfinished upload (frees the upload slot). */
+  const removeVideo = async (key: string): Promise<boolean> => {
+    setTileMessage(null);
+    if (selectedKey === key) open(null);
+    const removed = await workspace.deleteDraft(key);
+    if (!removed) setTileMessage(workspaceCopy.removeFailed);
+    else setAnnouncement(workspaceCopy.removeDone);
+    return removed;
+  };
+
+  /** Every video still waiting for its file, removed in one go. */
+  const removeWaitingVideos = async () => {
+    setRemovingWaiting(true);
+    let failed = 0;
+    for (const { key } of workspace.waitingForFile) {
+      // eslint-disable-next-line no-await-in-loop
+      if (!(await workspace.deleteDraft(key))) failed += 1;
+    }
+    if (selectedKey && workspace.waitingForFile.some((waiting) => waiting.key === selectedKey)) open(null);
+    setRemovingWaiting(false);
+    setConfirmRemoveWaiting(false);
+    setTileMessage(failed > 0 ? workspaceCopy.removeFailed : null);
   };
 
   const runTileAction = (draft: WorkspaceDraft, technical: TechnicalState) => {
@@ -447,6 +473,7 @@ const UploadWorkspace: React.FC = () => {
                 thumbnailUrl={workspace.thumbnailPreviewUrl(draft.key)}
                 inlineAction={label ? { label, onClick: () => runTileAction(draft, technical) } : null}
                 onOpen={() => open(draft.key === selectedKey ? null : draft.key)}
+                onRemove={() => removeVideo(draft.key)}
                 tileRef={(node) => {
                   if (node) tileRefs.current.set(draft.key, node);
                   else tileRefs.current.delete(draft.key);
@@ -536,13 +563,44 @@ const UploadWorkspace: React.FC = () => {
                 {queue.paused ? workspaceCopy.resumeNext : workspaceCopy.holdNext}
               </button>
             )}
-            {waiting > 0 ? (
+            {waiting > 0 &&
+              (confirmRemoveWaiting ? (
+                <span className="inline-flex flex-wrap items-center gap-2 rounded-md border border-red-500/30 px-3 py-1.5 text-sm" role="alertdialog">
+                  <span className="text-gray-200">{workspaceCopy.removeWaitingConfirm(waiting)}</span>
+                  <button
+                    type="button"
+                    disabled={removingWaiting}
+                    onClick={() => void removeWaitingVideos()}
+                    className="inline-flex min-h-[32px] items-center rounded bg-red-500/90 px-2.5 font-medium text-white hover:bg-red-500 disabled:opacity-60"
+                  >
+                    {removingWaiting ? workspaceCopy.removing : workspaceCopy.removeAction}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={removingWaiting}
+                    onClick={() => setConfirmRemoveWaiting(false)}
+                    className="inline-flex min-h-[32px] items-center rounded px-2 text-gray-300 hover:text-white"
+                  >
+                    {workspaceCopy.keep}
+                  </button>
+                </span>
+              ) : (
+                <button type="button" onClick={() => setConfirmRemoveWaiting(true)} className={TEXT_ACTION}>
+                  {workspaceCopy.removeWaiting(waiting)}
+                </button>
+              ))}
+            {/* Adding new videos is never blocked by the ones waiting for their files. */}
+            <button
+              type="button"
+              disabled={!channelId}
+              onClick={() => addInputRef.current?.click()}
+              className={waiting > 0 ? GHOST : PRIMARY}
+            >
+              {workspaceCopy.addVideos}
+            </button>
+            {waiting > 0 && (
               <button type="button" onClick={() => resumeInputRef.current?.click()} className={PRIMARY}>
                 {waiting === 1 ? workspaceCopy.resumeActionOne : workspaceCopy.resumeActionCount(waiting)}
-              </button>
-            ) : (
-              <button type="button" disabled={!channelId} onClick={() => addInputRef.current?.click()} className={PRIMARY}>
-                {workspaceCopy.addVideos}
               </button>
             )}
           </div>

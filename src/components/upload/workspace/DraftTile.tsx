@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import type { WorkspaceDraft } from '../../../hooks/useDraftWorkspace';
 import { formatBytes } from '../uploadPhase';
 import { displayTitle, isPublished, technicalChip, type TechnicalState } from './draftStatus';
@@ -15,6 +15,8 @@ interface DraftTileProps {
   /** A text action under the tile when the file needs the creator (AA `ig-retry`). */
   inlineAction: { label: string; onClick: () => void } | null;
   onOpen: () => void;
+  /** Deletes the draft and its unfinished upload (asked to confirm first). */
+  onRemove: () => Promise<boolean>;
   tileRef: (node: HTMLButtonElement | null) => void;
 }
 
@@ -33,8 +35,11 @@ const DraftTile: React.FC<DraftTileProps> = ({
   thumbnailUrl,
   inlineAction,
   onOpen,
+  onRemove,
   tileRef,
 }) => {
+  const [confirming, setConfirming] = React.useState(false);
+  const [removing, setRemoving] = React.useState(false);
   const poster = useVideoPoster(thumbnailUrl ? null : (draft.entry?.file ?? null));
   const image = thumbnailUrl ?? poster;
   const chip = technicalChip(technical);
@@ -112,6 +117,55 @@ const DraftTile: React.FC<DraftTileProps> = ({
           </span>
         </span>
       </button>
+
+      {/* Remove: always visible (no hover needed), on the preview corner (AA `ig-remove`). */}
+      {!confirming && (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          aria-label={`${workspaceCopy.removeVideo}: ${title}`}
+          title={workspaceCopy.removeVideo}
+          className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-gray-300
+                     transition-colors hover:bg-black hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      )}
+      {confirming && (
+        <div
+          role="alertdialog"
+          aria-label={workspaceCopy.removeVideo}
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/85 px-4 text-center"
+        >
+          <p className="text-sm text-gray-100">{workspaceCopy.removeConfirm}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={removing}
+              onClick={() => {
+                setRemoving(true);
+                void onRemove().then((removed) => {
+                  if (!removed) {
+                    setRemoving(false);
+                    setConfirming(false);
+                  }
+                });
+              }}
+              className="inline-flex min-h-[36px] items-center rounded-md bg-red-500/90 px-3 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-60"
+            >
+              {removing ? workspaceCopy.removing : workspaceCopy.removeAction}
+            </button>
+            <button
+              type="button"
+              disabled={removing}
+              onClick={() => setConfirming(false)}
+              className="inline-flex min-h-[36px] items-center rounded-md px-3 text-sm text-gray-300 hover:bg-white/10 hover:text-white"
+            >
+              {workspaceCopy.keep}
+            </button>
+          </div>
+        </div>
+      )}
 
       {inlineAction && (
         <button

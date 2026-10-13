@@ -1059,6 +1059,31 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
     }
   }, [hydrated, queue, rec, version]);
 
+  // Leftover attempts nobody sees: an older attempt of a draft that has a
+  // newer one, or an attempt whose draft no longer exists on this device.
+  // They would keep an upload slot (the queue sends 4 at a time, the server
+  // admits 8 unfinished per account) and block new videos. Only attempts that
+  // move no bytes are touched; `held` (outcome unknown) is never touched.
+  const cleanedRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!localReady) return;
+    const q = queueRef.current;
+    for (const entry of q.entries) {
+      const binding = entry.creatorDraft;
+      if (!binding || cleanedRef.current.has(entry.localId)) continue;
+      if (!['reselect_required', 'aborted', 'failed'].includes(entry.status)) continue;
+      const hasRecord = recordsRef.current.has(binding.clientDraftId);
+      const newest = newestEntryFor(q.entries, binding.clientDraftId);
+      if (hasRecord && newest?.localId === entry.localId) continue;
+      cleanedRef.current.add(entry.localId);
+      void (async () => {
+        if (entry.uploadId && entry.status === 'reselect_required') await q.abortEntry(entry.localId);
+        if (entry.uploadId) await q.removeEntry(entry.localId);
+        else await q.discardEntry(entry.localId);
+      })();
+    }
+  }, [localReady, queue.entries, version]);
+
   // A transfer changing phase is news the server projection should reflect.
   const lastPhaseRef = useRef(new Map<string, string>());
   useEffect(() => {
