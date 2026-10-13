@@ -3,32 +3,59 @@
 Date : 13 octobre 2026.
 Spec : `docs/SPRINT_UPLOAD_UX.md` (dépôt principal, non suivie par Git au moment de la livraison).
 Contrat backend : `base-be/docs/CREATOR_DRAFTS_API.md` (commit backend `8f4a2732`, fusionné localement, non déployé).
+Référence UX : AmazingAerial ADR-0025 (`IntakeWorkspace`, `WorkspaceMetadataPanel`), lue sans modification.
 Statut : implémenté localement sur la branche `feat/upload-workspace-ux`. Ni poussé, ni fusionné, ni déployé.
 Aucun test lancé ni écrit (consigne de Damien). Vérification faite : typecheck SDK et web, ESLint sur les fichiers modifiés.
 
 ## 1. Ce qui change pour le créateur
 
 - Un seul écran « Add videos » pour une ou plusieurs vidéos. L'envoi démarre dès le choix des fichiers.
+- Écran vide : une grande zone de dépôt sur toute la hauteur, avec le choix de la chaîne de destination.
+- Dès la première vidéo, l'écran a trois parties fixes, sans rien qui défile sous l'en-tête :
+  - un en-tête (titre, chaîne de destination, « Add videos ») ;
+  - une grille de vignettes au format vidéo, la seule partie qui défile ;
+  - une barre d'actions en bas : le résumé (« 3 videos · 1 uploading · 1 ready to publish ») et les actions
+    de groupe (« Hold next uploads », « Remove the N waiting videos »).
+- Chaque vignette montre l'image de la vidéo, une pastille d'état du fichier (« Uploading 64% », « Preparing »…,
+  ou une coche verte quand la lecture est disponible), le titre, la taille, et « Ready to publish » ou « Published ».
+  Une croix permet de retirer la vidéo, après confirmation.
+- Cliquer une vignette ouvre le panneau de détails de cette vidéo à droite : titre, description (grande zone,
+  outil IA existant), miniature (Automatic / Upload / Create with AI), puis l'état de sauvegarde et « Publish ».
+  Précédent / Suivant passent d'une vidéo à l'autre sans fermer le panneau.
 - Le titre, la description et la miniature se remplissent pendant l'envoi. Ils sont sauvegardés tout seuls :
   800 ms après la dernière frappe, et quand on quitte le champ.
 - Chaque vidéo est un brouillon privé. Elle n'est publiée que par le bouton « Publish » de cette vidéo.
-- À partir de deux vidéos, une liste apparaît à côté de l'éditeur. Chaque ligne montre deux états séparés :
-  l'état du fichier (envoi, vérification, préparation, lecture disponible, action requise) et l'état éditorial
-  (brouillon privé ou publié).
-- Il n'y a plus de condition d'activation : pas de flag frontend, pas de vérification `creatorDraftsV1`,
+- Il n'y a pas de condition d'activation : pas de flag frontend, pas de vérification `creatorDraftsV1`,
   pas de mode fantôme, aucune lecture de `/config/view-config` pour ce parcours.
+
+### Selon la largeur d'écran
+
+| Largeur | Panneau de détails |
+|---|---|
+| 1 200 px et plus | À droite de la grille, qui reste visible et cliquable |
+| 768 à 1 199 px | Par-dessus la grille, sur le côté droit, avec un fond assombri ; cliquer le fond ferme le panneau |
+| Moins de 768 px | Plein écran ; la fermeture revient à la vignette |
+
+Ces largeurs sont décidées en JavaScript : la feuille de style de `@coinbase/onchainkit` annule les classes
+Tailwind d'affichage responsive (`hidden md:block`).
 
 ## 2. Chemins d'entrée
 
 | Adresse | Résultat |
 |---|---|
-| `/creator-hub/uploads` | Espace d'envoi (liste, dépôt) |
+| `/creator-hub/uploads` | Espace d'envoi, aucun brouillon ouvert |
 | `/creator-hub/uploads/:draftId` | Espace d'envoi, brouillon exact ouvert (chargé depuis le serveur s'il n'est pas sur l'appareil) |
 | `/creator-hub/upload` (ancien envoi individuel) | Même espace — les favoris restent valides |
 | `/creator-hub/content-studio` (ancien envoi multiple) | Même espace — les favoris restent valides |
 | Menu Creator Hub | Bouton principal et entrée de menu « Add videos » → `/creator-hub/uploads`. L'entrée « Studio », devenue un doublon, est retirée du menu ; son adresse fonctionne toujours. |
 | Videos Management | Section « In preparation · private drafts » avec « Continue preparing », qui ouvre le brouillon exact |
 | Panneau global (bas à droite) | Les lignes d'un brouillon affichent son titre et un lien « Open » vers ce brouillon |
+
+L'adresse décide seule du brouillon ouvert. Cliquer une vignette, Précédent / Suivant ou fermer change l'adresse.
+Le bouton Retour du navigateur et les liens depuis Videos Management ouvrent donc toujours le bon brouillon.
+Une vidéo tout juste ajoutée n'a pas encore d'identifiant serveur : elle reste ouverte, puis reçoit son adresse
+dès que le serveur répond. Si le créateur navigue ailleurs pendant qu'un brouillon se charge, ce chargement
+n'ouvre plus rien en arrivant.
 
 Les envois historiques (sans brouillon) restent dans la file globale. Ils sont aussi listés sous
 « Earlier uploads » dans l'espace, avec leurs actions habituelles, jusqu'à leur résolution. Ils ne sont pas convertis.
@@ -37,31 +64,38 @@ Les envois historiques (sans brouillon) restent dans la file globale. Ils sont a
 
 ### 3.1 État technique (fichier)
 
-| Situation | Texte affiché | Action |
-|---|---|---|
-| Brouillon en cours de création | Setting up your draft… | Cancel (si fichier) |
-| Création refusée temporairement | Setting up your draft — retrying when the connection allows. | Attendre |
-| Création refusée | message traduit | Try again |
-| En attente d'envoi | Waiting to send | Cancel |
-| Envoi | Sending video · 64 % | Cancel |
-| Réseau absent | Connection lost. Sending resumes automatically when it is back. | Attendre |
-| Autre erreur passagère | phrase traduite du code | Retry now |
-| Session expirée | Sign in again to continue. Your progress is kept. | Sign in again |
-| Fichier absent après rechargement ou autre appareil | Select the same file to resume sending. | Choose file |
-| Envoi pris en charge par un autre onglet | Sending in another BaseTube tab. | Attendre |
-| Octets envoyés, confirmation serveur | Checking the file was received… | Attendre |
-| Annulation demandée | Cancelling… | — |
-| Annulation incertaine | We couldn't confirm the cancellation. The file may still be sending. | Check again / Cancel |
-| Envoi annulé | Sending cancelled. Your details are kept. | Send the file again |
-| Démarrage non confirmé (`held`) | We couldn't confirm this upload started… | — |
-| Transfert confirmé | Video received. Preparing playback. | Continuer l'édition |
-| Lecture prête | Playback available · Private draft | Preview |
-| Préparation échouée (`retry_processing`) | Preparation failed. Your file is kept. | Retry preparation |
-| Envoi expiré (`replace_file`, `UPLOAD_EXPIRED`) | This upload expired. Your details are kept. | Send the file again (nouvelle tentative, même brouillon) |
-| `contact_support` | This video needs our help. Your details are kept. + référence | — |
-| Brouillon sans fichier | No video file attached yet. | Choose file |
+La pastille est le texte court sur la vignette. La phrase complète et l'action sont dans le panneau de détails.
+
+| Situation | Pastille | Phrase complète | Action |
+|---|---|---|---|
+| Brouillon en cours de création | Setting up | Setting up your draft… | Cancel (si fichier) |
+| Création refusée temporairement | Setting up | Setting up your draft — retrying when the connection allows. | Attendre |
+| Création refusée | Not created | message traduit | Try again |
+| En attente d'envoi | Waiting | Waiting to send | Cancel |
+| Envoi | Uploading 64% | Sending video · 64% | Cancel |
+| Réseau absent | Offline | Connection lost. Sending resumes automatically when it is back. | Attendre |
+| Autre erreur passagère | Retrying | phrase traduite du code | Retry now |
+| Session expirée | Sign in again | Sign in again to continue. Your progress is kept. | Sign in again |
+| Fichier absent, même navigateur | Needs its file | Choose “nom” (taille) again. Only the parts not yet received are sent. | Choose file |
+| Fichier absent, envoi commencé dans un autre navigateur | Needs its file | Choose “nom” (taille). It was started in another browser, so it is sent again in full. | Choose file |
+| Envoi pris en charge par un autre onglet | Other tab | Sending in another BaseTube tab. | Attendre |
+| Octets envoyés, confirmation serveur | Checking | Checking the file was received… | Attendre |
+| Annulation demandée | Cancelling | Cancelling… | — |
+| Annulation incertaine | Cancel unconfirmed | We couldn't confirm the cancellation. The file may still be sending. | Check again / Cancel |
+| Envoi annulé | Cancelled | Sending cancelled. Your details are kept. | Send the file again |
+| Démarrage non confirmé (`held`) | — | We couldn't confirm this upload started… | — |
+| Transfert confirmé | Preparing | Video received. Preparing playback. | Continuer l'édition |
+| Lecture prête | coche verte | Playback available · Private draft | Preview |
+| Préparation échouée (`retry_processing`) | Preparation failed | Preparation failed. Your file is kept. | Retry preparation |
+| Envoi expiré (`replace_file`, `UPLOAD_EXPIRED`) | Expired | This upload expired. Your details are kept. | Send the file again (nouvelle tentative, même brouillon) |
+| `contact_support` | — | This video needs our help. Your details are kept. + référence | — |
+| Brouillon sans fichier | — | No video file attached yet. | Choose file |
 
 Un pourcentage n'apparaît que pendant l'envoi des octets. Aucun pourcentage ni temps restant n'est affiché pour la préparation.
+
+Quand des vidéos attendent leur fichier (après un rechargement ou sur un autre appareil), un bandeau au-dessus
+de la grille propose « Choose the N files » ou le dépôt. Les fichiers déposés sont associés aux bonnes vidéos.
+Un fichier qui ne correspond à aucune est nommé à l'écran et n'est jamais ajouté sans le dire.
 
 ### 3.2 Sauvegarde
 
@@ -92,12 +126,25 @@ Un pourcentage n'apparaît que pendant l'envoi des octets. Aucun pourcentage ni 
 
 ### 3.4 Miniature
 
-- Trois choix : Automatic, Upload image (JPEG/PNG, 5 Mo), Create with AI (outil existant).
+- Trois choix : Automatic, Upload (JPEG/PNG, 5 Mo), Create with AI (outil existant).
 - L'image est gardée sur l'appareil, envoyée comme asset puis sélectionnée avec contrôle de révision.
   « saved » n'apparaît qu'après la sélection serveur.
-- Le choix le plus récent gagne : une réponse lente pour un ancien choix n'est jamais sélectionnée.
+- Le choix le plus récent gagne. Chaque choix reçoit son numéro dès le clic, avant toute attente.
+  Une réponse lente pour un ancien choix n'est jamais sélectionnée. Un fichier refusé (mauvais format, trop lourd)
+  n'annule pas le choix précédent encore en cours.
+- Choisir une miniature ne touche qu'à la miniature : un titre tapé pendant l'enregistrement de l'image est conservé.
+- « Load the saved version » (conflit) annule les choix de miniature faits avant le clic, pas ceux faits après.
 - Si le navigateur ne peut pas garder l'image : un avertissement s'affiche, et après rechargement l'interface demande de la choisir à nouveau.
 - Une image IA dans un autre format est convertie en JPEG dans le navigateur avant l'envoi.
+
+### 3.5 Retirer une vidéo
+
+- La croix d'une vignette supprime le brouillon et son envoi inachevé, après confirmation.
+  Le serveur ferme l'envoi et libère sa place dans la file.
+- « Remove the N waiting videos » retire d'un coup, après confirmation, les vidéos qui attendent leur fichier.
+- Les envois que personne ne voit plus sont fermés sur le serveur et oubliés, pour ne pas occuper de place :
+  un ancien envoi d'un brouillon qui en a un plus récent, ou un envoi dont le brouillon n'est plus sur l'appareil.
+  Un envoi au résultat inconnu (`held`) n'est jamais touché.
 
 ## 4. SDK (`packages/api-sdk`)
 
@@ -116,9 +163,11 @@ puis suit le moteur V2 existant (4 fichiers actifs, 3 morceaux par fichier, morc
 
 ## 5. Écarts et points ouverts avec le contrat
 
-1. **Reprise depuis un autre appareil.** La projection du brouillon ne contient ni nom, ni taille, ni date du fichier.
-   Le client les lit via `GET /videos/uploads/:uploadId`. Il reconnaît ensuite le fichier par nom, taille et type,
-   sans la date de modification, qui est inconnue. Risque : un autre fichier de même nom et de même taille serait accepté.
+1. **Reprise depuis un autre navigateur.** La projection du brouillon ne contient pas la date du fichier.
+   Le client ne peut donc pas prouver que le fichier choisi est le même. Il ne reprend jamais cet envoi :
+   il le ferme (après confirmation du serveur), puis renvoie le fichier en entier comme nouvel envoi du même
+   brouillon. Le titre, la description et la miniature sont gardés. Coût : le fichier repart de zéro.
+   Une empreinte du contenu côté serveur permettrait de reprendre au lieu de recommencer.
 2. **Conflit sur la suppression.** Le contrat ne nomme pas le code renvoyé quand la révision `If-Match` est périmée.
    Le client traite 409 et 412 de la même façon : il recharge le brouillon et demande de recommencer.
 3. **Aperçu `thumbnail`.** Le client suppose que c'est la miniature actuellement retenue (affiche automatique ou personnalisée).
@@ -129,9 +178,13 @@ puis suit le moteur V2 existant (4 fichiers actifs, 3 morceaux par fichier, morc
 
 ## 6. Limites de vérification
 
-- Aucun test lancé ni écrit (Jest, SDK, navigateur, E2E). Aucune application lancée. Aucun envoi réel.
+- Aucun test lancé ni écrit (Jest, SDK, navigateur, E2E). Aucun envoi réel lancé par moi.
+  Damien a regardé l'écran lui-même sur son serveur local pendant les itérations d'interface.
 - Vérifié : `tsc --noEmit` du SDK et du web (0 erreur), ESLint sur les fichiers modifiés
   (0 erreur ; 1 avertissement qui existait déjà dans `useUploadQueue`).
+- Les corrections des deux revues (miniature, adresse, reprise d'un autre navigateur, verrou d'onglets,
+  chargement tardif, numéros de miniature) sont vérifiées par relecture et typecheck seulement.
+- Non diagnostiqué : l'origine du message `ResizeObserver` signalé en revue.
 - Tests existants probablement touchés, non vérifiés : `UploadQueueContext.test.tsx` (le fournisseur crée maintenant
   reconnexion, verrou d'onglets et moteur de brouillons), `useUploadQueue.test.ts` (relance au retour réseau ou d'onglet),
   `UploadQueuePanel.test.tsx` (libellé « Hold next uploads »), tests de navigation (« Add videos »).
@@ -148,6 +201,8 @@ puis suit le moteur V2 existant (4 fichiers actifs, 3 morceaux par fichier, morc
 - L'avertissement natif avant fermeture dépend du navigateur ; aucune promesse n'est affichée à ce sujet.
 - La limite de 5 000 caractères de la description compte le HTML produit par l'éditeur riche.
 - Publication individuelle uniquement ; pas de publication groupée.
+- Hors périmètre du sprint, dans un commit séparé : la liste des pays Stripe du Content Pass Hub utilise
+  le même menu déroulant du Creator Hub (`HubSelect`) que le choix de chaîne, à la place de la liste native du navigateur.
 
 ## 8. Dépendances backend restantes
 
