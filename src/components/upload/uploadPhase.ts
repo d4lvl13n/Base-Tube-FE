@@ -21,6 +21,7 @@ export type UploadPhase = 'uploading' | 'processing' | 'ready' | 'failed';
 export const TRANSFERRING_STATUSES: readonly string[] = [
   'queued',
   'reselect_required',
+  'auth_required',
   'reserving',
   'retry_wait',
   'uploading',
@@ -54,6 +55,7 @@ export function phaseLabel(entry: UploadQueueViewEntry): string {
       return entry.videoId === null ? 'Uploaded' : 'Processing';
     default:
       if (entry.status === 'reselect_required') return 'Reselect file';
+      if (entry.status === 'auth_required') return 'Sign in again';
       if (entry.status === 'retry_wait') return 'Retrying';
       if (entry.status === 'reserving') return 'Preparing';
       if (entry.status === 'queued') return 'Queued';
@@ -111,6 +113,7 @@ export function phaseDetail(entry: UploadQueueViewEntry): string {
       return entry.videoId === null ? 'waiting for processing' : renditionDetail(entry);
     default:
       if (entry.status === 'reselect_required') return uploadCopy.reselectRequired;
+      if (entry.status === 'auth_required') return uploadCopy.sessionExpired;
       if (entry.status === 'retry_wait') return retryDetail(entry);
       return `${entry.progress}%`;
   }

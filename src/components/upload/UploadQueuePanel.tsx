@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Check, ChevronDown, ChevronUp, Pause, Play, RotateCcw, Upload, X } from 'lucide-react';
 import type { UploadQueueApi, UploadQueueViewEntry } from '../../hooks/useUploadQueue';
+import { useOptionalUploadSession } from '../../contexts/UploadQueueContext';
+import { useDraftWorkspaceContext } from '../../contexts/DraftWorkspaceContext';
 import { describeUploadError, uploadCopy } from './uploadCopy';
 import { formatBytes, phaseDetail, phaseLabel, uploadPhase, type UploadPhase } from './uploadPhase';
 
@@ -35,7 +38,19 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
   const [closed, setClosed] = useState(false);
   const reselectInput = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLElement>(null);
-  const needsReselect = queue.entries.some((entry) => entry.status === 'reselect_required');
+  const session = useOptionalUploadSession();
+  const workspace = useDraftWorkspaceContext();
+  // Draft videos resume from their own row in the workspace (it checks the
+  // file against that exact attempt); the shared picker serves earlier uploads.
+  const needsReselect = queue.entries.some(
+    (entry) => entry.status === 'reselect_required' && !entry.creatorDraft,
+  );
+  /** A draft row shows the draft's title, which is what the creator named it. */
+  const draftTitle = (entry: UploadQueueViewEntry): string | null => {
+    const key = entry.creatorDraft?.clientDraftId;
+    const draft = key ? workspace?.items.find((item) => item.key === key) : undefined;
+    return draft?.record.desired.title.trim() || null;
+  };
   const phases = queue.entries.map(uploadPhase);
   /** Nothing is uploading or transcoding: every row has finished its story. */
   const allSettled =
@@ -144,9 +159,13 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
             Clear finished
           </button>
         )}
+        {/* Holds the NEXT uploads only: transfers already sending continue,
+            which "Pause" did not say. */}
         <button
           type="button"
-          aria-label={queue.paused ? 'Resume uploads' : 'Pause uploads'}
+          aria-label={queue.paused ? 'Resume next uploads' : 'Hold next uploads'}
+          aria-pressed={queue.paused}
+          title={queue.paused ? 'Resume next uploads' : 'Hold next uploads — uploads already sending continue'}
           onClick={() => queue.setPaused(!queue.paused)}
           className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/60"
         >
@@ -217,7 +236,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
                 <li key={entry.localId} className="px-4 py-3 border-b border-gray-800/40 last:border-0">
                   <div className="flex items-center gap-2">
                     <p className="flex-1 min-w-0 truncate text-sm text-white" title={entry.filename}>
-                      {entry.filename}
+                      {draftTitle(entry) ?? entry.filename}
                     </p>
                     <span
                       className={`text-xs shrink-0 inline-flex items-center gap-1 ${PHASE_TONE[phase]}`}
@@ -259,14 +278,37 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({ queue }) => {
                     </p>
                     {/* Cancel only while bytes are moving; once the video exists
                         there is nothing left here to cancel. */}
-                    {phase === 'uploading' && (
+                    {entry.creatorDraft?.draftId && workspace && (
+                      <Link
+                        to={`/creator-hub/uploads/${encodeURIComponent(entry.creatorDraft.draftId)}`}
+                        className="text-xs text-[#fa7517] hover:text-[#ff8c3a]"
+                      >
+                        Open
+                      </Link>
+                    )}
+                    {entry.status === 'auth_required' && session && (
                       <button
                         type="button"
-                        onClick={() => void queue.abortEntry(entry.localId)}
-                        className="text-xs text-gray-400 hover:text-white inline-flex items-center gap-1"
+                        onClick={() => void session?.requestSignIn()}
+                        className="text-xs text-[#fa7517] hover:text-[#ff8c3a]"
                       >
-                        <X className="w-3 h-3" /> Cancel
+                        Sign in again
                       </button>
+                    )}
+                    {/* A cancel is not done until the server says so. */}
+                    {queue.cancellingIds?.has(entry.localId) ? (
+                      <span className="text-xs text-gray-400">Cancelling…</span>
+                    ) : (
+                      phase === 'uploading' &&
+                      entry.status !== 'auth_required' && (
+                        <button
+                          type="button"
+                          onClick={() => void queue.abortEntry(entry.localId)}
+                          className="text-xs text-gray-400 hover:text-white inline-flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" /> Cancel
+                        </button>
+                      )
                     )}
                     {entry.status === 'retry_wait' && (
                       <button

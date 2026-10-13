@@ -74,6 +74,8 @@ export const uploadCopy = {
   cancelled: 'You stopped this upload — add the file again to start over.',
 
   signInRequired: 'Sign in to continue.',
+  /** The session expired mid-upload; one silent renewal did not help. Nothing is lost. */
+  sessionExpired: 'Sign in again to continue. Your progress is kept.',
   invalidFilename: 'Rename the file without slashes or control characters.',
 
   /** Last resort: still says what to do, even when we do not know what broke. */
@@ -132,6 +134,23 @@ const ERROR_COPY: Record<string, string> = {
   VIDEO_UPLOAD_FAILED: uploadCopy.retryWait,
   FILE_UPLOAD_ERROR: uploadCopy.unknownFailure,
   UNAUTHORIZED: uploadCopy.signInRequired,
+  AUTH_REQUIRED: uploadCopy.sessionExpired,
+
+  // ── creator drafts (base-be/docs/CREATOR_DRAFTS_API.md) ─────────────────
+  UPLOAD_EXPIRED: 'This upload expired. Your details are kept — send the file again.',
+  DRAFT_UPLOAD_ACTIVE: 'This video is still sending. Wait for it to finish or cancel it first.',
+  DRAFT_VIDEO_REPLACEMENT_UNSUPPORTED: "This video's file can no longer be replaced.",
+  DRAFT_DELETED: 'This draft was deleted.',
+  DRAFT_NOT_FOUND: 'This draft no longer exists.',
+  INVALID_DRAFT_METADATA: 'Check the title, description and tags, then try again.',
+  INVALID_THUMBNAIL: 'This image could not be read. Choose a JPG or PNG.',
+  INVALID_DRAFT_ASSET: 'This image could not be read. Choose a JPG or PNG.',
+  THUMBNAIL_TOO_LARGE: 'This image is over the 5 MB limit.',
+  DRAFT_ASSET_NOT_READY: 'The thumbnail is still being saved. Try again in a moment.',
+  ASSET_STATE_CONFLICT: 'The thumbnail is still being saved. Try again in a moment.',
+  // Legacy edits on a video that belongs to a draft (Videos Management).
+  DRAFT_WORKFLOW_REQUIRED: 'This video is prepared in the upload workspace. Make this change there.',
+  EXPLICIT_PUBLICATION_REQUIRED: 'Publish this video from the upload workspace.',
 };
 
 /** Longest server sentence we are willing to hand to a creator unedited. */

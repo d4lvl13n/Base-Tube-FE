@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   attachReselectedFiles,
   classifyTransferFailure,
+  classifyUploadFile,
+  createDraftQueueEntry,
   createQueueEntry,
   createTransferDependencies,
   createUploadResumeStore,
   executeUploadTransfer,
   hydrateUploadQueue,
+  isAuthenticationRefusal,
   MAX_QUEUE_FILES,
   MAX_UPLOAD_SESSION_ITEMS,
   NON_DURABLE_NAMESPACES,
@@ -18,15 +21,18 @@ import {
   UploadApiError,
   validateFileSelection,
   type ActiveUploadSummary,
+  type CreatorDraftsApi,
   type PatchUploadBody,
   type QueueEntryUpdate,
   type RejectedUploadFile,
+  type SessionRecovery,
   type UploadApi,
   type UploadQueueEntry,
   type UploadResumeStore,
   type UploadVideoStatus,
 } from '@basetube/api';
 import { getBasetubeClient } from '../lib/basetubeClient';
+import type { AttemptLease } from '../lib/uploads/attemptLease';
 import {
   getVideoProgressBatch,
   updateVideo,
@@ -152,6 +158,21 @@ export interface UseUploadQueueOptions {
   fetchVideoProgress?: VideoProgressFetcher;
   /** Injected by tests; defaults to the app's toast. */
   notify?: (message: string) => void;
+  /** Creator-draft routes, for attempts that belong to a draft. Defaults to the shared client. */
+  creatorDrafts?: CreatorDraftsApi;
+  /**
+   * Shared session recovery (UP-UX §10). When given, every control-plane call
+   * goes through it: one refresh on an expired session, then `auth_required`.
+   */
+  sessionRecovery?: SessionRecovery;
+  /** Cross-tab lease per attempt (UP-UX §10). Without it, this tab transfers alone as before. */
+  lease?: AttemptLease;
+}
+
+/** A draft-bound attempt's identities, as the queue stores them. */
+export interface CreatorDraftBinding {
+  clientDraftId: string;
+  draftId: string | null;
 }
 
 export interface UploadQueueApi {
@@ -192,6 +213,41 @@ export interface UploadQueueApi {
   dismissSelectionNotice: () => void;
   /** Removes every row that has nothing left to do (ready, failed, cancelled). */
   clearFinished: () => Promise<void>;
+
+  // ── UP-UX additions ─────────────────────────────────────────────────────
+  /** Rows whose cancel is on the wire: shown as "Cancelling…", never as cancelled. */
+  cancellingIds: ReadonlySet<string>;
+  /** Rows another tab of this account is transferring right now. */
+  heldElsewhereIds: ReadonlySet<string>;
+  /** True while the session is refused and waits for the creator to sign in again. */
+  authRequired: boolean;
+  /**
+   * Adds files as creator-draft attempts. Each accepted entry carries a fresh
+   * `clientDraftId`; it starts as soon as `attachDraftId` gives it its draft.
+   */
+  enqueueDraftFiles: (
+    files: readonly File[],
+    channelId: number,
+  ) => Promise<{ accepted: UploadQueueEntry[]; rejected: RejectedUploadFile[] }>;
+  /** A new attempt for an existing draft (its first file, or after a confirmed failure). */
+  enqueueDraftAttempt: (
+    file: File,
+    channelId: number,
+    binding: CreatorDraftBinding,
+  ) => Promise<{ entry: UploadQueueEntry | null; rejected: RejectedUploadFile | null }>;
+  /** Records the server draft id on its attempts, which lets them start. */
+  attachDraftId: (clientDraftId: string, draftId: string) => Promise<void>;
+  /**
+   * Represents a draft attempt that exists on the server but not on this
+   * device (another browser, cleared storage). It waits for the same file.
+   */
+  adoptDraftAttempt: (summary: ActiveUploadSummary, binding: CreatorDraftBinding) => Promise<UploadQueueEntry>;
+  /** Gives one waiting row its file back, after checking it is the same file. */
+  reselectForEntry: (localId: string, file: File) => Promise<boolean>;
+  /** Stops a row locally and forgets it, without a server call (the draft deletion owns cleanup). */
+  discardEntry: (localId: string) => Promise<void>;
+  /** Re-reads a row whose cancellation could not be confirmed. */
+  verifyEntry: (localId: string) => Promise<void>;
 }
 
 /**
@@ -279,7 +335,19 @@ function sameRenditions(a: readonly RenditionSummary[], b: readonly RenditionSum
  * browser.
  */
 export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueueApi {
-  const api = useMemo(() => options.api ?? getBasetubeClient().uploads, [options.api]);
+  const recovery = options.sessionRecovery;
+  const lease = options.lease;
+  const api = useMemo(() => {
+    const raw = options.api ?? getBasetubeClient().uploads;
+    return recovery ? guardUploadApi(raw, recovery) : raw;
+  }, [options.api, recovery]);
+  const creatorDraftsOption = options.creatorDrafts;
+  const draftsApiRef = useRef<CreatorDraftsApi | null>(creatorDraftsOption ?? null);
+  /** Resolved on first use: only draft attempts need it. */
+  const draftsApi = useCallback((): CreatorDraftsApi => {
+    draftsApiRef.current ??= creatorDraftsOption ?? getBasetubeClient().creatorDrafts;
+    return draftsApiRef.current;
+  }, [creatorDraftsOption]);
   const transferDeps = useMemo(() => createTransferDependencies(api), [api]);
   const applyVideoUpdate = options.applyVideoUpdate ?? putVideoUpdate;
   const fetchVideoProgress = options.fetchVideoProgress ?? getVideoProgressBatch;
@@ -332,7 +400,13 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   const [admissionProbe, setAdmissionProbe] = useState(false);
   const [sessionUsedCount, setSessionUsedCount] = useState(0);
   const sessionUsedRef = useRef(0);
-  const pollingWanted = needsPolling(entries);
+  const [cancellingIds, setCancellingIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [heldElsewhereIds, setHeldElsewhereIds] = useState<ReadonlySet<string>>(() => new Set());
+  const heldElsewhereRef = useRef(new Set<string>());
+  /** Rows whose transfer was stopped because another tab took the lease over. */
+  const leaseLostRef = useRef(new Set<string>());
+  const [authRequired, setAuthRequired] = useState(() => recovery?.blocked ?? false);
+  const pollingWanted = needsPolling(entries) && !authRequired;
 
   // Declared before every other effect so its cleanup runs first: the later
   // cleanups (and any promise that settles after them) then see `false`.
@@ -759,9 +833,26 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     }
   }, [entries, schedulerRevision]);
 
+  const markHeldElsewhere = useCallback((localId: string, held: boolean) => {
+    const current = heldElsewhereRef.current;
+    if (current.has(localId) === held) return;
+    const next = new Set(current);
+    if (held) next.add(localId);
+    else next.delete(localId);
+    heldElsewhereRef.current = next;
+    if (mountedRef.current) setHeldElsewhereIds(next);
+  }, []);
+
   const startEntry = useCallback(
     (entry: UploadQueueEntry) => {
       if (activeIdsRef.current.has(entry.localId)) return;
+      // Another tab of this account owns this attempt: it shows as such and
+      // the scheduler looks again when that lease moves or expires.
+      if (lease && !lease.tryAcquire(entry.clientAttemptId)) {
+        markHeldElsewhere(entry.localId, true);
+        return;
+      }
+      markHeldElsewhere(entry.localId, false);
       activeIdsRef.current.add(entry.localId);
       const controller = new AbortController();
       controllersRef.current.set(entry.localId, controller);
@@ -791,18 +882,41 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       // Private edit is still unconfirmed is how a video the creator made
       // private goes public. Throwing keeps the row in the retry path (the
       // parts are all uploaded; a retry resumes at completion).
-      const deps = {
-        ...transferDeps,
-        beforeComplete: async () => {
-          await flushMetadata(entry.localId);
-          const pending = pendingPatchesRef.current.get(entry.localId);
-          if (pending && pending.isPublic !== undefined) {
-            throw new Error(
-              'Your visibility choice has not reached the server yet — completion will retry once it is saved.',
-            );
+      // A draft attempt is created under its draft (`POST /creator-drafts/:id/uploads`),
+      // which takes no title or visibility: the draft owns those, and a draft
+      // can never ask to be public. Its metadata is not flushed to the upload
+      // row either — there is none to flush.
+      const draftId = entry.creatorDraft?.draftId ?? null;
+      const deps = draftId
+        ? {
+            ...transferDeps,
+            api: {
+              ...api,
+              create: (body: Parameters<UploadApi['create']>[0]) => {
+                const send = () =>
+                  draftsApi().createUpload(draftId, {
+                    clientAttemptId: body.clientAttemptId,
+                    filename: body.filename,
+                    declaredContentType: body.declaredContentType,
+                    declaredSizeBytes: body.declaredSizeBytes,
+                    lastModifiedAt: body.lastModifiedAt ?? null,
+                  });
+                return recovery ? recovery.run(send) : send();
+              },
+            },
           }
-        },
-      };
+        : {
+            ...transferDeps,
+            beforeComplete: async () => {
+              await flushMetadata(entry.localId);
+              const pending = pendingPatchesRef.current.get(entry.localId);
+              if (pending && pending.isPublic !== undefined) {
+                throw new Error(
+                  'Your visibility choice has not reached the server yet — completion will retry once it is saved.',
+                );
+              }
+            },
+          };
 
       void executeUploadTransfer(entry, entry.file, deps, update, { signal: controller.signal })
         .catch(async (error: unknown) => {
@@ -810,6 +924,17 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
           // to abort; drop the marker instead of leaking it.
           cancelAfterCreateRef.current.delete(entry.localId);
           if (abortingIdsRef.current.has(entry.localId) || controller.signal.aborted) return;
+          // An expired session is not a failure of the file: the attempt
+          // waits, progress intact, until the creator signs in again.
+          if (isAuthenticationRefusal(error)) {
+            await updateEntry(entry.localId, {
+              status: 'auth_required',
+              errorCode: 'AUTH_REQUIRED',
+              errorMessage: null,
+              retryAt: null,
+            });
+            return;
+          }
           const failure = classifyTransferFailure(error);
           const retryAt =
             failure.retryAfterSeconds === null ? null : Date.now() + failure.retryAfterSeconds * 1_000;
@@ -825,25 +950,110 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
             retryAt,
           });
         })
-        .finally(() => {
+        .finally(async () => {
           controllersRef.current.delete(entry.localId);
           activeIdsRef.current.delete(entry.localId);
+          lease?.release(entry.clientAttemptId);
+          // Stopped because another tab took the attempt over: put the row
+          // back where the scheduler can pick it up once that lease ends.
+          if (leaseLostRef.current.delete(entry.localId)) {
+            const current = entriesRef.current.find((candidate) => candidate.localId === entry.localId);
+            if (current && ['reserving', 'uploading', 'retry_wait'].includes(current.status)) {
+              await updateEntry(entry.localId, { status: current.file ? 'queued' : 'reselect_required' });
+            }
+            markHeldElsewhere(entry.localId, true);
+          }
           // The transfer outlives the component on navigation-away; without
           // this the scheduler bump lands on an unmounted tree.
           if (mountedRef.current) setSchedulerRevision((value) => value + 1);
         });
     },
-    [api, flushMetadata, transferDeps, updateEntry],
+    [api, draftsApi, flushMetadata, lease, markHeldElsewhere, recovery, transferDeps, updateEntry],
   );
+
+  /** Frees the rows whose other-tab lease has ended, then lets the scheduler look again. */
+  const recheckHeldElsewhere = useCallback(() => {
+    for (const localId of Array.from(heldElsewhereRef.current)) {
+      const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
+      if (!entry || !lease?.heldElsewhere(entry.clientAttemptId)) markHeldElsewhere(localId, false);
+    }
+    if (mountedRef.current) setSchedulerRevision((value) => value + 1);
+  }, [lease, markHeldElsewhere]);
+
+  // ── cross-tab lease: react when another tab releases, expires or takes over ──
+  useEffect(() => {
+    if (!lease) return;
+    return lease.subscribe((event) => {
+      if (event.type === 'lost') {
+        const entry = entriesRef.current.find((candidate) => candidate.clientAttemptId === event.attemptId);
+        if (entry) {
+          leaseLostRef.current.add(entry.localId);
+          controllersRef.current.get(entry.localId)?.abort();
+        }
+      }
+      recheckHeldElsewhere();
+    });
+  }, [lease, recheckHeldElsewhere]);
+
+  // A lease held elsewhere expires silently when its tab disappears; look again.
+  useEffect(() => {
+    if (heldElsewhereIds.size === 0) return;
+    const timer = setInterval(recheckHeldElsewhere, 5_000);
+    return () => clearInterval(timer);
+  }, [heldElsewhereIds, recheckHeldElsewhere]);
+
+  // ── session recovery: wait while refused, resume the same attempts after sign-in ──
+  useEffect(() => {
+    if (!recovery) return;
+    return recovery.subscribe((blocked) => {
+      if (mountedRef.current) setAuthRequired(blocked);
+      if (blocked) return;
+      for (const entry of entriesRef.current) {
+        if (entry.status !== 'auth_required') continue;
+        const bytesDone = entry.uploadId !== null && entry.progress === 100;
+        void updateEntry(entry.localId, {
+          status: entry.file ? 'queued' : bytesDone ? 'uploaded' : 'reselect_required',
+          errorCode: null,
+          errorMessage: null,
+          retryAt: null,
+        });
+      }
+    });
+  }, [recovery, updateEntry]);
+
+  // ── back online / back on the tab: one bounded nudge, never a retry loop ──
+  useEffect(() => {
+    let lastNudge = 0;
+    const nudge = () => {
+      if (document.visibilityState === 'hidden') return;
+      const now = Date.now();
+      if (now - lastNudge < 5_000) return;
+      lastNudge = now;
+      for (const entry of entriesRef.current) {
+        if (entry.status === 'retry_wait' && (entry.retryAt ?? 0) > now) {
+          void updateEntry(entry.localId, { retryAt: now }, { persist: false });
+        }
+      }
+      setSchedulerRevision((value) => value + 1);
+    };
+    window.addEventListener('online', nudge);
+    document.addEventListener('visibilitychange', nudge);
+    return () => {
+      window.removeEventListener('online', nudge);
+      document.removeEventListener('visibilitychange', nudge);
+    };
+  }, [updateEntry]);
 
   // ── scheduler ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!hydrated || paused) return;
+    // A refused session starts nothing new: every call would be refused too.
+    if (!hydrated || paused || authRequired) return;
     const candidates = selectQueueCandidates(
       // Once the `Video` row exists there is nothing left to transfer, and a
       // reload hydrates such a row as `uploaded` — without this guard the
-      // scheduler would re-run a finished transfer against it.
-      entries.filter((entry) => entry.videoId === null),
+      // scheduler would re-run a finished transfer against it. Rows another
+      // tab is transferring do not take a slot here.
+      entries.filter((entry) => entry.videoId === null && !heldElsewhereRef.current.has(entry.localId)),
       activeIdsRef.current,
       false,
       Date.now(),
@@ -854,7 +1064,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       abortingIdsRef.current,
     );
     for (const entry of candidates) startEntry(entry);
-  }, [admissionProbe, admissionRetryAt, entries, hydrated, paused, schedulerRevision, startEntry]);
+  }, [admissionProbe, admissionRetryAt, authRequired, entries, hydrated, paused, schedulerRevision, startEntry]);
 
   // Wake the scheduler when the earliest retry deadline comes due.
   useEffect(() => {
@@ -1068,6 +1278,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
       if (!entry) return false;
       abortingIdsRef.current.add(localId);
+      if (mountedRef.current) setCancellingIds(new Set(abortingIdsRef.current));
       controllersRef.current.get(localId)?.abort();
       setActionError(null);
       try {
@@ -1105,9 +1316,173 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         return false;
       } finally {
         abortingIdsRef.current.delete(localId);
+        if (mountedRef.current) setCancellingIds(new Set(abortingIdsRef.current));
       }
     },
     [api, forget, releaseSessionSlot, replaceEntries, updateEntry],
+  );
+
+  // ── creator-draft attempts (UP-UX) ───────────────────────────────────────
+
+  /** Room left in the queue and in the session, with the cap that binds first. */
+  const capacity = useCallback(() => {
+    const localActive = entriesRef.current.filter((entry) => entry.status !== 'aborted').length;
+    const queueAvailable = MAX_QUEUE_FILES - localActive;
+    const sessionRemaining = Math.max(0, MAX_UPLOAD_SESSION_ITEMS - sessionUsedRef.current);
+    return {
+      available: Math.min(queueAvailable, sessionRemaining),
+      cap: (sessionRemaining < queueAvailable ? 'session' : 'queue') as 'session' | 'queue',
+    };
+  }, []);
+
+  const enqueueDraftFiles = useCallback(
+    async (files: readonly File[], channelId: number) => {
+      const { available, cap } = capacity();
+      const result = validateFileSelection(files, available, cap);
+      const created = result.accepted.map((file) => createDraftQueueEntry(channelId, file, crypto.randomUUID()));
+      consumeSessionSlots(created.length);
+      replaceEntries([...entriesRef.current, ...created]);
+      // Persisted before the draft request: both identities survive a reload.
+      await Promise.all(created.map(persist));
+      return { accepted: created, rejected: result.rejected };
+    },
+    [capacity, consumeSessionSlots, persist, replaceEntries],
+  );
+
+  const enqueueDraftAttempt = useCallback(
+    async (file: File, channelId: number, binding: CreatorDraftBinding) => {
+      const { available, cap } = capacity();
+      const result = validateFileSelection([file], available, cap);
+      const validated = result.accepted[0];
+      if (!validated) return { entry: null, rejected: result.rejected[0] ?? null };
+      const entry: UploadQueueEntry = { ...createQueueEntry(channelId, validated), creatorDraft: { ...binding } };
+      consumeSessionSlots(1);
+      replaceEntries([...entriesRef.current, entry]);
+      await persist(entry);
+      return { entry, rejected: null };
+    },
+    [capacity, consumeSessionSlots, persist, replaceEntries],
+  );
+
+  const attachDraftId = useCallback(
+    async (clientDraftId: string, draftId: string) => {
+      const bound = entriesRef.current.filter(
+        (entry) => entry.creatorDraft?.clientDraftId === clientDraftId && entry.creatorDraft.draftId !== draftId,
+      );
+      for (const entry of bound) {
+        // eslint-disable-next-line no-await-in-loop
+        await updateEntry(entry.localId, { creatorDraft: { clientDraftId, draftId } });
+      }
+    },
+    [updateEntry],
+  );
+
+  const adoptDraftAttempt = useCallback(
+    async (summary: ActiveUploadSummary, binding: CreatorDraftBinding) => {
+      const existing = entriesRef.current.find((entry) => entry.uploadId === summary.uploadId);
+      if (existing) return existing;
+      const now = new Date().toISOString();
+      const localId = crypto.randomUUID();
+      const entry: UploadQueueEntry = {
+        localId,
+        // Never sent: an attempt that already has an `uploadId` is not created again.
+        clientAttemptId: localId,
+        uploadId: summary.uploadId,
+        channelId: summary.channelId,
+        title: summary.title,
+        description: summary.description,
+        isPublic: false,
+        tags: summary.tags,
+        filename: summary.originalFilename,
+        sizeBytes: summary.declaredSizeBytes,
+        // Unknown on this device: `reselectForEntry` matches on name, size and type.
+        lastModified: 0,
+        contentType: contentTypeForFilename(summary.originalFilename),
+        partSizeBytes: summary.partSizeBytes,
+        partCount: summary.partCount,
+        completedParts: [],
+        status: 'reselect_required',
+        progress: 0,
+        errorCode: null,
+        errorMessage: null,
+        retryAt: null,
+        videoId: summary.videoId,
+        videoStatus: summary.videoStatus,
+        creatorDraft: { ...binding },
+        createdAt: now,
+        updatedAt: now,
+        file: null,
+      };
+      consumeSessionSlots(1);
+      replaceEntries([...entriesRef.current, entry]);
+      await persist(entry);
+      return entry;
+    },
+    [consumeSessionSlots, persist, replaceEntries],
+  );
+
+  const reselectForEntry = useCallback(
+    async (localId: string, file: File) => {
+      const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
+      if (!entry || entry.status !== 'reselect_required') return false;
+      const classified = classifyUploadFile(file);
+      if ('code' in classified) return false;
+      const same =
+        file.name.normalize('NFC') === entry.filename.normalize('NFC') &&
+        file.size === entry.sizeBytes &&
+        classified.contentType === entry.contentType &&
+        (entry.lastModified === 0 || file.lastModified === entry.lastModified);
+      if (!same) return false;
+      await updateEntry(localId, {
+        file,
+        lastModified: file.lastModified,
+        status: 'queued',
+        errorCode: null,
+        errorMessage: null,
+        retryAt: null,
+      });
+      return true;
+    },
+    [updateEntry],
+  );
+
+  const discardEntry = useCallback(
+    async (localId: string) => {
+      const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
+      if (!entry) return;
+      abortingIdsRef.current.add(localId);
+      controllersRef.current.get(localId)?.abort();
+      lease?.release(entry.clientAttemptId);
+      pendingThumbnailsRef.current.delete(localId);
+      pendingPatchesRef.current.delete(localId);
+      await forget(localId);
+      replaceEntries(entriesRef.current.filter((candidate) => candidate.localId !== localId));
+      releaseSessionSlot();
+      abortingIdsRef.current.delete(localId);
+    },
+    [forget, lease, releaseSessionSlot, replaceEntries],
+  );
+
+  const verifyEntry = useCallback(
+    async (localId: string) => {
+      const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
+      if (!entry?.uploadId) return;
+      try {
+        const row = await api.get(entry.uploadId);
+        const merged = applyServerRow(entry, row);
+        const settled = row.uploadState === 'aborted';
+        await updateEntry(localId, {
+          ...merged,
+          ...(settled ? { status: 'aborted' as const, errorCode: null, errorMessage: null } : {}),
+        });
+      } catch (error) {
+        if (error instanceof UploadApiError && error.status === 404) {
+          await updateEntry(localId, { status: 'aborted', errorCode: null, errorMessage: null });
+        }
+        // Anything else: still unknown; the row keeps saying so.
+      }
+    },
+    [api, updateEntry],
   );
 
   const retryEntry = useCallback(
@@ -1219,7 +1594,42 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     removeEntry,
     dismissSelectionNotice,
     clearFinished,
+    cancellingIds,
+    heldElsewhereIds,
+    authRequired,
+    enqueueDraftFiles,
+    enqueueDraftAttempt,
+    attachDraftId,
+    adoptDraftAttempt,
+    reselectForEntry,
+    discardEntry,
+    verifyEntry,
   };
+}
+
+/**
+ * Every control-plane call through the shared session recovery: a refused
+ * session is renewed once (shared), then surfaces as `AuthenticationRequiredError`.
+ */
+function guardUploadApi(api: UploadApi, recovery: SessionRecovery): UploadApi {
+  return {
+    create: (body) => recovery.run(() => api.create(body)),
+    getState: (uploadId) => recovery.run(() => api.getState(uploadId)),
+    renewCapabilities: (uploadId, partNumbers) => recovery.run(() => api.renewCapabilities(uploadId, partNumbers)),
+    complete: (uploadId, body) => recovery.run(() => api.complete(uploadId, body)),
+    abort: (uploadId) => recovery.run(() => api.abort(uploadId)),
+    patch: (uploadId, body) => recovery.run(() => api.patch(uploadId, body)),
+    listActive: () => recovery.run(() => api.listActive()),
+    get: (uploadId) => recovery.run(() => api.get(uploadId)),
+  };
+}
+
+/** The canonical content type for a filename, matching the SDK's file classification. */
+function contentTypeForFilename(filename: string): string {
+  const extension = filename.slice(filename.lastIndexOf('.') + 1).toLowerCase();
+  if (extension === 'mov' || extension === 'qt') return 'video/quicktime';
+  if (extension === 'avi') return 'video/x-msvideo';
+  return 'video/mp4';
 }
 
 /**

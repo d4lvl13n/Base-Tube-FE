@@ -1,8 +1,12 @@
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useAuth } from './AuthContext';
-import { NON_DURABLE_NAMESPACES, purgeLegacyResumeDatabases } from '@basetube/api';
+import {
+  NON_DURABLE_NAMESPACES,
+  purgeLegacyResumeDatabases,
+  type SessionRecovery,
+} from '@basetube/api';
 import { useUploadQueue, type UploadQueueApi } from '../hooks/useUploadQueue';
 import UploadQueuePanel from '../components/upload/UploadQueuePanel';
 import { showInfoToast } from '../components/common/Notifications/ErrorToast';
@@ -12,8 +16,19 @@ import {
   claimBackgroundNotice,
   isUploadRoute,
 } from '../components/upload/backgroundUploadNotice';
+import { createWebSessionRecovery, requestReauthentication } from '../lib/uploads/sessionRecovery';
+import { createAttemptLease } from '../lib/uploads/attemptLease';
+import { DraftWorkspaceBoundary } from './DraftWorkspaceContext';
 
 const UploadQueueContext = createContext<UploadQueueApi | null>(null);
+
+/** The account's session recovery and its "Sign in again" action, shared by every upload surface. */
+interface UploadSession {
+  recovery: SessionRecovery;
+  requestSignIn: () => Promise<boolean>;
+}
+
+const UploadSessionContext = createContext<UploadSession | null>(null);
 
 /**
  * Only `uploading` has bytes on the wire.
@@ -63,7 +78,13 @@ export const UploadQueueProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [namespace]);
 
   return (
-    <UploadQueueProviderInner key={namespace} storageNamespace={namespace}>
+    <UploadQueueProviderInner
+      key={namespace}
+      storageNamespace={namespace}
+      // A wallet sign-in of the SAME account must resume the waiting attempts;
+      // a different account remounts instead (the key above).
+      sessionKey={web3User?.id ?? null}
+    >
       {children}
     </UploadQueueProviderInner>
   );
@@ -72,12 +93,48 @@ export const UploadQueueProvider: React.FC<{ children: React.ReactNode }> = ({ c
 const UploadQueueProviderInner: React.FC<{
   children: React.ReactNode;
   storageNamespace: string;
-}> = ({ children, storageNamespace }) => {
-  const queue = useUploadQueue({ storageNamespace });
+  sessionKey: string | null;
+}> = ({ children, storageNamespace, sessionKey }) => {
+  // One recovery and one lease per account subtree: a refused session or a
+  // held attempt never carries over to the next account on this browser.
+  const recovery = useMemo(() => createWebSessionRecovery(), []);
+  const lease = useMemo(
+    () => (NON_DURABLE_NAMESPACES.has(storageNamespace) ? undefined : createAttemptLease(storageNamespace)),
+    [storageNamespace],
+  );
+  useEffect(() => () => lease?.dispose(), [lease]);
+
+  const queue = useUploadQueue({ storageNamespace, sessionRecovery: recovery, lease });
   const location = useLocation();
   const uploading = queue.entries.some((entry) =>
     (BYTES_IN_FLIGHT_STATUSES as readonly string[]).includes(entry.status),
   );
+
+  // Signed in again (same account), back on the tab, or a light check every
+  // 10 s — only while a refused session is actually waiting. Each check is one
+  // silent renewal; nothing is retried until it succeeds.
+  useEffect(() => {
+    if (recovery.blocked) void recovery.resume();
+  }, [recovery, sessionKey]);
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const check = () => {
+      if (recovery.blocked) void recovery.resume();
+    };
+    const unsubscribe = recovery.subscribe((blocked) => {
+      if (timer) clearInterval(timer);
+      timer = blocked ? setInterval(check, 10_000) : undefined;
+    });
+    window.addEventListener('focus', check);
+    return () => {
+      unsubscribe();
+      if (timer) clearInterval(timer);
+      window.removeEventListener('focus', check);
+    };
+  }, [recovery]);
+
+  const requestSignIn = useCallback(() => requestReauthentication(recovery), [recovery]);
+  const session = useMemo(() => ({ recovery, requestSignIn }), [recovery, requestSignIn]);
 
   // The upload pages render the queue inline, so the floating panel there would
   // be the same rows twice.
@@ -111,10 +168,20 @@ const UploadQueueProviderInner: React.FC<{
     return () => window.removeEventListener('beforeunload', guard);
   }, [uploading]);
 
+  const panel = queue.entries.length > 0 && !onUploadRoute && <UploadQueuePanel queue={queue} />;
+
   return (
     <UploadQueueContext.Provider value={queue}>
-      {children}
-      {queue.entries.length > 0 && !onUploadRoute && <UploadQueuePanel queue={queue} />}
+      <UploadSessionContext.Provider value={session}>
+        <DraftWorkspaceBoundary
+          queue={queue}
+          recovery={recovery}
+          storageNamespace={storageNamespace}
+        >
+          {children}
+          {panel}
+        </DraftWorkspaceBoundary>
+      </UploadSessionContext.Provider>
     </UploadQueueContext.Provider>
   );
 };
@@ -123,6 +190,19 @@ export function useUploadQueueContext(): UploadQueueApi {
   const context = useContext(UploadQueueContext);
   if (!context) {
     throw new Error('useUploadQueueContext must be used inside <UploadQueueProvider>');
+  }
+  return context;
+}
+
+/** The session, or null outside the provider (a surface that can live without "Sign in again"). */
+export function useOptionalUploadSession(): UploadSession | null {
+  return useContext(UploadSessionContext);
+}
+
+export function useUploadSession(): UploadSession {
+  const context = useContext(UploadSessionContext);
+  if (!context) {
+    throw new Error('useUploadSession must be used inside <UploadQueueProvider>');
   }
   return context;
 }

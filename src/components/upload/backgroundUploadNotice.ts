@@ -16,6 +16,7 @@ export const BACKGROUND_UPLOAD_NOTICE_KEY = 'basetube.uploads.backgroundNoticeSh
 export const UPLOAD_ROUTES: readonly string[] = [
   '/creator-hub/content-studio',
   '/creator-hub/upload',
+  // `/creator-hub/uploads` and `/creator-hub/uploads/:draftId` (the UP-UX workspace) match by prefix too.
 ];
 
 export function isUploadRoute(pathname: string): boolean {
