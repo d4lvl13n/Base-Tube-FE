@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStartStripeConnect, useStripeConnectStatus } from '../../../../hooks/usePass';
 import { cx, form } from '../shared/hubStyles';
+import HubSelect from '../shared/HubSelect';
 
 /**
  * Card sales on a fiat pass pay the creator through a Stripe (test) Connect
@@ -34,6 +35,12 @@ const COUNTRIES = [
 function guessCountry(): string {
   const region = (navigator.language || '').split('-')[1]?.toUpperCase();
   return region && COUNTRIES.includes(region) ? region : '';
+}
+
+/** The flag of a two-letter country code, from its regional-indicator letters. */
+function flagFor(code: string): string {
+  if (!/^[A-Z]{2}$/.test(code)) return '';
+  return String.fromCodePoint(...Array.from(code).map((letter) => 0x1f1e6 + letter.charCodeAt(0) - 65));
 }
 
 function countryName(code: string): string {
@@ -110,22 +117,25 @@ const StripeConnectStrip: React.FC = () => {
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {pickingCountry && (
-          <label className="flex items-center gap-2">
-            <span className={form.fieldLabel}>Country</span>
-            <select
+          <div className="flex items-center gap-2">
+            <span className={form.fieldLabel} id="stripe-country-label">
+              Country
+            </span>
+            <HubSelect
               value={country}
-              onChange={(event) => setCountry(event.target.value)}
-              className={cx(form.input, 'h-8 w-auto min-w-[11rem] pr-8')}
-              aria-label="Country of your Stripe account"
-            >
-              <option value="">Choose…</option>
-              {options.map((option) => (
-                <option key={option.code} value={option.code}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={setCountry}
+              ariaLabel="Country of your Stripe account"
+              options={options.map((option) => ({
+                value: option.code,
+                label: option.name,
+                leading: (
+                  <span aria-hidden="true" className="text-base leading-none">
+                    {flagFor(option.code)}
+                  </span>
+                ),
+              }))}
+            />
+          </div>
         )}
 
         {hasAccount && !changingCountry && (
