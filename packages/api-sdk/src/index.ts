@@ -10,10 +10,13 @@ import { createEngagementApi } from './endpoints/engagement';
 import { createPassesApi } from './endpoints/passes';
 import { createAccessApi, createPurchasesApi } from './endpoints/purchases';
 import { createUploadApi } from './upload';
+import { createCreatorDraftsApi } from './drafts';
 import { createThumbnailStudioApi } from './endpoints/thumbnailStudio';
 
 export * from './types';
 export * from './upload';
+export * from './drafts';
+export * from './auth';
 export type { BasetubeClientConfig, TokenProvider } from './config';
 export { createHttpClient } from './client';
 export { buildSearchQuery } from './endpoints/discovery';
@@ -34,6 +37,8 @@ export interface BasetubeClient {
   purchases: ReturnType<typeof createPurchasesApi>;
   /** Upload V2 control plane (`/api/v1/videos/uploads/*`). */
   uploads: ReturnType<typeof createUploadApi>;
+  /** Creator drafts (`/api/v1/creator-drafts/*`, see `base-be/docs/CREATOR_DRAFTS_API.md`). */
+  creatorDrafts: ReturnType<typeof createCreatorDraftsApi>;
   thumbnailStudio: ReturnType<typeof createThumbnailStudioApi>;
   web3auth: ReturnType<typeof createWeb3AuthApi>;
   auth: ReturnType<typeof createAuthApi>;
@@ -64,6 +69,7 @@ export function createBasetubeClient(config: BasetubeClientConfig): BasetubeClie
     access: createAccessApi(http),
     purchases: createPurchasesApi(http),
     uploads: createUploadApi(http),
+    creatorDrafts: createCreatorDraftsApi(http),
     thumbnailStudio: createThumbnailStudioApi(http),
     web3auth: createWeb3AuthApi(http),
     auth: createAuthApi(http),

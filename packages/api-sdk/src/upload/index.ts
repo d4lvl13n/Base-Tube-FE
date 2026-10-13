@@ -21,6 +21,7 @@ export {
 export { statusFromServer, isTerminalServerStatus, TERMINAL_SERVER_STATUSES } from './status';
 export {
   attachReselectedFiles,
+  createDraftQueueEntry,
   createQueueEntry,
   filenameStem,
   hydrateUploadQueue,

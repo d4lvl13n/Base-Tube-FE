@@ -16,6 +16,7 @@ import { matchReselectedFiles, type ValidatedUploadFile } from './validation';
  */
 const RESELECT_AFTER_RELOAD = new Set<UploadQueueEntry['status']>([
   'queued',
+  'auth_required',
   'reserving',
   'retry_wait',
   'uploading',
@@ -85,6 +86,23 @@ export function createQueueEntry(
     createdAt: now,
     updatedAt: now,
     file: validated.file,
+  };
+}
+
+/**
+ * A queue entry for a creator draft (UP-UX §6). Both identities — the draft's
+ * `clientDraftId` and the attempt's `clientAttemptId` — exist before any
+ * request, so a replay after a reload reaches the same draft and attempt.
+ */
+export function createDraftQueueEntry(
+  channelId: number,
+  validated: ValidatedUploadFile,
+  clientDraftId: string,
+  idFactory: () => string = () => crypto.randomUUID(),
+): UploadQueueEntry {
+  return {
+    ...createQueueEntry(channelId, validated, idFactory),
+    creatorDraft: { clientDraftId, draftId: null },
   };
 }
 
@@ -184,6 +202,8 @@ export function selectQueueCandidates(
     (entry) =>
       !activeIds.has(entry.localId) &&
       !abortingIds.has(entry.localId) &&
+      // A draft attempt is created under its draft: it waits for the draft id.
+      !(entry.creatorDraft && entry.creatorDraft.draftId === null) &&
       (entry.file !== null || (entry.status === 'uploaded' && entry.progress === 100)) &&
       (entry.status === 'queued' ||
         (entry.status === 'retry_wait' && (entry.retryAt ?? 0) <= now) ||

@@ -10,6 +10,12 @@ import type { CompletedPart, UploadVideoStatus } from './contracts';
 export type UploadQueueStatus =
   | 'queued'
   | 'reselect_required'
+  /**
+   * Local only — never a server state (UP-UX §10). The control plane refused
+   * the session and one shared refresh did not renew it; the attempt waits,
+   * with its progress intact, until the creator signs in again.
+   */
+  | 'auth_required'
   | 'reserving'
   | 'retry_wait'
   | 'uploading'
@@ -68,6 +74,17 @@ export interface PersistedUploadRecord {
     tags?: string[] | null;
     channelId?: number;
   } | null;
+
+  /**
+   * Set when this attempt belongs to a creator draft (UP-UX). Absent on every
+   * historical upload, which keeps its Upload V2 behaviour untouched.
+   *
+   * `clientDraftId` is the stable local identity persisted before the first
+   * request; `draftId` is the server draft, null until `POST /creator-drafts`
+   * has answered. A draft-bound attempt is created through
+   * `POST /creator-drafts/:id/uploads`, so it cannot start before `draftId`.
+   */
+  creatorDraft?: { clientDraftId: string; draftId: string | null } | null;
 
   createdAt: string;
   updatedAt: string;

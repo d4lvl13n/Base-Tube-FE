@@ -66,6 +66,14 @@ export interface CreateUploadData {
   partCount: number;
   capabilities: MultipartPartCapability[];
   expiresAt: string;
+  /**
+   * UP-BE §9: until when an incomplete multipart session can be resumed — an
+   * estimate when the storage provider gives no exact deadline. Optional:
+   * historical servers do not send it.
+   */
+  resumeExpiresAt?: string | null;
+  /** True on creator-draft attachments: `resumeExpiresAt` is a provider-policy estimate. */
+  resumeExpiresAtEstimated?: boolean;
 }
 
 /**
@@ -89,6 +97,8 @@ export interface UploadStateData {
   partCount: number | null;
   completedParts: CompletedPart[];
   canRenewCapabilities: boolean;
+  /** UP-BE §9; see `CreateUploadData.resumeExpiresAt`. Optional on historical servers. */
+  resumeExpiresAt?: string | null;
 }
 
 /** `POST /videos/uploads/:id/upload-capabilities` request/response (§7.3). */
