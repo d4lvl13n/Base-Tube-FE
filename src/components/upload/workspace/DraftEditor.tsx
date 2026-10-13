@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
-  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Check,
   ChevronDown,
   ChevronUp,
@@ -11,6 +12,7 @@ import {
   Loader2,
   Lock,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { hasPendingEdits, validateDraftFields, type PublishBlocker } from '@basetube/api';
 import type { DraftWorkspaceApi, WorkspaceDraft } from '../../../hooks/useDraftWorkspace';
@@ -81,7 +83,9 @@ interface DraftEditorProps {
   technical: TechnicalState;
   channel: Channel | undefined;
   layout: WorkspaceLayout;
-  onBack: () => void;
+  /** Previous / next video of the grid; null at either end. */
+  onPrevious: (() => void) | null;
+  onNext: (() => void) | null;
   onClose: () => void;
   onAnnounce: (message: string) => void;
 }
@@ -100,7 +104,8 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
   technical,
   channel,
   layout,
-  onBack,
+  onPrevious,
+  onNext,
   onClose,
   onAnnounce,
 }) => {
@@ -416,14 +421,27 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
       : (serverPreview?.thumbnail?.url ?? null));
 
   return (
-    <article aria-label={title} className="min-w-0">
-      {/* Below 768 px the list and the editor are two views: an explicit way back. */}
-      {layout === 'compact' && (
-        <button type="button" onClick={onBack} className={`${QUIET_BUTTON} -ml-3 mb-2`}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {workspaceCopy.back}
+    <div className="flex h-full min-h-0 flex-col" aria-label={title} role="region">
+      {/* The inspector head names the video and the file it came from (AA `ig-inspector-head`). */}
+      <header className="flex items-start justify-between gap-3 border-b border-gray-800 px-5 py-4">
+        <div className="min-w-0">
+          <strong className="block break-words text-[15px] font-semibold text-white">{title}</strong>
+          <small className="mt-1 block break-all text-xs text-gray-500">
+            {[entry?.filename ?? record.filename, channel?.name].filter(Boolean).join(' · ')}
+          </small>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={workspaceCopy.closeInspector}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-800 text-gray-400
+                     transition-colors hover:border-gray-600 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
-      )}
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
 
       {published && !runtime.publishedJustNow && (
         <p className="mt-3 rounded-md border border-gray-800/60 bg-white/[0.03] px-3 py-2 text-xs text-gray-300">
@@ -502,12 +520,8 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
         </section>
       )}
 
-      <div
-        className="mt-4 grid gap-8"
-        // Side by side only in the wide layout; inline, so no stylesheet can override it.
-        style={layout === 'wide' ? { gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 6fr)', alignItems: 'start' } : undefined}
-      >
-        <div ref={previewRef} className="min-w-0" style={layout === 'wide' ? { position: 'sticky', top: '5rem' } : undefined}>
+      <div className="mt-4 space-y-6">
+        <div ref={previewRef} className="min-w-0">
           <MediaCard
             draft={draft}
             technical={technical}
@@ -751,55 +765,53 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
           </div>
         </div>
       </div>
+      </div>
 
-      {/* The publish bar: where the video stands as content, once, next to the
-          action that changes it. Why Publish is unavailable is said here too,
-          never only through a disabled button. */}
-      <footer
-        className="sticky bottom-0 z-10 mt-6 border-t border-gray-800 bg-[#09090B]/95 py-3 backdrop-blur-sm"
-        aria-label="Publication"
-      >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-            <span aria-live="polite">{saveLine}</span>
-            <span className="text-gray-500">
-              {channel?.name ?? `channel #${record.channelId}`}
-            </span>
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
-                published ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-gray-400'
-              }`}
+      {/* The inspector foot: the save state and the editorial state once, why
+          Publish is unavailable (never only a disabled button), Publish for
+          THIS video, and previous / next (AA `ig-inspector-nav`). */}
+      <footer className="border-t border-gray-800 bg-[#09090B] px-5 py-3" aria-label="Publication">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          <span aria-live="polite">{saveLine}</span>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
+              published ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-gray-400'
+            }`}
+          >
+            {published ? <Check className="h-3 w-3" aria-hidden="true" /> : <Lock className="h-3 w-3" aria-hidden="true" />}
+            {editorialLabel(draft)}
+          </span>
+        </div>
+        {!published && !canPublish && !publishBusy && blockers.length > 0 && (
+          <p id={`draft-blockers-${key}`} className="mt-1.5 text-xs text-gray-400">
+            {workspaceCopy.notYet} {blockers.map((blocker) => blocker.text).join(' ')}
+          </p>
+        )}
+        {runtime.publishError && (
+          <p className="mt-1.5 text-xs text-yellow-400" role="alert">
+            {runtime.publishError}
+          </p>
+        )}
+
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onPrevious ?? undefined}
+              disabled={!onPrevious}
+              aria-label={workspaceCopy.previousVideo}
+              className={`${QUIET_BUTTON} disabled:opacity-30`}
             >
-              {published ? <Check className="h-3 w-3" aria-hidden="true" /> : <Lock className="h-3 w-3" aria-hidden="true" />}
-              {editorialLabel(draft)}
-            </span>
-            {!published && !canPublish && !publishBusy && blockers.length > 0 && (
-              <span id={`draft-blockers-${key}`} className="text-gray-400">
-                {workspaceCopy.notYet} {blockers[0]!.text}
-                {blockers.length > 1 && (
-                  <span className="text-gray-600" title={blockers.slice(1).map((blocker) => blocker.text).join(' ')}>
-                    {' '}
-                    {workspaceCopy.andMore(blockers.length - 1)}
-                  </span>
-                )}
-                <span className="sr-only">
-                  {blockers
-                    .slice(1)
-                    .map(({ text, reference }) => `${text}${reference ? ` (${workspaceCopy.supportReference(reference)})` : ''}`)
-                    .join(' ')}
-                </span>
-              </span>
-            )}
-            {runtime.publishError && (
-              <span className="text-yellow-400" role="alert">
-                {runtime.publishError}
-              </span>
-            )}
-          </div>
-
-          <div className="flex shrink-0 flex-wrap items-center gap-1">
-            <button type="button" onClick={onClose} className={QUIET_BUTTON}>
-              {workspaceCopy.close}
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={onNext ?? undefined}
+              disabled={!onNext}
+              aria-label={workspaceCopy.nextVideo}
+              className={`${QUIET_BUTTON} disabled:opacity-30`}
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -812,6 +824,9 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
             >
               {previewMode === 'presentation' ? workspaceCopy.backToEditing : workspaceCopy.preview}
             </button>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-1">
             {published ? (
               <>
                 {server?.videoId && (
@@ -895,7 +910,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
         generateWithReference={generateWithReference}
         refineThumbnail={refineThumbnail}
       />
-    </article>
+    </div>
   );
 };
 

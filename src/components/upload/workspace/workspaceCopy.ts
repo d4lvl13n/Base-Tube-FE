@@ -166,6 +166,22 @@ export const workspaceCopy = {
   andMore: (count: number) => `and ${count} more`,
   backToEditing: 'Back to the video',
   previewLocalShort: 'playing from this device',
+  closeInspector: 'Close this video',
+  inspector: 'Video details',
+  dropBody: 'They start uploading at once; you add the title, description and thumbnail meanwhile.',
+  dropToAdd: 'Drop to add these videos.',
+  missingDraft: 'This draft is not available on this account.',
+  seeVideos: 'See your videos',
+  commands: 'Workspace actions',
+  commandsHint: 'Select a video to add its details and publish it.',
+  summaryCount: (count: number) => `${count} video${count === 1 ? '' : 's'}`,
+  summarySending: (count: number) => `${count} uploading`,
+  summaryWaiting: (count: number) => `${count} need${count === 1 ? 's its' : ' their'} file${count === 1 ? '' : 's'}`,
+  summaryReady: (count: number) => `${count} ready to publish`,
+  summaryPublished: (count: number) => `${count} published`,
+  resumeActionOne: 'Choose the file',
+  previousVideo: 'Previous video',
+  nextVideo: 'Next video',
 } as const;
 
 const BLOCKER_COPY: Record<LocalPublishBlocker, string> = {

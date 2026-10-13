@@ -169,3 +169,61 @@ export function editorialLabel(draft: WorkspaceDraft): string {
 export function displayTitle(draft: WorkspaceDraft): string {
   return draft.record.desired.title.trim() || draft.record.filename || 'Untitled video';
 }
+
+/**
+ * The short label a tile carries on its preview (AmazingAerial `ig-transfer`).
+ * The full sentence and its action live in the inspector; the tile only says
+ * where the video stands, in two or three words. Null means "done": the tile
+ * shows a check instead of a word.
+ */
+export function technicalChip(technical: TechnicalState): string | null {
+  switch (technical.key) {
+    case 'playback':
+      return null;
+    case 'sending':
+      return `Uploading ${technical.percent ?? 0}%`;
+    case 'waiting':
+      return 'Waiting';
+    case 'creating':
+    case 'create-retry':
+      return 'Setting up';
+    case 'create-failed':
+      return 'Not created';
+    case 'create-auth':
+    case 'auth':
+      return 'Sign in again';
+    case 'reselect':
+      return 'Needs its file';
+    case 'other-tab':
+      return 'Other tab';
+    case 'offline':
+      return 'Offline';
+    case 'retrying':
+      return 'Retrying';
+    case 'confirming':
+      return 'Checking';
+    case 'received':
+    case 'server-working':
+      return 'Preparing';
+    case 'cancelling':
+      return 'Cancelling';
+    case 'cancel-uncertain':
+      return 'Cancel unconfirmed';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'expired':
+      return 'Expired';
+    case 'processing-failed':
+      return 'Preparation failed';
+    case 'transfer-failed':
+      return 'Failed';
+    case 'held':
+      return 'Unconfirmed';
+    case 'support':
+      return 'Needs help';
+    case 'no-file':
+      return 'No file';
+    default:
+      return technical.label;
+  }
+}
