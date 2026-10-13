@@ -10,6 +10,7 @@ import {
   type TechnicalTone,
 } from './draftStatus';
 import { workspaceCopy } from './workspaceCopy';
+import { formatBytes } from '../uploadPhase';
 
 /** Colour backs a word and an icon, never replaces them (UP-UX §13). */
 const TONE_TEXT: Record<TechnicalTone, string> = {
@@ -66,6 +67,11 @@ const DraftList: React.FC<DraftListProps> = ({
         const published = isPublished(draft);
         const ready = !published && isReady(draft.key);
         const channel = showChannel ? channelName(draft.record.channelId) : null;
+        // Two videos often share a camera prefix: the file name and size tell them apart.
+        const filename = draft.entry?.filename ?? draft.record.filename;
+        const fileLine = filename
+          ? `${filename}${draft.entry ? ` · ${formatBytes(draft.entry.sizeBytes)}` : ''}`
+          : null;
         return (
           <li key={draft.key} className="relative">
             <button
@@ -92,9 +98,14 @@ const DraftList: React.FC<DraftListProps> = ({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm text-gray-100">{displayTitle(draft)}</span>
-                <span className={`mt-0.5 flex items-center gap-1 text-xs ${TONE_TEXT[technical.tone]}`}>
-                  <ToneIcon tone={technical.tone} />
-                  <span className="truncate">{technical.label}</span>
+                {fileLine && (
+                  <span className="mt-0.5 block truncate text-[11px] text-gray-600" title={fileLine}>
+                    {fileLine}
+                  </span>
+                )}
+                <span className={`mt-1 flex items-start gap-1 text-xs ${TONE_TEXT[technical.tone]}`}>
+                  <span className="mt-px"><ToneIcon tone={technical.tone} /></span>
+                  <span className="line-clamp-2">{technical.label}</span>
                 </span>
                 <span className="mt-0.5 block truncate text-xs text-gray-500">
                   {editorialLabel(draft)}

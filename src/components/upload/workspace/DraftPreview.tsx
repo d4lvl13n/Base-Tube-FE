@@ -79,9 +79,9 @@ const DraftPreview: React.FC<DraftPreviewProps> = ({
       </div>
 
       {mode === 'video' ? (
-        <div className="overflow-hidden rounded-lg border border-gray-800/60 bg-black">
-          <div className="relative aspect-video w-full">
-            {mediaUrl ? (
+        mediaUrl ? (
+          <div className="overflow-hidden rounded-lg border border-gray-800/60 bg-black">
+            <div className="relative aspect-video w-full">
               <video
                 src={mediaUrl}
                 controls
@@ -91,17 +91,18 @@ const DraftPreview: React.FC<DraftPreviewProps> = ({
                 className="h-full w-full bg-black object-contain"
                 aria-label={`Preview of ${title}`}
               />
-            ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center">
-                <Film className="h-8 w-8 text-gray-700" aria-hidden="true" />
-                <p className="text-xs text-gray-500">
-                  {playbackReady ? workspaceCopy.previewServerPending : workspaceCopy.previewNoMedia}
-                </p>
-              </div>
-            )}
+            </div>
+            {localUrl && <p className="border-t border-gray-800/60 px-3 py-2 text-[11px] text-gray-600">{workspaceCopy.previewLocal}</p>}
           </div>
-          {localUrl && <p className="border-t border-gray-800/60 px-3 py-2 text-[11px] text-gray-600">{workspaceCopy.previewLocal}</p>}
-        </div>
+        ) : (
+          // Nothing to play yet: a short line, not a large empty frame.
+          <div className="flex items-center gap-3 rounded-lg border border-dashed border-gray-800 px-4 py-3">
+            <Film className="h-5 w-5 shrink-0 text-gray-700" aria-hidden="true" />
+            <p className="text-xs text-gray-500">
+              {playbackReady ? workspaceCopy.previewServerPending : workspaceCopy.previewNoMedia}
+            </p>
+          </div>
+        )
       ) : (
         <div className="rounded-lg border border-gray-800/60 bg-[#0f0f0f] p-3">
           <div className="relative aspect-video w-full overflow-hidden rounded-md bg-black">

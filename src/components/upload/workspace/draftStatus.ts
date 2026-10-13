@@ -10,6 +10,7 @@
  */
 import type { WorkspaceDraft } from '../../../hooks/useDraftWorkspace';
 import { describeUploadError } from '../uploadCopy';
+import { formatBytes } from '../uploadPhase';
 import { workspaceCopy } from './workspaceCopy';
 
 export type TechnicalTone = 'waiting' | 'active' | 'ready' | 'attention';
@@ -92,11 +93,12 @@ export function technicalState(draft: WorkspaceDraft, context: StatusContext): T
     if (context.heldElsewhere) return state('other-tab', workspaceCopy.otherTab, 'waiting', 'none', { transferring: true });
     switch (entry.status) {
       case 'auth_required':
-        return state('auth', workspaceCopy.sessionExpired, 'attention', 'sign_in', { transferring: true });
+        return state('auth', workspaceCopy.sessionExpired, 'attention', 'sign_in', { transferring: false });
       case 'reselect_required':
+        // Nothing moves until the file is given back: not "sending", and closing
+        // the tab loses nothing (the parts already received stay on the server).
         return state('reselect', workspaceCopy.reselect, 'attention', 'choose_file', {
-          detail: workspaceCopy.reselectDetail,
-          transferring: true,
+          detail: workspaceCopy.reselectDetailFor(entry.filename, formatBytes(entry.sizeBytes)),
         });
       case 'queued':
       case 'reserving':

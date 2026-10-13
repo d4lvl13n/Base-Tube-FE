@@ -180,6 +180,10 @@ export interface DraftWorkspaceApi {
   deleteDraft: (key: string) => Promise<boolean>;
   /** Gives a draft its file: resume, adopt a server attempt, or start a new attempt. */
   attachFile: (key: string, file: File) => Promise<string | null>;
+  /** Drafts whose transfer waits for the original file on this device, with the file it needs. */
+  waitingForFile: Array<{ key: string; title: string; filename: string; sizeBytes: number }>;
+  /** Resumes every waiting draft whose file is among `files`; the rest is returned untouched. */
+  resumeWithFiles: (files: readonly File[]) => Promise<{ resumed: number; unmatched: File[] }>;
   retryProcessing: (key: string) => Promise<string | null>;
   retryCreate: (key: string) => void;
   /** Hides a published draft from this device's list. Server state is untouched. */
@@ -1431,6 +1435,65 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
   );
 
   /**
+   * One picker for every draft waiting for its file (after a reload, or on
+   * another device): each chosen file resumes the attempt it matches — same
+   * name, size and type — so only the missing parts are sent. Files that
+   * match nothing are handed back, never turned into new drafts here.
+   */
+  const resumeWithFiles = useCallback(async (files: readonly File[]) => {
+    const q = queueRef.current;
+    const used = new Set<string>();
+    const unmatched: File[] = [];
+    let resumed = 0;
+    for (const file of files) {
+      let matched = false;
+      for (const entry of q.entries) {
+        if (!entry.creatorDraft || entry.status !== 'reselect_required' || used.has(entry.localId)) continue;
+        // eslint-disable-next-line no-await-in-loop
+        if (await q.reselectForEntry(entry.localId, file)) {
+          used.add(entry.localId);
+          resumed += 1;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) unmatched.push(file);
+    }
+    return { resumed, unmatched };
+  }, []);
+
+  // A server attempt this device has no row for (another browser, cleared
+  // storage): read its summary once so the page can name the file it needs.
+  const adoptedRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!hydrated) return;
+    const q = queueRef.current;
+    const open = Array.from(recordsRef.current.values()).filter((record) => {
+      const server = record.server;
+      return (
+        !!record.draftId &&
+        !!server?.uploadId &&
+        !server.transferConfirmed &&
+        (server.uploadState === 'initiated' || server.uploadState === 'uploading') &&
+        server.recovery.action !== 'replace_file' &&
+        !adoptedRef.current.has(server.uploadId) &&
+        !q.entries.some((entry) => entry.uploadId === server.uploadId || entry.creatorDraft?.clientDraftId === record.clientDraftId)
+      );
+    });
+    for (const record of open.slice(0, 10)) {
+      const uploadId = record.server!.uploadId as string;
+      adoptedRef.current.add(uploadId);
+      void run(() => uploadsApi.get(uploadId))
+        .then((summary) =>
+          q.adoptDraftAttempt(summary, { clientDraftId: record.clientDraftId, draftId: record.draftId }),
+        )
+        // Unreadable for now: the row keeps its generic "choose the same file"
+        // state; it is read again on the next visit, not in a loop.
+        .catch(() => undefined);
+    }
+  }, [hydrated, run, uploadsApi, version]);
+
+  /**
    * Restarts a failed preparation without sending the bytes again. Before the
    * video exists it is the draft route (inspection retry); once it exists, the
    * existing video retry route — as the contract prescribes.
@@ -1568,6 +1631,19 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
     [queue.entries, version, rt],
   );
 
+  const waitingForFile = useMemo(
+    () =>
+      items
+        .filter(({ entry }) => entry?.status === 'reselect_required')
+        .map(({ key, record, entry }) => ({
+          key,
+          title: record.desired.title.trim() || entry!.filename,
+          filename: entry!.filename,
+          sizeBytes: entry!.sizeBytes,
+        })),
+    [items],
+  );
+
   const atRisk = useMemo(
     () =>
       items.some(
@@ -1623,6 +1699,8 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
     },
     deleteDraft,
     attachFile,
+    waitingForFile,
+    resumeWithFiles,
     retryProcessing,
     retryCreate,
     dismiss,

@@ -25,7 +25,7 @@ import type { WorkspaceDraft } from '../../../hooks/useDraftWorkspace';
 import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
 import NoChannelView from '../../pages/CreatorHub/NoChannelView';
 import { UploadRow } from '../../pages/CreatorHub/ContentStudio';
-import { uploadPhase } from '../uploadPhase';
+import { formatBytes } from '../uploadPhase';
 import { describeUploadError } from '../uploadCopy';
 import DraftEditor from './DraftEditor';
 import DraftList from './DraftList';
@@ -60,6 +60,9 @@ const UploadWorkspace: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const legacyReselectRef = useRef<HTMLInputElement | null>(null);
+  const resumeInputRef = useRef<HTMLInputElement | null>(null);
+  const [resumeDrag, setResumeDrag] = useState(false);
+  const [resumeNotice, setResumeNotice] = useState<string | null>(null);
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
   const [dragActive, setDragActive] = useState(false);
@@ -153,6 +156,13 @@ const UploadWorkspace: React.FC = () => {
     }, 0);
   }, [items]);
 
+  // The resume result acknowledges an action; it is not a state to live in.
+  useEffect(() => {
+    if (!resumeNotice) return undefined;
+    const timer = setTimeout(() => setResumeNotice(null), 8_000);
+    return () => clearTimeout(timer);
+  }, [resumeNotice]);
+
   if (!workspace) return null;
 
   // ── adding files ─────────────────────────────────────────────────────────
@@ -161,6 +171,17 @@ const UploadWorkspace: React.FC = () => {
     const result = await workspace.addFiles(files, channelId);
     setSelectionSummary({ added: result.added.length, rejected: result.rejected });
     if (result.added.length > 0) setAnnouncement(workspaceCopy.added(result.added.length));
+  };
+
+  /** Gives waiting videos their files back; anything else is named, not added. */
+  const resumeFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    const { resumed, unmatched } = await workspace.resumeWithFiles(files);
+    const parts: string[] = [];
+    if (resumed > 0) parts.push(workspaceCopy.resumeDone(resumed));
+    if (unmatched.length > 0) parts.push(workspaceCopy.resumeUnmatched(unmatched.map((file) => file.name).join(', ')));
+    setResumeNotice(parts.join(' '));
+    if (resumed > 0) setAnnouncement(workspaceCopy.resumeDone(resumed));
   };
 
   const onDrop = (event: React.DragEvent<HTMLElement>) => {
@@ -195,7 +216,11 @@ const UploadWorkspace: React.FC = () => {
     items.length > 0 &&
     !workspace.atRisk &&
     items.every((draft) => !draft.entry || !!draft.record.server?.transferConfirmed);
-  const anyTransferring = queue.entries.some((entry) => uploadPhase(entry) === 'uploading');
+  // Only rows that will move bytes on their own: a row waiting for its file
+  // or for a sign-in is not "sending", and holding the queue means nothing to it.
+  const anyTransferring = queue.entries.some((entry) =>
+    ['queued', 'reserving', 'uploading', 'retry_wait'].includes(entry.status),
+  );
   const canAdd = channelId > 0;
 
   const dropZone = (compact: boolean) => (
@@ -357,6 +382,75 @@ const UploadWorkspace: React.FC = () => {
             <p className="mt-1 text-gray-600">{workspaceCopy.limits}</p>
           )}
         </div>
+      )}
+
+      {/* ── resume: one place to give every waiting video its file back ── */}
+      {workspace.waitingForFile.length > 0 && (
+        <section
+          aria-label={workspaceCopy.resumeTitle(workspace.waitingForFile.length)}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setResumeDrag(true);
+          }}
+          onDragLeave={() => setResumeDrag(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setResumeDrag(false);
+            void resumeFiles(Array.from(event.dataTransfer.files ?? []));
+          }}
+          className={`mt-6 rounded-lg border p-4 transition-colors ${
+            resumeDrag ? 'border-[#fa7517] bg-[#fa7517]/[0.06]' : 'border-yellow-500/30 bg-yellow-500/[0.04]'
+          }`}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 max-w-2xl">
+              <h2 className="flex items-center gap-2 text-base font-medium text-yellow-100">
+                <AlertCircle className="h-4 w-4 shrink-0 text-yellow-400" aria-hidden="true" />
+                {workspaceCopy.resumeTitle(workspace.waitingForFile.length)}
+              </h2>
+              <p className="mt-1 text-sm text-gray-400">{workspaceCopy.resumeBody}</p>
+              <ul className="mt-3 space-y-1 text-sm">
+                {workspace.waitingForFile.map((waiting) => (
+                  <li key={waiting.key} className="flex min-w-0 items-baseline gap-2">
+                    <span className="truncate text-gray-200" title={waiting.filename}>
+                      {waiting.filename}
+                    </span>
+                    <span className="shrink-0 text-xs text-gray-500">{formatBytes(waiting.sizeBytes)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              <button
+                type="button"
+                onClick={() => resumeInputRef.current?.click()}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#fa7517] px-4 text-sm font-medium
+                           text-black transition-colors hover:bg-[#ff8c3a]
+                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/60"
+              >
+                <UploadCloud className="h-4 w-4" aria-hidden="true" />
+                {workspaceCopy.resumeAction}
+              </button>
+              <span className="text-xs text-gray-500">{workspaceCopy.resumeDrop}</span>
+            </div>
+          </div>
+          <input
+            ref={resumeInputRef}
+            type="file"
+            multiple
+            accept={ACCEPTED}
+            className="hidden"
+            onChange={(event) => {
+              void resumeFiles(Array.from(event.target.files ?? []));
+              event.target.value = '';
+            }}
+          />
+        </section>
+      )}
+      {resumeNotice && (
+        <p className="mt-2 text-sm text-gray-300" role="status">
+          {resumeNotice}
+        </p>
       )}
 
       {/* ── empty state: destination first, then one large target ─────── */}

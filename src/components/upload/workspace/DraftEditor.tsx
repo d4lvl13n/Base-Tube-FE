@@ -248,13 +248,19 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
           {technical.tone === 'attention' && <AlertCircle className="mr-1.5 inline h-4 w-4 align-[-3px]" aria-hidden="true" />}
           {technical.tone === 'ready' && <Check className="mr-1.5 inline h-4 w-4 align-[-3px]" aria-hidden="true" />}
           {technical.label}
-          <span className="text-gray-500"> · {editorialLabel(draft)}</span>
         </p>
         {actionLabel[technical.action] && (
           <button
             type="button"
             onClick={() => void runAction()}
-            className={technical.action === 'cancel' ? QUIET_BUTTON : `${QUIET_BUTTON} text-[#fa7517] hover:text-[#ff8c3a]`}
+            // The one thing the creator has to do is the primary button of the screen.
+            className={
+              technical.action === 'cancel'
+                ? QUIET_BUTTON
+                : technical.tone === 'attention'
+                  ? PRIMARY_BUTTON
+                  : `${QUIET_BUTTON} text-[#fa7517] hover:text-[#ff8c3a]`
+            }
           >
             {actionLabel[technical.action]}
           </button>
@@ -465,7 +471,18 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
 
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
-          <h2 className="truncate text-lg font-semibold text-white">{title}</h2>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="min-w-0 truncate text-lg font-semibold text-white">{title}</h2>
+            {/* The editorial state, apart from the file state (UP-UX §9). */}
+            <span
+              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
+                published ? 'border-green-500/40 text-green-400' : 'border-gray-700 text-gray-400'
+              }`}
+            >
+              {published ? <Check className="h-3 w-3" aria-hidden="true" /> : <Lock className="h-3 w-3" aria-hidden="true" />}
+              {editorialLabel(draft)}
+            </span>
+          </div>
           <p className="mt-0.5 text-xs text-gray-500">
             {workspaceCopy.destinationFixed}{' '}
             <span className="text-gray-300">{channel?.name ?? `channel #${record.channelId}`}</span>
