@@ -415,26 +415,21 @@ const UploadWorkspace: React.FC = () => {
     <section
       aria-labelledby="upload-workspace-title"
       {...pageDrop}
-      className="relative flex flex-col px-4 sm:px-6"
-      // Room for the fixed header (72 px) and command row (72 px) around the grid.
+      className="relative flex flex-col overflow-hidden"
+      // A frame of the screen's height (AA workspace): the header and the
+      // command row keep their 72 px, only the grid between them scrolls, so
+      // nothing ever slides under them. The inspector's width is kept free.
       style={{
-        paddingRight: inspectorBeside ? `calc(${INSPECTOR_WIDTH} + 1.5rem)` : undefined,
-        paddingTop: 72 + 20,
-        paddingBottom: 72 + 24,
-        minHeight: `calc(100vh - ${HEADER_HEIGHT}px)`,
+        height: `calc(100vh - ${HEADER_HEIGHT}px)`,
+        paddingRight: inspectorBeside ? INSPECTOR_WIDTH : undefined,
       }}
     >
       <p className="sr-only" role="status" aria-live="polite">
         {announcement}
       </p>
 
-      {/* Fixed under the site header, between the sidebar and the inspector,
-          72 px like the inspector head: their bottom borders line up. (Sticky
-          would not hold: the hub column has overflow-x hidden.) */}
-      <header
-        className="fixed z-20 flex h-[72px] items-center justify-between gap-x-4 border-b border-white/10 bg-[#09090B]/95 px-4 backdrop-blur-md sm:px-6"
-        style={{ top: HEADER_HEIGHT, left: 'var(--bt-hub-sidebar-width, 0px)', right: inspectorBeside ? INSPECTOR_WIDTH : 0 }}
-      >
+      {/* 72 px like the inspector head: their bottom borders line up. */}
+      <header className="flex h-[72px] shrink-0 items-center justify-between gap-x-4 border-b border-white/10 px-4 sm:px-6">
         <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2">
           <h1 id="upload-workspace-title" className="text-xl font-semibold text-white">
             {workspaceCopy.pageTitle}
@@ -454,6 +449,9 @@ const UploadWorkspace: React.FC = () => {
       </header>
 
       {hiddenInputs}
+
+      {/* The only part that scrolls. */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
 
       {/* Short, one per kind; each says what to do. */}
       <div className="space-y-2">
@@ -557,15 +555,15 @@ const UploadWorkspace: React.FC = () => {
       )}
 
 
+      </div>
+
       {/* The one command row (AA `ig-action-bar`): where things stand, then
           the next useful action. Publishing is per video, in the inspector. */}
       {items.length > 0 && (
         <footer
           aria-label={workspaceCopy.commands}
-          // Fixed like the header, 72 px like the inspector foot: their top borders line up.
-          style={{ left: 'var(--bt-hub-sidebar-width, 0px)', right: inspectorBeside ? INSPECTOR_WIDTH : 0 }}
-          className="fixed bottom-0 z-30 flex h-[72px] items-center justify-between gap-x-5 border-t border-white/10
-                     bg-[#09090B]/95 px-4 backdrop-blur-md sm:px-6"
+          // 72 px like the inspector foot: their top borders line up.
+          className="flex h-[72px] shrink-0 items-center justify-between gap-x-5 border-t border-white/10 bg-[#09090B] px-4 sm:px-6"
         >
           <div className="min-w-0" role="status">
             <strong className="block truncate text-[13px] font-semibold text-white">
