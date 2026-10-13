@@ -1397,8 +1397,10 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       const localId = crypto.randomUUID();
       const entry: UploadQueueEntry = {
         localId,
-        // Never sent: an attempt that already has an `uploadId` is not created again.
-        clientAttemptId: localId,
+        // Never sent (an attempt that has an `uploadId` is not created again),
+        // but it is the cross-tab lease key: derived from the server upload so
+        // every tab adopting this attempt contends for the SAME lease.
+        clientAttemptId: `adopted:${summary.uploadId}`,
         uploadId: summary.uploadId,
         channelId: summary.channelId,
         title: summary.title,
@@ -1407,7 +1409,8 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
         tags: summary.tags,
         filename: summary.originalFilename,
         sizeBytes: summary.declaredSizeBytes,
-        // Unknown on this device: `reselectForEntry` matches on name, size and type.
+        // Unknown on this device, so the identity cannot be verified:
+        // `reselectForEntry` refuses it and the workspace starts a new attempt.
         lastModified: 0,
         contentType: contentTypeForFilename(summary.originalFilename),
         partSizeBytes: summary.partSizeBytes,
@@ -1437,13 +1440,18 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     async (localId: string, file: File) => {
       const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
       if (!entry || entry.status !== 'reselect_required') return false;
+      // An attempt adopted from another browser (`lastModified` 0) has no
+      // verifiable file identity: name, size and type alone could let another
+      // file continue the parts already stored. Never resume it — the caller
+      // starts a new attempt instead.
+      if (entry.lastModified === 0) return false;
       const classified = classifyUploadFile(file);
       if ('code' in classified) return false;
       const same =
         file.name.normalize('NFC') === entry.filename.normalize('NFC') &&
         file.size === entry.sizeBytes &&
         classified.contentType === entry.contentType &&
-        (entry.lastModified === 0 || file.lastModified === entry.lastModified);
+        file.lastModified === entry.lastModified;
       if (!same) return false;
       await updateEntry(localId, {
         file,

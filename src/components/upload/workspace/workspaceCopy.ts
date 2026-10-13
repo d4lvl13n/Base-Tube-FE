@@ -28,12 +28,14 @@ export const workspaceCopy = {
   retrying: 'Connection hiccup — sending again in a moment.',
   sessionExpired: 'Sign in again to continue. Your progress is kept.',
   reselect: 'Waiting for its file',
-  reselectDetail: 'Choose the same file again. Only the parts not yet received are sent.',
+  reselectDetail: 'Choose the same file. It was started elsewhere, so it is sent again in full.',
+  reselectDetailRestart: (filename: string, size: string) =>
+    `Choose “${filename}” (${size}). It was started in another browser, so it is sent again in full.`,
   reselectDetailFor: (filename: string, size: string) =>
     `Choose “${filename}” (${size}) again. Only the parts not yet received are sent.`,
   resumeTitle: (count: number) =>
     count === 1 ? '1 video is waiting for its file' : `${count} videos are waiting for their files`,
-  resumeBody: 'The page reload dropped them; the parts already sent are kept.',
+  resumeBody: 'Choose the same files again to continue.',
   resumeAction: 'Choose the files',
   resumeActionCount: (count: number) => `Choose the ${count} files`,
   resumeDrop: 'or drop them here',
@@ -172,6 +174,8 @@ export const workspaceCopy = {
   removeAction: 'Remove',
   removing: 'Removing…',
   removeDone: 'Video removed.',
+  restartDone: (count: number) =>
+    `${count} video${count === 1 ? '' : 's'} started over: ${count === 1 ? 'it was' : 'they were'} begun in another browser, so the file is sent again in full.`,
   removeWaiting: (count: number) => `Remove the ${count} waiting video${count === 1 ? '' : 's'}`,
   removeWaitingConfirm: (count: number) =>
     `Remove ${count === 1 ? 'this video' : `these ${count} videos`}? Their drafts and unfinished uploads are deleted.`,

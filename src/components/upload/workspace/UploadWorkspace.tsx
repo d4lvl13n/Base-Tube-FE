@@ -135,11 +135,25 @@ const UploadWorkspace: React.FC = () => {
     activate?.();
   }, [activate]);
 
-  // ── the address names the durable draft, never a queue index ─────────────
+  // ── the address is the authority on which video is open ─────────────────
+  // `/creator-hub/uploads/:draftId` opens that draft; the bare address opens
+  // none. Opening a tile only changes the address, and the effect below turns
+  // the address into a selection — never the other way round, so a link from
+  // Videos Management or the browser's Back can never be overridden by the
+  // previous selection.
   const openDraft = workspace?.open;
+  const selectDraft = workspace?.select;
   const hydrated = workspace?.hydrated ?? false;
+  /** A video opened before the server gave it an id: it gets its address once known. */
+  const pendingKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!draftId || !openDraft || !hydrated) return undefined;
+    if (!openDraft || !selectDraft || !hydrated) return undefined;
+    if (!draftId) {
+      // Bare address: close, unless it is the new video still waiting for its id.
+      if (workspace?.selectedKey && workspace.selectedKey !== pendingKeyRef.current) selectDraft(null);
+      return undefined;
+    }
+    pendingKeyRef.current = null;
     let cancelled = false;
     setMissingDraft(false);
     void openDraft(draftId).then((key) => {
@@ -148,18 +162,42 @@ const UploadWorkspace: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [draftId, hydrated, openDraft]);
+    // Runs on address changes only; the selection follows the address.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId, hydrated, openDraft, selectDraft]);
 
-  const selectedDraftId = selected?.record.draftId ?? null;
+  // The new video received its server id: give it its address (replace, so
+  // Back does not return to the id-less state).
   useEffect(() => {
-    if (selectedDraftId && selectedDraftId !== draftId) {
-      navigate(`/creator-hub/uploads/${encodeURIComponent(selectedDraftId)}`, { replace: !draftId });
+    const key = pendingKeyRef.current;
+    if (!key) return;
+    const draft = items.find((item) => item.key === key);
+    if (!draft) {
+      pendingKeyRef.current = null;
+      return;
     }
-  }, [draftId, navigate, selectedDraftId]);
+    if (draft.record.draftId && selectedKey === key && !draftId) {
+      pendingKeyRef.current = null;
+      navigate(`/creator-hub/uploads/${encodeURIComponent(draft.record.draftId)}`, { replace: true });
+    }
+  }, [draftId, items, navigate, selectedKey]);
 
   const open = (key: string | null) => {
+    if (key === null) {
+      pendingKeyRef.current = null;
+      if (draftId) navigate('/creator-hub/uploads');
+      else workspace?.select(null);
+      return;
+    }
+    const draft = items.find((item) => item.key === key);
+    if (draft?.record.draftId) {
+      navigate(`/creator-hub/uploads/${encodeURIComponent(draft.record.draftId)}`);
+      return;
+    }
+    // No server id yet: select directly, under the bare address.
+    pendingKeyRef.current = key;
     workspace?.select(key);
-    if (key === null && draftId) navigate('/creator-hub/uploads');
+    if (draftId) navigate('/creator-hub/uploads');
   };
 
   /** Closing the inspector returns focus to the tile it described. */
@@ -197,7 +235,10 @@ const UploadWorkspace: React.FC = () => {
   // ── actions ──────────────────────────────────────────────────────────────
   const addFiles = async (files: File[]) => {
     if (!channelId || files.length === 0) return;
+    const hadSelection = !!workspace.selectedKey;
     const result = await workspace.addFiles(files, channelId);
+    // The hook opens the first new video when none was open: it has no id yet.
+    if (!hadSelection && result.added[0]) pendingKeyRef.current = result.added[0];
     setNotice({ added: result.added.length, rejected: result.rejected, resume: null });
     if (result.added.length > 0) setAnnouncement(workspaceCopy.added(result.added.length));
   };
@@ -205,12 +246,13 @@ const UploadWorkspace: React.FC = () => {
   /** Gives waiting videos their files back; anything else is named, never added. */
   const resumeFiles = async (files: File[]) => {
     if (files.length === 0) return;
-    const { resumed, unmatched } = await workspace.resumeWithFiles(files);
+    const { resumed, restarted, unmatched } = await workspace.resumeWithFiles(files);
     const parts: string[] = [];
     if (resumed > 0) parts.push(workspaceCopy.resumeDone(resumed));
+    if (restarted > 0) parts.push(workspaceCopy.restartDone(restarted));
     if (unmatched.length > 0) parts.push(workspaceCopy.resumeUnmatched(unmatched.map((file) => file.name).join(', ')));
     setNotice({ added: 0, rejected: [], resume: parts.join(' ') });
-    if (resumed > 0) setAnnouncement(workspaceCopy.resumeDone(resumed));
+    if (resumed + restarted > 0) setAnnouncement(parts.join(' '));
   };
 
   /** Deletes one video: its draft and any unfinished upload (frees the upload slot). */

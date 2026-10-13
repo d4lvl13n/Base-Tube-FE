@@ -98,7 +98,12 @@ export function technicalState(draft: WorkspaceDraft, context: StatusContext): T
         // Nothing moves until the file is given back: not "sending", and closing
         // the tab loses nothing (the parts already received stay on the server).
         return state('reselect', workspaceCopy.reselect, 'attention', 'choose_file', {
-          detail: workspaceCopy.reselectDetailFor(entry.filename, formatBytes(entry.sizeBytes)),
+          // Begun in another browser: the file cannot be verified here, so it is
+          // sent again in full — the sentence must not promise a resume.
+          detail:
+            entry.lastModified === 0
+              ? workspaceCopy.reselectDetailRestart(entry.filename, formatBytes(entry.sizeBytes))
+              : workspaceCopy.reselectDetailFor(entry.filename, formatBytes(entry.sizeBytes)),
         });
       case 'queued':
       case 'reserving':

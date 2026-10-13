@@ -183,7 +183,7 @@ export interface DraftWorkspaceApi {
   /** Drafts whose transfer waits for the original file on this device, with the file it needs. */
   waitingForFile: Array<{ key: string; title: string; filename: string; sizeBytes: number }>;
   /** Resumes every waiting draft whose file is among `files`; the rest is returned untouched. */
-  resumeWithFiles: (files: readonly File[]) => Promise<{ resumed: number; unmatched: File[] }>;
+  resumeWithFiles: (files: readonly File[]) => Promise<{ resumed: number; restarted: number; unmatched: File[] }>;
   retryProcessing: (key: string) => Promise<string | null>;
   retryCreate: (key: string) => void;
   /** Hides a published draft from this device's list. Server state is untouched. */
@@ -1258,10 +1258,14 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
           return;
         }
       }
+      // Re-read after the GET: edits typed while it was on the wire belong to
+      // "my version" and must not be dropped by a stale copy of the record.
+      const latest = rec(key);
+      if (!latest) return;
       if (choice === 'reload') {
         // The saved version replaces the local one, including the thumbnail choice.
         await putRecord({
-          ...record,
+          ...latest,
           server,
           pending: null,
           desired: { title: server.title, description: server.description, tags: server.tags },
@@ -1272,11 +1276,11 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
         return;
       }
       // Keep mine: explicitly re-apply every local value on the current revision.
-      const pending = diffAgainstServer(record.desired, server);
-      await putRecord({ ...record, server, pending });
+      const pending = diffAgainstServer(latest.desired, server);
+      await putRecord({ ...latest, server, pending });
       setRuntime(key, { save: pending ? 'scheduled' : 'idle', saveError: null, conflict: null });
       if (pending) await flushSave(key);
-      if (record.thumbnail && record.thumbnail.status !== 'selected') void processThumbnail(key);
+      if (latest.thumbnail && latest.thumbnail.status !== 'selected') void processThumbnail(key);
     },
     [draftsApi, flushSave, processThumbnail, putRecord, rec, rt, run, setPreview, setRuntime],
   );
@@ -1302,9 +1306,19 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
       } catch {
         blobPersisted = false;
       }
-      const previousBlob = latest.thumbnail?.blobKey;
+      // Re-read after the awaits: a title typed or a save confirmed while the
+      // image was being stored must survive. Only the thumbnail changes here,
+      // and a choice made meanwhile (higher seq) is not overwritten.
+      const current = rec(key);
+      if (!current) return { ok: false, message: 'This draft is no longer open.' };
+      if ((current.thumbnail?.seq ?? 0) >= seq) {
+        memoryBlobsRef.current.delete(blobKey);
+        void storeRef.current.removeBlob(blobKey).catch(() => undefined);
+        return { ok: false, message: null };
+      }
+      const previousBlob = current.thumbnail?.blobKey;
       await putRecord({
-        ...latest,
+        ...current,
         thumbnail: {
           seq,
           kind: 'custom',
@@ -1406,6 +1420,42 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
     [draftsApi, enqueue, rec, refresh, removeLocal, run, setRuntime],
   );
 
+  /**
+   * Closes an attempt whose file cannot be verified on this device (it was
+   * started in another browser), then sends the chosen file as a NEW attempt
+   * of the same draft: title, description and thumbnail stay on the draft.
+   * The server refuses a new attempt while one is active, so the old one is
+   * aborted — and that abort confirmed — first.
+   */
+  const restartAttempt = useCallback(
+    async (key: string, localId: string | null, uploadId: string | null, file: File): Promise<string | null> => {
+      const record = rec(key);
+      if (!record?.draftId) return 'This draft is still being set up. Try again in a moment.';
+      const q = queueRef.current;
+      const stopFailed = 'The previous upload could not be stopped yet. Try again in a moment.';
+      if (localId && uploadId) {
+        if (!(await q.abortEntry(localId))) return stopFailed;
+        await q.removeEntry(localId);
+      } else if (localId) {
+        await q.discardEntry(localId);
+      } else if (uploadId) {
+        try {
+          await run(() => uploadsApi.abort(uploadId));
+        } catch (error) {
+          if (!(error instanceof UploadApiError && error.status === 404)) return stopFailed;
+        }
+      }
+      const latest = rec(key) ?? record;
+      const fresh = await q.enqueueDraftAttempt(file, latest.channelId, {
+        clientDraftId: key,
+        draftId: latest.draftId,
+      });
+      void refresh(key);
+      return fresh.entry ? null : (fresh.rejected?.message ?? 'This file cannot be uploaded.');
+    },
+    [rec, refresh, run, uploadsApi],
+  );
+
   const attachFile = useCallback(
     async (key: string, file: File): Promise<string | null> => {
       const record = rec(key);
@@ -1424,6 +1474,12 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
         });
         return fresh.entry ? null : (fresh.rejected?.message ?? 'This file cannot be uploaded.');
       }
+      // Adopted from another browser: its file cannot be verified here, so the
+      // stored parts are never continued — the attempt is closed and the file
+      // is sent again under a new attempt of the same draft.
+      if (entry?.status === 'reselect_required' && entry.lastModified === 0) {
+        return restartAttempt(key, entry.localId, entry.uploadId, file);
+      }
       if (entry?.status === 'reselect_required') {
         return (await q.reselectForEntry(entry.localId, file))
           ? null
@@ -1438,16 +1494,10 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
         !server.transferConfirmed &&
         (server.uploadState === 'initiated' || server.uploadState === 'uploading') &&
         !entry;
+      // An attempt open on the server with no row here: same rule, it cannot
+      // be verified, so it is closed and the file sent again.
       if (serverAttemptOpen && server?.uploadId && record.draftId) {
-        try {
-          const summary = await run(() => uploadsApi.get(server.uploadId as string));
-          const adopted = await q.adoptDraftAttempt(summary, { clientDraftId: key, draftId: record.draftId });
-          return (await q.reselectForEntry(adopted.localId, file))
-            ? null
-            : `This is not the same file. Choose “${adopted.filename}”.`;
-        } catch (error) {
-          return describeDraftError(error);
-        }
+        return restartAttempt(key, null, server.uploadId, file);
       }
       if (entry && ['failed', 'aborted'].includes(entry.status)) await q.removeEntry(entry.localId);
       const result = await q.enqueueDraftAttempt(file, record.channelId, {
@@ -1456,36 +1506,51 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
       });
       return result.entry ? null : (result.rejected?.message ?? 'This file cannot be uploaded.');
     },
-    [rec, run, uploadsApi],
+    [rec, restartAttempt],
   );
-
   /**
-   * One picker for every draft waiting for its file (after a reload, or on
-   * another device): each chosen file resumes the attempt it matches — same
-   * name, size and type — so only the missing parts are sent. Files that
-   * match nothing are handed back, never turned into new drafts here.
+   * One picker for every draft waiting for its file. A file this device knows
+   * (same name, size, type AND modification date) resumes its attempt: only
+   * the missing parts are sent. An attempt adopted from another browser has
+   * no verifiable identity: the file matching its name and size is sent again
+   * under a new attempt instead (never continuing the stored parts). Files
+   * that match nothing are handed back, never turned into new drafts here.
    */
-  const resumeWithFiles = useCallback(async (files: readonly File[]) => {
-    const q = queueRef.current;
-    const used = new Set<string>();
-    const unmatched: File[] = [];
-    let resumed = 0;
-    for (const file of files) {
-      let matched = false;
-      for (const entry of q.entries) {
-        if (!entry.creatorDraft || entry.status !== 'reselect_required' || used.has(entry.localId)) continue;
-        // eslint-disable-next-line no-await-in-loop
-        if (await q.reselectForEntry(entry.localId, file)) {
-          used.add(entry.localId);
-          resumed += 1;
-          matched = true;
-          break;
+  const resumeWithFiles = useCallback(
+    async (files: readonly File[]) => {
+      const q = queueRef.current;
+      const used = new Set<string>();
+      const unmatched: File[] = [];
+      let resumed = 0;
+      let restarted = 0;
+      for (const file of files) {
+        let matched = false;
+        for (const entry of q.entries) {
+          const key = entry.creatorDraft?.clientDraftId;
+          if (!key || entry.status !== 'reselect_required' || used.has(entry.localId)) continue;
+          if (entry.lastModified === 0) {
+            // Only to know WHICH draft the file is for; the bytes start over.
+            if (file.name.normalize('NFC') !== entry.filename.normalize('NFC') || file.size !== entry.sizeBytes) continue;
+            used.add(entry.localId);
+            matched = true;
+            // eslint-disable-next-line no-await-in-loop
+            if ((await restartAttempt(key, entry.localId, entry.uploadId, file)) === null) restarted += 1;
+            break;
+          }
+          // eslint-disable-next-line no-await-in-loop
+          if (await q.reselectForEntry(entry.localId, file)) {
+            used.add(entry.localId);
+            resumed += 1;
+            matched = true;
+            break;
+          }
         }
+        if (!matched) unmatched.push(file);
       }
-      if (!matched) unmatched.push(file);
-    }
-    return { resumed, unmatched };
-  }, []);
+      return { resumed, restarted, unmatched };
+    },
+    [restartAttempt],
+  );
 
   // A server attempt this device has no row for (another browser, cleared
   // storage): read its summary once so the page can name the file it needs.
