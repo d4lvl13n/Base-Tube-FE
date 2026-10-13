@@ -1,3 +1,4 @@
+import { observeLayoutChanges } from '../../../utils/observeLayoutChanges';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
@@ -35,15 +36,11 @@ export default function VisitorCreatePage({ usageAccess, isLoadingQuota }: {
     if (!element) return;
     const measure = () => {
       const { left, width } = element.getBoundingClientRect();
-      setBarBounds({ left, width });
+      setBarBounds((current) => current?.left === left && current.width === width ? current : { left, width });
     };
     measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
     const workspace = element.closest('.ai-studio-workspace');
-    if (workspace) observer.observe(workspace);
-    window.addEventListener('resize', measure);
-    return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
+    return observeLayoutChanges(workspace ? [element, workspace] : [element], measure);
   }, []);
   const [params] = useSearchParams();
   const offer = useWelcomeOffer();

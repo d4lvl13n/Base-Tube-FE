@@ -6,6 +6,7 @@ import { Channel } from '../../../types/channel';
 import EditChannelModal from '../../pages/CreatorHub/ChannelManagement/components/EditChannelModal';
 import DeleteChannel from '../../pages/CreatorHub/ChannelManagement/components/DeleteChannel';
 import DOMPurify from 'dompurify';
+import { observeLayoutChanges } from '../../../utils/observeLayoutChanges';
 
 interface ChannelPreviewCardProps {
   channel: Channel;
@@ -50,10 +51,7 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
 
     measure();
 
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    return () => observer.disconnect();
+    return observeLayoutChanges([node], measure);
   }, [channel.description, descriptionExpanded]);
 
   // Sanitize the description HTML to prevent XSS attacks

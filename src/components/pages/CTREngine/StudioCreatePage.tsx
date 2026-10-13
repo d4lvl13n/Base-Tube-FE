@@ -1,3 +1,4 @@
+import { observeLayoutChanges } from '../../../utils/observeLayoutChanges';
 import { StudioSelect } from "./components/studio/StudioSelect";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -76,12 +77,15 @@ export default function StudioCreatePage({
   const flow = useRef<HTMLDivElement>(null);
   const [barBounds, setBarBounds] = useState<{ left: number; width: number }>();
   useLayoutEffect(() => {
-    const element = flow.current; if (!element) return;
-    const measure = () => { const { left, width } = element.getBoundingClientRect(); setBarBounds({ left, width }); };
-    measure(); const observer = new ResizeObserver(measure); observer.observe(element);
-    const workspace = element.closest('.ai-studio-workspace'); if (workspace) observer.observe(workspace);
-    window.addEventListener('resize', measure);
-    return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
+    const element = flow.current;
+    if (!element) return;
+    const measure = () => {
+      const { left, width } = element.getBoundingClientRect();
+      setBarBounds((current) => current?.left === left && current.width === width ? current : { left, width });
+    };
+    measure();
+    const workspace = element.closest('.ai-studio-workspace');
+    return observeLayoutChanges(workspace ? [element, workspace] : [element], measure);
   }, []);
   useEffect(() => {
     let active = true;
