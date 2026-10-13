@@ -16,6 +16,7 @@ import {
 import { VideoList } from './components/VideoList/videolist';
 import { VideosToolbar } from './components/VideosToolbar';
 import { BulkActionBar } from './components/BulkActionBar';
+import { DraftsInPreparation } from './components/DraftsInPreparation';
 import { isPlayable } from './components/VideoList/utils';
 import {
   ChannelVideoPage,
@@ -895,6 +896,8 @@ const VideosManagement: React.FC = () => {
   return (
     <div className="relative pt-24 pb-8">
       <div className="mx-auto max-w-[1600px] space-y-4 px-4 md:px-6">
+        <DraftsInPreparation />
+
         <VideosToolbar
           filters={filters}
           total={total}

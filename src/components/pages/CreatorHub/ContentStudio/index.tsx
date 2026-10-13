@@ -326,7 +326,7 @@ const ROW_ACTION =
   'rounded px-1 text-xs text-gray-500 transition-colors hover:text-white ' +
   'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600';
 
-const UploadRow: React.FC<UploadRowProps> = ({
+export const UploadRow: React.FC<UploadRowProps> = ({
   entry,
   onCancel,
   onRetry,
@@ -356,7 +356,7 @@ const UploadRow: React.FC<UploadRowProps> = ({
 
       {/* Actions stay out of the way until you go looking for them, but they
           never leave the tab order. */}
-      <div className="flex shrink-0 items-center gap-3 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-3 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
         {phase === 'uploading' && entry.status !== 'reselect_required' && (
           <button
             type="button"

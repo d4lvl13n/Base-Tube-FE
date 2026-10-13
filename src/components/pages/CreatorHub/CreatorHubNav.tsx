@@ -11,7 +11,6 @@ import {
   Ticket,
   Tv,
   Upload,
-  VideoIcon,
 } from 'lucide-react';
 import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
 import {
@@ -56,7 +55,7 @@ const CollapseToggle: React.FC = () => {
 /**
  * The Creator Hub column.
  *
- * One filled button (Upload), then flat sections — Content Studio is always
+ * One filled button (Add videos), then flat sections — Content Studio is always
  * open (a collapsible group hid four rows behind a click for nothing), and
  * Monetization is itself the clickable row, with the pass rows under it.
  */
@@ -85,7 +84,7 @@ const CreatorHubNav: React.FC = () => {
             placeholder="Select channel"
             loading={isLoading}
           />
-          <SidebarPrimaryAction icon={Upload} label="Upload" to="/creator-hub/upload" />
+          <SidebarPrimaryAction icon={Upload} label="Add videos" to="/creator-hub/uploads" />
         </div>
       }
       footer={<CollapseToggle />}
@@ -97,8 +96,9 @@ const CreatorHubNav: React.FC = () => {
       </SidebarSection>
 
       <SidebarSection label="Content Studio">
-        <SidebarItem icon={Upload} label="Upload" to="/creator-hub/upload" />
-        <SidebarItem icon={VideoIcon} label="Studio" to="/creator-hub/content-studio" />
+        {/* One workspace for one or many videos; /creator-hub/upload and
+            /creator-hub/content-studio still open it for old links. */}
+        <SidebarItem icon={Upload} label="Add videos" to="/creator-hub/uploads" />
         <SidebarItem icon={ImageIcon} label="Videos" to="/creator-hub/videos" />
         <SidebarItem icon={Tv} label="Channels" to="/creator-hub/channels" />
       </SidebarSection>

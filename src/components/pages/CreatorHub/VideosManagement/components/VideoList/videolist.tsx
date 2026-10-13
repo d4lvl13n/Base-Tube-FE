@@ -510,7 +510,7 @@ export const VideoList: React.FC<VideoListProps> = ({
           Everything you upload shows up here, ready to edit and publish.
         </p>
         <Link
-          to="/creator-hub/content-studio"
+          to="/creator-hub/uploads"
           className="mt-4 rounded-md bg-[#fa7517] px-3.5 py-2 text-sm font-medium text-black
                      transition-colors hover:bg-[#ff8c3a] focus-visible:outline-none
                      focus-visible:ring-2 focus-visible:ring-[#fa7517]/60"

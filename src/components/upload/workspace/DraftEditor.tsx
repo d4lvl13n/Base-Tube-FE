@@ -1,0 +1,907 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  ExternalLink,
+  Loader2,
+  Lock,
+  Sparkles,
+} from 'lucide-react';
+import { hasPendingEdits, validateDraftFields, type PublishBlocker } from '@basetube/api';
+import type { DraftWorkspaceApi, WorkspaceDraft } from '../../../hooks/useDraftWorkspace';
+import { useUploadQueueContext, useUploadSession } from '../../../contexts/UploadQueueContext';
+import { useAIthumbnail } from '../../../hooks/useAIthumbnail';
+import { generateVideoDescription } from '../../../api/video';
+import { editorHtmlToPlainText, hasEditorContent, plainTextToEditorHtml } from '../../../utils/descriptionText';
+import type { Channel } from '../../../types/channel';
+import AIAssistantPanel from '../../common/AIAssistantPanel';
+import AIThumbnailPanel from '../../common/AIThumbnailPanel';
+import RichTextEditor from '../../common/RichTextEditor';
+import DraftPreview, { type PreviewMode } from './DraftPreview';
+import ThumbnailPicker from './ThumbnailPicker';
+import { displayTitle, editorialLabel, isPublished, type TechnicalState } from './draftStatus';
+import { fieldProblemCopy, localBlockerCopy, serverBlockerCopy, workspaceCopy } from './workspaceCopy';
+
+const FIELD =
+  'w-full rounded-md border border-gray-800 bg-black/40 px-3 py-2 text-sm text-white ' +
+  'placeholder:text-gray-600 transition-colors focus:border-[#fa7517]/60 focus:outline-none ' +
+  'focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
+const LABEL = 'block text-xs font-medium text-gray-400';
+const LINK_BUTTON =
+  'inline-flex min-h-[44px] items-center gap-1.5 rounded text-xs text-[#fa7517] transition-colors ' +
+  'hover:text-[#ff8c3a] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
+const QUIET_BUTTON =
+  'inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 text-sm text-gray-300 transition-colors ' +
+  'hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600';
+const PRIMARY_BUTTON =
+  'inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#fa7517] px-4 text-sm font-medium text-black ' +
+  'transition-colors hover:bg-[#ff8c3a] disabled:cursor-not-allowed disabled:bg-[#fa7517]/30 disabled:text-black/60 ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/60';
+
+function tagsToText(tags: string[] | null): string {
+  return (tags ?? []).join(', ');
+}
+
+function textToTags(text: string): string[] | null {
+  const tags = text
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  return tags.length > 0 ? tags : null;
+}
+
+function blockerSentences(blockers: readonly PublishBlocker[]): Array<{ text: string; reference: string | null }> {
+  const sentences: Array<{ text: string; reference: string | null }> = [];
+  const seen = new Set<string>();
+  for (const blocker of blockers) {
+    // Documented server codes have their sentence; an unknown one gets a
+    // generic sentence with the code only as a support reference.
+    const server = blocker.source === 'server' ? serverBlockerCopy(blocker.code) : null;
+    const text = blocker.source === 'local' ? localBlockerCopy(blocker.code) : server!.text;
+    const reference = server && !server.known ? blocker.code : null;
+    const identity = `${text}|${reference ?? ''}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    sentences.push({ text, reference });
+  }
+  return sentences;
+}
+
+interface DraftEditorProps {
+  draft: WorkspaceDraft;
+  workspace: DraftWorkspaceApi;
+  technical: TechnicalState;
+  channel: Channel | undefined;
+  onBack: () => void;
+  onClose: () => void;
+  onAnnounce: (message: string) => void;
+}
+
+/**
+ * One video's editor: preview, title, description, thumbnail, and the
+ * explicit publication (UP-UX §5.2, §7, §8, §12).
+ *
+ * Rendered with `key={draft.key}`: switching videos mounts a fresh editor, so
+ * a panel, an AI suggestion or a confirmation opened for one video can never
+ * act on the next one.
+ */
+const DraftEditor: React.FC<DraftEditorProps> = ({
+  draft,
+  workspace,
+  technical,
+  channel,
+  onBack,
+  onClose,
+  onAnnounce,
+}) => {
+  const { key, record, runtime, entry } = draft;
+  const server = record.server;
+  const queue = useUploadQueueContext();
+  const session = useUploadSession();
+  const published = isPublished(draft);
+  const title = displayTitle(draft);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const tagsFocusedRef = useRef(false);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('video');
+  const [tagsText, setTagsText] = useState(() => tagsToText(record.desired.tags));
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
+  const [fileMessage, setFileMessage] = useState<string | null>(null);
+  const [thumbnailNotice, setThumbnailNotice] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // AI assistance — opened on demand, applied only after acceptance.
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+  const [isThumbnailPanelOpen, setIsThumbnailPanelOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [keywords, setKeywords] = useState('');
+  const [additionalInfo, setAdditionalInfo] = useState('');
+  const [suggestedTitle, setSuggestedTitle] = useState<string | undefined>();
+  const [generatedDescription, setGeneratedDescription] = useState<string | undefined>();
+  const [generatedKeywords, setGeneratedKeywords] = useState<string[] | undefined>();
+  const [generatedHashtags, setGeneratedHashtags] = useState<string[] | undefined>();
+  /** What the fields held when the suggestion was asked for, to detect edits made since. */
+  const aiBaseRef = useRef<{ title: string; description: string | null } | null>(null);
+  const [aiConflict, setAiConflict] = useState<{ field: 'title' | 'description'; value: string } | null>(null);
+  const {
+    generateForVideo,
+    isGeneratingForVideo,
+    generateFromPrompt,
+    isGeneratingFromPrompt,
+    generateWithReference,
+    isGeneratingWithReference,
+    refineThumbnail,
+    isRefiningThumbnail,
+  } = useAIthumbnail();
+
+  // Tags are typed as text; keep the text in step with server reloads when
+  // the field is not being typed in.
+  const desiredTags = record.desired.tags;
+  useEffect(() => {
+    if (!tagsFocusedRef.current) setTagsText(tagsToText(desiredTags));
+  }, [desiredTags]);
+
+  // Significant changes are announced; the moving percentage is not.
+  const lastAnnounced = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastAnnounced.current === technical.key) return;
+    const first = lastAnnounced.current === null;
+    lastAnnounced.current = technical.key;
+    if (!first) onAnnounce(`${title}: ${technical.percent !== null ? 'Sending video' : technical.label}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [technical.key]);
+  useEffect(() => {
+    if (runtime.save === 'failed' || runtime.save === 'conflict') {
+      onAnnounce(`${title}: ${runtime.save === 'conflict' ? workspaceCopy.conflictTitle : workspaceCopy.notSaved}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runtime.save]);
+  useEffect(() => {
+    if (runtime.publishedJustNow) onAnnounce(`${title}: ${workspaceCopy.publishedTitle}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runtime.publishedJustNow]);
+
+  const problems = validateDraftFields(record.desired);
+  const titleProblems = problems.filter((problem) => problem.startsWith('TITLE'));
+  const otherProblems = problems.filter((problem) => !problem.startsWith('TITLE'));
+  const readiness = workspace.readiness(key);
+  const blockers = useMemo(() => blockerSentences(readiness.blockers), [readiness.blockers]);
+  // Only an autosave still in its debounce stands between the creator and a
+  // publish attempt: the command flushes it first, so it does not disable the button.
+  const onlySavePending = readiness.blockers.every(
+    (blocker) => blocker.source === 'local' && blocker.code === 'SAVE_PENDING',
+  );
+  const serverAllows = !!server && server.canPublish && server.playbackReady && !published;
+  const publishBusy = runtime.publish === 'publishing' || runtime.publish === 'verifying' || !!record.publication;
+  const canPublish = serverAllows && (readiness.ready || onlySavePending) && !publishBusy;
+  const videoUrl = server?.videoId ? `${window.location.origin}/video/${server.videoId}` : null;
+
+  // ── technical actions ────────────────────────────────────────────────────
+  const runAction = async () => {
+    setActionMessage(null);
+    switch (technical.action) {
+      case 'cancel':
+        if (entry) await queue.abortEntry(entry.localId);
+        break;
+      case 'sign_in':
+        await session.requestSignIn();
+        break;
+      case 'choose_file':
+      case 'send_again':
+        fileInputRef.current?.click();
+        break;
+      case 'retry_now':
+        if (entry) await queue.retryEntry(entry.localId);
+        break;
+      case 'verify_cancel':
+        if (entry) await queue.verifyEntry(entry.localId);
+        break;
+      case 'retry_processing':
+        setActionMessage(await workspace.retryProcessing(key));
+        break;
+      case 'retry_create':
+        workspace.retryCreate(key);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const actionLabel: Record<TechnicalState['action'], string | null> = {
+    none: null,
+    cancel: workspaceCopy.cancel,
+    sign_in: workspaceCopy.signInAgain,
+    choose_file: workspaceCopy.chooseFile,
+    retry_now: workspaceCopy.retryNow,
+    send_again: workspaceCopy.sendAgain,
+    verify_cancel: workspaceCopy.verifyCancel,
+    retry_processing: workspaceCopy.retryPreparation,
+    retry_create: workspaceCopy.retry,
+  };
+
+  const statusBlock = (
+    <div className="rounded-lg border border-gray-800/60 bg-[#0f0f0f] px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p
+          className={`min-w-0 flex-1 text-sm ${
+            technical.tone === 'attention'
+              ? 'text-yellow-300'
+              : technical.tone === 'ready'
+                ? 'text-green-400'
+                : technical.tone === 'active'
+                  ? 'text-[#fa7517]'
+                  : 'text-gray-300'
+          }`}
+        >
+          {technical.tone === 'attention' && <AlertCircle className="mr-1.5 inline h-4 w-4 align-[-3px]" aria-hidden="true" />}
+          {technical.tone === 'ready' && <Check className="mr-1.5 inline h-4 w-4 align-[-3px]" aria-hidden="true" />}
+          {technical.label}
+          <span className="text-gray-500"> · {editorialLabel(draft)}</span>
+        </p>
+        {actionLabel[technical.action] && (
+          <button
+            type="button"
+            onClick={() => void runAction()}
+            className={technical.action === 'cancel' ? QUIET_BUTTON : `${QUIET_BUTTON} text-[#fa7517] hover:text-[#ff8c3a]`}
+          >
+            {actionLabel[technical.action]}
+          </button>
+        )}
+        {technical.action === 'verify_cancel' && entry && (
+          <button type="button" onClick={() => void queue.abortEntry(entry.localId)} className={QUIET_BUTTON}>
+            {workspaceCopy.cancel}
+          </button>
+        )}
+      </div>
+      {technical.detail && <p className="mt-1 text-xs text-gray-500">{technical.detail}</p>}
+      {technical.percent !== null && (
+        <div
+          className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5"
+          role="progressbar"
+          aria-label={`Sending ${title}`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={technical.percent}
+        >
+          <div className="h-full bg-[#fa7517] transition-[width] duration-300 ease-out" style={{ width: `${technical.percent}%` }} />
+        </div>
+      )}
+      {(fileMessage || actionMessage) && (
+        <p className="mt-2 text-xs text-yellow-400" role="alert">
+          {fileMessage ?? actionMessage}
+        </p>
+      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (!file) return;
+          setFileMessage(null);
+          void workspace.attachFile(key, file).then(setFileMessage);
+        }}
+      />
+    </div>
+  );
+
+  // ── save status line ─────────────────────────────────────────────────────
+  let saveLine: React.ReactNode;
+  if (!record.draftId) {
+    saveLine = <span className="text-gray-500">{workspaceCopy.creating}</span>;
+  } else {
+    switch (runtime.save) {
+      case 'saving':
+      case 'scheduled':
+        saveLine = (
+          <span className="inline-flex items-center gap-1 text-gray-400">
+            <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            {workspaceCopy.saving}
+          </span>
+        );
+        break;
+      case 'failed':
+        saveLine = (
+          <span className="inline-flex flex-wrap items-center gap-x-2 text-yellow-400">
+            <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            {workspaceCopy.notSaved}
+            {runtime.saveError ? ` — ${runtime.saveError}` : ''}
+            <button type="button" onClick={() => workspace.retrySave(key)} className={LINK_BUTTON}>
+              {workspaceCopy.retry}
+            </button>
+          </span>
+        );
+        break;
+      case 'offline':
+        saveLine = (
+          <span className="text-yellow-400">
+            {workspace.durable && !runtime.persistFailed ? workspaceCopy.offlineKept : workspaceCopy.offlineAtRisk}
+          </span>
+        );
+        break;
+      case 'auth_required':
+        saveLine = (
+          <span className="inline-flex flex-wrap items-center gap-x-2 text-yellow-400">
+            {workspace.durable && !runtime.persistFailed ? workspaceCopy.saveSignIn : workspaceCopy.sessionExpired}
+            <button type="button" onClick={() => void session.requestSignIn()} className={LINK_BUTTON}>
+              {workspaceCopy.signInAgain}
+            </button>
+          </span>
+        );
+        break;
+      case 'conflict':
+        saveLine = <span className="text-yellow-400">{workspaceCopy.conflictTitle}</span>;
+        break;
+      case 'invalid':
+        saveLine = <span className="text-yellow-400">{workspaceCopy.invalid}</span>;
+        break;
+      default:
+        saveLine = hasPendingEdits(record.pending) ? (
+          <span className="text-gray-400">{workspaceCopy.saving}</span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-gray-400">
+            <Check className="h-3 w-3 text-green-500" aria-hidden="true" />
+            {workspaceCopy.saved}
+          </span>
+        );
+    }
+  }
+
+  // ── AI ───────────────────────────────────────────────────────────────────
+  const openAiAssistant = () => {
+    aiBaseRef.current = { title: record.desired.title, description: record.desired.description };
+    setIsAiPanelOpen(true);
+  };
+
+  const handleGenerateDescription = async () => {
+    aiBaseRef.current = { title: record.desired.title, description: record.desired.description };
+    setIsGenerating(true);
+    try {
+      const result = await generateVideoDescription({
+        title: record.desired.title,
+        keywords,
+        additionalInfo,
+        existingDescription: editorHtmlToPlainText(record.desired.description ?? ''),
+        tags: tagsText,
+        channelName: channel?.name,
+        channelDescription: editorHtmlToPlainText(channel?.description),
+        language: typeof navigator === 'undefined' ? undefined : navigator.language,
+      });
+      setGeneratedDescription(result.description);
+      setSuggestedTitle(result.suggestedTitle);
+      setGeneratedKeywords(result.keywords);
+      setGeneratedHashtags(result.hashtags);
+    } catch {
+      setActionMessage('The writing assistant is unavailable right now. You can still write and publish manually.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  /** Applies a suggestion, unless the creator edited that field since asking: then ask first. */
+  const acceptSuggestion = (field: 'title' | 'description', value: string) => {
+    const base = aiBaseRef.current;
+    const current = field === 'title' ? record.desired.title : record.desired.description;
+    const baseValue = base ? (field === 'title' ? base.title : base.description) : current;
+    if ((current ?? '') !== (baseValue ?? '')) {
+      setAiConflict({ field, value });
+      return;
+    }
+    workspace.edit(key, field === 'title' ? { title: value } : { description: value });
+    workspace.commit(key);
+    if (field === 'title') setSuggestedTitle(undefined);
+  };
+
+  const handleAiThumbnail = (thumbnailUrl: string) => {
+    void fetch(thumbnailUrl)
+      .then((response) => response.blob())
+      .then((blob) => workspace.chooseThumbnailFile(key, blob, 'ai-thumbnail.jpg', 'ai'))
+      .then((result) => setThumbnailNotice(result.message))
+      .catch(() => setThumbnailNotice('The AI thumbnail could not be applied. Try again or upload an image.'));
+  };
+
+  // ── publication ──────────────────────────────────────────────────────────
+  const copyLink = async () => {
+    if (!videoUrl) return;
+    try {
+      await navigator.clipboard.writeText(videoUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2_000);
+    } catch {
+      setActionMessage(videoUrl);
+    }
+  };
+
+  const conflict = runtime.conflict;
+
+  // ── server preview (owner-only, five-minute URLs) ───────────────────────
+  const serverPreview = workspace.preview(key);
+  const loadPreview = workspace.loadPreview;
+  const wantsPreview = !!record.draftId && (!!server?.playbackReady || !!server?.thumbnail.ready);
+  const previewSignature = `${server?.playbackReady}|${server?.thumbnail.assetId}|${server?.thumbnail.ready}`;
+  useEffect(() => {
+    if (wantsPreview) void loadPreview(key);
+  }, [key, loadPreview, previewSignature, wantsPreview]);
+  // Reload 30 s before the earliest URL expires, so the player never holds a dead link.
+  const earliestExpiry = [serverPreview?.playback?.expiresAt, serverPreview?.thumbnail?.expiresAt]
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => new Date(value).getTime())
+    .sort((a, b) => a - b)[0];
+  useEffect(() => {
+    if (!earliestExpiry || !wantsPreview) return;
+    const timer = setTimeout(() => void loadPreview(key), Math.max(5_000, earliestExpiry - Date.now() - 30_000));
+    return () => clearTimeout(timer);
+  }, [earliestExpiry, key, loadPreview, wantsPreview]);
+  // A local choice wins on screen; otherwise the server's selected thumbnail.
+  const thumbnailUrl =
+    workspace.thumbnailPreviewUrl(key) ??
+    (record.thumbnail?.kind === 'automatic' && record.thumbnail.status !== 'selected'
+      ? null
+      : (serverPreview?.thumbnail?.url ?? null));
+
+  return (
+    <article aria-label={title} className="min-w-0">
+      {/* Below 768 px the list and the editor are two views: an explicit way back. */}
+      <button type="button" onClick={onBack} className={`${QUIET_BUTTON} -ml-3 mb-2 md:hidden`}>
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        {workspaceCopy.back}
+      </button>
+
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-semibold text-white">{title}</h2>
+          <p className="mt-0.5 text-xs text-gray-500">
+            {workspaceCopy.destinationFixed}{' '}
+            <span className="text-gray-300">{channel?.name ?? `channel #${record.channelId}`}</span>
+          </p>
+        </div>
+        <p className="text-xs" aria-live="polite">
+          {saveLine}
+        </p>
+      </header>
+
+      {published && !runtime.publishedJustNow && (
+        <p className="mt-3 rounded-md border border-gray-800/60 bg-white/[0.03] px-3 py-2 text-xs text-gray-300">
+          {workspaceCopy.publishedEditing}
+        </p>
+      )}
+
+      {runtime.publishedJustNow && server?.videoId && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-green-500/30 bg-green-500/[0.06] px-3 py-2" role="status">
+          <Check className="h-4 w-4 text-green-500" aria-hidden="true" />
+          <span className="text-sm text-green-300">{workspaceCopy.publishedTitle}</span>
+          <Link to={`/video/${server.videoId}`} className={LINK_BUTTON}>
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            {workspaceCopy.viewVideo}
+          </Link>
+          <button type="button" onClick={() => void copyLink()} className={LINK_BUTTON}>
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            {linkCopied ? workspaceCopy.linkCopied : workspaceCopy.copyLink}
+          </button>
+        </div>
+      )}
+
+      {runtime.save === 'conflict' && (
+        <section
+          aria-label={workspaceCopy.conflictTitle}
+          className="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/[0.05] p-4"
+        >
+          <h3 className="text-sm font-medium text-yellow-200">{workspaceCopy.conflictTitle}</h3>
+          <p className="mt-1 text-xs text-gray-400">{conflict ? workspaceCopy.conflictBody : workspaceCopy.conflictUnknown}</p>
+          {conflict && (
+            <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+              {(
+                [
+                  ['Title', record.desired.title, conflict.title],
+                  [
+                    'Description',
+                    editorHtmlToPlainText(record.desired.description ?? ''),
+                    editorHtmlToPlainText(conflict.description ?? ''),
+                  ],
+                  ['Tags', tagsToText(record.desired.tags), tagsToText(conflict.tags)],
+                ] as const
+              )
+                .filter(([, mine, saved]) => mine !== saved)
+                .map(([label, mine, saved]) => (
+                  <React.Fragment key={label}>
+                    <div>
+                      <dt className="text-gray-500">
+                        {label} — {workspaceCopy.conflictYours}
+                      </dt>
+                      <dd className="mt-1 line-clamp-4 whitespace-pre-line text-gray-200">{mine || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500">
+                        {label} — {workspaceCopy.conflictSaved}
+                      </dt>
+                      <dd className="mt-1 line-clamp-4 whitespace-pre-line text-gray-200">{saved || '—'}</dd>
+                    </div>
+                  </React.Fragment>
+                ))}
+            </dl>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => void workspace.resolveConflict(key, 'reload')} className={QUIET_BUTTON}>
+              {workspaceCopy.conflictReload}
+            </button>
+            {conflict && (
+              <button
+                type="button"
+                onClick={() => void workspace.resolveConflict(key, 'keep')}
+                className={`${QUIET_BUTTON} text-[#fa7517] hover:text-[#ff8c3a]`}
+              >
+                {workspaceCopy.conflictKeep}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      <div className="mt-5 grid gap-6 min-[1200px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div ref={previewRef} className="min-w-0">
+          <DraftPreview
+            draft={draft}
+            mode={previewMode}
+            onModeChange={setPreviewMode}
+            thumbnailUrl={thumbnailUrl}
+            serverPlaybackUrl={serverPreview?.playback?.url ?? null}
+            channelName={channel?.name ?? null}
+            channelImageUrl={channel?.channel_image_url ?? null}
+            status={statusBlock}
+          />
+        </div>
+
+        <div className="min-w-0 space-y-6 rounded-lg border border-gray-800/60 bg-[#0f0f0f] p-4 sm:p-5">
+          <div>
+            <label className={LABEL} htmlFor={`draft-title-${key}`}>
+              {workspaceCopy.title}
+            </label>
+            <input
+              id={`draft-title-${key}`}
+              type="text"
+              value={record.desired.title}
+              onChange={(event) => workspace.edit(key, { title: event.target.value })}
+              onBlur={() => workspace.commit(key)}
+              aria-invalid={titleProblems.length > 0 ? true : undefined}
+              aria-describedby={titleProblems.length > 0 ? `draft-title-problem-${key}` : undefined}
+              className={`mt-2 ${FIELD} ${titleProblems.length > 0 ? 'border-red-500/70' : ''}`}
+            />
+            {titleProblems.length > 0 && (
+              <p id={`draft-title-problem-${key}`} className="mt-1.5 text-xs text-red-400">
+                {titleProblems.map(fieldProblemCopy).join(' ')}
+              </p>
+            )}
+            {suggestedTitle && (
+              <button type="button" onClick={() => acceptSuggestion('title', suggestedTitle)} className={`mt-1 ${LINK_BUTTON}`}>
+                Use suggested title: {suggestedTitle}
+              </button>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <span className={LABEL} id={`draft-description-label-${key}`}>
+                {workspaceCopy.description}
+              </span>
+              <button type="button" onClick={openAiAssistant} className={LINK_BUTTON}>
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                {workspaceCopy.writeWithAi}
+              </button>
+            </div>
+            {/* The shared editor has no blur callback: leaving its container is the blur. */}
+            <div
+              className="mt-2"
+              aria-labelledby={`draft-description-label-${key}`}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) workspace.commit(key);
+              }}
+            >
+              <RichTextEditor
+                content={record.desired.description ?? ''}
+                onChange={(html) => workspace.edit(key, { description: hasEditorContent(html) ? html : null })}
+                className="w-full rounded-md border border-gray-800 bg-black/40 text-sm text-white"
+                placeholder="What is this video about?"
+                minHeight="140px"
+              />
+            </div>
+            {otherProblems.includes('DESCRIPTION_TOO_LONG') && (
+              <p className="mt-1.5 text-xs text-red-400">{fieldProblemCopy('DESCRIPTION_TOO_LONG')}</p>
+            )}
+          </div>
+
+          {aiConflict && (
+            <div className="rounded-md border border-yellow-500/30 bg-yellow-500/[0.05] p-3 text-xs" role="alertdialog" aria-label={workspaceCopy.aiOverwrite}>
+              <p className="text-yellow-200">{workspaceCopy.aiOverwrite}</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    workspace.edit(key, aiConflict.field === 'title' ? { title: aiConflict.value } : { description: aiConflict.value });
+                    workspace.commit(key);
+                    if (aiConflict.field === 'title') setSuggestedTitle(undefined);
+                    setAiConflict(null);
+                  }}
+                  className={QUIET_BUTTON}
+                >
+                  {workspaceCopy.aiReplace}
+                </button>
+                <button type="button" onClick={() => setAiConflict(null)} className={QUIET_BUTTON}>
+                  {workspaceCopy.aiKeepMine}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <ThumbnailPicker
+            draft={draft}
+            previewUrl={thumbnailUrl}
+            onImport={(file) => {
+              setThumbnailNotice(null);
+              void workspace.chooseThumbnailFile(key, file, file.name, 'import').then((result) => setThumbnailNotice(result.message));
+            }}
+            onAutomatic={() => {
+              setThumbnailNotice(null);
+              workspace.chooseAutomaticThumbnail(key);
+            }}
+            onOpenAi={() => setIsThumbnailPanelOpen(true)}
+            onRetry={() => workspace.retryThumbnail(key)}
+            notice={thumbnailNotice}
+          />
+
+          <div className="border-t border-gray-800/60 pt-4">
+            <button
+              type="button"
+              aria-expanded={moreOpen}
+              aria-controls={`draft-more-${key}`}
+              onClick={() => setMoreOpen((open) => !open)}
+              className={`${QUIET_BUTTON} -ml-3`}
+            >
+              {moreOpen ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
+              {workspaceCopy.moreOptions}
+            </button>
+            {moreOpen && (
+              <div id={`draft-more-${key}`} className="mt-3 space-y-5">
+                <div>
+                  <label className={LABEL} htmlFor={`draft-tags-${key}`}>
+                    {workspaceCopy.tags}
+                  </label>
+                  <input
+                    id={`draft-tags-${key}`}
+                    type="text"
+                    value={tagsText}
+                    onFocus={() => {
+                      tagsFocusedRef.current = true;
+                    }}
+                    onChange={(event) => {
+                      setTagsText(event.target.value);
+                      workspace.edit(key, { tags: textToTags(event.target.value) });
+                    }}
+                    onBlur={() => {
+                      tagsFocusedRef.current = false;
+                      workspace.commit(key);
+                    }}
+                    placeholder={workspaceCopy.tagsHint}
+                    className={`mt-2 ${FIELD}`}
+                  />
+                  {otherProblems
+                    .filter((problem) => problem === 'TOO_MANY_TAGS' || problem === 'TAG_TOO_LONG')
+                    .map((problem) => (
+                      <p key={problem} className="mt-1.5 text-xs text-red-400">
+                        {fieldProblemCopy(problem)}
+                      </p>
+                    ))}
+                </div>
+
+                {published && (
+                  <div>
+                    {confirmUnpublish ? (
+                      <div className="rounded-md border border-gray-800 p-3 text-xs" role="alertdialog" aria-label={workspaceCopy.unpublish}>
+                        <p className="text-gray-300">{workspaceCopy.unpublishConfirm}</p>
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfirmUnpublish(false);
+                              void workspace.unpublish(key);
+                            }}
+                            className={QUIET_BUTTON}
+                          >
+                            <Lock className="h-4 w-4" aria-hidden="true" />
+                            {workspaceCopy.unpublishAction}
+                          </button>
+                          <button type="button" onClick={() => setConfirmUnpublish(false)} className={QUIET_BUTTON}>
+                            {workspaceCopy.keep}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => setConfirmUnpublish(true)} disabled={publishBusy} className={`${QUIET_BUTTON} -ml-3`}>
+                        <Lock className="h-4 w-4" aria-hidden="true" />
+                        {workspaceCopy.unpublish}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  {confirmDelete ? (
+                    <div className="rounded-md border border-red-500/30 p-3 text-xs" role="alertdialog" aria-label={workspaceCopy.deleteDraft}>
+                      <p className="text-gray-300">{workspaceCopy.deleteConfirm}</p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          disabled={runtime.deleting}
+                          onClick={() => {
+                            void workspace.deleteDraft(key).then((deleted) => {
+                              if (deleted) onAnnounce(`${title}: deleted`);
+                            });
+                          }}
+                          className={`${QUIET_BUTTON} text-red-400 hover:text-red-300`}
+                        >
+                          {runtime.deleting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                          {workspaceCopy.deleteAction}
+                        </button>
+                        <button type="button" onClick={() => setConfirmDelete(false)} className={QUIET_BUTTON}>
+                          {workspaceCopy.keep}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => setConfirmDelete(true)} className={`${QUIET_BUTTON} -ml-3 text-red-400 hover:text-red-300`}>
+                      {workspaceCopy.deleteDraft}
+                    </button>
+                  )}
+                  {runtime.deleteError && (
+                    <p className="mt-1.5 text-xs text-yellow-400" role="alert">
+                      {runtime.deleteError}
+                    </p>
+                  )}
+                </div>
+
+                {published && (
+                  <button type="button" onClick={() => workspace.dismiss(key)} className={`${QUIET_BUTTON} -ml-3`}>
+                    {workspaceCopy.dismiss}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Why Publish is not available — always next to the button, never only a disabled state. */}
+      {!published && !canPublish && !publishBusy && blockers.length > 0 && (
+        <section aria-label={workspaceCopy.blockedTitle} id={`draft-blockers-${key}`} className="mt-5 text-xs">
+          <p className="font-medium text-gray-400">{workspaceCopy.blockedTitle}</p>
+          <ul className="mt-1 space-y-0.5 text-gray-500">
+            {blockers.map(({ text, reference }) => (
+              <li key={`${text}${reference ?? ''}`}>
+                {text}
+                {reference ? <span className="text-gray-600"> ({workspaceCopy.supportReference(reference)})</span> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {(runtime.publish === 'failed' || runtime.publishError) && (
+        <p className="mt-3 text-xs text-yellow-400" role="alert">
+          {runtime.publishError}
+        </p>
+      )}
+
+      <footer
+        className="sticky bottom-0 z-10 mt-5 flex flex-wrap items-center justify-between gap-2 rounded-lg border
+                   border-gray-800/60 bg-[#09090B]/95 px-4 py-2 backdrop-blur-sm"
+      >
+        <button type="button" onClick={onClose} className={`${QUIET_BUTTON} -ml-3`}>
+          {workspaceCopy.close}
+        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setPreviewMode('presentation');
+              previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }}
+            className={QUIET_BUTTON}
+          >
+            {workspaceCopy.preview}
+          </button>
+          {published ? (
+            <>
+              {server?.videoId && (
+                <Link to={`/video/${server.videoId}`} className={QUIET_BUTTON}>
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  {workspaceCopy.viewVideo}
+                </Link>
+              )}
+              {videoUrl && (
+                <button type="button" onClick={() => void copyLink()} className={QUIET_BUTTON}>
+                  <Copy className="h-4 w-4" aria-hidden="true" />
+                  {linkCopied ? workspaceCopy.linkCopied : workspaceCopy.copyLink}
+                </button>
+              )}
+            </>
+          ) : runtime.publish === 'verifying' || (record.publication && runtime.publish !== 'publishing') ? (
+            <span className="inline-flex items-center gap-2 text-sm text-gray-300">
+              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              {workspaceCopy.verifyingPublication}
+              {runtime.publish !== 'verifying' && (
+                <button type="button" onClick={() => workspace.verifyPublication(key)} className={LINK_BUTTON}>
+                  {workspaceCopy.checkAgain}
+                </button>
+              )}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void workspace.publish(key)}
+              disabled={!canPublish}
+              aria-describedby={!canPublish && blockers.length > 0 ? `draft-blockers-${key}` : undefined}
+              className={PRIMARY_BUTTON}
+            >
+              {runtime.publish === 'publishing' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {runtime.publish === 'publishing' ? workspaceCopy.publishing : workspaceCopy.publish}
+            </button>
+          )}
+        </div>
+      </footer>
+
+      <AIAssistantPanel
+        isOpen={isAiPanelOpen}
+        onClose={() => setIsAiPanelOpen(false)}
+        title={record.desired.title}
+        keywords={keywords}
+        additionalInfo={additionalInfo}
+        onKeywordsChange={setKeywords}
+        onAdditionalInfoChange={setAdditionalInfo}
+        onGenerate={handleGenerateDescription}
+        isGenerating={isGenerating}
+        suggestedTitle={suggestedTitle}
+        generatedDescription={generatedDescription}
+        generatedKeywords={generatedKeywords}
+        hashtags={generatedHashtags}
+        onAcceptTitle={() => {
+          if (suggestedTitle) acceptSuggestion('title', suggestedTitle);
+        }}
+        onAcceptDescription={(generated: string) => {
+          acceptSuggestion('description', plainTextToEditorHtml(generated));
+          setIsAiPanelOpen(false);
+        }}
+        hasExistingDescription={hasEditorContent(record.desired.description ?? '')}
+        mode="video"
+      />
+
+      <AIThumbnailPanel
+        isOpen={isThumbnailPanelOpen}
+        onClose={() => setIsThumbnailPanelOpen(false)}
+        // Generation from the video itself needs media the server can read.
+        videoId={server?.playbackReady && server.videoId ? server.videoId : undefined}
+        videoTitle={record.desired.title}
+        videoDescription={record.desired.description ?? ''}
+        onThumbnailGenerated={handleAiThumbnail}
+        isGeneratingForVideo={isGeneratingForVideo}
+        isGeneratingFromPrompt={isGeneratingFromPrompt}
+        isGeneratingWithReference={isGeneratingWithReference}
+        isRefiningThumbnail={isRefiningThumbnail}
+        generateForVideo={generateForVideo}
+        generateFromPrompt={generateFromPrompt}
+        generateWithReference={generateWithReference}
+        refineThumbnail={refineThumbnail}
+      />
+    </article>
+  );
+};
+
+export default DraftEditor;

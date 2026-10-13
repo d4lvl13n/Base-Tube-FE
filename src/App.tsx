@@ -24,7 +24,7 @@ import ChannelDetailPage from './components/pages/ChannelDetailPage';
 import CreateChannelPage from './components/pages/CreateChannelPage';
 import ProfileSettings from './components/pages/ProfileSettings';
 import CreatorHubLandingPage from './components/pages/CreatorHub/CreatorHubLandingPage';
-import VideoUpload from './components/pages/CreatorHub/VideoUpload';
+import UploadEntry from './components/pages/CreatorHub/UploadEntry';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import AnalyticsPage from './components/pages/CreatorHub/Analytics/AnalyticsPage';
 import { useAnalyticsContext } from './hooks/useAnalyticsData';
@@ -38,7 +38,6 @@ import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
 import VideosManagement from './components/pages/CreatorHub/VideosManagement';
 import ChannelManagement from './components/pages/CreatorHub/ChannelManagement';
 import { SystemHealth } from './health/SystemHealth';
-import { ContentStudio } from './components/pages/CreatorHub/ContentStudio/index';
 import ChannelList from './components/pages/CreatorHub/ChannelManagement/ChannelList';
 import OnboardingModal from './components/pages/OnboardingModal';
 import SignInWeb3 from './components/pages/SignInWeb3';
@@ -229,13 +228,19 @@ function App() {
                       />
                     }
                   />
+                  {/* Upload entry points: the old addresses and the workspace's own
+                      all open the single upload workspace (UP-UX §4). */}
                   <Route
                     path="/creator-hub/upload"
-                    element={
-                      <CreatorHubRoute
-                        element={<VideoUpload />}
-                      />
-                    }
+                    element={<CreatorHubRoute element={<UploadEntry />} />}
+                  />
+                  <Route
+                    path="/creator-hub/uploads"
+                    element={<CreatorHubRoute element={<UploadEntry />} />}
+                  />
+                  <Route
+                    path="/creator-hub/uploads/:draftId"
+                    element={<CreatorHubRoute element={<UploadEntry />} />}
                   />
                   <Route
                     path="/creator-hub/analytics"
@@ -287,15 +292,7 @@ function App() {
                   />
                   <Route
                     path="/creator-hub/content-studio"
-                    element={
-                      <CreatorHubRoute
-                        element={
-                          <ChannelSelectionProvider>
-                            <ContentStudio />
-                          </ChannelSelectionProvider>
-                        }
-                      />
-                    }
+                    element={<CreatorHubRoute element={<UploadEntry />} />}
                   />
                   <Route
                     path="/creator-hub/nft-simulator"
