@@ -26,7 +26,7 @@ import { useDraftWorkspaceContext } from '../../../contexts/DraftWorkspaceContex
 import { useUploadQueueContext, useUploadSession } from '../../../contexts/UploadQueueContext';
 import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
 import type { WorkspaceDraft } from '../../../hooks/useDraftWorkspace';
-import { ChannelSelector } from '../../common/CreatorHub/ChannelSelector';
+import ChannelPicker from './ChannelPicker';
 import NoChannelView from '../../pages/CreatorHub/NoChannelView';
 import { UploadRow } from '../../pages/CreatorHub/ContentStudio';
 import { describeUploadError } from '../uploadCopy';
@@ -88,7 +88,7 @@ const UploadWorkspace: React.FC = () => {
   const workspace = useDraftWorkspaceContext();
   const queue = useUploadQueueContext();
   const session = useUploadSession();
-  const { channels, selectedChannelId, selectedChannel, isLoading: channelsLoading } = useChannelSelection();
+  const { channels, selectedChannelId, isLoading: channelsLoading } = useChannelSelection();
   const { draftId } = useParams<{ draftId?: string }>();
   const navigate = useNavigate();
   const online = useOnline();
@@ -347,45 +347,63 @@ const UploadWorkspace: React.FC = () => {
   );
 
   // ── start: one large target (AA `df-start` / `df-dropzone`) ──────────────
+  // The drop zone is the page: it takes the height of the screen, everything
+  // the creator needs before choosing files sits inside it, centred — what to
+  // do, the limits, and where the videos go.
   if (empty) {
     return (
-      <section className="mx-auto w-full max-w-5xl px-4 pb-16 pt-10 sm:px-6 sm:pt-14" aria-labelledby="upload-start-title">
-        <h1 id="upload-start-title" className="text-2xl font-semibold tracking-tight text-white">
+      <section
+        className="flex flex-col px-4 pb-8 pt-6 sm:px-8"
+        style={{ minHeight: `calc(100vh - ${HEADER_HEIGHT}px)` }}
+        aria-labelledby="upload-start-title"
+      >
+        <h1 id="upload-start-title" className="text-xl font-semibold text-white">
           {workspaceCopy.pageTitle}
         </h1>
-        <div className="mt-6 max-w-sm">
-          <span className="block text-xs font-medium text-gray-400">{workspaceCopy.destinationNext}</span>
-          <div className="mt-2">
-            <ChannelSelector />
-          </div>
-        </div>
         <div
           {...pageDrop}
-          className="mt-6 grid items-center gap-6 rounded-2xl border border-dashed px-8 py-10 transition-colors"
+          role="group"
+          aria-label={workspaceCopy.dropTitle}
+          className="mt-5 flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-12 text-center transition-colors"
           style={{
-            gridTemplateColumns: layout === 'compact' ? '1fr' : 'auto minmax(0, 1fr) auto',
-            textAlign: layout === 'compact' ? 'center' : 'left',
-            borderColor: dragActive ? '#fa7517' : 'rgba(250,117,23,0.45)',
-            background: `radial-gradient(circle at 10% 50%, rgba(250,117,23,${dragActive ? 0.14 : 0.07}), transparent 32%), #0f0f0f`,
+            minHeight: 420,
+            borderColor: dragActive ? '#fa7517' : 'rgba(255,255,255,0.14)',
+            background: dragActive
+              ? 'radial-gradient(ellipse at 50% 40%, rgba(250,117,23,0.16), transparent 60%), #0f0f0f'
+              : 'radial-gradient(ellipse at 50% 40%, rgba(250,117,23,0.06), transparent 55%), #0c0c0e',
           }}
         >
           <span
-            className="grid h-14 w-14 place-items-center rounded-full border text-2xl font-light text-[#fa7517]"
-            style={{ borderColor: 'rgba(250,117,23,0.4)', margin: layout === 'compact' ? '0 auto' : undefined }}
+            className="grid h-16 w-16 place-items-center rounded-full border text-[28px] font-light text-[#fa7517] transition-transform"
+            style={{
+              borderColor: 'rgba(250,117,23,0.45)',
+              transform: dragActive ? 'translateY(-4px)' : undefined,
+            }}
             aria-hidden="true"
           >
             ↑
           </span>
-          <div className="grid gap-1.5">
-            <strong className="text-xl font-semibold text-white">{workspaceCopy.dropTitle}</strong>
-            <p className="text-sm text-gray-400">{workspaceCopy.dropBody}</p>
-            <small className="text-[11px] font-medium text-gray-600">{workspaceCopy.formatNote}</small>
-          </div>
-          <button type="button" disabled={!channelId} onClick={() => addInputRef.current?.click()} className={PRIMARY}>
+          <strong className="mt-5 text-2xl font-semibold tracking-tight text-white">
+            {dragActive ? workspaceCopy.dropRelease : workspaceCopy.dropTitle}
+          </strong>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-gray-400">{workspaceCopy.dropBody}</p>
+          <button
+            type="button"
+            disabled={!channelId}
+            onClick={() => addInputRef.current?.click()}
+            className={`${PRIMARY} mt-6 min-h-[44px] px-6`}
+          >
             {workspaceCopy.chooseFiles}
           </button>
+          <small className="mt-3 text-xs text-gray-600">{workspaceCopy.formatNoteFull}</small>
+
+          <div className="mt-8 border-t border-white/10 pt-5">
+            {channels.length > 0 ? (
+              <ChannelPicker label={workspaceCopy.uploadingTo} />
+            ) : null}
+            {!channelId && <p className="mt-2 text-sm text-gray-500">{workspaceCopy.selectChannelBody}</p>}
+          </div>
         </div>
-        {!channelId && <p className="mt-3 text-sm text-gray-500">{workspaceCopy.selectChannelBody}</p>}
         {notice?.rejected.length ? <RejectedNotice notice={notice} onDismiss={() => setNotice(null)} /> : null}
         {hiddenInputs}
       </section>
@@ -405,15 +423,12 @@ const UploadWorkspace: React.FC = () => {
       </p>
 
       <header className="mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-3">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2">
           <h1 id="upload-workspace-title" className="text-xl font-semibold text-white">
             {workspaceCopy.pageTitle}
           </h1>
-          {selectedChannel && (
-            <span className="text-xs text-gray-500">
-              {workspaceCopy.destinationNext} <span className="text-gray-300">{selectedChannel.name}</span>
-            </span>
-          )}
+          {/* Changes where NEW videos go; each draft keeps its own channel. */}
+          <ChannelPicker label={workspaceCopy.destinationNext} />
         </div>
         <button
           ref={addButtonRef}
