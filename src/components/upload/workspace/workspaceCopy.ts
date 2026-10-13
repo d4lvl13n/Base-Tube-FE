@@ -88,7 +88,7 @@ export const workspaceCopy = {
   // ── thumbnail ────────────────────────────────────────────────────────────
   thumbnail: 'Thumbnail',
   thumbnailAutomatic: 'Automatic',
-  thumbnailImport: 'Upload image',
+  thumbnailImport: 'Upload',
   thumbnailAi: 'Create with AI',
   thumbnailNote: 'JPG or PNG, up to 5 MB. The automatic thumbnail is used if you choose nothing.',
   thumbnailUploading: 'Saving thumbnail…',

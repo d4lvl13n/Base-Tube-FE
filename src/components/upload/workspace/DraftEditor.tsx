@@ -43,6 +43,11 @@ const LINK_BUTTON =
 const QUIET_BUTTON =
   'inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 text-sm text-gray-300 transition-colors ' +
   'hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600';
+/** The AI tools are offered as real buttons, in view, never as a small link. */
+const AI_BUTTON =
+  'inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-[#fa7517]/40 bg-[#fa7517]/[0.08] px-3 text-sm ' +
+  'font-medium text-[#fa7517] transition-colors hover:border-[#fa7517]/70 hover:bg-[#fa7517]/[0.14] ' +
+  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
 const PRIMARY_BUTTON =
   'inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#fa7517] px-4 text-sm font-medium text-black ' +
   'transition-colors hover:bg-[#ff8c3a] disabled:cursor-not-allowed disabled:bg-[#fa7517]/30 disabled:text-black/60 ' +
@@ -521,32 +526,71 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
       )}
 
       <div className="mt-4 space-y-6">
-        <div ref={previewRef} className="min-w-0">
-          <MediaCard
-            draft={draft}
-            technical={technical}
-            presentation={previewMode === 'presentation'}
-            thumbnailUrl={thumbnailUrl}
-            serverPlaybackUrl={serverPreview?.playback?.url ?? null}
-            channelName={channel?.name ?? null}
-            channelImageUrl={channel?.channel_image_url ?? null}
-            action={mediaAction}
-            secondaryAction={
-              technical.action === 'verify_cancel' && entry
-                ? { label: workspaceCopy.cancel, primary: false, onClick: () => void queue.abortEntry(entry.localId) }
-                : null
-            }
-            message={fileMessage ?? actionMessage}
-          />
-          {fileInput}
-        </div>
+        {/* No video preview in the panel: the tile already shows the video.
+            Only when the file needs the creator does one line say so here,
+            with its action. */}
+        {(mediaAction || technical.tone === 'attention' || fileMessage || actionMessage) && (
+          <div
+            className={`rounded-md border px-3 py-2.5 ${
+              technical.tone === 'attention' ? 'border-yellow-500/25 bg-yellow-500/[0.05]' : 'border-white/10 bg-white/[0.03]'
+            }`}
+            aria-live="polite"
+          >
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <p className={`min-w-0 flex-1 text-sm ${technical.tone === 'attention' ? 'text-yellow-100' : 'text-gray-200'}`}>
+                {technical.tone === 'attention' && (
+                  <AlertCircle className="mr-1.5 inline h-4 w-4 align-[-3px] text-yellow-400" aria-hidden="true" />
+                )}
+                {technical.label}
+              </p>
+              {mediaAction && (
+                <button
+                  type="button"
+                  onClick={mediaAction.onClick}
+                  className={mediaAction.primary ? PRIMARY_BUTTON : QUIET_BUTTON}
+                >
+                  {mediaAction.label}
+                </button>
+              )}
+              {technical.action === 'verify_cancel' && entry && (
+                <button type="button" onClick={() => void queue.abortEntry(entry.localId)} className={QUIET_BUTTON}>
+                  {workspaceCopy.cancel}
+                </button>
+              )}
+            </div>
+            {technical.detail && <p className="mt-1 text-xs text-gray-400">{technical.detail}</p>}
+            {(fileMessage || actionMessage) && (
+              <p className="mt-1 text-xs text-yellow-300" role="alert">
+                {fileMessage ?? actionMessage}
+              </p>
+            )}
+          </div>
+        )}
+        {fileInput}
 
-        <div className="min-w-0 space-y-7">
+        {/* "Preview" shows the title and thumbnail as a viewer meets them, on request. */}
+        {previewMode === 'presentation' && (
+          <div ref={previewRef} className="mx-auto w-full max-w-sm">
+            <MediaCard
+              draft={draft}
+              technical={technical}
+              presentation
+              thumbnailUrl={thumbnailUrl}
+              serverPlaybackUrl={null}
+              channelName={channel?.name ?? null}
+              channelImageUrl={channel?.channel_image_url ?? null}
+              action={null}
+              secondaryAction={null}
+              message={null}
+            />
+          </div>
+        )}
+
+        <div className="min-w-0 space-y-6">
           <div>
             <label className={LABEL} htmlFor={`draft-title-${key}`}>
               {workspaceCopy.title}
             </label>
-            {/* The title field is the heading of the video: no second copy of it above. */}
             <input
               id={`draft-title-${key}`}
               type="text"
@@ -555,7 +599,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
               onBlur={() => workspace.commit(key)}
               aria-invalid={titleProblems.length > 0 ? true : undefined}
               aria-describedby={titleProblems.length > 0 ? `draft-title-problem-${key}` : undefined}
-              className={`mt-1.5 w-full rounded-md border bg-transparent px-3 py-2.5 text-lg font-semibold text-white
+              className={`mt-1.5 w-full rounded-md border bg-transparent px-3 py-2.5 text-base font-semibold text-white
                           placeholder:text-gray-600 transition-colors focus:outline-none focus-visible:ring-1 ${
                             titleProblems.length > 0
                               ? 'border-red-500/70 focus-visible:ring-red-500/60'
@@ -574,13 +618,31 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
             )}
           </div>
 
+          {/* Next to the title, so its AI tool is in view without scrolling. */}
+          <ThumbnailPicker
+            draft={draft}
+            previewUrl={thumbnailUrl}
+            onImport={(file) => {
+              setThumbnailNotice(null);
+              void workspace.chooseThumbnailFile(key, file, file.name, 'import').then((result) => setThumbnailNotice(result.message));
+            }}
+            onAutomatic={() => {
+              setThumbnailNotice(null);
+              workspace.chooseAutomaticThumbnail(key);
+            }}
+            onOpenAi={() => setIsThumbnailPanelOpen(true)}
+            onRetry={() => workspace.retryThumbnail(key)}
+            notice={thumbnailNotice}
+            stacked={layout === 'compact'}
+          />
+
           <div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <span className={LABEL} id={`draft-description-label-${key}`}>
                 {workspaceCopy.description}
               </span>
-              <button type="button" onClick={openAiAssistant} className={LINK_BUTTON}>
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              <button type="button" onClick={openAiAssistant} className={AI_BUTTON}>
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
                 {workspaceCopy.writeWithAi}
               </button>
             </div>
@@ -597,7 +659,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
                 onChange={(html) => workspace.edit(key, { description: hasEditorContent(html) ? html : null })}
                 className="w-full rounded-md border border-gray-800 bg-black/40 text-sm text-white"
                 placeholder="What is this video about?"
-                minHeight="110px"
+                minHeight="320px"
               />
             </div>
             {otherProblems.includes('DESCRIPTION_TOO_LONG') && (
@@ -627,23 +689,6 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
               </div>
             </div>
           )}
-
-          <ThumbnailPicker
-            draft={draft}
-            previewUrl={thumbnailUrl}
-            onImport={(file) => {
-              setThumbnailNotice(null);
-              void workspace.chooseThumbnailFile(key, file, file.name, 'import').then((result) => setThumbnailNotice(result.message));
-            }}
-            onAutomatic={() => {
-              setThumbnailNotice(null);
-              workspace.chooseAutomaticThumbnail(key);
-            }}
-            onOpenAi={() => setIsThumbnailPanelOpen(true)}
-            onRetry={() => workspace.retryThumbnail(key)}
-            notice={thumbnailNotice}
-            stacked={layout === 'compact'}
-          />
 
           <div className="border-t border-gray-800/60 pt-4">
             <button
@@ -770,7 +815,8 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
       {/* The inspector foot: the save state and the editorial state once, why
           Publish is unavailable (never only a disabled button), Publish for
           THIS video, and previous / next (AA `ig-inspector-nav`). */}
-      <footer className="border-t border-gray-800 bg-[#09090B] px-5 py-3" aria-label="Publication">
+      {/* Right padding keeps Publish clear of the site's floating help button. */}
+      <footer className="border-t border-gray-800 bg-[#09090B] py-3 pl-5 pr-20" aria-label="Publication">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           <span aria-live="polite">{saveLine}</span>
           <span

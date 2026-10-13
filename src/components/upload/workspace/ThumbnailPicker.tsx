@@ -17,7 +17,7 @@ interface ThumbnailPickerProps {
 }
 
 const SEGMENT =
-  'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 px-3 text-sm transition-colors ' +
+  'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-2.5 text-sm transition-colors ' +
   'focus-visible:relative focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
 
 /**
@@ -102,7 +102,13 @@ const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
                   type="button"
                   aria-pressed={active}
                   onClick={segment.onClick}
-                  className={`${SEGMENT} ${active ? 'bg-white/[0.08] text-white' : 'text-gray-400 hover:bg-white/[0.04] hover:text-white'}`}
+                  className={`${SEGMENT} ${
+                    active
+                      ? 'bg-white/[0.08] text-white'
+                      : segment.id === 'ai'
+                        ? 'text-[#fa7517] hover:bg-[#fa7517]/[0.08]'
+                        : 'text-gray-400 hover:bg-white/[0.04] hover:text-white'
+                  }`}
                 >
                   {segment.icon}
                   {segment.label}
