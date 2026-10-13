@@ -31,6 +31,7 @@ import DraftEditor from './DraftEditor';
 import DraftList from './DraftList';
 import { technicalState, type StatusContext } from './draftStatus';
 import { workspaceCopy } from './workspaceCopy';
+import { useWorkspaceLayout } from './useWorkspaceLayout';
 
 const ACCEPTED = '.mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo';
 
@@ -74,6 +75,12 @@ const UploadWorkspace: React.FC = () => {
   const selectedKey = workspace?.selectedKey ?? null;
   const selected = items.find((item) => item.key === selectedKey) ?? null;
   const multiple = items.length > 1;
+  const layout = useWorkspaceLayout();
+  // compact: the list only while no video is open; medium: a foldable list
+  // above the open video; wide: a column beside it (UP-UX §5.4).
+  const showList = !selected || (multiple && layout !== 'compact');
+  const listFoldable = !!selected && multiple && layout === 'medium';
+  const sideBySide = !!selected && multiple && layout === 'wide';
   const channelId = selectedChannelId ? Number(selectedChannelId) : 0;
   const channelById = useCallback(
     (id: number) => channels.find((channel) => Number(channel.id) === id),
@@ -361,58 +368,54 @@ const UploadWorkspace: React.FC = () => {
       )}
 
       {/* ── list and editor ───────────────────────────────────────────── */}
+      {/* Layout is chosen in JS (useWorkspaceLayout), never with responsive
+          display classes: a dependency's stylesheet overrides those. */}
       {items.length > 0 && (
         <div
-          className={`mt-6 ${
-            selected && multiple ? 'min-[1200px]:grid min-[1200px]:grid-cols-[18rem_minmax(0,1fr)] min-[1200px]:gap-6' : ''
-          }`}
+          className="mt-6"
+          style={
+            sideBySide
+              ? { display: 'grid', gridTemplateColumns: '18rem minmax(0, 1fr)', columnGap: '1.5rem', alignItems: 'start' }
+              : undefined
+          }
         >
-          {(!selected || multiple) && (
-            <div
-              className={
-                selected
-                  ? // With a video open: hidden below 768 px, folded 768–1199 px, a column from 1200 px.
-                    'hidden md:block'
-                  : 'block'
-              }
-            >
-              {selected && (
+          {showList && (
+            <div className="min-w-0">
+              {listFoldable && (
                 <button
                   type="button"
                   aria-expanded={listOpen}
                   aria-controls="upload-workspace-list"
                   onClick={() => setListOpen((open) => !open)}
-                  className="mb-2 hidden min-h-[44px] items-center gap-1.5 rounded-md px-3 text-sm text-gray-300
-                             hover:bg-white/5 md:inline-flex min-[1200px]:hidden"
+                  className="mb-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 text-sm text-gray-300 hover:bg-white/5"
                 >
                   {listOpen ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
                   {workspaceCopy.videosList} ({items.length})
                 </button>
               )}
-              <div
-                id="upload-workspace-list"
-                className={selected && !listOpen ? 'md:hidden min-[1200px]:block' : undefined}
-              >
-                <DraftList
-                  items={items}
-                  selectedKey={selectedKey}
-                  onSelect={select}
-                  statusContext={statusContext}
-                  thumbnailUrl={workspace.thumbnailPreviewUrl}
-                  channelName={(id) => channelById(id)?.name ?? null}
-                  showChannel={channels.length > 1}
-                  isReady={(key) => workspace.readiness(key).ready}
-                  hasMore={workspace.hasMore}
-                  onLoadMore={() => void workspace.loadMore()}
-                  rowRefs={rowRefs}
-                />
-                {!selected && (
-                  <>
-                    <div className="mt-6">{destination}</div>
-                    {selectedChannelId ? dropZone(true) : null}
-                  </>
-                )}
-              </div>
+              {(!listFoldable || listOpen) && (
+                <div id="upload-workspace-list" className={listFoldable ? 'mb-6' : undefined}>
+                  <DraftList
+                    items={items}
+                    selectedKey={selectedKey}
+                    onSelect={select}
+                    statusContext={statusContext}
+                    thumbnailUrl={workspace.thumbnailPreviewUrl}
+                    channelName={(id) => channelById(id)?.name ?? null}
+                    showChannel={channels.length > 1}
+                    isReady={(key) => workspace.readiness(key).ready}
+                    hasMore={workspace.hasMore}
+                    onLoadMore={() => void workspace.loadMore()}
+                    rowRefs={rowRefs}
+                  />
+                  {!selected && (
+                    <>
+                      <div className="mt-6">{destination}</div>
+                      {selectedChannelId ? dropZone(true) : null}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -424,6 +427,7 @@ const UploadWorkspace: React.FC = () => {
                 workspace={workspace}
                 technical={technicalState(selected, statusContext(selected))}
                 channel={channelById(selected.record.channelId)}
+                layout={layout}
                 onBack={backToList}
                 onClose={backToList}
                 onAnnounce={setAnnouncement}

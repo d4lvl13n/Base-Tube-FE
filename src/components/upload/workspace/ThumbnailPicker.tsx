@@ -16,6 +16,8 @@ interface ThumbnailPickerProps {
   onRetry: () => void;
   /** A one-off sentence from the last choice (a refused file, a browser that will not keep it). */
   notice: string | null;
+  /** Image above the choices (small screens) rather than beside them. */
+  stacked: boolean;
 }
 
 /**
@@ -31,6 +33,7 @@ const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
   onOpenAi,
   onRetry,
   notice,
+  stacked,
 }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const choice = draft.record.thumbnail;
@@ -80,8 +83,14 @@ const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
       <span className="block text-xs font-medium text-gray-400" id={`thumbnail-${draft.key}`}>
         {workspaceCopy.thumbnail}
       </span>
-      <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start">
-        <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded border border-gray-800 bg-black sm:w-40">
+      <div
+        className="mt-2 flex gap-3"
+        style={{ flexDirection: stacked ? 'column' : 'row', alignItems: stacked ? 'stretch' : 'flex-start' }}
+      >
+        <div
+          className="relative aspect-video shrink-0 overflow-hidden rounded border border-gray-800 bg-black"
+          style={{ width: stacked ? '100%' : '10rem' }}
+        >
           {previewUrl ? (
             <img src={previewUrl} alt="Selected thumbnail" className="h-full w-full object-cover" />
           ) : (

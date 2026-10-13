@@ -24,6 +24,7 @@ import AIThumbnailPanel from '../../common/AIThumbnailPanel';
 import RichTextEditor from '../../common/RichTextEditor';
 import DraftPreview, { type PreviewMode } from './DraftPreview';
 import ThumbnailPicker from './ThumbnailPicker';
+import type { WorkspaceLayout } from './useWorkspaceLayout';
 import { displayTitle, editorialLabel, isPublished, type TechnicalState } from './draftStatus';
 import { fieldProblemCopy, localBlockerCopy, serverBlockerCopy, workspaceCopy } from './workspaceCopy';
 
@@ -77,6 +78,7 @@ interface DraftEditorProps {
   workspace: DraftWorkspaceApi;
   technical: TechnicalState;
   channel: Channel | undefined;
+  layout: WorkspaceLayout;
   onBack: () => void;
   onClose: () => void;
   onAnnounce: (message: string) => void;
@@ -95,6 +97,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
   workspace,
   technical,
   channel,
+  layout,
   onBack,
   onClose,
   onAnnounce,
@@ -453,10 +456,12 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
   return (
     <article aria-label={title} className="min-w-0">
       {/* Below 768 px the list and the editor are two views: an explicit way back. */}
-      <button type="button" onClick={onBack} className={`${QUIET_BUTTON} -ml-3 mb-2 md:hidden`}>
+      {layout === 'compact' && (
+      <button type="button" onClick={onBack} className={`${QUIET_BUTTON} -ml-3 mb-2`}>
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         {workspaceCopy.back}
       </button>
+      )}
 
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
@@ -548,7 +553,11 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
         </section>
       )}
 
-      <div className="mt-5 grid gap-6 min-[1200px]:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div
+        className="mt-5 grid gap-6"
+        // Side by side only in the wide layout; inline, so no stylesheet can override it.
+        style={layout === 'wide' ? { gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)' } : undefined}
+      >
         <div ref={previewRef} className="min-w-0">
           <DraftPreview
             draft={draft}
@@ -657,6 +666,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
             onOpenAi={() => setIsThumbnailPanelOpen(true)}
             onRetry={() => workspace.retryThumbnail(key)}
             notice={thumbnailNotice}
+            stacked={layout === 'compact'}
           />
 
           <div className="border-t border-gray-800/60 pt-4">

@@ -213,7 +213,9 @@ function isLostAnswer(error: unknown): boolean {
 
 /** `DRAFT_NOT_FOUND` (404, also a foreign draft) or `DRAFT_DELETED` (410): the draft is gone for this account. */
 function isGoneError(error: unknown): boolean {
-  return error instanceof UploadApiError && (error.status === 404 || error.status === 410);
+  return error instanceof UploadApiError &&
+    ((error.status === 404 && error.code === DRAFT_ERROR_CODES.notFound) ||
+      (error.status === 410 && error.code === DRAFT_ERROR_CODES.deleted));
 }
 
 function errorCode(error: unknown): string | null {
@@ -225,7 +227,9 @@ export function describeDraftError(error: unknown): string {
   if (error instanceof AuthenticationRequiredError) return 'Sign in again to continue. Your changes are kept.';
   if (error instanceof UploadApiError) {
     if (error.status === 403) return 'This account cannot change this draft.';
-    if (error.status === 404 || error.status === 410) return 'This draft no longer exists.';
+    if (isGoneError(error)) return 'This draft no longer exists.';
+    if (error.status === 404) return 'The upload service is unavailable. Your changes are kept — try again later.';
+    if (error.code === DRAFT_ERROR_CODES.uploadExpired) return 'This upload expired. Your details are kept — send the file again.';
     return describeUploadError(error.code, error.message);
   }
   return 'Something went wrong. Your changes are kept — try again.';
@@ -318,7 +322,10 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
   }, []);
 
   const run = useCallback(
-    <T,>(call: () => Promise<T>): Promise<T> => (recovery ? recovery.run(call) : call()),
+    <T,>(call: () => Promise<T>): Promise<T> => {
+      if (!mountedRef.current) return Promise.reject(new AuthenticationRequiredError());
+      return recovery ? recovery.run(call) : call();
+    },
     [recovery],
   );
 
@@ -336,6 +343,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
   /** Writes a record to memory at once and to the device store; reports a failed local write. */
   const putRecord = useCallback(
     async (record: DraftWorkspaceRecord) => {
+      if (!mountedRef.current) return;
       const next = { ...record, updatedAt: nowIso() };
       recordsRef.current.set(next.clientDraftId, next);
       bump();
@@ -365,10 +373,28 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
    * pending fields keep the creator's text.
    */
   const applyServerView = useCallback(
-    async (key: string, view: CreatorDraftView, sent?: DraftFieldPatch) => {
+    async (key: string, view: CreatorDraftView, sent?: DraftFieldPatch, observation = false) => {
       const record = rec(key);
-      if (!record) return;
+      if (!record || !mountedRef.current) return;
+      // Wait for our own write acknowledgement before interpreting a concurrent read.
+      if (observation && (rt(key).save === 'saving' || record.thumbnail?.status === 'selecting' ||
+        ['publishing', 'verifying'].includes(rt(key).publish))) return;
       if (record.server && view.revision < record.server.revision) return;
+      // A background read must not silently advance the revision used by an
+      // unsaved edit and thereby bypass the backend conflict check.
+      if (observation && record.server && view.revision > record.server.revision) {
+        const edited = record.pending ?? {};
+        const fieldsChanged = Object.keys(edited).some((field) => {
+          const name = field as keyof DraftFieldPatch;
+          return JSON.stringify(record.server![name]) !== JSON.stringify(view[name]);
+        });
+        const thumbnailChanged = record.thumbnail && record.thumbnail.status !== 'selected' &&
+          record.server.thumbnail.assetId !== view.thumbnail.assetId;
+        if (fieldsChanged || thumbnailChanged) {
+          setRuntime(key, { save: 'conflict', conflict: view, saveError: null });
+          return;
+        }
+      }
       const pending = sent ? remainingAfterAck(record.pending, sent) : record.pending;
       await putRecord({
         ...record,
@@ -378,7 +404,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
         desired: visibleFields(view, pending),
       });
     },
-    [putRecord, rec],
+    [putRecord, rec, rt, setRuntime],
   );
 
   /** Serialises every mutation of one draft. */
@@ -761,6 +787,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
 
   const removeLocal = useCallback(
     async (key: string) => {
+      if (!mountedRef.current) return;
       const record = rec(key);
       recordsRef.current.delete(key);
       runtimeRef.current.delete(key);
@@ -789,17 +816,18 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
         const record = rec(key);
         if (!record || record.draftId) return;
         setRuntime(key, { create: 'creating', createError: null });
+        const creationBody = record.creationBody ?? {
+          clientDraftId: key,
+          channelId: record.channelId,
+          title: record.desired.title.trim() || filenameStem(record.filename ?? 'Untitled video'),
+          description: record.desired.description,
+          tags: record.desired.tags,
+        };
+        if (!record.creationBody) await putRecord({ ...record, creationBody });
+        if (!mountedRef.current) return;
         let view: CreatorDraftView;
         try {
-          const result = await run(() =>
-            draftsApi.create({
-              clientDraftId: key,
-              channelId: record.channelId,
-              title: record.desired.title.trim() || filenameStem(record.filename ?? 'Untitled video'),
-              description: record.desired.description,
-              tags: record.desired.tags,
-            }),
-          );
+          const result = await run(() => draftsApi.create(creationBody));
           view = result.draft;
         } catch (error) {
           if (isAuthenticationRefusal(error)) {
@@ -853,7 +881,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
       refreshing.current.add(key);
       try {
         const view = await run(() => draftsApi.get(record.draftId as string));
-        await applyServerView(key, view);
+        await applyServerView(key, view, undefined, true);
         if (rt(key).gone) setRuntime(key, { gone: false });
       } catch (error) {
         if (isGoneError(error)) setRuntime(key, { gone: true });
@@ -871,7 +899,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
         const existing = Array.from(recordsRef.current.values()).find((record) => record.draftId === view.id);
         if (existing) {
           // eslint-disable-next-line no-await-in-loop
-          await applyServerView(existing.clientDraftId, view);
+          await applyServerView(existing.clientDraftId, view, undefined, true);
           continue;
         }
         const key = `${SERVER_KEY_PREFIX}${view.id}`;
@@ -972,7 +1000,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
             // eslint-disable-next-line no-await-in-loop
             const view = await run(() => draftsApi.get(record.draftId as string));
             // eslint-disable-next-line no-await-in-loop
-            await applyServerView(record.clientDraftId, view);
+            await applyServerView(record.clientDraftId, view, undefined, true);
           } catch (error) {
             // Deleted elsewhere: nothing local is worth keeping for a draft that is gone.
             if (isGoneError(error)) {

@@ -14,6 +14,7 @@
 import {
   NON_DURABLE_NAMESPACES,
   type CreatorDraftView,
+  type CreateDraftBody,
   type DraftEditableFields,
   type DraftFieldPatch,
   type DraftPublicationState,
@@ -51,6 +52,8 @@ export interface DraftWorkspaceRecord {
   clientDraftId: string;
   /** Server draft id once `POST /creator-drafts` answered. */
   draftId: string | null;
+  /** Immutable first POST body: retries must never reuse its identity with changed fields. */
+  creationBody?: CreateDraftBody;
   /** Fixed at creation (UP-BE §4.5). */
   channelId: number;
   /** Original filename, for the list before a title exists. */

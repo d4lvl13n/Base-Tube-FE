@@ -167,6 +167,8 @@ export interface UseUploadQueueOptions {
   sessionRecovery?: SessionRecovery;
   /** Cross-tab lease per attempt (UP-UX §10). Without it, this tab transfers alone as before. */
   lease?: AttemptLease;
+  /** True when this queue must not transfer until `lease` exists (every durable account). */
+  waitForLease?: boolean;
 }
 
 /** A draft-bound attempt's identities, as the queue stores them. */
@@ -844,16 +846,23 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   }, []);
 
   const startEntry = useCallback(
-    (entry: UploadQueueEntry) => {
+    async (entry: UploadQueueEntry) => {
       if (activeIdsRef.current.has(entry.localId)) return;
+      activeIdsRef.current.add(entry.localId);
       // Another tab of this account owns this attempt: it shows as such and
       // the scheduler looks again when that lease moves or expires.
-      if (lease && !lease.tryAcquire(entry.clientAttemptId)) {
+      if (lease && !(await lease.tryAcquire(entry.clientAttemptId))) {
+        activeIdsRef.current.delete(entry.localId);
         markHeldElsewhere(entry.localId, true);
+        if (mountedRef.current) setSchedulerRevision((value) => value + 1);
+        return;
+      }
+      if (!mountedRef.current || abortingIdsRef.current.has(entry.localId)) {
+        activeIdsRef.current.delete(entry.localId);
+        lease?.release(entry.clientAttemptId);
         return;
       }
       markHeldElsewhere(entry.localId, false);
-      activeIdsRef.current.add(entry.localId);
       const controller = new AbortController();
       controllersRef.current.set(entry.localId, controller);
 
@@ -971,14 +980,16 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
     [api, draftsApi, flushMetadata, lease, markHeldElsewhere, recovery, transferDeps, updateEntry],
   );
 
-  /** Frees the rows whose other-tab lease has ended, then lets the scheduler look again. */
+  /**
+   * Lets the scheduler ask again for every row marked "in another tab".
+   * `tryAcquire` is the authority (a browser lock when available): a stale
+   * localStorage record left by a closed or reloaded page must not keep a row
+   * marked, so markers are cleared and re-set only by a refused acquisition.
+   */
   const recheckHeldElsewhere = useCallback(() => {
-    for (const localId of Array.from(heldElsewhereRef.current)) {
-      const entry = entriesRef.current.find((candidate) => candidate.localId === localId);
-      if (!entry || !lease?.heldElsewhere(entry.clientAttemptId)) markHeldElsewhere(localId, false);
-    }
+    for (const localId of Array.from(heldElsewhereRef.current)) markHeldElsewhere(localId, false);
     if (mountedRef.current) setSchedulerRevision((value) => value + 1);
-  }, [lease, markHeldElsewhere]);
+  }, [markHeldElsewhere]);
 
   // ── cross-tab lease: react when another tab releases, expires or takes over ──
   useEffect(() => {
@@ -1047,7 +1058,8 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
   // ── scheduler ────────────────────────────────────────────────────────────
   useEffect(() => {
     // A refused session starts nothing new: every call would be refused too.
-    if (!hydrated || paused || authRequired) return;
+    // A durable account waits for its cross-tab lease before moving any byte.
+    if (!hydrated || paused || authRequired || (options.waitForLease && !lease)) return;
     const candidates = selectQueueCandidates(
       // Once the `Video` row exists there is nothing left to transfer, and a
       // reload hydrates such a row as `uploaded` — without this guard the
@@ -1064,7 +1076,7 @@ export function useUploadQueue(options: UseUploadQueueOptions = {}): UploadQueue
       abortingIdsRef.current,
     );
     for (const entry of candidates) startEntry(entry);
-  }, [admissionProbe, admissionRetryAt, authRequired, entries, hydrated, paused, schedulerRevision, startEntry]);
+  }, [admissionProbe, admissionRetryAt, authRequired, entries, hydrated, lease, options.waitForLease, paused, schedulerRevision, startEntry]);
 
   // Wake the scheduler when the earliest retry deadline comes due.
   useEffect(() => {

@@ -28,7 +28,7 @@ interface LeaseRecord {
 
 export interface AttemptLease {
   /** Takes (or keeps) the lease. False when another live tab holds it. */
-  tryAcquire: (attemptId: string) => boolean;
+  tryAcquire: (attemptId: string) => boolean | Promise<boolean>;
   release: (attemptId: string) => void;
   /** True when another live tab holds the lease right now. */
   heldElsewhere: (attemptId: string) => boolean;
@@ -55,6 +55,11 @@ export function createAttemptLease(namespace: string): AttemptLease {
   const tabId = crypto.randomUUID();
   const prefix = `bt.uploadLease.${namespace.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128)}.`;
   const held = new Set<string>();
+  // Hold a browser-managed lock for the entire transfer. localStorage alone
+  // cannot atomically compare and claim across two tabs.
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  const releases = new Map<string, () => void>();
+  let disposed = false;
   const listeners = new Set<(event: { type: 'changed' } | { type: 'lost'; attemptId: string }) => void>();
   const usable = storageAvailable();
   const channel =
@@ -111,6 +116,22 @@ export function createAttemptLease(namespace: string): AttemptLease {
 
   return {
     tryAcquire(attemptId) {
+      if (disposed) return false;
+      if (releases.has(attemptId)) return true;
+      if (locks) {
+        return new Promise<boolean>((resolve) => {
+          void locks.request(prefix + attemptId, { ifAvailable: true }, async (lock) => {
+            if (!lock || disposed) { resolve(false); return; }
+            // Register release before signalling acquisition to the scheduler.
+            await new Promise<void>((release) => {
+              releases.set(attemptId, release);
+              held.add(attemptId);
+              if (usable) write(attemptId);
+              resolve(true);
+            });
+          }).catch(() => resolve(false));
+        });
+      }
       if (!usable) return true;
       if (otherLive(attemptId)) return false;
       write(attemptId);
@@ -121,6 +142,9 @@ export function createAttemptLease(namespace: string): AttemptLease {
     },
 
     release(attemptId) {
+      const releaseLock = releases.get(attemptId);
+      releases.delete(attemptId);
+      releaseLock?.();
       if (!held.delete(attemptId) || !usable) return;
       try {
         const record = read(attemptId);
@@ -141,6 +165,7 @@ export function createAttemptLease(namespace: string): AttemptLease {
     },
 
     dispose() {
+      disposed = true;
       if (renewTimer) clearInterval(renewTimer);
       for (const attemptId of Array.from(held)) this.release(attemptId);
       if (usable) window.removeEventListener('storage', onStorage);

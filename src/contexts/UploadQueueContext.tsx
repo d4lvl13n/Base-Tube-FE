@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
 import { useAuth } from './AuthContext';
@@ -17,7 +17,7 @@ import {
   isUploadRoute,
 } from '../components/upload/backgroundUploadNotice';
 import { createWebSessionRecovery, requestReauthentication } from '../lib/uploads/sessionRecovery';
-import { createAttemptLease } from '../lib/uploads/attemptLease';
+import { createAttemptLease, type AttemptLease } from '../lib/uploads/attemptLease';
 import { DraftWorkspaceBoundary } from './DraftWorkspaceContext';
 
 const UploadQueueContext = createContext<UploadQueueApi | null>(null);
@@ -98,13 +98,23 @@ const UploadQueueProviderInner: React.FC<{
   // One recovery and one lease per account subtree: a refused session or a
   // held attempt never carries over to the next account on this browser.
   const recovery = useMemo(() => createWebSessionRecovery(), []);
-  const lease = useMemo(
-    () => (NON_DURABLE_NAMESPACES.has(storageNamespace) ? undefined : createAttemptLease(storageNamespace)),
-    [storageNamespace],
-  );
-  useEffect(() => () => lease?.dispose(), [lease]);
+  // Created and disposed by the SAME effect: React StrictMode mounts, unmounts
+  // and remounts in development, and a lease disposed by a stray cleanup used
+  // to refuse every attempt ("Sending in another BaseTube tab" for good).
+  const durable = !NON_DURABLE_NAMESPACES.has(storageNamespace);
+  const [lease, setLease] = useState<AttemptLease | undefined>(undefined);
+  useEffect(() => {
+    if (!durable) return undefined;
+    const created = createAttemptLease(storageNamespace);
+    setLease(created);
+    return () => {
+      created.dispose();
+      setLease((current) => (current === created ? undefined : current));
+    };
+  }, [durable, storageNamespace]);
 
-  const queue = useUploadQueue({ storageNamespace, sessionRecovery: recovery, lease });
+  // A durable account never transfers without its lease: the queue waits for it.
+  const queue = useUploadQueue({ storageNamespace, sessionRecovery: recovery, lease, waitForLease: durable });
   const location = useLocation();
   const uploading = queue.entries.some((entry) =>
     (BYTES_IN_FLIGHT_STATUSES as readonly string[]).includes(entry.status),
