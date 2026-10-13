@@ -150,7 +150,10 @@ const UploadWorkspace: React.FC = () => {
     if (!openDraft || !selectDraft || !hydrated) return undefined;
     if (!draftId) {
       // Bare address: close, unless it is the new video still waiting for its id.
-      if (workspace?.selectedKey && workspace.selectedKey !== pendingKeyRef.current) selectDraft(null);
+      // Always called, even with nothing open: it also cancels an opening still
+      // loading, which would otherwise select its draft under the bare address.
+      const keep = workspace?.selectedKey && workspace.selectedKey === pendingKeyRef.current ? workspace.selectedKey : null;
+      selectDraft(keep);
       return undefined;
     }
     pendingKeyRef.current = null;

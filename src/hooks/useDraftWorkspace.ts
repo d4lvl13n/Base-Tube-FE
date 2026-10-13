@@ -310,6 +310,10 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
   const thumbnailUploadsRef = useRef(new Set<string>());
   /** Blobs chosen in this tab, so the first upload does not wait on IndexedDB. */
   const memoryBlobsRef = useRef(new Map<string, Blob>());
+  /** Last thumbnail choice number handed out per draft, reserved before any await. */
+  const thumbnailSeqRef = useRef(new Map<string, number>());
+  /** Bumped by every selection or opening: an opening that finishes late selects nothing. */
+  const selectionGenRef = useRef(0);
 
   const bump = useCallback(() => {
     if (mountedRef.current) setVersion((value) => value + 1);
@@ -550,6 +554,16 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
   flushSaveRef.current = flushSave;
 
   // ── thumbnails ────────────────────────────────────────────────────────────
+
+  /** Hands out the next thumbnail choice number for a draft, at once and only once. */
+  const reserveThumbnailSeq = useCallback(
+    (key: string): number => {
+      const next = Math.max(thumbnailSeqRef.current.get(key) ?? 0, rec(key)?.thumbnail?.seq ?? 0) + 1;
+      thumbnailSeqRef.current.set(key, next);
+      return next;
+    },
+    [rec],
+  );
 
   /** Applies a patch to the thumbnail choice only if it is still choice `seq` (the latest wins). */
   const updateThumbnail = useCallback(
@@ -1250,6 +1264,9 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
       const record = rec(key);
       let server = rt(key).conflict;
       if (!record?.draftId) return;
+      // Reloading cancels the thumbnail choices made before it (their number is
+      // now old); a choice made after the click is a new wish and is kept.
+      const reloadSeq = choice === 'reload' ? reserveThumbnailSeq(key) : 0;
       if (!server) {
         try {
           server = await run(() => draftsApi.get(record.draftId as string));
@@ -1269,9 +1286,9 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
           server,
           pending: null,
           desired: { title: server.title, description: server.description, tags: server.tags },
-          thumbnail: null,
+          thumbnail: (latest.thumbnail?.seq ?? 0) > reloadSeq ? latest.thumbnail : null,
         });
-        setPreview(key, null);
+        if ((latest.thumbnail?.seq ?? 0) <= reloadSeq) setPreview(key, null);
         setRuntime(key, { save: 'idle', saveError: null, conflict: null });
         return;
       }
@@ -1282,20 +1299,27 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
       if (pending) await flushSave(key);
       if (latest.thumbnail && latest.thumbnail.status !== 'selected') void processThumbnail(key);
     },
-    [draftsApi, flushSave, processThumbnail, putRecord, rec, rt, run, setPreview, setRuntime],
+    [draftsApi, flushSave, processThumbnail, putRecord, rec, reserveThumbnailSeq, rt, run, setPreview, setRuntime],
   );
 
   const chooseThumbnailFile = useCallback(
     async (key: string, image: Blob, filename: string, source: 'import' | 'ai'): Promise<ThumbnailChoiceResult> => {
-      const record = rec(key);
-      if (!record) return { ok: false, message: 'This draft is no longer open.' };
+      if (!rec(key)) return { ok: false, message: 'This draft is no longer open.' };
+      // A refused imported file is refused before it takes a number, so it never
+      // cancels a valid choice still being stored.
+      if (source === 'import') {
+        if (!THUMBNAIL_TYPES.includes(image.type)) return { ok: false, message: 'Choose a JPG or PNG image.' };
+        if (image.size > THUMBNAIL_MAX_BYTES) return { ok: false, message: 'This image is over the 5 MB limit.' };
+      }
+      // The number is reserved now, before any await: two quick choices never
+      // share one, and only the last one asked for is kept.
+      const seq = reserveThumbnailSeq(key);
       const accepted = source === 'ai' ? await asAcceptedImage(image) : image;
       if (!accepted || !THUMBNAIL_TYPES.includes(accepted.type)) {
         return { ok: false, message: 'Choose a JPG or PNG image.' };
       }
       if (accepted.size > THUMBNAIL_MAX_BYTES) return { ok: false, message: 'This image is over the 5 MB limit.' };
-      const latest = rec(key) ?? record;
-      const seq = (latest.thumbnail?.seq ?? 0) + 1;
+      if (thumbnailSeqRef.current.get(key) !== seq) return { ok: false, message: null };
       const clientAssetId = crypto.randomUUID();
       const blobKey = `${key}:${clientAssetId}`;
       memoryBlobsRef.current.set(blobKey, accepted);
@@ -1308,10 +1332,10 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
       }
       // Re-read after the awaits: a title typed or a save confirmed while the
       // image was being stored must survive. Only the thumbnail changes here,
-      // and a choice made meanwhile (higher seq) is not overwritten.
+      // and a choice asked for meanwhile (a later number) wins.
       const current = rec(key);
       if (!current) return { ok: false, message: 'This draft is no longer open.' };
-      if ((current.thumbnail?.seq ?? 0) >= seq) {
+      if (thumbnailSeqRef.current.get(key) !== seq || (current.thumbnail?.seq ?? 0) >= seq) {
         memoryBlobsRef.current.delete(blobKey);
         void storeRef.current.removeBlob(blobKey).catch(() => undefined);
         return { ok: false, message: null };
@@ -1346,7 +1370,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
           : 'This browser will not keep the image if the page reloads before it is saved.',
       };
     },
-    [processThumbnail, putRecord, rec, setPreview],
+    [processThumbnail, putRecord, rec, reserveThumbnailSeq, setPreview],
   );
 
   const chooseAutomaticThumbnail = useCallback(
@@ -1357,7 +1381,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
       void putRecord({
         ...record,
         thumbnail: {
-          seq: (record.thumbnail?.seq ?? 0) + 1,
+          seq: reserveThumbnailSeq(key),
           kind: 'automatic',
           source: 'automatic',
           clientAssetId: null,
@@ -1376,7 +1400,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
         void storeRef.current.removeBlob(previousBlob).catch(() => undefined);
       }
     },
-    [processThumbnail, putRecord, rec, setPreview],
+    [processThumbnail, putRecord, rec, reserveThumbnailSeq, setPreview],
   );
 
   const retryThumbnail = useCallback((key: string) => void processThumbnail(key), [processThumbnail]);
@@ -1668,13 +1692,22 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
     [putRecord, rec],
   );
 
+  /** Selects a draft in this tab (or none), and cancels any opening still loading. */
+  const select = useCallback((key: string | null) => {
+    selectionGenRef.current += 1;
+    setSelectedKey(key);
+  }, []);
+
   /** Opens a draft by its server id (a bookmark, "Continue preparing"), loading it if needed. */
   const open = useCallback(
     async (draftId: string): Promise<string | null> => {
+      // This opening owns the selection until another selection or opening
+      // starts; if one does while the draft loads, the answer selects nothing.
+      const generation = ++selectionGenRef.current;
       const known = Array.from(recordsRef.current.values()).find((record) => record.draftId === draftId);
       if (known) {
         if (known.dismissed) await putRecord({ ...known, dismissed: false });
-        setSelectedKey(known.clientDraftId);
+        if (selectionGenRef.current === generation) setSelectedKey(known.clientDraftId);
         return known.clientDraftId;
       }
       try {
@@ -1682,7 +1715,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
         await mergeServerViews([view]);
         const loaded = Array.from(recordsRef.current.values()).find((record) => record.draftId === draftId);
         if (!loaded) return null;
-        setSelectedKey(loaded.clientDraftId);
+        if (selectionGenRef.current === generation) setSelectedKey(loaded.clientDraftId);
         return loaded.clientDraftId;
       } catch {
         return null;
@@ -1768,7 +1801,7 @@ export function useDraftWorkspace(options: Options): DraftWorkspaceApi {
     hasMore: nextCursor !== null,
     loadMore,
     selectedKey,
-    select: setSelectedKey,
+    select,
     open,
     findByDraftId,
     addFiles,
