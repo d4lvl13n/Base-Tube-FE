@@ -11,7 +11,9 @@ function gtag(): Gtag | null {
 
 /** A GA4 event; `beacon` so it is still sent when the page leaves right after (Stripe Checkout). */
 export function trackEvent(name: string, params: Record<string, unknown> = {}) {
-  gtag()?.('event', name, { ...params, transport_type: 'beacon' });
+  try {
+    gtag()?.('event', name, { ...params, transport_type: 'beacon' });
+  } catch { /* Analytics must never interrupt a purchase or an account action. */ }
 }
 
 /**
