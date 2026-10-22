@@ -179,3 +179,9 @@ describe("request-rate limits (uploads, imports, exports, YouTube source)", () =
     expect(studioError({ response: { status: 429, headers: { "retry-after": "30" }, data: {} } }).message).toBe("Too many requests — try again in 30 seconds.");
   });
 });
+it("creates and starts with the displayed total and the persistent request key", async () => {
+  const body = { briefInput: studioProject().currentRevision.briefInput, generation: { conceptCount: 1, quality: 'standard' as const, expectedCredits: 15 } };
+  http.post.mockResolvedValue({ data: { success: true, data: { projectId, operationId } } });
+  expect(await thumbnailStudioApi.createGeneration(body, 'create-request')).toEqual({ projectId, operationId });
+  expect(http.post).toHaveBeenCalledWith('/api/v1/thumbnail-studio/projects/generate', body, { headers: { 'Idempotency-Key': 'create-request' } });
+});

@@ -510,7 +510,7 @@ it("refines the chosen version large, with the tools as tabs under it and Downlo
   open();
   fireEvent.click(await screen.findByRole("button", { name: "Refine" }));
   const refine = screen.getByRole("region", { name: "Refine this version" });
-  expect(within(refine).getByRole("img", { name: "Version 1" })).toBeInTheDocument();
+  expect(within(refine).getByRole("img", { name: "Version version-one" })).toBeInTheDocument();
   const tabs = within(refine).getAllByRole("tab").map((tab) => tab.textContent);
   expect(tabs).toEqual(["Text", "Change something", "Audit"]);
   expect(within(refine).getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true");
@@ -551,7 +551,7 @@ it("keeps a running edit in the list with a way back to its version when the ver
   expect(running.closest(".studio-refine")).not.toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "1. Brief" }));
   expect(within(work()).getByText("Use a dark blue background")).toBeInTheDocument();
-  fireEvent.click(within(work()).getByRole("button", { name: "Open Version 1 to follow this edit next to it" }));
+  fireEvent.click(within(work()).getByRole("button", { name: "Open Version version-one to follow this edit next to it" }));
   const back = await screen.findByRole("region", { name: "Studio operation" });
   expect(back.closest(".studio-refine")).not.toBeNull();
   await waitFor(() => expect(within(back).getByRole("heading", { name: "In progress" })).toHaveFocus());
@@ -594,22 +594,25 @@ it("downloads the refined version free from its toolbar, in the chosen format, w
   expect(api.quote).not.toHaveBeenCalled();
   expect(api.start).not.toHaveBeenCalled();
 });
-it("lands a generation started on /generate on step 2 and starts it once at the price that button showed", async () => {
+it("never launches paid work from a stale navigation entry", async () => {
   project.versions = [];
   api.project.mockResolvedValue(project);
   open({ state: { studioEntry: { startGeneration: true, conceptCount: 2, quality: "high", generationCredits: 30 } } });
-  await waitFor(() => expect(api.start).toHaveBeenCalledTimes(1));
-  expect(api.quote).toHaveBeenCalledTimes(1);
-  expect(api.quote.mock.calls[0][0].items).toHaveLength(2);
-  expect(await screen.findByRole("region", { name: "Your brief" })).toHaveTextContent("A real video");
-  expect(screen.getByRole("button", { name: "2. Choose" })).toHaveAttribute("aria-current", "step");
-  expect(await screen.findByText(/Your concepts are being created/)).toBeInTheDocument();
-  expect(within(work()).getByRole("heading", { name: "In progress" })).toBeInTheDocument();
-  expect(screen.getByLabelText(/Video title or idea/)).not.toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Edit brief" }));
-  expect(screen.getByLabelText(/Video title or idea/)).toBeVisible();
-  expect(api.quote).toHaveBeenCalledTimes(1);
-  expect(api.start).toHaveBeenCalledTimes(1);
+  await screen.findByRole("region", { name: "Your brief" });
+  expect(api.quote).not.toHaveBeenCalled();
+  expect(api.start).not.toHaveBeenCalled();
+});
+it("restores the saved generation count, quality and brief after reopening", async () => {
+  project.versions = [];
+  project.lastGeneration = { operationId: "saved-job", revisionId: "saved-revision", conceptCount: 1, quality: "standard", briefInput: { ...project.currentRevision.briefInput, videoTitle: "Original instructions" } };
+  api.project.mockResolvedValue(project);
+  open();
+  await screen.findByLabelText(/Video title or idea/);
+  fireEvent.click(screen.getByRole("button", { name: "2. Choose" }));
+  const brief = await screen.findByRole("region", { name: "Your brief" });
+  expect(brief).toHaveTextContent("1 concept · Standard quality");
+  expect(brief).toHaveTextContent("Original instructions");
+  expect(api.start).not.toHaveBeenCalled();
 });
 it("does not start from /generate when the balance does not cover it, and says why", async () => {
   require("../../../../api/ctr").ctrApi.getQuota.mockResolvedValue(credits(5));
@@ -709,4 +712,19 @@ it("shows the server's export advice instead of a generic download error", async
   const refine = within(screen.getByRole("region", { name: "Refine this version" }));
   fireEvent.click(refine.getByRole("button", { name: "Download" }));
   expect(await refine.findByRole("alert")).toHaveTextContent("This PNG exceeds 2 MiB. Export the original PNG or choose JPEG.");
+});
+
+it("keeps an original's label and selection when a newer edit arrives", async () => {
+  const original = { ...project.versions[0], id: '12345678-aaaa-4444-8888-111111111111' };
+  project = { ...project, selectedVersionId: original.id, versions: [original] };
+  api.project.mockResolvedValue(project);
+  open();
+  expect(await screen.findByRole('heading', { name: 'Version 12345678' })).toBeInTheDocument();
+  project = { ...project, versions: [{ ...original, id: 'abcdef01-bbbb-4444-8888-222222222222', parentVersionId: original.id, kind: 'edit', instruction: 'Reverse the arrow', createdAt: '2026-10-22T09:00:00Z' }, original] };
+  api.project.mockResolvedValue(project);
+  await client.invalidateQueries({ queryKey: ['thumbnail-studio', 'clerk:alice', 'project', projectId] });
+  expect(await screen.findByRole('heading', { name: 'Version abcdef01' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Version 12345678' })).toBeInTheDocument();
+  expect(screen.getByText(/Edit · from Version 12345678/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Selected version' })).toBeDisabled();
 });

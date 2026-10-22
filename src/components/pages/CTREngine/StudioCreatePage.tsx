@@ -1,3 +1,5 @@
+import { studioCreationKey, clearStudioCreationKey } from '../../../utils/studioCreation';
+import { notifyStudioUsageChanged } from '../../../hooks/useStudioBalance';
 import { observeLayoutChanges } from '../../../utils/observeLayoutChanges';
 import { StudioSelect } from "./components/studio/StudioSelect";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -74,6 +76,8 @@ export default function StudioCreatePage({
   const [profileError, setProfileError] = useState<StudioErrorInfo | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const creating = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const flow = useRef<HTMLDivElement>(null);
   const [barBounds, setBarBounds] = useState<{ left: number; width: number }>();
   useLayoutEffect(() => {
@@ -103,15 +107,30 @@ export default function StudioCreatePage({
     if (source === "idea" && (generateBlocked || startAvailability.message)) return;
     creating.current = true; setBusy(true); setError(null);
     try {
+      if (source === 'idea') {
+        if (generationCredits === null) throw new Error('The price is unavailable. Please try again.');
+        const request = { name: brief.videoTitle.trim().slice(0, 200), briefInput: brief, generation: { conceptCount: count, quality, expectedCredits: generationCredits } };
+        const result = await thumbnailStudioApi.createGeneration(request, studioCreationKey(account, request));
+        invalidateStudioProjectLists(client, account);
+        notifyStudioUsageChanged();
+        if (!mounted.current) return;
+        clearStudioCreateDraft(account);
+        clearStudioCreationKey(account);
+        navigate(`/ai-thumbnails/projects/${result.projectId}`);
+        return;
+      }
       const project = await thumbnailStudioApi.createProject({ name: brief.videoTitle.trim().slice(0, 200) || "Untitled video", briefInput: brief });
       invalidateStudioProjectLists(client, account);
+      if (!mounted.current) return;
       clearStudioCreateDraft(account);
-      // Generate: the project opens on step 2 and starts this generation at the price shown
-      // (one click). A source opens its panel on the brief instead.
-      navigate(`/ai-thumbnails/projects/${project.id}${source === "idea" ? "" : `?source=${source}${source === "youtube" && reviewedVideo ? `&video=${reviewedVideo}` : ""}`}`, {
-        state: { studioEntry: { conceptCount: count, quality, startGeneration: source === "idea", ...(source === "idea" ? { generationCredits } : {}) } },
+      // Sources save a draft and open their panel without starting paid work.
+      navigate(`/ai-thumbnails/projects/${project.id}?source=${source}${source === "youtube" && reviewedVideo ? `&video=${reviewedVideo}` : ""}`, {
+        state: { studioEntry: { conceptCount: count, quality } },
       });
-    } catch (failure) { setError(studioError(failure)); }
+    } catch (failure) {
+      setError(studioError(failure));
+      void client.invalidateQueries({ queryKey: ['thumbnail-studio', 'capabilities'] });
+    }
     finally { creating.current = false; setBusy(false); }
   };
   // The price on the Generate button: the catalog from capabilities, else the balance read.
@@ -152,7 +171,7 @@ export default function StudioCreatePage({
             onRun={() => void create()}
             disabled={blocked}
             working={busy || referencesBusy}
-            workingLabel={busy ? "Saving your brief…" : "Preparing your references…"}
+            workingLabel={busy ? "Saving and starting…" : "Preparing your references…"}
             availableCredits={available}
             unavailable={startAvailability.message}
           />

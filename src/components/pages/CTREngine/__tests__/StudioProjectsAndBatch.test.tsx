@@ -125,3 +125,20 @@ describe("batch", () => {
     expect(screen.queryByText(/get total price|confirm and start/i)).not.toBeInTheDocument();
   });
 });
+
+it("shows unfinished work and an unselected ready preview independently of selection", async () => {
+  const ready = studioProject({ id: 'ready', name: 'Ready project', latestVersion: { id: 'ready-version', assetId: 'ready-asset', outputFormat: 'landscape', asset: { id: 'ready-asset', url: '/ready.png', urlExpiresAt: '2099-01-01T00:00:00Z' } } as any });
+  api.projects.mockResolvedValue({ items: [ready,
+    studioProject({ id: 'waiting', work: { state: 'queued', activeCount: 1 } }),
+    studioProject({ id: 'creating', work: { state: 'dispatching', activeCount: 1 } }),
+    studioProject({ id: 'failed', work: { state: 'failed', activeCount: 0 } }),
+    studioProject({ id: 'draft' })], nextCursor: null });
+  page('/ai-thumbnails/projects', <StudioProjectsPage />);
+  expect(await screen.findByText('Ready to choose')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Thumbnail for Ready project' })).toHaveAttribute('src', '/ready.png');
+  expect(screen.getByText('Waiting')).toBeInTheDocument();
+  expect(screen.getByText('Creating')).toBeInTheDocument();
+  expect(screen.getAllByText('Generation failed').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('Brief saved').length).toBeGreaterThan(0);
+  expect(api.project).not.toHaveBeenCalled();
+});

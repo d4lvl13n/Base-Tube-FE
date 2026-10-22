@@ -52,6 +52,7 @@ function Projects() {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor || undefined,
     retry: false,
+    refetchInterval: query => query.state.data?.pages.some(page => page.items.some(project => (project.work?.activeCount || 0) > 0)) ? 5000 : false,
   });
   /** Hide a project from this list, or show it again (the server's archive flag). */
   const setHidden = async (id: string, hidden: boolean) => {
@@ -120,17 +121,21 @@ function Projects() {
                   className="block rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
                   to={`/ai-thumbnails/projects/${project.id}`}
                 >
-                  {project.selectedVersion ? (
+                  {(project.selectedVersion || project.latestVersion) ? (
                     <ThumbnailPreview
-                      version={project.selectedVersion}
+                      version={(project.selectedVersion || project.latestVersion)!}
                       title={project.name}
                     />
                   ) : (
                     <div className="flex aspect-video items-center justify-center rounded-xl bg-white/5 text-sm text-zinc-500">
-                      No image selected yet
+                      {project.work?.activeCount ? "Generation in progress" : project.work?.state === "failed" ? "Generation failed" : "Brief saved"}
                     </div>
                   )}
                   <h2 className="mt-3 font-semibold">{project.name}</h2>
+                  <p role="status" className="mt-1 text-sm text-zinc-300">
+                    {project.work?.activeCount ? (project.work.state === 'queued' ? 'Waiting' : 'Creating') : project.work?.state === 'failed' ? 'Generation failed' : project.latestVersion ? 'Ready to choose' : project.selectedVersion ? 'Ready' : 'Brief saved'}
+                    {project.selectedVersion ? ' · Final version selected' : ''}
+                  </p>
                   <p className="mt-1 text-xs text-zinc-400">
                     {project.archived ? "Hidden · " : ""}Updated{" "}
                     {new Date(project.updatedAt).toLocaleDateString()}

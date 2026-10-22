@@ -49,6 +49,7 @@ jest.mock("../../../../api/thumbnailStudio", () => ({
   thumbnailStudioApi: {
     profiles: jest.fn(),
     createProject: jest.fn(),
+    createGeneration: jest.fn(),
     assetFromThumbnail: jest.fn(),
     importLegacyProfile: jest.fn(),
     quote: jest.fn(),
@@ -112,6 +113,8 @@ function open(path = "/ai-thumbnails/generate", state?: object) {
 beforeEach(() => {
   jest.clearAllMocks();
   sessionStorage.clear();
+  Object.defineProperty(global, "crypto", { configurable: true, value: { randomUUID: () => "44444444-4444-4444-8444-444444444444" } });
+  api.createGeneration.mockResolvedValue({ projectId: studioProject().id, operationId: "op" });
   window.matchMedia = jest.fn(() => ({ matches: true })) as any;
   access = {
     isAuthenticated: true,
@@ -149,16 +152,16 @@ it.each([
     });
     fireEvent.click(await screen.findByRole("button", { name: new RegExp(label) }));
     const destination = JSON.parse((await screen.findByTestId("destination")).textContent!);
-    // Generate lands on step 2 and starts there at the price shown; a source opens its panel on the brief.
     expect(destination.path).toBe(`/ai-thumbnails/projects/${studioProject().id}${source === "idea" ? "" : `?source=${source}`}`);
-    expect(destination.state.studioEntry.startGeneration).toBe(source === "idea");
-    expect(destination.state.studioEntry.generationCredits).toBe(source === "idea" ? 30 : undefined);
-    expect(api.createProject).toHaveBeenCalledTimes(1);
-    expect(api.createProject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        briefInput: expect.objectContaining({ videoTitle: "New video" }),
-      }),
-    );
+    if (source === "idea") {
+      expect(destination.state).toBeNull();
+      expect(api.createProject).not.toHaveBeenCalled();
+      expect(api.createGeneration).toHaveBeenCalledWith(expect.objectContaining({ briefInput: expect.objectContaining({ videoTitle: "New video" }), generation: { conceptCount: 2, quality: "high", expectedCredits: 30 } }), expect.any(String));
+    } else {
+      expect(destination.state.studioEntry.startGeneration).toBeUndefined();
+      expect(api.createProject).toHaveBeenCalledTimes(1);
+      expect(api.createGeneration).not.toHaveBeenCalled();
+    }
     expect(api.quote).not.toHaveBeenCalled();
     expect(api.start).not.toHaveBeenCalled();
   },
@@ -170,7 +173,7 @@ it.each(["Add a YouTube link", "Add a script", "Use an existing image"])("can %s
   fireEvent.click(screen.getByText("Add a video, script or existing image"));
   fireEvent.click(screen.getByRole("button", { name: label }));
   const destination = JSON.parse((await screen.findByTestId("destination")).textContent!);
-  expect(destination.state.studioEntry.startGeneration).toBe(false);
+  expect(destination.state.studioEntry.startGeneration).toBeUndefined();
   expect(api.createProject).toHaveBeenCalledWith(expect.objectContaining({ name: "Untitled video" }));
   expect(api.quote).not.toHaveBeenCalled(); expect(api.start).not.toHaveBeenCalled();
 });
@@ -194,9 +197,9 @@ it("fills the form with the brief a visitor wrote before signing up, and saves o
   // One click saves it as a project and starts that generation there.
   fireEvent.click(await screen.findByRole("button", { name: "Generate 3 concepts · 45 credits" }));
   const destination = JSON.parse((await screen.findByTestId("destination")).textContent!);
-  expect(destination.state.studioEntry).toMatchObject({ startGeneration: true, conceptCount: 3, quality: "high", generationCredits: 45 });
-  expect(api.createProject).toHaveBeenCalledTimes(1);
-  expect(api.createProject).toHaveBeenCalledWith(expect.objectContaining({
+  expect(destination.state).toBeNull();
+  expect(api.createGeneration).toHaveBeenCalledTimes(1);
+  expect(api.createGeneration.mock.calls[0][0]).toEqual(expect.objectContaining({
     briefInput: expect.objectContaining({
       videoTitle: draft.videoTitle,
       summary: draft.description,
@@ -228,7 +231,7 @@ it("keeps an unsaved brief across a reload and clears it once its project exists
   expect(screen.getByLabelText(/Video title or idea/)).toHaveValue("Survives a reload");
   fireEvent.click(await screen.findByRole("button", { name: "Generate 2 concepts · 30 credits" }));
   await screen.findByTestId("destination");
-  expect(api.createProject).toHaveBeenCalledWith(expect.objectContaining({ briefInput: expect.objectContaining({ videoTitle: "Survives a reload" }) }));
+  expect(api.createGeneration.mock.calls[0][0]).toEqual(expect.objectContaining({ briefInput: expect.objectContaining({ videoTitle: "Survives a reload" }) }));
   expect(sessionStorage.getItem("thumbnail-studio:create:v1:clerk:entry-owner")).toBeNull();
 });
 it("disables Generate with the price and Buy credits when the balance does not cover it", async () => {
@@ -240,4 +243,32 @@ it("disables Generate with the price and Buy credits when the balance does not c
   expect(screen.getByRole("button", { name: "Buy credits" })).toBeInTheDocument();
   fireEvent.submit(screen.getByRole("form", { name: "Thumbnail brief" }));
   expect(api.createProject).not.toHaveBeenCalled();
+});
+
+it("replays a lost response after reload with the same request key", async () => {
+  api.createGeneration.mockRejectedValueOnce(new Error("Network interrupted"));
+  const first = open();
+  fireEvent.change(screen.getByLabelText(/Video title or idea/), { target: { value: "Durable request" } });
+  fireEvent.click(await screen.findByRole("button", { name: "Generate 2 concepts · 30 credits" }));
+  await screen.findByRole("alert");
+  const [body, key] = api.createGeneration.mock.calls[0];
+  first.unmount();
+  open();
+  fireEvent.click(await screen.findByRole("button", { name: "Generate 2 concepts · 30 credits" }));
+  await screen.findByTestId("destination");
+  expect(api.createGeneration.mock.calls[1]).toEqual([body, key]);
+  expect(api.createProject).not.toHaveBeenCalled();
+});
+it("sends one atomic request even if Create unmounts before the response", async () => {
+  let resolve!: (value: any) => void;
+  api.createGeneration.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  const view = open();
+  fireEvent.change(screen.getByLabelText(/Video title or idea/), { target: { value: "Leave immediately" } });
+  const button = await screen.findByRole("button", { name: "Generate 2 concepts · 30 credits" });
+  fireEvent.click(button); fireEvent.click(button);
+  await waitFor(() => expect(api.createGeneration).toHaveBeenCalledTimes(1));
+  view.unmount();
+  resolve({ projectId: studioProject().id, operationId: "op" });
+  expect(api.quote).not.toHaveBeenCalled();
+  expect(api.start).not.toHaveBeenCalled();
 });

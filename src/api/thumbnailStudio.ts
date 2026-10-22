@@ -77,6 +77,8 @@ export const thumbnailStudioApi = {
   projects: (params?: { cursor?: string; archived?: boolean }) =>
     read<StudioPage<StudioProjectSummary>>("/projects", params),
   project: (id: string) => read<StudioProject>(`/projects/${id}`),
+  createGeneration: (body: { name?: string; briefInput: StudioBriefInputV1; generation: { conceptCount: number; quality: 'standard' | 'high'; expectedCredits: number } }, key: string) =>
+    post<{ projectId: string; operationId: string }>('/projects/generate', body, { 'Idempotency-Key': key }),
   createProject: (body: {
     name?: string;
     briefInput: StudioBriefInputV1;

@@ -115,7 +115,16 @@ export interface StudioRevision {
   contextHash: string;
   createdAt: string;
 }
+export interface StudioLastGeneration {
+  operationId: string;
+  revisionId: string;
+  conceptCount: number;
+  quality: 'standard' | 'high';
+  briefInput: StudioBriefInputV1;
+}
 export interface StudioProjectSummary {
+  latestVersion?: StudioVersion | null;
+  work?: { state: string; activeCount: number } | null;
   selectedVersion?: StudioVersion | null;
   id: string;
   name: string;
@@ -129,6 +138,7 @@ export interface StudioProjectSummary {
   updatedAt: string;
 }
 export interface StudioProject extends StudioProjectSummary {
+  lastGeneration?: StudioLastGeneration | null;
   currentRevision: StudioRevision;
   versions: StudioVersion[];
   audits: StudioAudit[];

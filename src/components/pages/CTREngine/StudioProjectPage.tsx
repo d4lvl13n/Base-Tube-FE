@@ -1,3 +1,4 @@
+import { studioVersionLabel } from '../../../utils/studioVersionLabel';
 import { StudioSelect } from "./components/studio/StudioSelect";
 import { studioSourceLabels } from "../../../utils/studioLabels";
 import React, { useEffect, useRef, useState } from "react";
@@ -124,6 +125,15 @@ function Workspace({ projectId }: { projectId: string }) {
   const [quality, setQuality] = useState<"standard" | "high">(
     entry?.quality === "standard" ? "standard" : "high",
   );
+  const restoredGeneration = useRef(false);
+  useEffect(() => {
+    if (restoredGeneration.current || !project.data) return;
+    restoredGeneration.current = true;
+    if (!entry && project.data.lastGeneration) {
+      setCount(project.data.lastGeneration.conceptCount);
+      setQuality(project.data.lastGeneration.quality);
+    }
+  }, [project.data, entry]);
   const [versionId, setVersionId] = useState<string | null>(null);
   const [chosenStage, setStage] = useState<"brief" | "choose" | "refine" | null>(null);
   // Decided once: consuming the entry state below must not send the creator back.
@@ -154,7 +164,6 @@ function Workspace({ projectId }: { projectId: string }) {
     panel?.querySelector<HTMLElement>("[data-studio-focus]")?.focus({ preventScroll: true });
   }, [focusOperation]);
   const [referencesBusy, setReferencesBusy] = useState(false);
-  const consumedEntry = useRef(false);
   const seenVersions = useRef<Set<string> | null>(null);
   const [includePersonas, setPersonas] = useState(false);
   const [light, setLight] = useState(false);
@@ -271,12 +280,12 @@ function Workspace({ projectId }: { projectId: string }) {
         };
       },
     });
-    if (started) afterStart.current.get(key)?.(started);
+    if (started) { afterStart.current.get(key)?.(started); void project.refresh(); }
     return started;
   };
   const confirmAction = async (key: string) => {
     const started = await operation.confirm(key);
-    if (started) afterStart.current.get(key)?.(started);
+    if (started) { afterStart.current.get(key)?.(started); void project.refresh(); }
     return started;
   };
   const generateCredits = (() => {
@@ -374,8 +383,9 @@ function Workspace({ projectId }: { projectId: string }) {
     thumbnailUrl: assets[assetVersions.findIndex(asset => asset.assetId === version.assetId)]?.data?.url || "",
     thumbnailPath: "",
     prompt: version.instruction || "",
-    conceptName: `Version ${index + 1}`,
-    conceptDescription: version.instruction || (version.kind === "import" ? "Your imported thumbnail" : "Saved thumbnail"),
+    conceptName: studioVersionLabel(version),
+    conceptDescription: [version.kind === 'edit' ? 'Edit' : version.kind === 'overlay' ? 'Text edit' : version.kind === 'import' ? 'Imported image' : 'Original concept',
+      version.parentVersionId ? `from ${studioVersionLabel({ id: version.parentVersionId })}` : '', new Date(version.createdAt).toLocaleString()].filter(Boolean).join(' · '),
     estimatedCTRScore: 0,
     editing: version.editing || undefined,
   }));
@@ -389,23 +399,10 @@ function Workspace({ projectId }: { projectId: string }) {
     }
     seenVersions.current = new Set(incoming.map(version => version.id));
   }, [serverVersions]);
-  useEffect(() => {
-    if (!entry?.startGeneration || consumedEntry.current || !project.draft || !project.data) return;
-    consumedEntry.current = true;
-    // This follows the creator's click on "Generate N concepts · X credits" on the shared
-    // creation form. Returning from sign-in never sets this flag; consuming it also
-    // prevents Back/refresh from repeating it.
-    navigate(`${location.pathname}${location.search}`, {
-      replace: true,
-      state: { ...location.state, studioEntry: { ...entry, startGeneration: false } },
-    });
-    // The price that button showed; the quote must match it to start without another click.
-    const credits = entry.generationCredits === undefined ? generateCredits : entry.generationCredits;
-    const short = credits !== null && availableCredits !== undefined && availableCredits < credits;
-    // Otherwise the page shows why (credits, a pause, reminders) next to the Generate button.
-    if (start.available && !short && project.draft.videoTitle.trim())
-      void generate(credits);
-  });
+  const lastGeneration = project.data?.lastGeneration;
+  const summaryBrief = lastGeneration?.briefInput || project.draft;
+  const summaryCount = lastGeneration?.conceptCount ?? count;
+  const summaryQuality = lastGeneration?.quality ?? quality;
   if (project.isPending)
     return (
       <p role="status" className="text-zinc-300">
@@ -474,7 +471,7 @@ function Workspace({ projectId }: { projectId: string }) {
   const stage =
     chosenStage ||
     entryStage ||
-    (versions.length ? "choose" : "brief");
+    (versions.length || project.data?.activeOperations.length ? "choose" : "brief");
   const currentConcept = concepts.find(concept => concept.id === current?.id);
   const outputFormat = (concept: GeneratedConcept) => orientation(versions.find(version => version.id === concept.id)!) === "portrait" ? "short" as const : "landscape" as const;
   // `choice`: the export the server suggested after EXPORT_TOO_LARGE (one click).
@@ -635,7 +632,7 @@ function Workspace({ projectId }: { projectId: string }) {
           className="text-sm text-orange-300 underline"
           onClick={() => openVersion(edit.versionId, item.id)}
         >
-          Open Version {index + 1} to follow this edit next to it
+          Open {studioVersionLabel(versions[index])} to follow this edit next to it
         </button>
       ),
     );
@@ -658,6 +655,7 @@ function Workspace({ projectId }: { projectId: string }) {
   const versionInfo = (concept: GeneratedConcept) => {
     const version = versions.find(version => version.id === concept.id)!;
     return <>
+      <p className="text-xs text-zinc-400">{concept.conceptDescription}</p>
       {earlierInstructions(version)}
       <OutputWarnings version={version} checking={checking} />
     </>;
@@ -952,17 +950,17 @@ function Workspace({ projectId }: { projectId: string }) {
                 Your brief
               </p>
               <h2 className="text-xl font-semibold">
-                {draft.videoTitle || "Untitled video"}
+                {summaryBrief?.videoTitle || "Untitled video"}
               </h2>
-              {draft.summary && (
+              {summaryBrief?.summary && (
                 <p className="line-clamp-3 text-sm text-zinc-300">
-                  {draft.summary}
+                  {summaryBrief.summary}
                 </p>
               )}
               <p className="text-xs text-zinc-400">
-                {draft.outputFormat === "portrait" ? "9:16" : "16:9"} · {count}{" "}
-                concept{count === 1 ? "" : "s"} ·{" "}
-                {quality === "high" ? "High" : "Standard"} quality
+                {summaryBrief?.outputFormat === "portrait" ? "9:16" : "16:9"} · {summaryCount}{" "}
+                concept{summaryCount === 1 ? "" : "s"} ·{" "}
+                {summaryQuality === "high" ? "High" : "Standard"} quality
               </p>
               <div className="flex flex-wrap items-start gap-2">
                 <button
@@ -1036,7 +1034,7 @@ function Workspace({ projectId }: { projectId: string }) {
                     key={version.id}
                   >
                     <input
-                      aria-label={`Compare version ${index + 1}`}
+                      aria-label={`Compare ${studioVersionLabel(version)}`}
                       type="checkbox"
                       checked={comparedIds.includes(version.id)}
                       disabled={
@@ -1066,7 +1064,7 @@ function Workspace({ projectId }: { projectId: string }) {
                           setCompareIds([version.id]);
                       }}
                     >
-                      Version {index + 1} · {orientation(version)} ·{" "}
+                      {studioVersionLabel(version)} · {orientation(version)} ·{" "}
                       {new Date(version.createdAt).toLocaleString()}
                     </button>
                   </div>
@@ -1084,7 +1082,7 @@ function Workspace({ projectId }: { projectId: string }) {
                       aria-pressed={current?.id === version.id}
                       onClick={() => setVersionId(version.id)}
                     >
-                      Version {index + 1} · {version.kind}
+                      {studioVersionLabel(version)} · {version.kind}
                       {data.selectedVersionId === version.id
                         ? " · selected"
                         : ""}
@@ -1131,7 +1129,7 @@ function Workspace({ projectId }: { projectId: string }) {
               alt={currentConcept.conceptName}
               portrait={orientation(current) === "portrait"}
               title={currentConcept.conceptName}
-              subtitle={current.instruction}
+              subtitle={[currentConcept.conceptDescription, current.instruction].filter(Boolean).join(" · ")}
               onBack={() => setStage("choose")}
               notes={(earlierInstructions(current) || (checking && current.validation)) ? (
                 <div className="space-y-2">
