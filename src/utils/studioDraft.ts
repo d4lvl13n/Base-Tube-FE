@@ -89,6 +89,10 @@ export function studioReturnDestination(value: string | null): string | undefine
   const pathname = requested.replace(/^\/ai-thumbnails\/studio/, '/ai-thumbnails/projects');
   const input = new URLSearchParams(search);
   const params = new URLSearchParams();
+  if (pathname === '/ai-thumbnails/generate') {
+    const draft = input.get('draft');
+    if (draft && validId(draft)) params.set('draft', draft);
+  }
   if (pathname.endsWith('/batch')) {
     const projects = input.get('projects');
     if (projects && projects.split(',').length <= 3 && projects.split(',').every(id => /^[0-9a-f-]{36}$/i.test(id))) params.set('projects', projects);
@@ -97,6 +101,18 @@ export function studioReturnDestination(value: string | null): string | undefine
     if (source && ['idea', 'youtube', 'image', 'script'].includes(source)) params.set('source', source);
   }
   return pathname + (params.toString() ? `?${params}` : '');
+}
+
+/** Explicit draft identity for auth/checkout, after the visitor form has saved itself. */
+export function studioDraftReturnPath(path: string): string | undefined {
+  const destination = studioReturnDestination(path);
+  if (!destination || destination.split('?')[0] !== '/ai-thumbnails/generate') return destination;
+  const params = new URLSearchParams(destination.split('?')[1]);
+  if (!params.has('draft')) {
+    const draft = loadStudioDraft();
+    if (draft) params.set('draft', draft.id);
+  }
+  return '/ai-thumbnails/generate' + (params.toString() ? `?${params}` : '');
 }
 
 const CREDITS_RETURN_KEY = 'thumbnail-studio:credits-return:v1';

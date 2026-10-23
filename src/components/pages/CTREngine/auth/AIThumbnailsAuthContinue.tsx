@@ -63,12 +63,13 @@ export default function AIThumbnailsAuthContinue() {
       if (checkoutStarted.current) return;
       checkoutStarted.current = true;
       setOpeningCheckout(true);
-      void resumePlanIntent(planIntent).then(outcome => {
+      const returnPath = planIntent.returnPath ?? (destination.startsWith('/ai-thumbnails/generate?draft=') ? destination : undefined);
+      void resumePlanIntent({ ...planIntent, returnPath }).then(outcome => {
         if (outcome.kind === 'checkout') return;
         if (outcome.kind === 'has-plan') navigate(destination, { replace: true });
         else {
           const state: PlanIntentNotice = outcome.kind === 'no-trial' ? { planNotice: 'no-trial' } : { planNotice: 'failed', message: outcome.message };
-          navigate('/ai-thumbnails/pricing', { replace: true, state });
+          navigate(`/ai-thumbnails/pricing${returnPath ? `?return=${encodeURIComponent(returnPath)}` : ''}`, { replace: true, state });
         }
       });
     };

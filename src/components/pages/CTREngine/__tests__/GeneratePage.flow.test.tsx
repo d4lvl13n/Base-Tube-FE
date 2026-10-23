@@ -144,3 +144,13 @@ it('restores the visitor’s brief after a full remount and discards it on reque
   expect(screen.getByLabelText('Video title or idea')).toHaveValue('');
   expect(loadStudioDraft()).toBeNull();
 });
+
+it.each(['Floor is lava', '<script>alert(1)</script>', 'x'.repeat(600)])('imports a visitor link as plain text, then saves it before auth: %s', async prompt => {
+  const view = render(page(`/ai-thumbnails/generate?prompt=${encodeURIComponent(prompt)}&site_ref=hero`));
+  expect(screen.getByLabelText('Video title or idea')).toHaveValue(prompt.slice(0, 500));
+  expect(view.container.querySelector('script')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Video title or idea'), { target: { value: 'Edited before sign-up' } });
+  fireEvent.click(createAccount());
+  await screen.findByRole('dialog');
+  expect(loadStudioDraft()?.draft.videoTitle).toBe('Edited before sign-up');
+});

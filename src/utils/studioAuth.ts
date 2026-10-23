@@ -1,4 +1,4 @@
-import { clearPlanIntent, SAVE_STUDIO_DRAFT_EVENT, studioReturnDestination } from './studioDraft';
+import { clearPlanIntent, SAVE_STUDIO_DRAFT_EVENT, studioDraftReturnPath, studioReturnDestination } from './studioDraft';
 import { noteStudioAuthStart } from './studioWelcome';
 
 /**
@@ -99,7 +99,7 @@ export function startStudioAuth(intent: StudioAuthIntent, from: string, consent?
   clearPlanIntent();
   noteStudioAuthStart(now);
   write({
-    destination: studioReturnDestination(from) ?? STUDIO_AUTH_DEFAULT_DESTINATION,
+    destination: studioDraftReturnPath(from) ?? STUDIO_AUTH_DEFAULT_DESTINATION,
     intent,
     ...(typeof consent === 'boolean' ? { consent } : {}),
     startedAt: now,

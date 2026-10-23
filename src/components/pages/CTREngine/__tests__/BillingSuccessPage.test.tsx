@@ -1,6 +1,6 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import BillingSuccessPage, { BILLING_MAX_POLLS, BILLING_POLL_INTERVAL_MS } from "../BillingSuccessPage";
 import { subscriptionsApi } from "../../../../api/subscriptions";
@@ -41,11 +41,13 @@ afterEach(() => {
   jest.useRealTimers();
   client.clear();
 });
+const ReturnedBrief = () => <output data-testid="returned-brief">{useLocation().search}</output>;
 const show = (url: string) =>
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[url]}>
         <Routes>
+          <Route path="/ai-thumbnails/generate" element={<ReturnedBrief />} />
           <Route path="/ai-thumbnails/billing/success" element={<BillingSuccessPage />} />
         </Routes>
       </MemoryRouter>
@@ -107,4 +109,15 @@ it("a free trial counts as ready: says what it includes and that nothing is char
   expect(screen.getByRole("heading", { name: "Your free trial of Creator has started — 2 videos to use" })).toBeInTheDocument();
   expect(screen.getByRole("status")).toHaveTextContent(/^Nothing is charged before Oct 6\. Cancel before Oct 6 in Settings › Subscription and you pay nothing\./);
   expect(getMe).toHaveBeenCalledTimes(1);
+});
+
+it("returns automatically to the draft only after trial credits are ready", async () => {
+  getMe.mockResolvedValueOnce(me("trialing", 0)).mockResolvedValue(me("trialing", 180));
+  show(`/ai-thumbnails/billing/success?session_id=cs_test_draft&return=${encodeURIComponent('/ai-thumbnails/generate?draft=visitor-idea')}`);
+  await settle();
+  expect(screen.queryByTestId('returned-brief')).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Back to where you were/ })).toHaveAttribute('href', '/ai-thumbnails/generate?draft=visitor-idea');
+  await nextPoll();
+  await settle();
+  expect(screen.getByTestId('returned-brief')).toHaveTextContent('?draft=visitor-idea');
 });

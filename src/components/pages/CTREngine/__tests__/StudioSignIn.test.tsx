@@ -78,7 +78,7 @@ it('saves the generator draft before opening the AI Thumbnails sign-in', () => {
   fireEvent.click(screen.getByRole('link', { name: /Sign In with Email/ }));
   expect(screen.getByTestId('destination').textContent).toBe(SIGN_IN);
   // Back on the create page afterwards, which restores this tab's saved brief.
-  expect(readStudioAuthOrigin()).toMatchObject({ destination: '/ai-thumbnails/generate' });
+  expect(readStudioAuthOrigin()).toMatchObject({ destination: '/ai-thumbnails/generate?draft=draft-header' });
   expect(loadStudioDraft()?.draft.videoTitle).toBe('My idea');
   window.removeEventListener(SAVE_STUDIO_DRAFT_EVENT, persist);
 });

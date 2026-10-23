@@ -1,6 +1,6 @@
 import { observeLayoutChanges } from '../../../utils/observeLayoutChanges';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import { ThumbnailBriefForm } from './components/ThumbnailBriefForm';
@@ -43,13 +43,15 @@ export default function VisitorCreatePage({ usageAccess, isLoadingQuota }: {
     return observeLayoutChanges(workspace ? [element, workspace] : [element], measure);
   }, []);
   const [params] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const offer = useWelcomeOffer();
   // Without the welcome gift, the line says what follows the sign-up: the free trial.
   const plans = useSubscriptionPlans(offer.credits === null);
 
-  const [restored] = useState(() => loadStudioDraft(params.get('draft')));
+  const [restored] = useState(() => params.has('draft') || !params.has('prompt') ? loadStudioDraft(params.get('draft')) : null);
   const draftId = useRef(restored?.id || createStudioDraftId());
-  const [videoTitle, setVideoTitle] = useState(restored?.draft.videoTitle || params.get('prompt') || '');
+  const [videoTitle, setVideoTitle] = useState(restored?.draft.videoTitle ?? (params.get('prompt') || '').slice(0, 500));
   const [creatorHook, setCreatorHook] = useState(restored?.draft.creatorHook || '');
   const [description, setDescription] = useState(restored?.draft.description || '');
   const [direction, setDirection] = useState(restored?.draft.direction || '');
@@ -70,6 +72,17 @@ export default function VisitorCreatePage({ usageAccess, isLoadingQuota }: {
     if (draft && (draft.videoTitle || draft.creatorHook || draft.description || draft.direction || draft.headline || draft.format !== 'landscape' || draft.count !== 2 || draft.layout !== 'auto' || draft.textMode !== 'suggest')) saveStudioDraft(draftId.current, draft);
     else clearStudioDraft(draftId.current);
   }, []);
+  // Bind the incoming idea to this tab's draft before auth can replace this page.
+  // Keeping only its id prevents a stale prompt from overwriting visitor edits on sign-in.
+  useEffect(() => {
+    if (!params.has('prompt') && !params.has('site_ref')) return;
+    persistDraft();
+    const next = new URLSearchParams(params);
+    next.delete('prompt');
+    next.delete('site_ref');
+    if (loadStudioDraft(draftId.current)) next.set('draft', draftId.current);
+    navigate({ pathname: location.pathname, search: next.toString(), hash: location.hash }, { replace: true, state: location.state });
+  }, [params, persistDraft, navigate, location]);
   const firstDraftRender = useRef(true);
   useEffect(() => {
     if (firstDraftRender.current) { firstDraftRender.current = false; return; }

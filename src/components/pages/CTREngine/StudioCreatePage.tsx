@@ -3,7 +3,7 @@ import { notifyStudioUsageChanged } from '../../../hooks/useStudioBalance';
 import { observeLayoutChanges } from '../../../utils/observeLayoutChanges';
 import { StudioSelect } from "./components/studio/StudioSelect";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import AIThumbnailsLayout from "./AIThumbnailsLayout";
 import type useCTREngine from "../../../hooks/useCTREngine";
 import { useStudioAccount } from "../../../hooks/useStudioAccount";
@@ -42,6 +42,7 @@ export default function StudioCreatePage({
   const account = useStudioAccount();
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const client = useQueryClient();
   // The brief written before creating an account (VisitorCreatePage, or "Create a
   // new thumbnail for this video" on a visitor's audit) fills this form. It becomes
@@ -50,9 +51,11 @@ export default function StudioCreatePage({
   const [visitorDraft] = useState(() => loadStudioDraft(params.get("draft")));
   // The video of a review ("Create a new thumbnail for this video"), offered as the source to read.
   const reviewedVideo = studioVideoId(params.get("video"));
-  const [kept] = useState<StudioCreateDraft | null>(() => visitorDraft
+  const [kept] = useState<StudioCreateDraft | null>(() => visitorDraft && (params.has("draft") || !params.has("prompt"))
     ? { brief: studioBriefFromDraft(visitorDraft.draft), count: visitorDraft.draft.count, quality: visitorDraft.draft.quality === "high" ? "high" : "standard" }
-    : loadStudioCreateDraft(account));
+    : params.has("prompt")
+      ? { brief: { ...emptyStudioBrief(), videoTitle: params.get("prompt")!.slice(0, 500) }, count: 2, quality: "high" }
+      : loadStudioCreateDraft(account));
   const [brief, setBrief] = useState(() => kept?.brief || emptyStudioBrief());
   const [count, setCount] = useState(kept?.count || 2);
   const [quality, setQuality] = useState<"standard" | "high">(kept?.quality || "high");
@@ -65,6 +68,14 @@ export default function StudioCreatePage({
   useEffect(() => {
     if (visitorDraft) clearStudioDraft(visitorDraft.id);
   }, [visitorDraft]);
+  // Consume the link once, after persisting the brief. A reload then restores edits.
+  useEffect(() => {
+    if (!params.has("prompt") && !params.has("site_ref")) return;
+    const next = new URLSearchParams(params);
+    next.delete("prompt");
+    next.delete("site_ref");
+    navigate({ pathname: location.pathname, search: next.toString(), hash: location.hash }, { replace: true, state: location.state });
+  }, [params, navigate, location]);
   const discardDraft = () => {
     clearStudioCreateDraft(account);
     setBrief(emptyStudioBrief());

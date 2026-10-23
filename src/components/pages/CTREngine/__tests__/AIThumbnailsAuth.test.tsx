@@ -13,7 +13,7 @@ import { subscriptionsApi } from '../../../../api/subscriptions';
 import { getWelcomeOffer } from '../../../../api/toolFunnel';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { readStudioAuthOrigin, startStudioAuth, STUDIO_AUTH_ORIGIN_KEY, STUDIO_AUTH_ORIGIN_TTL_MS } from '../../../../utils/studioAuth';
-import { PLAN_INTENT_TTL, readPlanIntent, rememberPlanIntent } from '../../../../utils/studioDraft';
+import { PLAN_INTENT_TTL, readPlanIntent, rememberPlanIntent, studioCreateUrlForTitle, loadStudioDraft, creditsReturnDestination } from '../../../../utils/studioDraft';
 import { loadEmailGate, resetStudioFunnelForTests } from '../../../../utils/studioFunnel';
 import { resetStudioOnboardingForTests } from '../../../../utils/studioOnboarding';
 import { startPlanSignUp } from '../components/billing/billingActions';
@@ -352,5 +352,31 @@ describe('base.tube\'s general pages are unchanged (as on main)', () => {
     render(<MemoryRouter initialEntries={[`/sign-in-web3${oldReturn}`]}><Routes><Route path="/sign-in-web3" element={<SignInWeb3 />} /><Route path="*" element={<Where />} /></Routes></MemoryRouter>);
     expect(where().textContent).toBe('/onboarding/web3');
     expect(onboardingApi.completeOnboarding).not.toHaveBeenCalled();
+  });
+});
+
+describe('the idea written before authentication', () => {
+  it.each(['sign-in', 'sign-up'] as const)('returns from %s to the specific visitor draft', intent => {
+    const url = studioCreateUrlForTitle('Floor is lava', 'anonymous');
+    startStudioAuth(intent, url + '&site_ref=homepage');
+    clerkAccount(Date.now() - DAY);
+    render(app(CONTINUE));
+    expect(where().textContent).toBe(url);
+    expect(loadStudioDraft()?.draft.videoTitle).toBe('Floor is lava');
+    expect(billing.createCheckout).not.toHaveBeenCalled();
+  });
+  it('carries the visitor draft through the selected trial checkout, including reload state', async () => {
+    const url = studioCreateUrlForTitle('Floor is lava', 'anonymous');
+    startPlanSignUp({ planId: 'creator', interval: 'month', trial: true }, '/ai-thumbnails/generate?prompt=Original&site_ref=hero');
+    expect(readPlanIntent()?.returnPath).toBe(url);
+    clerkAccount(Date.now());
+    billing.getMe.mockResolvedValue({ canSubscribe: true, trialEligible: true } as any);
+    billing.createCheckout.mockResolvedValue({ url: 'https://checkout.stripe.test/cs_draft', sessionId: 'cs_draft', trialDays: 7 });
+    render(<StrictMode>{app(CONTINUE)}</StrictMode>);
+    await waitFor(() => expect(window.location.href).toBe('https://checkout.stripe.test/cs_draft'));
+    expect(billing.createCheckout).toHaveBeenCalledTimes(1);
+    expect(billing.createCheckout).toHaveBeenCalledWith({ planId: 'creator', interval: 'month', returnPath: url });
+    expect(creditsReturnDestination()).toBe(url);
+    expect(loadStudioDraft()?.draft.videoTitle).toBe('Floor is lava');
   });
 });

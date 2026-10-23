@@ -178,7 +178,9 @@ describe("not enough credits for an action", () => {
     expect(readPendingPaidAction("/ai-thumbnails/projects/project-1")).toEqual({ ...generate, availableBefore: 42 });
   });
 
-  it("leads with the free trial for an account that never had a plan, one click to checkout, before the plans and packs", async () => {
+  it.each(["/ai-thumbnails/projects/project-1", "/ai-thumbnails/generate?draft=visitor-idea"])("carries %s through the trial checkout after sign-up", async returnPath => {
+    const [pathname, search = ""] = returnPath.split("?");
+    Object.assign(window.location, { pathname, search: search ? `?${search}` : "" });
     billing.getPlans.mockResolvedValue({ ...catalog, trial: { days: 7, videos: 2, credits: 180 } } as any);
     billing.getMe.mockResolvedValue({ ...noPlan, trialEligible: true } as any);
     billing.createCheckout.mockResolvedValue({ url: "https://checkout.stripe.test/trial_1", sessionId: "cs_trial", trialDays: 7 });
@@ -194,10 +196,11 @@ describe("not enough credits for an action", () => {
     expect(dialog).toHaveTextContent("then $49/month");
     fireEvent.click(within(trial).getByRole("button", { name: "Start 7-day free trial" }));
     await waitFor(() =>
-      expect(billing.createCheckout).toHaveBeenCalledWith({ planId: "creator", interval: "month", returnPath: "/ai-thumbnails/projects/project-1" }),
+      expect(billing.createCheckout).toHaveBeenCalledWith({ planId: "creator", interval: "month", returnPath }),
     );
     await waitFor(() => expect(window.location.href).toBe("https://checkout.stripe.test/trial_1"));
-    expect(readPendingPaidAction("/ai-thumbnails/projects/project-1")).toEqual({ ...generate, availableBefore: 42 });
+    expect(creditsReturnDestination()).toBe(returnPath);
+    expect(readPendingPaidAction(returnPath)).toEqual({ ...generate, availableBefore: 42 });
   });
 
   it("offers a subscriber the next plan with its charge read at once, upgrades in one click and hands the action back to the page", async () => {

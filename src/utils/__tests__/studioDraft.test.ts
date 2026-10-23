@@ -68,3 +68,13 @@ describe('signed-in create draft', () => {
     expect(loadStudioCreateDraft('clerk:alice')).toBeNull();
   });
 });
+
+it('preserves only a bounded draft id on generate return URLs, never prompt or site_ref or ref', () => {
+  expect(studioReturnDestination('/ai-thumbnails/generate?draft=draft-1&prompt=Idea&site_ref=hero&ref=referral&source=image')).toBe('/ai-thumbnails/generate?draft=draft-1&source=image');
+  expect(studioReturnDestination('/ai-thumbnails/projects?draft=draft-1')).toBe('/ai-thumbnails/projects');
+  for (const id of ['../bad', '<script>', 'a'.repeat(81), 'https://evil.example']) {
+    expect(studioReturnDestination(`/ai-thumbnails/generate?draft=${encodeURIComponent(id)}`)).toBe('/ai-thumbnails/generate');
+  }
+  rememberCreditsReturn('/ai-thumbnails/generate?draft=draft-1');
+  expect(creditsReturnDestination()).toBe('/ai-thumbnails/generate?draft=draft-1');
+});

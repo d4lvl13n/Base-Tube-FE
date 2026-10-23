@@ -7,9 +7,11 @@ import useCTREngine from "../../../../hooks/useCTREngine";
 import { thumbnailStudioApi } from "../../../../api/thumbnailStudio";
 import {
   saveStudioDraft,
+  saveStudioCreateDraft,
   loadStudioDraft,
   StudioDraft,
 } from "../../../../utils/studioDraft";
+import { emptyStudioBrief } from "../../../../types/thumbnailStudio";
 import { studioProject } from "../../../../tests/fixtures/studio";
 
 jest.mock("../../../../hooks/useStudioAccount", () => ({
@@ -87,6 +89,10 @@ function Destination() {
     </pre>
   );
 }
+function CurrentLocation() {
+  const location = useLocation();
+  return <div data-testid="current-location">{location.pathname + location.search}</div>;
+}
 function open(path = "/ai-thumbnails/generate", state?: object) {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}><StrictMode>
@@ -99,6 +105,7 @@ function open(path = "/ai-thumbnails/generate", state?: object) {
           },
         ]}
       >
+        <CurrentLocation />
         <Routes>
           <Route path="/ai-thumbnails/generate" element={<GeneratePage />} />
           <Route
@@ -272,3 +279,35 @@ it("sends one atomic request even if Create unmounts before the response", async
   expect(api.quote).not.toHaveBeenCalled();
   expect(api.start).not.toHaveBeenCalled();
 });
+
+ it("consumes a link idea ahead of both saved drafts and preserves edits after reload", async () => {
+  saveStudioDraft("old-visitor", draft);
+  saveStudioCreateDraft("clerk:entry-owner", { brief: { ...emptyStudioBrief(), videoTitle: "Old account idea", creatorHook: "Old hook" }, count: 3, quality: "standard" });
+  const view = open("/ai-thumbnails/generate?prompt=Floor%20is%20lava&site_ref=hero&video=abcdefghijk");
+  expect(screen.getByLabelText(/Video title or idea/)).toHaveValue("Floor is lava");
+  expect(screen.getByLabelText("Creator hook")).toHaveValue("");
+  expect(screen.getByTestId("current-location")).toHaveTextContent(/^\/ai-thumbnails\/generate\?video=abcdefghijk$/);
+  fireEvent.change(screen.getByLabelText(/Video title or idea/), { target: { value: "My edited lava idea" } });
+  const cleanedUrl = screen.getByTestId("current-location").textContent!;
+  view.unmount();
+  open(cleanedUrl);
+  expect(screen.getByLabelText(/Video title or idea/)).toHaveValue("My edited lava idea");
+  expect(api.createGeneration).not.toHaveBeenCalled();
+ });
+ it("an explicit visitor draft wins over the prompt and remains editable after refresh", () => {
+  saveStudioDraft("chosen", draft);
+  const view = open("/ai-thumbnails/generate?draft=chosen&prompt=Different&site_ref=footer");
+  expect(screen.getByLabelText(/Video title or idea/)).toHaveValue(draft.videoTitle);
+  fireEvent.change(screen.getByLabelText(/Video title or idea/), { target: { value: "Edited explicit draft" } });
+  const cleanedUrl = screen.getByTestId("current-location").textContent!;
+  expect(cleanedUrl).toBe("/ai-thumbnails/generate?draft=chosen");
+  view.unmount();
+  open(cleanedUrl);
+  expect(screen.getByLabelText(/Video title or idea/)).toHaveValue("Edited explicit draft");
+ });
+ it.each(["<script>alert(1)</script>", "a".repeat(600)])("treats a prompt as bounded plain text", prompt => {
+  const view = open(`/ai-thumbnails/generate?prompt=${encodeURIComponent(prompt)}`);
+  expect(screen.getByLabelText(/Video title or idea/)).toHaveValue(prompt.slice(0, 500));
+  expect(view.container.querySelector("script")).toBeNull();
+  expect(api.createGeneration).not.toHaveBeenCalled();
+ });

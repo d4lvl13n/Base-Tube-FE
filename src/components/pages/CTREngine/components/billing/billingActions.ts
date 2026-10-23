@@ -11,7 +11,7 @@ import {
   type PendingPaidAction,
   type PlanIntent,
 } from '../../../../../utils/studioDraft';
-import { startStudioAuth } from '../../../../../utils/studioAuth';
+import { readStudioAuthOrigin, startStudioAuth } from '../../../../../utils/studioAuth';
 import { plainApiError } from '../../../../../utils/plainApiError';
 import { ga4ClientId, trackEvent } from '../../../../../utils/analytics';
 
@@ -79,7 +79,8 @@ export async function goToBillingPortal(returnPath?: string): Promise<boolean> {
  */
 export function startPlanSignUp(intent: PlanIntent, from: string) {
   startStudioAuth('sign-up', from);
-  rememberPlanIntent(intent);
+  const origin = readStudioAuthOrigin()?.destination;
+  rememberPlanIntent({ ...intent, returnPath: intent.returnPath ?? (origin?.startsWith('/ai-thumbnails/generate?draft=') ? origin : undefined) });
 }
 
 /** What the continue screen does once the plan remembered before the sign-up was tried. */

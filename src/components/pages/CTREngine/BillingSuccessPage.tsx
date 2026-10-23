@@ -4,7 +4,7 @@
 // 2 seconds for about a minute until it is on with its credits. Never a false
 // "done", never an endless spinner.
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, CheckCircle, Clock, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
@@ -35,9 +35,11 @@ export default function BillingSuccessPage() {
   const { account, resolved } = useStudioAccountState();
   const client = useQueryClient();
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const sessionId = params.get('session_id');
   const [returnTo] = useState(() => creditsReturnDestination(params.get('return'), '/ai-thumbnails/projects'));
   const cameFromPage = returnTo !== '/ai-thumbnails/projects';
+  const returningToBrief = returnTo.startsWith('/ai-thumbnails/generate');
   const [run, setRun] = useState(0);
   const [status, setStatus] = useState<Status>(sessionId ? 'waiting-account' : 'no-session');
   const [me, setMe] = useState<MySubscription | null>(null);
@@ -45,6 +47,9 @@ export default function BillingSuccessPage() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const signedIn = account !== 'anonymous';
+  useEffect(() => {
+    if (status === 'confirmed' && returningToBrief) navigate(returnTo, { replace: true });
+  }, [status, returningToBrief, returnTo, navigate]);
   useEffect(() => {
     if (!sessionId || !resolved) return;
     if (!signedIn) {
@@ -151,7 +156,7 @@ export default function BillingSuccessPage() {
             </button>
           )}
           {status === 'signed-out' ? (
-            <Link to={STUDIO_SIGN_IN_PATH} onClick={() => startStudioAuth('sign-in', '/ai-thumbnails/settings/subscription')} className={primary}>
+            <Link to={STUDIO_SIGN_IN_PATH} onClick={() => startStudioAuth('sign-in', returningToBrief ? returnTo : '/ai-thumbnails/settings/subscription')} className={primary}>
               Sign in
             </Link>
           ) : status === 'no-session' ? (
