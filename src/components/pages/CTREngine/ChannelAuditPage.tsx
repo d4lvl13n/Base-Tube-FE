@@ -18,9 +18,8 @@ import {
   BookMarked,
   FlaskConical,
   CheckCircle2,
-  History,
-  ChevronRight,
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import useCTREngine from '../../../hooks/useCTREngine';
 import ctrApi from '../../../api/ctr';
@@ -102,6 +101,24 @@ const stripOAuthParams = (): void => {
   }
 };
 
+/** The audit opened from History: /ai-thumbnails/channel-audit?audit=<id>. */
+const readAuditIdParam = (search: string): number | null => {
+  const id = Number(new URLSearchParams(search).get('audit'));
+  return Number.isInteger(id) && id > 0 ? id : null;
+};
+
+/** Keep the address bar on the report shown, so a reload reopens it and "Audit another channel" clears it. */
+const setAuditIdParam = (id: number | null): void => {
+  try {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('audit', String(id));
+    else url.searchParams.delete('audit');
+    window.history.replaceState({}, document.title, url.toString());
+  } catch {
+    /* cosmetic */
+  }
+};
+
 const readLastAuditUrl = (): string => {
   try {
     return window.sessionStorage.getItem(LAST_AUDIT_URL_KEY) || '';
@@ -110,35 +127,8 @@ const readLastAuditUrl = (): string => {
   }
 };
 
-/** "1.2M subscribers" — compact, list-row scale. */
-const formatSubscribers = (subs: number | null): string => {
-  if (subs === null) return '';
-  if (subs >= 1_000_000) return `${(subs / 1_000_000).toFixed(1).replace(/\.0$/, '')}M subs`;
-  if (subs >= 1_000) return `${(subs / 1_000).toFixed(1).replace(/\.0$/, '')}K subs`;
-  return `${subs} subs`;
-};
 
-const formatAuditDate = (iso: string | null): string => {
-  if (!iso) return '';
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return '';
-  }
-};
 
-/** Honest one-word label per data source mode — mirrors the report's badge. */
-const DATA_MODE_LABELS: Record<string, string> = {
-  preview: 'Public data',
-  uploaded: 'Self-reported',
-  connected_partial: 'Connected',
-  connected_full: 'Connected',
-  hybrid: 'Connected + upload',
-};
 
 /**
  * A failed audit or re-open, in plain words, with what "Try again" repeats.
@@ -171,13 +161,12 @@ const ChannelAuditPage: React.FC = () => {
   const [isAuditing, setIsAuditing] = useState(false);
   const [error, setError] = useState<ChannelAuditError | null>(null);
 
-  // Persistence, SURFACED: past audits live in the backend — this page now
-  // restores the most recent one on load (instead of greeting a returning
-  // creator with an empty form) and lists the rest for one-click re-opening.
-  // Re-opening is FREE and refreshing: GET /:id overlays current metrics onto
-  // the frozen analysis, so a two-day-old report comes back with today's data.
-  const [history, setHistory] = useState<ChannelAuditSummary[]>([]);
-  const [isRestoring, setIsRestoring] = useState(true);
+  // Past audits live in History. This page opens on the form; it shows a saved
+  // report only when History links to one (?audit=<id>). Re-opening is FREE and
+  // refreshing: GET /:id overlays current metrics onto the frozen analysis.
+  const location = useLocation();
+  const linkedAuditId = readAuditIdParam(location.search);
+  const [isRestoring, setIsRestoring] = useState(() => linkedAuditId !== null);
   const [openingAuditId, setOpeningAuditId] = useState<number | null>(null);
   /**
    * The channel reference of the REPORT ON SCREEN — set only when a report
@@ -208,6 +197,7 @@ const ChannelAuditPage: React.FC = () => {
       setAudit(stored);
       setCreatorGoal(isChannelAuditV2(stored) ? stored.publicResearch?.creatorGoal || '' : '');
       setReportChannelRef(summary.channelRef || '');
+      setAuditIdParam(summary.id);
       if (summary.channelRef) setChannelUrl(summary.channelRef);
     } catch (err: any) {
       if (opRef.current !== op) return;
@@ -221,45 +211,30 @@ const ChannelAuditPage: React.FC = () => {
     }
   };
 
-  // On load: fetch the history and auto-restore the latest audit. Skipped when
-  // a dev fixture is driving the page. Any failure degrades to the empty form —
-  // restoring is a convenience, never a gate: the "Looking for your last
-  // audit…" beat is BOUNDED (the form appears after a short grace period even
-  // if the network stalls), and any user action supersedes the restore via the
-  // generation check.
+  // On load: open the audit History linked to, if any. Any failure degrades to
+  // the empty form, and any user action supersedes it via the generation check.
   React.useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      const which = new URLSearchParams(window.location.search).get('fixture');
-      if (which) {
-        setIsRestoring(false);
-        return;
-      }
-    }
+    const auditId = linkedAuditId;
+    if (auditId === null) return;
     const op = opRef.current; // generation 0 — any user action invalidates it
     let cancelled = false;
-    // The shared API client tolerates very slow calls (long audit POSTs) — the
-    // restore must not inherit that patience. Unblock the form regardless; if
-    // the restore still completes later (and nothing else happened), it lands.
     const graceTimer = window.setTimeout(() => setIsRestoring(false), 4000);
     (async () => {
       try {
-        const summaries = await ctrApi.listChannelAudits();
+        const [stored, summaries] = await Promise.all([
+          ctrApi.getChannelAudit(auditId),
+          ctrApi.listChannelAudits().catch(() => [] as ChannelAuditSummary[]),
+        ]);
         if (cancelled || opRef.current !== op) return;
-        setHistory(summaries);
-        const latest = summaries[0];
-        if (!latest) return;
-        const stored = await ctrApi.getChannelAudit(latest.id);
-        if (cancelled || opRef.current !== op) return;
-        // Generation 0 still current ⇒ no user action happened ⇒ the audit
-        // slot is empty; the restored report (and ITS channel ref) land as one.
+        const summary = summaries.find((item) => item.id === auditId);
         setAudit((current) => current ?? stored);
         setCreatorGoal(isChannelAuditV2(stored) ? stored.publicResearch?.creatorGoal || '' : '');
-        setReportChannelRef(latest.channelRef || '');
-        if (latest.channelRef) {
-          setChannelUrl((current) => current || latest.channelRef);
-        }
-      } catch {
-        /* history is best-effort — the form is always available */
+        setReportChannelRef(summary?.channelRef || '');
+        if (summary?.channelRef) setChannelUrl((current) => current || summary.channelRef);
+      } catch (err: any) {
+        if (cancelled || opRef.current !== op) return;
+        if (err?.response?.status === 401) { setSignInRequired(true); return; }
+        setAuditIdParam(null);
       } finally {
         window.clearTimeout(graceTimer);
         if (!cancelled) setIsRestoring(false);
@@ -331,11 +306,7 @@ const ChannelAuditPage: React.FC = () => {
       if (opRef.current !== op) return;
       setAudit(result);
       setReportChannelRef(trimmed);
-      // The fresh audit is now the newest history row — refresh the list so
-      // "New audit" shows it without a page reload. Fire-and-forget.
-      void ctrApi.listChannelAudits().then((summaries) => {
-        if (opRef.current === op) setHistory(summaries);
-      });
+      setAuditIdParam(isChannelAuditV2(result) && typeof result.id === 'number' ? result.id : null);
     } catch (err: any) {
       if (opRef.current !== op) return;
       if (err?.response?.status === 401) { setSignInRequired(true); return; }
@@ -378,7 +349,17 @@ const ChannelAuditPage: React.FC = () => {
     setReportChannelRef('');
     setIsAuditing(false);
     setOpeningAuditId(null);
+    setAuditIdParam(null);
   };
+
+  // The sidebar's "Channel Audit" link is a new visit: back to the empty form,
+  // even when a report is on screen (same route, so no remount).
+  const firstLocationKey = React.useRef(location.key);
+  React.useEffect(() => {
+    if (location.key === firstLocationKey.current || readAuditIdParam(location.search) !== null) return;
+    handleReset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
 
   return (
     <AIThumbnailsLayout usageAccess={usageAccess} isLoadingQuota={isLoadingQuota}>
@@ -516,8 +497,8 @@ const ChannelAuditPage: React.FC = () => {
             </div>
           </motion.div>
         ) : !audit && isRestoring ? (
-          // Checking for a previous audit — a quiet beat instead of flashing the
-          // empty form at a creator whose report is about to reappear.
+          // Opening the audit History linked to — a quiet beat instead of
+          // flashing the empty form at a creator whose report is on its way.
           <motion.div
             key="restoring"
             initial={{ opacity: 0 }}
@@ -526,7 +507,7 @@ const ChannelAuditPage: React.FC = () => {
             className="max-w-lg mx-auto min-h-[70vh] flex flex-col items-center justify-center gap-3 text-gray-400"
           >
             <RefreshCw className="w-6 h-6 animate-spin text-[#fa7517]" />
-            <p className="text-sm">Looking for your last audit…</p>
+            <p className="text-sm">Opening your audit…</p>
           </motion.div>
         ) : audit ? (
           <motion.div
@@ -645,61 +626,6 @@ const ChannelAuditPage: React.FC = () => {
 
             {/* Auditing progress */}
             <AnimatePresence>{isAuditing && <ChannelAuditProgress />}</AnimatePresence>
-
-            {/* Previous audits — persistence, finally visible. One click
-                re-opens a report (with metrics refreshed at read time). */}
-            {history.length > 0 && !isAuditing && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="ai-audit-history mb-8 border-t border-white/[0.08] pt-6"
-              >
-                <h2 className="flex items-center gap-2 text-sm font-semibold text-white mb-3">
-                  <History className="w-4 h-4 text-[#fa7517]" />
-                  Your previous audits
-                </h2>
-                <ul className="space-y-2">
-                  {history.map((summary) => (
-                    <li key={summary.id}>
-                      <button
-                        type="button"
-                        onClick={() => openAudit(summary)}
-                        disabled={openingAuditId !== null || isAuditing}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-800/50 bg-black/40
-                                   hover:border-[#fa7517]/30 transition-colors text-left min-h-[44px]
-                                   disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">
-                            {summary.channelTitle || summary.channelRef}
-                          </p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {[
-                              formatSubscribers(summary.subscribers),
-                              summary.niche,
-                              formatAuditDate(summary.createdAt),
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </p>
-                        </div>
-                        {summary.dataMode && DATA_MODE_LABELS[summary.dataMode] && (
-                          <span className="flex-shrink-0 px-2 py-0.5 rounded-md border border-gray-700/60 bg-white/5 text-[10px] font-semibold text-gray-400">
-                            {DATA_MODE_LABELS[summary.dataMode]}
-                          </span>
-                        )}
-                        {openingAuditId === summary.id ? (
-                          <RefreshCw className="w-4 h-4 flex-shrink-0 animate-spin text-[#fa7517]" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 flex-shrink-0 text-gray-600" />
-                        )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-            )}
 
             {/* What you'll get */}
             <motion.div

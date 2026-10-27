@@ -17,13 +17,14 @@ import {
   ChevronRight,
   RefreshCw,
   Search,
-  Filter
+  Filter,
+  ScanSearch
 } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import AIThumbnailsSignInOptions from './components/AIThumbnailsSignInOptions';
 import useCTREngine from '../../../hooks/useCTREngine';
-import { AuditHistoryItem } from '../../../types/ctr';
-import { getScoreColor, getScoreLabel } from '../../../api/ctr';
+import { AuditHistoryItem, ChannelAuditSummary } from '../../../types/ctr';
+import ctrApi, { getScoreColor, getScoreLabel } from '../../../api/ctr';
 
 // ============================================================================
 // STATS CARD COMPONENT
@@ -160,6 +161,66 @@ const AuditHistoryRow: React.FC<AuditHistoryRowProps> = ({ item, onView, delay =
 };
 
 // ============================================================================
+// CHANNEL AUDIT ROW
+// ============================================================================
+
+/** "1.2M subs" — compact, list-row scale. */
+const formatSubscribers = (subs: number | null): string => {
+  if (subs === null) return '';
+  if (subs >= 1_000_000) return `${(subs / 1_000_000).toFixed(1).replace(/\.0$/, '')}M subs`;
+  if (subs >= 1_000) return `${(subs / 1_000).toFixed(1).replace(/\.0$/, '')}K subs`;
+  return `${subs} subs`;
+};
+
+const formatAuditDate = (iso: string | null): string => {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return '';
+  }
+};
+
+/** Honest one-word label per data source mode — mirrors the report's badge. */
+const DATA_MODE_LABELS: Record<string, string> = {
+  preview: 'Public data',
+  uploaded: 'Self-reported',
+  connected_partial: 'Connected',
+  connected_full: 'Connected',
+  hybrid: 'Connected + upload',
+};
+
+const ChannelAuditRow: React.FC<{ summary: ChannelAuditSummary; onOpen: (id: number) => void }> = ({
+  summary,
+  onOpen,
+}) => (
+  <button
+    type="button"
+    onClick={() => onOpen(summary.id)}
+    className="group w-full flex items-center gap-4 p-4 rounded-xl border border-gray-800/30 bg-black/50 hover:bg-black/60
+               hover:border-[#fa7517]/30 transition-all text-left min-h-[44px] backdrop-blur-sm"
+  >
+    <div className="w-10 h-10 rounded-lg bg-[#fa7517]/10 border border-[#fa7517]/25 flex items-center justify-center flex-shrink-0">
+      <ScanSearch className="w-5 h-5 text-[#fa7517]" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-semibold text-white truncate">{summary.channelTitle || summary.channelRef}</p>
+      <p className="text-xs text-gray-500 truncate mt-0.5">
+        {[formatSubscribers(summary.subscribers), summary.niche, formatAuditDate(summary.createdAt)]
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
+    </div>
+    {summary.dataMode && DATA_MODE_LABELS[summary.dataMode] && (
+      <span className="hidden sm:inline flex-shrink-0 px-2 py-0.5 rounded-md border border-gray-700/60 bg-white/5 text-[10px] font-semibold text-gray-400">
+        {DATA_MODE_LABELS[summary.dataMode]}
+      </span>
+    )}
+    <ChevronRight className="w-5 h-5 flex-shrink-0 text-gray-500 group-hover:text-[#fa7517] transition-colors" />
+  </button>
+);
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -182,6 +243,19 @@ const AuditHistoryPage: React.FC = () => {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterNiche, setFilterNiche] = useState<string>('all');
+  // Channel audits are listed here, not on the Channel Audit page: that page
+  // opens on the form and shows a saved report when this list links to it.
+  const [channelAudits, setChannelAudits] = useState<ChannelAuditSummary[] | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    ctrApi
+      .listChannelAudits()
+      .then((audits) => { if (!cancelled) setChannelAudits(audits); })
+      .catch(() => { if (!cancelled) setChannelAudits([]); });
+    return () => { cancelled = true; };
+  }, [isAuthenticated]);
   
   // Load history and stats on mount
   useEffect(() => {
@@ -292,6 +366,27 @@ const AuditHistoryPage: React.FC = () => {
           Track your progress and see how your thumbnail CTR scores improve over time
         </motion.p>
       </div>
+
+      {/* Channel audits */}
+      {channelAudits && channelAudits.length > 0 && (
+        <section className="mb-12">
+          <h2 className="text-lg font-semibold text-white mb-1">Channel audits</h2>
+          <p className="text-sm text-gray-500 mb-4">Open a report to see the plan, the ideas and the full audit.</p>
+          <div className="space-y-3">
+            {channelAudits.map((summary) => (
+              <ChannelAuditRow
+                key={summary.id}
+                summary={summary}
+                onOpen={(id) => navigate(`/ai-thumbnails/channel-audit?audit=${id}`)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(auditHistory.length > 0 || isLoadingAuditHistory) && (channelAudits?.length ?? 0) > 0 && (
+        <h2 className="text-lg font-semibold text-white mb-4">Thumbnail audits</h2>
+      )}
 
       {/* Stats Cards */}
       {auditStats && (
@@ -411,7 +506,7 @@ const AuditHistoryPage: React.FC = () => {
         )}
         
         {/* Empty State */}
-        {!isLoadingAuditHistory && auditHistory.length === 0 && (
+        {!isLoadingAuditHistory && auditHistory.length === 0 && channelAudits !== null && channelAudits.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
