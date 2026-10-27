@@ -17,7 +17,7 @@ const ChannelAuditProgress: React.FC = () => (
       <p className="font-semibold text-white">Preparing your channel audit…</p>
     </div>
     <p className="mb-5 text-sm leading-relaxed text-zinc-400">
-      We collect public evidence, inspect up to eight thumbnails and turn the
+      We collect public evidence, inspect up to eighteen thumbnails and turn the
       findings into practical decisions. This can take a few minutes.
     </p>
     <ul className="space-y-3 text-sm text-zinc-300">

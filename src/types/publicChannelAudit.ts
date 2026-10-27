@@ -329,6 +329,14 @@ export interface PublicDecision {
   };
 }
 export interface PublicReview {
+  creatorPlan?: {
+    diagnosis: string;
+    families: { name: string; description: string; evidence: { videoId: string; observationIndex: number }[] }[];
+    ideas: { title: string; thumbnailBrief: string; rationale: string; evidenceVideoIds: string[] }[];
+    test: string;
+    testCurrent?: string;
+    testNew?: string;
+  };
   goal: { text: string; source: "creator" | "inferred" };
   promise: {
     channel: string;
@@ -375,6 +383,7 @@ export interface PublicReview {
   videoAssessments?: {
     videoId: string;
     status:
+      | "not_assessed"
       | "no_manifest_issue"
       | "verification_needed"
       | "test_suggested"

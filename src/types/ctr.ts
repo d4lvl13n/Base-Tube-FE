@@ -810,6 +810,16 @@ export interface ChannelPackagingAuditV2 {
   perVideo: ChannelAuditV2PerVideo[];
   experiments: ChannelAuditV2Experiment[];
   swipeFile: ChannelAuditV2SwipeFile;
+  comparativeSummary?: {
+    status: 'descriptive_comparison' | 'insufficient_evidence';
+    performanceComparable: boolean;
+    contrasts: { dimension: string; standoutVideoId: string; standoutFact: string; exampleVideoId: string; exampleFact: string; whyItMatters?: string }[];
+    standoutVideoId?: string;
+    peerVideoIds: string[];
+    facts: { videoId: string; text: string }[];
+    interpretation: string;
+    limitation: string;
+  };
   reviewQueue: ChannelAuditV2ReviewQueue;
   /** Connected mode only. */
   analyticsStatus?: 'syncing' | 'ready' | 'reauth_required';

@@ -355,3 +355,17 @@ export function studioCreateUrlForTitle(videoTitle: string, account: string, vid
   saveStudioDraft(id, { videoTitle: title, creatorHook: '', description: '', direction: '', headline: '', format: 'landscape', quality: 'high', count: 2, niche: null, includeFace: false, savedStyleHasLogo: false, localFiles: [] });
   return `/ai-thumbnails/generate?draft=${encodeURIComponent(id)}`;
 }
+
+/** Start a new brief from a proposed video idea and its visual direction. */
+export function studioCreateUrlForIdea(videoTitle: string, visualDirection: string, account: string): string {
+  const title = videoTitle.trim().slice(0, 500);
+  const direction = visualDirection.trim().slice(0, 3000);
+  if (account !== 'anonymous') {
+    if (title) saveStudioCreateDraft(account, {brief:{...emptyStudioBrief(), videoTitle:title, visualDirection:direction}, count:2, quality:'high'});
+    return '/ai-thumbnails/generate';
+  }
+  if (!title) return '/ai-thumbnails/generate';
+  const id = createStudioDraftId();
+  saveStudioDraft(id, {videoTitle:title,creatorHook:'',description:'',direction,headline:'',format:'landscape',quality:'high',count:2,niche:null,includeFace:false,savedStyleHasLogo:false,localFiles:[]});
+  return `/ai-thumbnails/generate?draft=${encodeURIComponent(id)}`;
+}

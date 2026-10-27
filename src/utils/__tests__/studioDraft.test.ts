@@ -1,7 +1,15 @@
 import { clearStudioCreateDraft, loadStudioCreateDraft, saveStudioCreateDraft, clearStudioDraft, creditsReturnDestination, rememberCreditsReturn, loadStudioDraft, saveStudioDraft, studioReturnDestination, STUDIO_DRAFT_PREFIX, STUDIO_DRAFT_TTL, StudioDraft } from '../studioDraft';
 import { emptyStudioBrief } from '../../types/thumbnailStudio';
+import { studioCreateUrlForIdea } from '../studioDraft';
 const draft: StudioDraft = { videoTitle: 'Un casque à choisir', creatorHook: 'Le résultat', description: 'Deux casques', direction: 'Sans logo', headline: 'LEQUEL CHOISIR ?', format: 'short', quality: 'high', count: 2, niche: 'tech', includeFace: true, savedStyleId: 7, savedStyleHasLogo: false, localFiles: [{ name: 'face.png', purpose: 'subject' }] };
 beforeEach(() => sessionStorage.clear());
+it('opens an audit idea in Studio with its title and visual brief for signed-in and visitor accounts', () => {
+  expect(studioCreateUrlForIdea('Across every map?', 'One map with a route', 'clerk:alice')).toBe('/ai-thumbnails/generate');
+  expect(loadStudioCreateDraft('clerk:alice')?.brief).toMatchObject({videoTitle:'Across every map?',visualDirection:'One map with a route'});
+  const url=studioCreateUrlForIdea('Across every map?', 'One map with a route', 'anonymous');
+  const id=new URLSearchParams(url.split('?')[1]).get('draft');
+  expect(loadStudioDraft(id)?.draft).toMatchObject({videoTitle:'Across every map?',direction:'One map with a route'});
+});
 it('round-trips text, options, owned reference IDs and file names without persisting file contents or other fields', () => {
   saveStudioDraft('draft-1', { ...draft, token: 'secret', imageBase64: 'data:image/png', privateAnalytics: { ctr: 3 } } as StudioDraft);
   expect(loadStudioDraft('draft-1')?.draft).toEqual(draft);

@@ -568,7 +568,7 @@ const ChannelAuditPage: React.FC = () => {
                 Channel Packaging Audit
               </h1>
               <p className="text-base sm:text-lg leading-relaxed text-zinc-400 max-w-xl mx-auto">
-                Find what to keep, what to improve and how to test it. We inspect up to eight thumbnails,
+                Find what to keep, what to improve and how to test it. We inspect up to eighteen thumbnails,
                 review the viewer promise and research competitive examples. No YouTube connection required.
               </p>
             </div>
