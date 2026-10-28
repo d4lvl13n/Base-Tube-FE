@@ -12,7 +12,12 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Sparkles } from 'lucide-react';
 import { useStudioAccount } from '../../../../hooks/useStudioAccount';
 import { studioCreateUrlForIdea } from '../../../../utils/studioDraft';
-import type { ChannelAuditV2PerVideo, ChannelPackagingAuditV2 } from '../../../../types/ctr';
+import type {
+  ChannelAuditV2PerVideo,
+  ChannelPackagingAuditV2,
+  UnderstandingEvidence,
+  WatchedVideo,
+} from '../../../../types/ctr';
 import type { PublicStatGroup } from '../../../../types/publicChannelAudit';
 import '../styles/auditPlan.css';
 
@@ -163,6 +168,61 @@ const FormatTable: React.FC<{
   </div>
 );
 
+const formatTime = (seconds: number | null | undefined): string => {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds)) return '';
+  const total = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = String(total % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+};
+
+const youtubeAt = (videoId: string, seconds: number | null | undefined) =>
+  `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}${
+    typeof seconds === 'number' && Number.isFinite(seconds) ? `&t=${Math.floor(seconds)}s` : ''
+  }`;
+
+const ROLE_LABEL: Record<WatchedVideo['roles'][number], string> = {
+  fastest: 'Fastest',
+  most_viewed: 'Most viewed',
+  usual: 'Usual',
+  weakest: 'Weakest',
+  recent: 'Recent',
+  format: 'Typical of its format',
+};
+
+/** A quote with the moment it is said, or a frame cut from the video. */
+const Evidence: React.FC<{ item: UnderstandingEvidence; title?: string }> = ({ item, title }) => {
+  const time = formatTime(item.atSeconds);
+  const link = (
+    <a href={youtubeAt(item.videoId, item.atSeconds)} target="_blank" rel="noopener noreferrer">
+      {time ? `▶ ${time}` : 'Watch'}
+    </a>
+  );
+  if (item.kind === 'frame') {
+    return (
+      <figure className="ap-ev-frame">
+        {item.image && <img src={item.image} alt={item.note} loading="lazy" />}
+        <figcaption>
+          {link}
+          {title ? ` · ${title}` : ''}
+          {item.note ? <span className="ap-ev-note">{item.note}</span> : null}
+        </figcaption>
+      </figure>
+    );
+  }
+  return (
+    <blockquote className="ap-ev-quote">
+      <p>“{item.quote}”</p>
+      <footer>
+        {link}
+        {title ? ` · ${title}` : ''}
+        {item.note ? <span className="ap-ev-note">{item.note}</span> : null}
+      </footer>
+    </blockquote>
+  );
+};
+
 const SectionHead: React.FC<{ eyebrow: string; title: string; lead?: string }> = ({ eyebrow, title, lead }) => (
   <header className="ap-section-head">
     <p className="ap-eyebrow">{eyebrow}</p>
@@ -186,6 +246,9 @@ export const AuditCreatorPlan: React.FC<{
   const median = queue?.medianViews ?? 0;
   const families = plan?.families ?? [];
   const stats = audit.publicResearch?.statistics;
+  const understanding = audit.channelUnderstanding;
+  const watchedById = new Map((understanding?.videos ?? []).map((v) => [v.videoId, v]));
+  const titleOf = (id: string) => watchedById.get(id)?.title || byId.get(id)?.title || '';
   const findings = audit.publicReview?.findings ?? [];
 
   // Every listed video, including the ones whose thumbnail was not inspected.
@@ -363,7 +426,109 @@ export const AuditCreatorPlan: React.FC<{
         )}
       </section>
 
-      {/* 2. What the numbers say */}
+      {/* 2a. What we saw watching the videos */}
+      {understanding && understanding.findings.length > 0 && (
+        <section className="ap-section">
+          <SectionHead
+            eyebrow="What we saw in your videos"
+            title={
+              understanding.findings.length === 1
+                ? 'One thing that explains your channel'
+                : `${understanding.findings.length} things that explain your channel`
+            }
+            lead={`We read the transcripts and looked at preview frames of ${understanding.videos.length} of your videos. Quotes are word for word, with the moment they are said.`}
+          />
+          <ol className="ap-findings">
+            {understanding.findings.map((finding, index) => (
+              <li key={index} className="ap-finding">
+                <span className="ap-finding-num">{String(index + 1).padStart(2, '0')}</span>
+                <div className="ap-finding-body">
+                  <h3 className="ap-h3">{finding.headline}</h3>
+                  <p className="ap-confidence">
+                    {finding.confidence === 'clear' ? 'Seen in several videos' : 'Seen in one video'}
+                  </p>
+                  <p className="ap-finding-text">{finding.explanation}</p>
+                  {finding.evidence.length > 0 && (
+                    <div className="ap-evidence">
+                      {finding.evidence.map((item) => (
+                        <Evidence key={item.id} item={item} title={titleOf(item.videoId)} />
+                      ))}
+                    </div>
+                  )}
+                  <p className="ap-idea-label">For your next video</p>
+                  <p className="ap-idea-brief">{finding.action}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {/* 2b. The videos watched */}
+      {understanding && understanding.videos.length > 0 && (
+        <section className="ap-section">
+          <SectionHead
+            eyebrow="The videos we watched"
+            title={`${understanding.videos.length} of your videos, seen from the inside`}
+            lead="Chosen to cover your fastest, most viewed, usual, weakest and latest videos."
+          />
+          <div className="ap-watched">
+            {understanding.videos.map((watched) => {
+              const video =
+                videoFor(watched.videoId) ||
+                ({
+                  videoId: watched.videoId,
+                  title: watched.title,
+                  views: watched.views,
+                  viewsPerMonth: watched.viewsPerMonth,
+                  publishedAt: watched.publishedAt,
+                  thumbnailUrl: `https://i.ytimg.com/vi/${encodeURIComponent(watched.videoId)}/mqdefault.jpg`,
+                  videoUrl: '',
+                  observed: [],
+                  hypothesis: '',
+                  experimentId: null,
+                } as ChannelAuditV2PerVideo);
+              return (
+                <article key={watched.videoId} className="ap-watched-card">
+                  <Thumb video={video} label={watched.roles.map((r) => ROLE_LABEL[r]).join(' · ')} />
+                  <div className="ap-watched-body">
+                    <h3 className="ap-h3">{watched.title}</h3>
+                    <PaceLine video={{ ...video, viewsPerMonth: watched.viewsPerMonth, publishedAt: watched.publishedAt }} />
+                    <p className="ap-watched-format">{watched.format}</p>
+                    {watched.summary && <p className="ap-finding-text">{watched.summary}</p>}
+                    {watched.hook && (
+                      <>
+                        <p className="ap-idea-label">How it opens</p>
+                        <Evidence item={watched.hook} />
+                      </>
+                    )}
+                    {watched.ownContributionNote && (
+                      <>
+                        <p className="ap-idea-label">Your own work in it</p>
+                        <p className="ap-finding-text">{watched.ownContributionNote}</p>
+                      </>
+                    )}
+                    {watched.firstHand && (
+                      <>
+                        <p className="ap-idea-label">First-hand</p>
+                        <p className="ap-finding-text">{watched.firstHand}</p>
+                      </>
+                    )}
+                    {watched.transcript === 'unavailable' && (
+                      <p className="ap-footnote">No transcript for this video: read from its frames only.</p>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {understanding.limitations.length > 0 && (
+            <p className="ap-footnote">{understanding.limitations.join(' ')}</p>
+          )}
+        </section>
+      )}
+
+      {/* 2c. What the numbers say */}
       {(findings.length > 0 || formats.length > 0) && (
         <section className="ap-section">
           <SectionHead

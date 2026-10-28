@@ -549,3 +549,71 @@ a.ap-thumb--accent:hover { box-shadow: 0 0 0 1.5px var(--ap-orange), 0 22px 70px
   .ap-format-unit { display: inline; }
   .ap-finding { grid-template-columns: 1fr; padding: 18px; }
 }
+
+/* ─── What we saw in your videos ───────────────────────── */
+.ap-confidence {
+  margin-top: 6px !important;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ap-dim);
+}
+.ap-finding-text {
+  margin-top: 10px !important;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ap-muted);
+}
+.ap-evidence {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  margin: 18px 0 6px;
+}
+.ap-ev-quote {
+  margin: 0;
+  padding: 14px 16px;
+  border-left: 3px solid var(--ap-orange);
+  border-radius: 0 10px 10px 0;
+  background: var(--ap-orange-soft);
+}
+.ap-ev-quote p { font-size: 15px; line-height: 1.5; color: #fff; font-style: italic; }
+.ap-ev-quote footer, .ap-ev-frame figcaption {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ap-dim);
+}
+.ap-ev-quote a, .ap-ev-frame a { color: var(--ap-orange); font-weight: 600; text-decoration: none; }
+.ap-ev-quote a:hover, .ap-ev-frame a:hover { text-decoration: underline; }
+.ap-ev-note { display: block; margin-top: 4px; color: var(--ap-muted); }
+.ap-ev-frame { margin: 0; }
+.ap-ev-frame img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--ap-frost);
+}
+.ap-watched {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+.ap-watched-card {
+  border: 1px solid var(--ap-frost);
+  border-radius: 14px;
+  background: var(--ap-panel);
+  overflow: hidden;
+}
+.ap-watched-card > .ap-thumb { border-radius: 0; box-shadow: none; border-bottom: 1px solid var(--ap-frost); }
+.ap-watched-card > a.ap-thumb:hover { transform: none; box-shadow: none; }
+.ap-watched-body { padding: 18px; }
+.ap-watched-format {
+  margin-top: 8px !important;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}

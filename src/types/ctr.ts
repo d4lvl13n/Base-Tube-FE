@@ -800,7 +800,60 @@ export type ChannelAuditConnectionStatus =
   | 'syncing';
 
 /** The frozen v2 audit contract. */
+/** One piece of proof from a watched video: exact words, or a frame we cut out. */
+export interface UnderstandingEvidence {
+  id: string;
+  videoId: string;
+  kind: 'quote' | 'frame';
+  quote?: string;
+  /** Seconds into the video, computed from the transcript or the frame position. */
+  atSeconds: number | null;
+  /** JPEG data URL of the frame (frames cited by a finding only). */
+  image?: string;
+  note: string;
+}
+
+export interface WatchedVideo {
+  videoId: string;
+  title: string;
+  views: number;
+  viewsPerMonth: number | null;
+  publishedAt: string | null;
+  durationSeconds: number | null;
+  roles: ('fastest' | 'most_viewed' | 'usual' | 'weakest' | 'recent' | 'format')[];
+  transcript: 'read' | 'unavailable';
+  framesSeen: number;
+  format: string;
+  summary: string;
+  hook: UnderstandingEvidence | null;
+  ownContribution: string;
+  ownContributionNote: string;
+  firstHand: string | null;
+  delivery: string;
+  evidence: UnderstandingEvidence[];
+}
+
+export interface UnderstandingFinding {
+  headline: string;
+  explanation: string;
+  /** clear = seen in several videos; likely = rests on one video. */
+  confidence: 'clear' | 'likely';
+  action: string;
+  videoIds: string[];
+  evidence: UnderstandingEvidence[];
+}
+
+/** The videos the audit watched (transcripts + frames) and what they explain. */
+export interface ChannelUnderstanding {
+  version: '1';
+  generatedAt: string;
+  videos: WatchedVideo[];
+  findings: UnderstandingFinding[];
+  limitations: string[];
+}
+
 export interface ChannelPackagingAuditV2 {
+  channelUnderstanding?: ChannelUnderstanding;
   connectedAnalysis?: ConnectedAuditAnalysis;
   experimentTracking?: AuditExperimentTracking[];
   publicResearch?: PublicResearch;

@@ -96,3 +96,36 @@ it('leads with formats, findings and views per month when the backend sends them
   // The positioning repeated as headline is not shown twice.
   expect(screen.queryAllByText('Guides: 4 videos with a median of 33 views.')).toHaveLength(1);
 });
+
+it('shows what we saw in the videos, with quotes linked to their moment', () => {
+  const quote = { id: 'gta:0', videoId: 'gta', kind: 'quote', quote: "I don't think Rockstar is making a bigger GTA 5", atSeconds: 3.4, note: 'A thesis in the first sentence.' };
+  const frame = { id: 'gta:1', videoId: 'gta', kind: 'frame', atSeconds: 65, image: 'data:image/jpeg;base64,AAAA', note: 'Trailer footage with the channel mark.' };
+  const audit: any = {
+    channel: { title: 'FinalBoss', subscribers: 1000, videosAnalyzed: 30 },
+    positioning: 'FinalBoss covers games.',
+    headline: '',
+    perVideo: [{ videoId: 'gta', title: 'GTA 6 Is Secretly Red Dead 3', views: 1407, thumbnailUrl: '/gta.jpg', videoUrl: '', observed: [], hypothesis: '', experimentId: null }],
+    reviewQueue: { medianViews: 484, high: [], low: [] },
+    swipeFile: { examples: [] },
+    channelUnderstanding: {
+      version: '1',
+      generatedAt: '2026-10-28T18:00:00Z',
+      limitations: ['No transcript for "Ryu vs Ken"; it was read from its frames only.'],
+      findings: [
+        { headline: 'Your fastest videos open on your own verdict.', explanation: 'The GTA 6 video states its thesis at once.', confidence: 'clear', action: 'Open on your verdict.', videoIds: ['gta'], evidence: [quote, frame] },
+      ],
+      videos: [
+        { videoId: 'gta', title: 'GTA 6 Is Secretly Red Dead 3', views: 1407, viewsPerMonth: 740.8, publishedAt: '2026-08-31T19:34:03Z', durationSeconds: 582, roles: ['fastest'], transcript: 'read', framesSeen: 27, format: 'Opinion on an upcoming game', summary: 'An argument about GTA 6.', hook: quote, ownContribution: 'own_voice_over_other_footage', ownContributionNote: 'Own voice over trailer footage.', firstHand: null, delivery: 'Voice, no face.', evidence: [quote, frame] },
+      ],
+    },
+  };
+  render(<MemoryRouter><AuditCreatorPlan audit={audit} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { name: 'One thing that explains your channel' })).toBeInTheDocument();
+  expect(screen.getByText('Seen in several videos')).toBeInTheDocument();
+  const links = screen.getAllByRole('link', { name: '▶ 0:03' });
+  expect(links[0]).toHaveAttribute('href', 'https://www.youtube.com/watch?v=gta&t=3s');
+  expect(screen.getByRole('img', { name: 'Trailer footage with the channel mark.' })).toHaveAttribute('src', 'data:image/jpeg;base64,AAAA');
+  expect(screen.getByRole('heading', { name: '1 of your videos, seen from the inside' })).toBeInTheDocument();
+  expect(screen.getByText('How it opens')).toBeInTheDocument();
+  expect(screen.getByText(/read from its frames only/)).toBeInTheDocument();
+});
