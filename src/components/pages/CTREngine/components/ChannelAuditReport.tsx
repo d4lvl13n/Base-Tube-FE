@@ -25,7 +25,6 @@ import {
   ArrowRight,
   Users,
   Eye,
-  Compass,
   ClipboardList,
   FlaskConical,
   BookMarked,
@@ -234,24 +233,21 @@ const collectUploadedDatasets = (perVideo: ChannelAuditV2PerVideo[]): MetricData
  * With a creator plan on top, the per-video evidence, checks and raw comparisons
  * are reference material: one click away instead of 15,000px of scrolling.
  */
-const FullAudit: React.FC<{ collapsed: boolean; children: React.ReactNode }> = ({ collapsed, children }) =>
-  collapsed ? (
-    <details className="ap-more">
-      <summary>
-        <span>
-          <span className="ap-more-title">The full audit</span>
-          <span className="ap-more-sub">Every video analysed, the checks and the raw evidence behind this plan.</span>
-        </span>
-        <span className="ap-more-toggle">
-          <span className="ap-more-toggle-open">Show</span>
-          <span className="ap-more-toggle-close">Hide</span>
-        </span>
-      </summary>
-      <div className="ap-more-body">{children}</div>
-    </details>
-  ) : (
-    <>{children}</>
-  );
+const FullAudit: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <details className="ap-more">
+    <summary>
+      <span>
+        <span className="ap-more-title">The full audit</span>
+        <span className="ap-more-sub">Every video analysed, the checks and the raw evidence behind this report.</span>
+      </span>
+      <span className="ap-more-toggle">
+        <span className="ap-more-toggle-open">Show</span>
+        <span className="ap-more-toggle-close">Hide</span>
+      </span>
+    </summary>
+    <div className="ap-more-body">{children}</div>
+  </details>
+);
 
 export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
   audit,
@@ -275,9 +271,6 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
 
   const v2: ChannelPackagingAuditV2 = audit;
   const {
-    channel,
-    positioning,
-    headline,
     perVideo = [],
     experiments = [],
     swipeFile,
@@ -335,11 +328,11 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
   const observationCount = perVideo.reduce((sum, v) => sum + (v.observed?.length ?? 0), 0);
 
   const swipeIsAspirational = swipeFile?.size?.match === 'aspirational';
-  // New public audits carry a creator plan: it leads the report, the evidence follows on demand.
+  // Every audit leads with the creator view; the plan fills it when the channel has a breakout video.
   const creatorPlan = v2.publicReview?.creatorPlan;
 
   return (
-    <div className={`ai-audit-report ${creatorPlan ? 'max-w-6xl' : 'max-w-3xl'} mx-auto pb-16`}>
+    <div className="ai-audit-report max-w-6xl mx-auto pb-16">
       {/* Back */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <button
@@ -357,63 +350,28 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
       {/* ------------------------------------------------------------------ */}
       {/* 1. POSITIONING — what this channel is, first and prominently        */}
       {/* ------------------------------------------------------------------ */}
-      {creatorPlan ? (
-        <AuditCreatorPlan audit={v2} plan={creatorPlan} />
-      ) : (
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="ai-audit-positioning border-b border-white/[0.09] pb-8 mb-8"
-        >
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-400 mb-4">
-            <span className="text-white font-semibold text-base">{channel?.title}</span>
-            <span className="flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-[#fa7517]" />
-              {formatCount(channel?.subscribers)} subscribers
-            </span>
-            {channel?.niche && (
-              <span className="px-2 py-0.5 bg-[#fa7517]/15 text-[#fa7517] text-xs font-medium rounded-full">
-                {channel.niche}
-              </span>
-            )}
-            <span>{channel?.videosAnalyzed ?? perVideo.length} videos analyzed</span>
-            {/* v2.1 drives this badge from dataMode; pre-v2.1 rows keep the old one. */}
-            {hasDataMode
-              ? dataModeBadge && (
-                  <span
-                    className={`px-2 py-0.5 border text-[10px] font-semibold uppercase tracking-wide rounded ${dataModeBadge.className}`}
-                  >
-                    {dataModeBadge.label}
-                  </span>
-                )
-              : mode === 'connected' && (
-                  <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 border border-blue-500/25 text-[10px] font-semibold uppercase tracking-wide rounded">
-                    connected
-                  </span>
-                )}
-          </div>
-
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#fa7517] mb-2">
-            <Compass className="w-4 h-4" />
-            Positioning
-          </p>
-          <p className="text-lg sm:text-xl text-white font-semibold leading-snug">{positioning}</p>
-
-          {headline && (
-            <p className="mt-5 pt-5 border-t border-white/10 text-sm sm:text-base text-gray-300 leading-relaxed">
-              {headline}
-            </p>
-          )}
-        </motion.section>
-      )}
+      <AuditCreatorPlan
+        audit={v2}
+        plan={creatorPlan}
+        badge={
+          // v2.1 drives this badge from dataMode; pre-v2.1 rows keep the old one.
+          hasDataMode
+            ? dataModeBadge && (
+                <span
+                  className={`px-2 py-0.5 border text-[10px] font-semibold uppercase tracking-wide rounded ${dataModeBadge.className}`}
+                >
+                  {dataModeBadge.label}
+                </span>
+              )
+            : mode === 'connected' && (
+                <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 border border-blue-500/25 text-[10px] font-semibold uppercase tracking-wide rounded">
+                  connected
+                </span>
+              )
+        }
+      />
 
       <ConnectedAuditReview audit={v2} />
-      {!creatorPlan && (
-        <>
-          <PublicChannelAuditReview key={`public-${v2.id}`} audit={v2} />
-          <ChannelStudioHandoff key={v2.id} audit={v2} />
-        </>
-      )}
       <AuditExperimentTracker key={`tests-${v2.id}`} audit={v2} />
 
       {/* Connect / reconnect / wrong-channel — the report's main ask when it has
@@ -498,13 +456,9 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
         </div>
       )}
 
-      <FullAudit collapsed={!!creatorPlan}>
-      {creatorPlan && (
-        <>
-          <PublicChannelAuditReview key={`public-${v2.id}`} audit={v2} />
-          <ChannelStudioHandoff key={v2.id} audit={v2} />
-        </>
-      )}
+      <FullAudit>
+      <PublicChannelAuditReview key={`public-${v2.id}`} audit={v2} />
+      <ChannelStudioHandoff key={v2.id} audit={v2} />
 
       {/* ------------------------------------------------------------------ */}
       {/* 2. EVIDENCE BOARD                                                   */}

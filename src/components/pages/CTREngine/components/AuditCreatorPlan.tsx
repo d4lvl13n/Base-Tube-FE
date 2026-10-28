@@ -1,8 +1,9 @@
 // src/components/pages/CTREngine/components/AuditCreatorPlan.tsx
-// The creator-facing top of a public channel audit: what broke out, what changed,
+// The creator-facing top of every channel audit: what broke out, what changed,
 // three next-video ideas, the test to run, the recurring styles and examples from
 // other channels. Images first, short text, one action per idea. The full evidence
-// stays below it in the report.
+// stays below it in the report. Without a creator plan (no breakout video), the
+// same layout shows the positioning, the thumbnails to test and the fixes.
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -77,25 +78,36 @@ const SectionHead: React.FC<{ eyebrow: string; title: string; lead?: string }> =
   </header>
 );
 
-export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: CreatorPlan }> = ({ audit, plan }) => {
+export const AuditCreatorPlan: React.FC<{
+  audit: ChannelPackagingAuditV2;
+  plan?: CreatorPlan;
+  /** Where the numbers come from (public, uploaded, connected). */
+  badge?: React.ReactNode;
+}> = ({ audit, plan, badge }) => {
   const navigate = useNavigate();
   const account = useStudioAccount();
   const perVideo = audit.perVideo ?? [];
   const byId = new Map(perVideo.map((v) => [v.videoId, v]));
   const summary = audit.comparativeSummary;
   const median = audit.reviewQueue?.medianViews ?? 0;
+  const families = plan?.families ?? [];
 
   const topByViews = [...perVideo].sort((a, b) => b.views - a.views)[0];
   const standout = (summary?.standoutVideoId && byId.get(summary.standoutVideoId)) || topByViews;
 
   // The "usual" video: a compared example that also belongs to a recurring style,
   // so the side-by-side shows the channel's real habit, not an odd one out.
-  const familyIds = new Set(plan.families.flatMap((f) => f.evidence.map((e) => e.videoId)));
+  // Without a comparison, the video whose views sit closest to the median.
+  const familyIds = new Set(families.flatMap((f) => f.evidence.map((e) => e.videoId)));
   const contrasts = summary?.contrasts ?? [];
   const usualId =
     contrasts.find((c) => familyIds.has(c.exampleVideoId))?.exampleVideoId ?? contrasts[0]?.exampleVideoId;
-  const usual = (usualId && byId.get(usualId)) || undefined;
+  const closestToMedian = [...perVideo]
+    .filter((v) => v.videoId !== standout?.videoId && v.thumbnailUrl)
+    .sort((a, b) => Math.abs(a.views - median) - Math.abs(b.views - median))[0];
+  const usual = (usualId && byId.get(usualId)) || (median > 0 ? closestToMedian : undefined);
   const multiple = standout && median > 0 ? Math.round(standout.views / median) : null;
+  const brokeOut = !!plan || (multiple !== null && multiple >= 3);
 
   // One row per dimension, against the chosen usual video when it was compared.
   const rows: { key: string; dimension: string; usual: string; standout: string; note?: string }[] = [];
@@ -115,13 +127,28 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
     });
   });
 
-  const [headline, ...rest] = sentences(plan.diagnosis);
+  const [headline, ...rest] = plan
+    ? sentences(plan.diagnosis)
+    : [...sentences(audit.positioning ?? ''), audit.headline]
+        .filter((s): s is string => !!s?.trim())
+        .map((s) => s.replace(/\.{2,}(?=\s|$)/g, '.')); // the positioning template can double the final period
   const familyVideos = (family: CreatorPlan['families'][number]) =>
     Array.from(new Set(family.evidence.map((e) => e.videoId)))
       .map((id) => byId.get(id))
       .filter((v): v is ChannelAuditV2PerVideo => !!v)
       .slice(0, 3);
   const examples = [...(audit.swipeFile?.examples ?? [])].sort((a, b) => b.views - a.views).slice(0, 6);
+
+  // Without a plan: new thumbnails to test on published videos, and the fixes.
+  const trials = plan
+    ? []
+    : [...(audit.experiments ?? [])]
+        .filter((e) => e.variantBrief?.thumbnail)
+        .sort((a, b) => a.priority - b.priority)
+        .slice(0, 3);
+  const fixes = plan ? [] : (audit.publicReview?.decisions ?? []).slice(0, 3);
+  const firstVideo = (ids: string[]) =>
+    ids.map((id) => byId.get(id)).find((v): v is ChannelAuditV2PerVideo => !!v);
 
   return (
     <div className="ap-root">
@@ -131,6 +158,7 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
           <span className="ap-channel-name">{audit.channel?.title}</span>
           <span>{formatCount(audit.channel?.subscribers)} subscribers</span>
           <span>{audit.channel?.videosAnalyzed ?? perVideo.length} videos analysed</span>
+          {badge}
         </div>
         <h1 className="ap-h1">{headline}</h1>
         {rest.length > 0 && <p className="ap-hero-text">{rest.join(' ')}</p>}
@@ -144,7 +172,7 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
               </figure>
             )}
             <div className="ap-versus-stat" aria-hidden={!multiple}>
-              {multiple && multiple > 1 ? (
+              {multiple && multiple >= 2 ? (
                 <>
                   <span className="ap-multiple">{multiple}×</span>
                   <span className="ap-multiple-label">your usual views</span>
@@ -154,7 +182,7 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
               )}
             </div>
             <figure className="ap-versus-item">
-              <Thumb video={standout} label="The one that broke out" accent />
+              <Thumb video={standout} label={brokeOut ? 'The one that broke out' : 'Your most viewed'} accent />
               <figcaption>{standout.title}</figcaption>
             </figure>
           </div>
@@ -175,7 +203,7 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
             <div className="ap-diff-row ap-diff-row--head">
               <span />
               <span>Your usual video</span>
-              <span className="ap-accent">The one that broke out</span>
+              <span className="ap-accent">{brokeOut ? 'The one that broke out' : 'Your most viewed'}</span>
             </div>
             {rows.map((row) => (
               <div key={row.key} className="ap-diff-row">
@@ -189,8 +217,78 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
         </section>
       )}
 
+      {/* 3a. Without a plan: new thumbnails for videos already published */}
+      {trials.length > 0 && (
+        <section className="ap-section">
+          <SectionHead
+            eyebrow="Thumbnails to test"
+            title={trials.length === 1 ? 'One video worth a new thumbnail' : `${trials.length} videos worth a new thumbnail`}
+            lead="Each card shows the thumbnail online today and the new version to try. Open it in the Studio to create it in your style."
+          />
+          <div className="ap-ideas">
+            {trials.map((trial, index) => {
+              const video = firstVideo(trial.videoIds);
+              const title = trial.variantBrief.title || video?.title || trial.title;
+              return (
+                <article key={trial.id} className="ap-idea">
+                  {video?.thumbnailUrl ? (
+                    <Thumb video={video} label="Online today" />
+                  ) : (
+                    <div className="ap-idea-canvas">
+                      <span className="ap-idea-num">{String(index + 1).padStart(2, '0')}</span>
+                    </div>
+                  )}
+                  <div className="ap-idea-body">
+                    <h3 className="ap-h3">{video?.title || trial.title}</h3>
+                    <p className="ap-idea-label">New thumbnail</p>
+                    <p className="ap-idea-brief">{trial.variantBrief.thumbnail}</p>
+                    <p className="ap-idea-label">Why try it</p>
+                    <p className="ap-idea-why">{trial.hypothesis}</p>
+                    <button
+                      type="button"
+                      className="ap-btn"
+                      onClick={() => navigate(studioCreateUrlForIdea(title, trial.variantBrief.thumbnail, account))}
+                    >
+                      <Sparkles className="ap-btn-icon" />
+                      Create this thumbnail
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* 3b. Without a plan: what to correct */}
+      {fixes.length > 0 && (
+        <section className="ap-section">
+          <SectionHead
+            eyebrow="Quick fixes"
+            title={fixes.length === 1 ? 'One thing to correct' : `${fixes.length} things to correct`}
+          />
+          <div className="ap-fixes">
+            {fixes.map((fix) => {
+              const video = firstVideo(fix.evidence.map((e) => e.videoId));
+              return (
+                <article key={fix.id} className="ap-fix">
+                  {video && <Thumb video={video} />}
+                  <div>
+                    <h3 className="ap-h3">{fix.title}</h3>
+                    <p className="ap-idea-label">What we saw</p>
+                    <p className="ap-idea-why">{fix.possibleIssue}</p>
+                    <p className="ap-idea-label">What to do</p>
+                    <p className="ap-idea-brief">{fix.change}</p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* 3. Ideas */}
-      {plan.ideas.length > 0 && (
+      {plan && plan.ideas.length > 0 && (
         <section className="ap-section">
           <SectionHead
             eyebrow="Your next videos"
@@ -229,7 +327,7 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
       )}
 
       {/* 4. The test */}
-      {(plan.testCurrent || plan.testNew) && (
+      {plan && (plan.testCurrent || plan.testNew) && (
         <section className="ap-section">
           <SectionHead eyebrow="The test to run" title="Your usual format against the new one" lead={testText(plan.test)} />
           <p className="ap-footnote">Two thumbnail briefs to create for the same video. These are instructions for the test, rather than finished variants.</p>
@@ -251,14 +349,14 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
       )}
 
       {/* 5. Recurring styles */}
-      {plan.families.length > 0 && (
+      {families.length > 0 && (
         <section className="ap-section">
           <SectionHead
             eyebrow="Your thumbnails today"
-            title={`${plan.families.length} styles you come back to`}
+            title={`${families.length} styles you come back to`}
           />
           <div className="ap-families">
-            {plan.families.map((family, index) => {
+            {families.map((family, index) => {
               const videos = familyVideos(family);
               return (
                 <article key={index} className="ap-family">

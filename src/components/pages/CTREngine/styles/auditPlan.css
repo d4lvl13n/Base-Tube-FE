@@ -273,6 +273,25 @@ a.ap-thumb--accent:hover { box-shadow: 0 0 0 1.5px var(--ap-orange), 0 22px 70px
 .ap-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .ap-btn-icon { width: 16px; height: 16px; }
 
+/* A published video's thumbnail heading a card. */
+.ap-idea > .ap-thumb { border-radius: 0; box-shadow: none; border-bottom: 1px solid var(--ap-frost); }
+.ap-idea > a.ap-thumb:hover { transform: none; box-shadow: none; }
+
+/* ─── Quick fixes ──────────────────────────────────────── */
+.ap-fixes { display: grid; gap: 16px; }
+.ap-fix {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--ap-panel);
+  box-shadow: 0 0 0 1px var(--ap-frost);
+}
+.ap-fix > .ap-thumb { border-radius: 10px; }
+.ap-fix .ap-idea-label:first-of-type { margin-top: 12px !important; }
+
 /* ─── A/B test ─────────────────────────────────────────── */
 .ap-ab {
   display: grid;
@@ -414,4 +433,8 @@ a.ap-thumb--accent:hover { box-shadow: 0 0 0 1.5px var(--ap-orange), 0 22px 70px
   }
   .ap-diff-cell--accent::before { color: var(--ap-orange); }
   .ap-diff-note { grid-column: auto; }
+}
+
+@media (max-width: 680px) {
+  .ap-fix { grid-template-columns: 1fr; }
 }

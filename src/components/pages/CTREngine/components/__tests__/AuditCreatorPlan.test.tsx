@@ -18,3 +18,30 @@ it('does not present an arbitrary family example as a proposed test variant', ()
   expect(screen.getAllByRole('img', { name: 'Usual three panels' })).toHaveLength(2);
   expect(screen.getByRole('img', { name: 'Standout map' })).toBeInTheDocument();
 });
+
+it('shows the creator layout for an audit without a plan', () => {
+  const videos = [
+    { videoId: 'a', title: 'Usual review', thumbnailUrl: '/a.jpg', views: 30000 },
+    { videoId: 'b', title: 'Most viewed review', thumbnailUrl: '/b.jpg', views: 60000 },
+    { videoId: 'c', title: 'Small news', thumbnailUrl: '/c.jpg', views: 10000 },
+  ];
+  const audit: any = {
+    channel: { title: 'Mag', subscribers: 427000, videosAnalyzed: 3 },
+    positioning: 'Mag covers French gaming news.',
+    headline: 'Titles name the game, thumbnails show a verdict.',
+    perVideo: videos,
+    reviewQueue: { medianViews: 30000 },
+    swipeFile: { examples: [] },
+    experiments: [{ id: 'e1', title: 'Verdict', hypothesis: 'A clearer verdict may read faster.', variantBrief: { thumbnail: 'Game art with one word: "PRENANT".' }, method: 'Test & Compare', priority: 1, videoIds: ['c'] }],
+    publicReview: { decisions: [{ id: 'd1', title: 'Align the review label', evidence: [{ videoId: 'c', observationIndex: 0 }], possibleIssue: 'The thumbnail says test, the description says review.', change: 'Use one label.' }] },
+  };
+  render(<MemoryRouter><AuditCreatorPlan audit={audit} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { level: 1, name: 'Mag covers French gaming news.' })).toBeInTheDocument();
+  expect(screen.getAllByText('Your most viewed').length).toBeGreaterThan(0);
+  expect(screen.getByText('2×')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'One video worth a new thumbnail' })).toBeInTheDocument();
+  expect(screen.getByText('Game art with one word: "PRENANT".')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Create this thumbnail/ })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'One thing to correct' })).toBeInTheDocument();
+  expect(screen.queryByText(/broke out/)).not.toBeInTheDocument();
+});
