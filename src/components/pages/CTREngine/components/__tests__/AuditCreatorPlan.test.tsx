@@ -129,3 +129,29 @@ it('shows what we saw in the videos, with quotes linked to their moment', () => 
   expect(screen.getByText('How it opens')).toBeInTheDocument();
   expect(screen.getByText(/read from its frames only/)).toBeInTheDocument();
 });
+
+it('puts Shorts and long videos side by side, never in one median', () => {
+  const group = (videos: any[], medianViews: number, medianViewsPerMonth: number, standoutVideoId: string) =>
+    ({ version: '1', asOf: '2026-10-28', videos, formats: [], publicationYears: [], medianViews, medianViewsPerMonth, usualVideoId: null, standoutVideoId, sample: { datedCount: videos.length, undatedVideoIds: [], spanMonths: null, maxUploadGapMonths: null, flags: [] } });
+  const longVideos = [{ videoId: 'gta', title: 'GTA 6 Is Secretly Red Dead 3', views: 1407, publishedAt: '2026-08-31T00:00:00Z', monthsOnline: 2, viewsPerMonth: 740.8, format: 'one_game_preview_opinion' }];
+  const shortVideos = [{ videoId: 'discsShort1', title: 'The father of PlayStation is fine with Sony killing discs', views: 33000, publishedAt: '2026-09-01T00:00:00Z', monthsOnline: 1.9, viewsPerMonth: 17368, format: 'news' }];
+  const audit: any = {
+    channel: { title: 'FinalBoss', subscribers: 1000, videosAnalyzed: 30 },
+    positioning: '', headline: '',
+    perVideo: [{ videoId: 'gta', title: 'GTA 6 Is Secretly Red Dead 3', views: 1407, thumbnailUrl: '/gta.jpg', videoUrl: '', observed: [], hypothesis: '', experimentId: null }],
+    reviewQueue: { medianViews: 484, high: [], low: [] },
+    swipeFile: { examples: [] },
+    publicResearch: { statistics: group(longVideos, 484, 24.7, 'gta'), shorts: { totalCount: null, statistics: group(shortVideos, 1000, 1050, 'discsShort1') } },
+    channelUnderstanding: { version: '1', generatedAt: '', limitations: [], findings: [], videos: [
+      { videoId: 'discsShort1', kind: 'short', title: 'The father of PlayStation is fine with Sony killing discs', views: 33000, viewsPerMonth: 17368, publishedAt: '2026-09-01T00:00:00Z', durationSeconds: 50, roles: ['most_viewed'], transcript: 'read', framesSeen: 9, format: 'news', summary: '', hook: null, ownContribution: 'own_voice_and_opinion', ownContributionNote: '', firstHand: null, delivery: '', evidence: [] },
+      { videoId: 'gta', kind: 'long', title: 'GTA 6 Is Secretly Red Dead 3', views: 1407, viewsPerMonth: 740.8, publishedAt: '2026-08-31T00:00:00Z', durationSeconds: 582, roles: ['fastest'], transcript: 'read', framesSeen: 27, format: 'opinion', summary: '', hook: null, ownContribution: 'own_voice_and_opinion', ownContributionNote: '', firstHand: null, delivery: '', evidence: [] },
+    ] },
+  };
+  render(<MemoryRouter><AuditCreatorPlan audit={audit} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { level: 1, name: /Your Shorts get 1,050 views a month\. Your long videos get 24\.7\./ })).toBeInTheDocument();
+  expect(screen.getByText('1 Short analysed')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '1 long video and 1 Short, seen from the inside' })).toBeInTheDocument();
+  expect(screen.getByText('Short · Most viewed')).toBeInTheDocument();
+  const shortLink = screen.getAllByRole('link').find((a) => a.getAttribute('href')?.includes('/shorts/discsShort1'));
+  expect(shortLink).toBeTruthy();
+});

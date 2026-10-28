@@ -252,7 +252,9 @@ export const AuditCreatorPlan: React.FC<{
   const findings = audit.publicReview?.findings ?? [];
 
   // Every listed video, including the ones whose thumbnail was not inspected.
-  const statVideos = new Map((stats?.videos ?? []).map((v) => [v.videoId, v]));
+  const shorts = audit.publicResearch?.shorts;
+  const shortIds = new Set((shorts?.statistics.videos ?? []).map((v) => v.videoId));
+  const statVideos = new Map([...(stats?.videos ?? []), ...(shorts?.statistics.videos ?? [])].map((v) => [v.videoId, v]));
   const videoFor = (id?: string | null): ChannelAuditV2PerVideo | undefined => {
     if (!id) return undefined;
     const known = byId.get(id);
@@ -266,7 +268,9 @@ export const AuditCreatorPlan: React.FC<{
       publishedAt: stat.publishedAt,
       viewsPerMonth: stat.viewsPerMonth,
       thumbnailUrl: `https://i.ytimg.com/vi/${encodeURIComponent(stat.videoId)}/mqdefault.jpg`,
-      videoUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(stat.videoId)}`,
+      videoUrl: shortIds.has(stat.videoId)
+        ? `https://www.youtube.com/shorts/${encodeURIComponent(stat.videoId)}`
+        : `https://www.youtube.com/watch?v=${encodeURIComponent(stat.videoId)}`,
       observed: [],
       hypothesis: '',
       experimentId: null,
@@ -338,8 +342,17 @@ export const AuditCreatorPlan: React.FC<{
   const detailLines = (detail: string) =>
     sentences(detail).filter((line) => !(formats.length > 0 && formatLabels.some((label) => line.startsWith(`${label}:`))));
 
-  const leadLines = formatLead
-    ? [formatLead]
+  // Shorts and long videos are different products: when one clearly outpaces the
+  // other, that is the first thing a creator should read.
+  const shortsPace = shorts?.statistics.medianViewsPerMonth ?? null;
+  const longPace = stats?.medianViewsPerMonth ?? null;
+  const shortsLead =
+    shortsPace && longPace && (shortsPace >= 2 * longPace || longPace >= 2 * shortsPace)
+      ? `Your Shorts get ${formatPace(shortsPace)} views a month. Your long videos get ${formatPace(longPace)}.`
+      : null;
+
+  const leadLines = shortsLead || formatLead
+    ? [shortsLead, formatLead].filter((l): l is string => !!l)
     : plan
       ? sentences(plan.diagnosis)
       : [...sentences(audit.positioning ?? ''), audit.headline]
@@ -373,6 +386,11 @@ export const AuditCreatorPlan: React.FC<{
           <span className="ap-channel-name">{audit.channel?.title}</span>
           <span>{formatCount(audit.channel?.subscribers)} subscribers</span>
           <span>{audit.channel?.videosAnalyzed ?? perVideo.length} videos analysed</span>
+          {shorts && (
+            <span>
+              {shorts.statistics.videos?.length ?? 0} {(shorts.statistics.videos?.length ?? 0) === 1 ? 'Short' : 'Shorts'} analysed
+            </span>
+          )}
           {badge}
         </div>
         <h1 className="ap-h1">{headline}</h1>
@@ -469,8 +487,14 @@ export const AuditCreatorPlan: React.FC<{
         <section className="ap-section">
           <SectionHead
             eyebrow="The videos we watched"
-            title={`${understanding.videos.length} of your videos, seen from the inside`}
-            lead="Chosen to cover your fastest, most viewed, usual, weakest and latest videos."
+            title={(() => {
+              const nShorts = understanding.videos.filter((v) => v.kind === 'short').length;
+              const nLong = understanding.videos.length - nShorts;
+              return nShorts
+                ? `${nLong} long ${nLong === 1 ? 'video' : 'videos'} and ${nShorts} ${nShorts === 1 ? 'Short' : 'Shorts'}, seen from the inside`
+                : `${understanding.videos.length} of your videos, seen from the inside`;
+            })()}
+            lead="Chosen to cover your fastest, most viewed, usual, weakest and latest uploads."
           />
           <div className="ap-watched">
             {understanding.videos.map((watched) => {
@@ -490,7 +514,12 @@ export const AuditCreatorPlan: React.FC<{
                 } as ChannelAuditV2PerVideo);
               return (
                 <article key={watched.videoId} className="ap-watched-card">
-                  <Thumb video={video} label={watched.roles.map((r) => ROLE_LABEL[r]).join(' · ')} />
+                  <Thumb
+                    video={video}
+                    label={[watched.kind === 'short' ? 'Short' : null, ...watched.roles.map((r) => ROLE_LABEL[r])]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  />
                   <div className="ap-watched-body">
                     <h3 className="ap-h3">{watched.title}</h3>
                     <PaceLine video={{ ...video, viewsPerMonth: watched.viewsPerMonth, publishedAt: watched.publishedAt }} />
@@ -544,7 +573,40 @@ export const AuditCreatorPlan: React.FC<{
               stats?.videos?.length ?? audit.channel?.videosAnalyzed ?? perVideo.length
             } videos. Monthly figures are lifetime averages since publication, not recent traffic.`}
           />
-          {formats.length > 0 && <FormatTable formats={formats} maxPace={maxPace} videoFor={videoFor} />}
+          {shorts && stats && (
+            <div className="ap-split">
+              {[
+                { label: 'Shorts', group: shorts.statistics, note: `The latest ${shorts.statistics.videos?.length ?? 0}` },
+                { label: 'Long videos', group: stats, note: `The latest ${stats.videos?.length ?? 0}` },
+              ].map(({ label, group, note }) => {
+                const best = videoFor(group.standoutVideoId);
+                return (
+                  <div key={label} className="ap-split-card">
+                    <p className="ap-eyebrow">{label}</p>
+                    <p className="ap-split-pace">
+                      {formatPace(group.medianViewsPerMonth)}
+                      <span> views a month (median)</span>
+                    </p>
+                    <p className="ap-format-count">
+                      {note} · median {formatCount(group.medianViews)} views
+                    </p>
+                    {best && (
+                      <div className="ap-split-best">
+                        <Thumb video={best} label="Fastest" />
+                        <p className="ap-finding-text">{best.title}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {formats.length > 0 && (
+            <>
+              {shorts && <h3 className="ap-h3 ap-split-title">Long videos by format</h3>}
+              <FormatTable formats={formats} maxPace={maxPace} videoFor={videoFor} />
+            </>
+          )}
           {findings.length > 0 && (
             <ol className="ap-findings">
               {findings.map((finding, index) => {

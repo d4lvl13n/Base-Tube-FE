@@ -617,3 +617,29 @@ a.ap-thumb--accent:hover { box-shadow: 0 0 0 1.5px var(--ap-orange), 0 22px 70px
   font-weight: 600;
   color: #fff;
 }
+
+/* ─── Shorts and long videos ───────────────────────────── */
+.ap-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.ap-split-card {
+  padding: 20px;
+  border: 1px solid var(--ap-frost);
+  border-radius: 14px;
+  background: var(--ap-panel);
+}
+.ap-split-pace {
+  font-family: var(--ap-serif);
+  font-size: 40px;
+  line-height: 1.1;
+  color: #fff;
+}
+.ap-split-pace span { font-family: inherit; font-size: 15px; color: var(--ap-muted); font-family: system-ui, sans-serif; }
+.ap-split-best { margin-top: 16px; max-width: 320px; }
+.ap-split-title { margin: 8px 0 12px !important; }
+@media (max-width: 680px) {
+  .ap-split { grid-template-columns: 1fr; }
+}

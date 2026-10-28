@@ -271,6 +271,8 @@ export interface PublicResearch {
   thumbnailSnapshots?: ThumbnailSnapshot[];
   /** Numbers computed in code over every listed video (formats, years, pace). */
   statistics?: PublicChannelStatistics;
+  /** The latest Shorts, counted apart from long videos (never one median). */
+  shorts?: { totalCount: number | null; statistics: PublicChannelStatistics };
   videoCoverage?: VideoCoverage[];
   visualChecks?: {
     videoId: string;

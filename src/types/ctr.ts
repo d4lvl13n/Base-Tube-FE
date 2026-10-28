@@ -815,6 +815,8 @@ export interface UnderstandingEvidence {
 
 export interface WatchedVideo {
   videoId: string;
+  /** Absent on audits made before Shorts were read: those are long videos. */
+  kind?: 'short' | 'long';
   title: string;
   views: number;
   viewsPerMonth: number | null;
