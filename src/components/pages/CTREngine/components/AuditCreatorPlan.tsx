@@ -92,7 +92,7 @@ const Thumb: React.FC<{ video?: ChannelAuditV2PerVideo; label?: string; accent?:
   if (!video) return null;
   return (
     <a
-      className={`ap-thumb${accent ? ' ap-thumb--accent' : ''}`}
+      className={`ap-thumb${accent ? ' ap-thumb--accent' : ''}${video.videoUrl?.includes('/shorts/') ? ' ap-thumb--short' : ''}`}
       href={youtubeUrl(video)}
       target="_blank"
       rel="noopener noreferrer"
@@ -267,7 +267,8 @@ export const AuditCreatorPlan: React.FC<{
       views: stat.views,
       publishedAt: stat.publishedAt,
       viewsPerMonth: stat.viewsPerMonth,
-      thumbnailUrl: `https://i.ytimg.com/vi/${encodeURIComponent(stat.videoId)}/mqdefault.jpg`,
+      // A Short's 16:9 thumbnails are mostly black bars; frame0 is its vertical cover.
+      thumbnailUrl: `https://i.ytimg.com/vi/${encodeURIComponent(stat.videoId)}/${shortIds.has(stat.videoId) ? 'frame0' : 'mqdefault'}.jpg`,
       videoUrl: shortIds.has(stat.videoId)
         ? `https://www.youtube.com/shorts/${encodeURIComponent(stat.videoId)}`
         : `https://www.youtube.com/watch?v=${encodeURIComponent(stat.videoId)}`,
@@ -506,8 +507,8 @@ export const AuditCreatorPlan: React.FC<{
                   views: watched.views,
                   viewsPerMonth: watched.viewsPerMonth,
                   publishedAt: watched.publishedAt,
-                  thumbnailUrl: `https://i.ytimg.com/vi/${encodeURIComponent(watched.videoId)}/mqdefault.jpg`,
-                  videoUrl: '',
+                  thumbnailUrl: `https://i.ytimg.com/vi/${encodeURIComponent(watched.videoId)}/${watched.kind === 'short' ? 'frame0' : 'mqdefault'}.jpg`,
+                  videoUrl: watched.kind === 'short' ? `https://www.youtube.com/shorts/${encodeURIComponent(watched.videoId)}` : '',
                   observed: [],
                   hypothesis: '',
                   experimentId: null,
