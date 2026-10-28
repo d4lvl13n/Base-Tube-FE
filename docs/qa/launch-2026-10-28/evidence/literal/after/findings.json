@@ -1,0 +1,144 @@
+{
+  "persona": "literal-English non-native speaker",
+  "session": "after-literal",
+  "steps": [
+    "anonymous landing",
+    "trial CTA",
+    "signup copy verified",
+    "authorized account state-load",
+    "one-concept real generation",
+    "one Garter audit submit",
+    "leave/return audit",
+    "History recovery inspection"
+  ],
+  "success": {
+    "thumbnail": true,
+    "audit": true,
+    "signupNotPerformed": true
+  },
+  "fixedBaselineKeys": [
+    "signup-trial-price-missing",
+    "trial-video-unit-ambiguous",
+    "signup-policy-price-links-missing"
+  ],
+  "generation": {
+    "projectId": "ed572485-9fda-4e32-b96b-e048aa7ab0d6",
+    "version": "cd4d7862",
+    "creditsBefore": 866,
+    "creditsAfter": 851,
+    "spent": 15,
+    "submissions": 1,
+    "visibleImage": true
+  },
+  "audit": {
+    "submissions": 1,
+    "completed": true,
+    "state": "completed and opened from History after one manual reload",
+    "channel": "UCYPAfSAa68ZQWmJOufBkotQ",
+    "submittedApproxUTC": "2026-10-28T06:40:00Z",
+    "id": 20,
+    "url": "https://beta.base.tube/ai-thumbnails/channel-audit?audit=20",
+    "visibleAtUTC": "2026-10-28T06:46:33Z",
+    "auditCreditsSpent": 0,
+    "creditsAtCompletion": 836,
+    "sharedAccountOtherSpend": "breaker spent15 after literal generation ended851; final836 unchanged during audit",
+    "families": 3,
+    "familyExampleCounts": [
+      2,
+      2,
+      2
+    ],
+    "seriesWideIdeas": 2,
+    "totalIdeas": 3
+  },
+  "blockers": [],
+  "issues": [
+    {
+      "key": "channel-audit-resume-lost",
+      "title": "Leaving audit loses all visible current-job state",
+      "exactText": "Auditing... / Preparing your channel audit\u2026 then blank Channel URL form",
+      "url": "https://beta.base.tube/ai-thumbnails/channel-audit",
+      "repro": [
+        "Enter Garter public URL",
+        "Click Audit channel once",
+        "While preparing click Projects",
+        "Return to Channel Audit",
+        "Inspect History"
+      ],
+      "impact": "Backend continued and report20completed; while running frontend lost visible current-job state after navigation. Recovery required manual History reload.",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/after/07-audit-progress.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/after/08-audit-return-blank.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/after/09-history-no-new-audit.png"
+      ],
+      "severity": "P1"
+    },
+    {
+      "key": "channel-audit-price-unspecified",
+      "title": "Channel audit submit has no explicit price",
+      "exactText": "Audit channel / sidebar Audit 2 credits",
+      "url": "https://beta.base.tube/ai-thumbnails/channel-audit",
+      "repro": [
+        "Open Channel Audit",
+        "Enter public channel URL",
+        "Look for price before submit"
+      ],
+      "impact": "Cannot distinguish channel-audit charge from thumbnail-audit charge",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/after/06-channel-before-audit.png"
+      ],
+      "severity": "P2",
+      "finalStatus": "fixed and verified on main.f31b2fb4.js"
+    },
+    {
+      "key": "channel-audit-jargon",
+      "title": "Specialized channel-audit language remains",
+      "exactText": "Channel Packaging Audit / Ordered, falsifiable tests / Swipe file",
+      "url": "https://beta.base.tube/ai-thumbnails/channel-audit",
+      "repro": [
+        "Read channel-audit start screen literally"
+      ],
+      "impact": "Non-native reader must infer specialist terminology; did not block submission",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/after/06-channel-before-audit.png"
+      ],
+      "severity": "P3",
+      "finalStatus": "fixed and verified on main.f31b2fb4.js"
+    },
+    {
+      "key": "audit-experiment-reference-mismatch",
+      "title": "Test A description does not match the pictured reference",
+      "exactText": "Use the familiar two-scene dungeon-reach layout: two contrasting dungeon scenes with a large illustrated Link face overlapping them. Text: \u201cREACH EVERY DUNGEON?\u201d",
+      "url": "https://beta.base.tube/ai-thumbnails/channel-audit?audit=20",
+      "repro": [
+        "Open audit20",
+        "Read The test to run",
+        "Compare A image with A prose"
+      ],
+      "impact": "Literal reader is shown3panels but instructed to create2scenes with Linkface",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/after/14-audit20-test.png"
+      ],
+      "severity": "P2",
+      "referenceVideoId": "vJCQ8ZwfXJ8",
+      "finalStatus": "fixed and verified on main.f31b2fb4.js"
+    }
+  ],
+  "finalSmoke": {
+    "asset": "main.f31b2fb4.js",
+    "release": "8c74fc0",
+    "existingAuditId": 20,
+    "status": "PASS",
+    "creditsBefore": 836,
+    "creditsAfter": 836,
+    "generationSubmissions": 0,
+    "auditSubmissions": 0,
+    "labelsSimplified": true,
+    "freeBetaDisclosure": true,
+    "experimentArbitraryImageRemoved": true,
+    "ideaStudioHandoff": true,
+    "titleAndVisualDirectionPersistAfterRefresh": true,
+    "returnToReport": true,
+    "browserClosed": true
+  }
+}

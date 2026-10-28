@@ -1,0 +1,92 @@
+{
+  "persona": "mobile",
+  "success": true,
+  "conditions": {
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "browser": "Chrome mobile emulation/iPhone13mini",
+    "latencyMs": 2000,
+    "downloadBytesPerSecond": 62500,
+    "uploadBytesPerSecond": 62500,
+    "cacheDisabled": true,
+    "mockedNetwork": false
+  },
+  "steps": [
+    "Fresh anonymous landing\u2192trial signup; stop before signup submission",
+    "Load approved existing account state",
+    "Projects\u2192Create\u2192one concept15credits\u2192saved project",
+    "Wait for image; one existing-project recovery reload, no resubmission",
+    "Fresh anonymous gzip startup verification"
+  ],
+  "fixed": [
+    {
+      "key": "blank-app-bootstrap-on-slow-network",
+      "status": "fixed",
+      "evidence": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/10-gzip-loading.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/11-gzip-signup-usable.png"
+      ]
+    }
+  ],
+  "blockers": [],
+  "issues": [
+    {
+      "key": "hidden-profile-images-download-on-project",
+      "title": "Hidden profile picker downloads3.81MB while visible thumbnail waits",
+      "severity": "P1",
+      "exactText": "1 concept: Ready.",
+      "url": "https://beta.base.tube/ai-thumbnails/projects/592cd6f5-b6a2-4181-a9b7-35ff6ff47b5d",
+      "repro": [
+        "375x812,500kbps,2000ms,cache off",
+        "Open saved project Choose view",
+        "Observe hidden profile buttons images download81\u201386s while result image takes91s"
+      ],
+      "impact": "Creator sees Ready before complete image; hidden picker competes for limited mobile bandwidth",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/08a-ready-image-pending.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/08-completed-thumbnail.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/12-full-image-complete.png"
+      ],
+      "hiddenImageBytes": 3814648
+    },
+    {
+      "key": "slow-cold-signup-after-gzip",
+      "title": "Signup identity fields take43.48s on actual slow3G",
+      "severity": "P2",
+      "exactText": "Loading your workspace\u2026",
+      "url": "https://beta.base.tube/ai-thumbnails/sign-up?plan=creator&interval=month&trial=1",
+      "repro": [
+        "Fresh anonymous Chrome375x812",
+        "500kbps/2s latency/cache disabled",
+        "Landing\u2192Start7-day free trial",
+        "Wait for input[name=emailAddress]"
+      ],
+      "impact": "Feedback is fixed but a first-time mobile user still waits almost threequarters of a minute",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/10-gzip-loading.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/11-gzip-signup-usable.png"
+      ]
+    }
+  ],
+  "generation": {
+    "count": 1,
+    "projectId": "592cd6f5-b6a2-4181-a9b7-35ff6ff47b5d",
+    "versionPrefix": "a92c8ab0",
+    "creditsBefore": 881,
+    "creditsAfter": 866,
+    "width": 1536,
+    "height": 864,
+    "complete": true,
+    "screenshotPath": "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/12-full-image-complete.png",
+    "recoveryReloads": 1,
+    "generationRetries": 0
+  },
+  "limits": [
+    "Signup/checkout not submitted",
+    "Existing authenticated account handoff, not verified new-user account creation",
+    "Actual image request transfer size unavailable from cross-origin timing",
+    "Browser emulation, not physical phone"
+  ]
+}

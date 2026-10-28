@@ -1,0 +1,146 @@
+### Page
+- Page URL: https://beta.base.tube/ai-thumbnails/generate
+- Page Title: Base.Tube - Web3 Video Platform
+- Console: 2 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [ref=f4e398]:
+  - banner:
+    - generic [ref=f4e403]:
+      - link [ref=f4e404] [cursor=pointer]:
+        - /url: /creator-hub
+        - button [ref=f4e407]
+      - link [ref=f4e415] [cursor=pointer]:
+        - /url: /profile
+        - img "User Avatar" [ref=f4e418]
+  - generic [ref=f4e419]:
+    - complementary [ref=f4e420]:
+      - link "Base.Tube" [ref=f4e421] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f4e424]:
+        - link "Create" [ref=f4e426] [cursor=pointer]:
+          - /url: /ai-thumbnails/generate
+        - link "Projects" [ref=f4e432] [cursor=pointer]:
+          - /url: /ai-thumbnails/projects
+        - link "Audit" [ref=f4e437] [cursor=pointer]:
+          - /url: /ai-thumbnails/audit
+        - link "Channel Audit" [ref=f4e441] [cursor=pointer]:
+          - /url: /ai-thumbnails/channel-audit
+        - link "History" [ref=f4e451] [cursor=pointer]:
+          - /url: /ai-thumbnails/history
+        - link "My Gallery" [ref=f4e458] [cursor=pointer]:
+          - /url: /ai-thumbnails/gallery
+        - link "Settings" [ref=f4e466] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings
+      - button "Invite a creator" [ref=f4e472] [cursor=pointer]
+      - generic [ref=f4e477]:
+        - link "Available Credits 836" [ref=f4e478] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings/credits
+          - generic [ref=f4e479]: Available Credits
+          - generic [ref=f4e480]: "836"
+        - generic [ref=f4e481]:
+          - generic [ref=f4e482]:
+            - paragraph [ref=f4e483]: Generate
+            - paragraph [ref=f4e484]: 15 credits
+          - generic [ref=f4e485]:
+            - paragraph [ref=f4e486]: Audit
+            - paragraph [ref=f4e487]: 2 credits
+      - button "Collapse navigation" [ref=f4e488] [cursor=pointer]
+    - main [ref=f4e493]:
+      - generic [ref=f4e495]:
+        - generic [ref=f4e496]:
+          - generic [ref=f4e497]:
+            - paragraph [ref=f4e498]: AI Thumbnail Studio
+            - paragraph [ref=f4e499]: Your next video, made unmissable.
+          - navigation "Thumbnail creation progress" [ref=f4e500]:
+            - generic [ref=f4e501]: 1. Brief
+            - generic [ref=f4e504]: 2. Choose
+            - generic [ref=f4e507]: 3. Refine
+        - form "Thumbnail brief" [ref=f4e508]:
+          - generic [ref=f4e509]:
+            - group [ref=f4e510]:
+              - generic [ref=f4e511]:
+                - heading "What’s your video about?" [level=1] [ref=f4e512]
+                - paragraph [ref=f4e513]: Start with the idea. We’ll turn it into distinct visual directions for you to choose from.
+              - generic [ref=f4e514]:
+                - text: Video title or idea *
+                - textbox "Video title or idea" [ref=f4e515]:
+                  - /placeholder: e.g. Why AI might change the future of work
+                  - text: Which Zelda Game Has the Longest Dungeon-to-Dungeon Trip Across the Entire Series?
+              - generic [ref=f4e516]:
+                - text: What’s the most interesting thing viewers will discover?
+                - textbox "Creator hook" [ref=f4e517]:
+                  - /placeholder: The surprising result, feeling or takeaway. Optional, but helpful.
+              - group [ref=f4e518]:
+                - generic "Add description Optional" [ref=f4e519] [cursor=pointer]:
+                  - text: Add description
+                  - generic [ref=f4e520]: Optional
+              - group [ref=f4e521]:
+                - generic "Have a visual in mind? Optional" [active] [ref=f4e522] [cursor=pointer]:
+                  - text: Have a visual in mind?
+                  - generic [ref=f4e523]: Optional
+                - textbox "Visual direction" [ref=f4e613]:
+                  - /placeholder: e.g. A lone person facing a huge wall of glowing AI screens. Cinematic, restrained colors.
+                  - text: "Two dungeon markers on a map-style background, connected by a long dashed red route; small Link beside it. Short text: “LONGEST TRIP?”"
+                - generic [ref=f4e615]:
+                  - text: Text on the thumbnail
+                  - button "Text on the thumbnail" [ref=f4e617] [cursor=pointer]:
+                    - generic [ref=f4e618]: Use profile / default (suggest)
+              - button "Discard draft" [ref=f4e524] [cursor=pointer]
+              - group [ref=f4e525]:
+                - generic "More options 16:9" [ref=f4e526] [cursor=pointer]:
+                  - text: More options
+                  - generic [ref=f4e527]: 16:9
+            - generic [ref=f4e528]:
+              - group [ref=f4e529]:
+                - generic "Add a video, script or existing image Optional" [ref=f4e530] [cursor=pointer]:
+                  - text: Add a video, script or existing image
+                  - generic [ref=f4e531]: Optional
+              - group [ref=f4e532]:
+                - generic "Your look Optional" [ref=f4e533] [cursor=pointer]:
+                  - generic [ref=f4e534]: Your look
+                  - generic [ref=f4e535]: Optional
+                - group [ref=f4e538]:
+                  - group "Channel style" [ref=f4e539]:
+                    - group "Channel style" [ref=f4e541]:
+                      - button "Start fresh A new visual direction" [pressed] [ref=f4e542] [cursor=pointer]:
+                        - text: Start fresh
+                        - generic [ref=f4e543]: A new visual direction
+                      - button "FinalBoss thumbnail" [ref=f4e544] [cursor=pointer]
+                      - button "The blue angel" [ref=f4e546] [cursor=pointer]:
+                        - generic [ref=f4e547]:
+                          - text: The blue angel
+                          - generic [ref=f4e548]: Logo visible in reference
+                      - button "AA Tv Channel" [ref=f4e549] [cursor=pointer]
+                    - paragraph [ref=f4e551]: To add another style, choose “Save style” on any thumbnail in your results or gallery.
+                  - group [ref=f4e552]:
+                    - generic "Use another style image" [ref=f4e553] [cursor=pointer]
+                  - paragraph [ref=f4e554]: No channel profile is selected. Choose one under More options, or add a style image above.
+                  - group "Channel logo" [ref=f4e555]:
+                    - paragraph [ref=f4e557]: Add your logo once, then save the thumbnail as a channel style to reuse it.
+                    - generic [ref=f4e558]:
+                      - generic [ref=f4e564]:
+                        - paragraph [ref=f4e565]: No logo selected
+                        - status [ref=f4e566]: Optional · PNG, JPEG or WebP · Up to 5 MB
+                      - button "Choose logo" [ref=f4e568] [cursor=pointer]
+                  - group "Use your real subject" [ref=f4e573]:
+                    - paragraph [ref=f4e575]: Choose the person, product or scene to keep recognizable across your concepts.
+                    - generic [ref=f4e577] [cursor=pointer]:
+                      - text: Add photos
+                      - button "Subject photo" [ref=f4e578]
+                    - paragraph [ref=f4e579]: Only your chosen photos are used as subject references.
+                  - group [ref=f4e580]:
+                    - generic "Your face reference" [ref=f4e581] [cursor=pointer]
+                  - group [ref=f4e582]:
+                    - generic "Colours and text style" [ref=f4e583] [cursor=pointer]
+          - generic [ref=f4e584]:
+            - generic [ref=f4e585]:
+              - generic [ref=f4e586]: Concepts
+              - button "Number of concepts" [ref=f4e589] [cursor=pointer]:
+                - generic [ref=f4e590]: "2"
+            - button "Generate 2 concepts · 30 credits" [ref=f4e594] [cursor=pointer]
+            - paragraph [ref=f4e597]: One click saves your brief as a project and starts the generation there.
+        - link "Open saved projects" [ref=f4e598] [cursor=pointer]:
+          - /url: /ai-thumbnails/projects
+  - button "Open help" [ref=f4e600] [cursor=pointer]
+```

@@ -1,0 +1,82 @@
+### Page
+- Page URL: https://beta.base.tube/terms?_gl=1*32w51v*_ga*MjE3MjMyNzA4LjE3OTMxNjkwNzU.*_ga_DQELH44BE4*czE3OTMxNjkwNzQkbzEkZzAkdDE3OTMxNjkwNzQkajYwJGwwJGgw
+- Page Title: Base.Tube - Web3 Video Platform
+- Console: 0 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [ref=f1e11]:
+  - link "← Back to BaseTube" [ref=f1e12] [cursor=pointer]:
+    - /url: /
+  - heading "Terms of Service" [level=1] [ref=f1e13]
+  - paragraph [ref=f1e14]: "Last updated: 28 October 2026"
+  - generic [ref=f1e15]:
+    - paragraph [ref=f1e16]: These Terms govern your use of BaseTube’s website and tools at beta.base.tube (the “Service”). By using the Service, you agree to these Terms.
+    - generic [ref=f1e17]:
+      - heading "1. Eligibility & accounts" [level=2] [ref=f1e18]
+      - paragraph [ref=f1e20]: You must be able to form a binding contract and comply with all applicable laws. You are responsible for activity under your account and for keeping your credentials secure.
+    - generic [ref=f1e21]:
+      - heading "2. The Service" [level=2] [ref=f1e22]
+      - paragraph [ref=f1e24]:
+        - text: BaseTube provides a Channel Packaging Audit (analysis of your recent thumbnails and titles, with feedback and suggested fixes) and AI-assisted thumbnail tools. The audit produces
+        - strong [ref=f1e25]: observations, hypotheses, and suggested tests
+        - text: — it does
+        - strong [ref=f1e26]: not
+        - text: predict click-through rate and makes
+        - strong [ref=f1e27]: no guarantee of views, CTR, or growth
+        - text: . Outcomes depend on many factors outside our control.
+    - generic [ref=f1e28]:
+      - heading "3. Connecting your YouTube channel" [level=2] [ref=f1e29]
+      - paragraph [ref=f1e31]:
+        - text: If you connect your channel, you authorize us to access read-only YouTube data and Analytics as described in our
+        - link "Privacy Policy" [ref=f1e32] [cursor=pointer]:
+          - /url: /privacy
+        - text: ", and you agree to the"
+        - link "YouTube Terms of Service" [ref=f1e33] [cursor=pointer]:
+          - /url: https://www.youtube.com/t/terms
+        - text: . You may disconnect at any time via your Google Account permissions.
+    - generic [ref=f1e34]:
+      - heading "4. Credits & payments" [level=2] [ref=f1e35]
+      - generic [ref=f1e36]:
+        - paragraph [ref=f1e37]:
+          - text: Generating, editing and reviewing thumbnails can consume credits. You can buy credits through a recurring monthly or yearly subscription, or as a one-time pack, using Stripe. The selected plan, price, billing period and included credits are shown on our
+          - link "Pricing page" [ref=f1e38] [cursor=pointer]:
+            - /url: /ai-thumbnails/pricing
+          - text: and at checkout. Credits are consumed per action; the price is shown before you start it.
+        - paragraph [ref=f1e39]:
+          - strong [ref=f1e40]: Free trials.
+          - text: When an eligible account chooses a free trial, checkout shows its duration, included allowance, payment method requirement and the charge that follows. A trial does not mean unlimited generation. Unless you cancel before the trial ends, the selected subscription starts charging at the price and billing period confirmed at checkout.
+        - paragraph [ref=f1e41]:
+          - strong [ref=f1e42]: Renewal and cancellation.
+          - text: Subscriptions renew automatically until cancelled. You can manage or cancel your subscription from the billing section of your account, which opens Stripe's billing portal. One-time credit packs do not start a subscription. See our
+          - link "Refund Policy" [ref=f1e43] [cursor=pointer]:
+            - /url: /refund
+          - text: for refund requests.
+    - generic [ref=f1e44]:
+      - heading "5. Acceptable use" [level=2] [ref=f1e45]
+      - paragraph [ref=f1e47]: Do not use the Service to violate the law or others’ rights, to infringe intellectual property, to generate deceptive or harmful content, to impersonate others, or to interfere with or abuse the Service or its providers (including YouTube).
+    - generic [ref=f1e48]:
+      - heading "6. Intellectual property & generated content" [level=2] [ref=f1e49]
+      - paragraph [ref=f1e51]: You retain rights to the inputs you provide. Subject to these Terms and your payment, you may use the images the Service generates for you. You are responsible for ensuring your inputs and use of outputs comply with applicable rights and platform policies.
+    - generic [ref=f1e52]:
+      - heading "7. Disclaimers & limitation of liability" [level=2] [ref=f1e53]
+      - paragraph [ref=f1e55]: The Service is provided “as is”, without warranties of any kind, and without any guarantee of results. To the maximum extent permitted by law, BaseTube is not liable for indirect, incidental, or consequential damages, and our total liability is limited to the amounts you paid us in the 3 months before the claim.
+    - generic [ref=f1e56]:
+      - heading "8. Termination" [level=2] [ref=f1e57]
+      - paragraph [ref=f1e59]: You may stop using the Service at any time. We may suspend or terminate access for violations of these Terms or to protect the Service.
+    - generic [ref=f1e60]:
+      - heading "9. Changes to these Terms" [level=2] [ref=f1e61]
+      - paragraph [ref=f1e63]: We may update these Terms; material changes are indicated by the “Last updated” date. Continued use after changes constitutes acceptance.
+    - generic [ref=f1e64]:
+      - heading "10. Contact" [level=2] [ref=f1e65]
+      - paragraph [ref=f1e67]:
+        - link "support@base.tube" [ref=f1e68] [cursor=pointer]:
+          - /url: mailto:support@base.tube
+        - text: .
+  - generic [ref=f1e69]:
+    - link "Privacy" [ref=f1e70] [cursor=pointer]:
+      - /url: /privacy
+    - link "Terms" [ref=f1e71] [cursor=pointer]:
+      - /url: /terms
+    - link "Refunds" [ref=f1e72] [cursor=pointer]:
+      - /url: /refund
+```

@@ -1,0 +1,714 @@
+Base.Tube
+Create
+Projects
+Audit
+Channel Audit
+History
+My Gallery
+Settings
+Invite a creator
+Available Credits
+836
+
+Generate
+
+15 credits
+
+Audit
+
+2 credits
+
+Audit another channel
+Run fresh audit
+
+Creates a new report. This one stays in history.
+
+Garter
+11.3K subscribers
+30 videos analysed
+“How Long Does It Take to Walk Across EVERY Zelda Map?” has 770,000 lifetime views; “Which 3D Zelda Game Actually Takes the Longest to Beat?” has 330,000.
+
+Both titles ask time questions across a Zelda collection. The standout shows one dashed route between map pins, a small Link and brief “HOW LONG?” text. Other inspected thumbnails use tall comparison panels or a large Link face spanning two scenes. Its mapped journey is a distinct visual approach to a series-wide measurement.
+
+Your usual video
+24K views
+Which Dungeon in Wind Waker Takes the Longest to Beat?
+32×
+YOUR USUAL VIEWS
+The one that broke out
+770K views
+How Long Does It Take to Walk Across EVERY Zelda Map?
+
+Usual video = the median of the videos analysed (24K views). Public views show what stood out, not why: impressions, click-through rate and retention are private.
+
+WHAT CHANGED
+
+Same channel, a different kind of video
+YOUR USUAL VIDEO
+THE ONE THAT BROKE OUT
+Subject & question in the title
+Which Dungeon in Wind Waker Takes the Longest to Beat?
+How Long Does It Take to Walk Across EVERY Zelda Map?
+
+The standout title asks about an entire set of maps or games, while the example names a specific setting. The broader question may invite fans familiar with different parts of the set.
+
+Visible text
+"SHORT" · "???" · "LONG" · "LONGEST DUNGEON?"
+"HOW LONG?"
+
+The standout uses 2 words versus 4 in this example. Its shorter wording may be quicker to scan, while the other gives more context in the image.
+
+Scene & composition
+Three tall panels are arranged side by side: a wooded island, a white tower at sea and a blue face-like structure with two small faces in its eyes.
+A brown map fills the background, with a red dashed route running from a lower-left pin to an upper-right pin.
+
+The route makes the journey visible, while the sections put examples side by side. A viewer may understand the walking challenge from the route.
+
+YOUR NEXT VIDEOS
+
+3 ideas in the same vein
+
+Each idea comes with a thumbnail direction. Open it in the Studio to get three thumbnails in your style.
+
+01
+ALL DUNGEONS?
+How Long Does It Take to Reach Every Dungeon Across the Zelda Series?
+
+THUMBNAIL
+
+A proposed series-spanning route links small dungeon icons on a brown map; put Link at one edge and use “ALL DUNGEONS?”
+
+WHY IT FITS
+
+Keep the standout’s series-wide, timed journey, but measure travel to destinations rather than walking across maps.
+
+Create this thumbnail
+02
+TOTAL TIME?
+How Long Does It Take to Beat Every 3D Zelda Game Back-to-Back?
+
+THUMBNAIL
+
+A dashed route crosses a row of distinct world silhouettes, ending at a clock. Keep the words to “TOTAL TIME?”
+
+WHY IT FITS
+
+Keep the standout’s collection-wide time question while changing the measurement from map traversal to completing games.
+
+Create this thumbnail
+03
+HOW FAR?
+How Long Does It Take to Travel Between Wind Waker’s Farthest-Apart Dungeons?
+
+THUMBNAIL
+
+Sketch two dungeon destinations on a map with pins and one long dashed route; use “HOW FAR?”
+
+WHY IT FITS
+
+Adapt the standout’s visible route to a timed journey between two destinations within one named game.
+
+Create this thumbnail
+
+THE TEST TO RUN
+
+Your usual format against the new one
+
+For the dungeon-reach idea, compare version A and version B on the same video using YouTube Test & Compare when available. Keep the title unchanged; the result may be inconclusive.
+
+A · YOUR USUAL FORMAT
+
+24K views
+
+Use the familiar two-scene dungeon-reach layout: two contrasting dungeon scenes with a large illustrated Link face overlapping them. Text: “REACH EVERY DUNGEON?”
+
+B · THE NEW FORMAT
+
+770K views
+
+Use the standout-inspired brown map, small Link, two pins and a dashed route linking dungeon markers across the map. Text: “REACH EVERY DUNGEON?”
+
+YOUR THUMBNAILS TODAY
+
+3 styles you come back to
+24K views
+25K views
+Three tall panels with SHORT–???–LONG wording
+
+The Wind Waker and Breath of the Wild dungeon thumbnails each show three side-by-side tall panels. Both include “SHORT,” “???,” “LONG” and “LONGEST DUNGEON?”
+
+29K views
+12K views
+Two locations divided by a large Link face
+
+Two different location scenes sit side by side, with a large illustrated Link face overlapping both.
+
+130K views
+43K views
+Three tall ranking panels with WORST–MID–BEST wording
+
+The forest- and water-dungeon ranking thumbnails each show three side-by-side tall panels and include “WORST,” “MID” and “BEST.”
+
+ELSEWHERE ON YOUTUBE
+
+Similar videos from other channels
+
+Public examples on the same topics, sorted by views. Reference material, not a ranking.
+
+1.3M views
+How Long does it take to Walk across Every LEGO Game Map?
+RuggedEagle · 559K subscribers
+364.1K views
+Ranking EVERY 3D Legend of Zelda DUNGEON From WORST To BEST
+Ryan64 · 28.3K subscribers
+236.6K views
+How fast can I TAKE DAMAGE in every 3D Zelda?
+Mr A-Game · 370K subscribers
+99.9K views
+How Long Does It Take to Physically Walk Across Hyrule?
+AwesomeFaceProd · 111K subscribers
+39.2K views
+I FINALLY ranked EVERY Zelda game I played from BEST to WORST - Zelda tier list
+Deebeegeek · 401K subscribers
+11.9K views
+Ranking Every Water Dungeon in The Legend of Zelda Series
+Billy S · 45.9K subscribers
+
+No private Analytics added
+
+Everything above is read from what is publicly visible.
+
+Add your own numbers and every video below gains a Reach, Hold and Conversion card — impressions and click-through rate, how much of the video people actually watched, and how many of them subscribed. Two ways in, both fine:
+
+VERIFIED
+
+Read-only access to your YouTube Analytics. Keeps itself up to date — impressions and CTR arrive within 24-48h, everything else is there immediately.
+
+Connect YouTube — verified, automatic
+INSTANT
+
+Export a CSV from YouTube Studio and drop it in. No account access at all. Labelled self-reported, and it only covers the range you confirm.
+
+Upload Studio export — instant, self-reported
+The full audit
+Every video analysed, the checks and the raw evidence behind this plan.
+Hide
+
+18 thumbnails inspected · Public snapshot 28/10/2026
+
+Export HTML
+
+Assumed goal — confirm before applying the advice: Inferred goal: make Garter’s Zelda timing and dungeon-comparison videos recognizable to viewers interested in those questions. Recommendations are conditional on that goal.
+
+Actions and alternatives
+
+Alternative to prepare · Creative exploration — optional
+
+Test task emphasis against the timed-reach question
+
+Packaging: Creative alternative
+
+The Skyward Sword reach thumbnail’s recorded wording is “SO MANY TASKS”; the title asks which dungeon takes longest to reach.
+
+Why this video now
+
+A direct timed-reach version is available to prepare, but an opportunity to test it now is not established.
+
+Which Skyward Sword Dungeon Takes the Longest to Reach?
+
+It allows a comparison between task-focused wording and wording that states the title’s timed-reach question.
+
+Published 2026-09-18; current exposure and renewed interest are not established.
+
+Still needed: Current impressions and recent traffic are unknown; Availability of authentic Skyward Sword journey imagery for the alternative is unknown
+
+Replace the current task-focused composition with an authentic journey image and the exact text “LONGEST TO REACH?”; keep the existing title.
+
+Effort and source needed
+
+medium effort — The alternative needs an accurate image selected from the creator’s material and a comparison-ready thumbnail.
+
+Creator-supplied imagery from a journey to a Skyward Sword dungeon covered in the video
+
+How to decide
+
+Prepare the alternative only if its journey image accurately represents the video. Compare versions with a suitable native test when exposure permits; retain the current version if results are inconclusive.
+
+Evidence, confidence and test plan
+Use this suggestion in AI Thumbnail
+What was checked for each video
+How recommendations changed since the previous audit
+Viewer promise and what to keep
+Competitive examples worth studying
+
+Public views help find examples; they cannot prove why a design worked. Transferable choices and viewing-use differences matter more than shared keywords.
+
+Route-led question
+
+A visible route and destination accompany a short claim; the title supplies the full crossing question.
+
+A journey whose actual route can be shown accurately.
+
+A single destination would not represent every map in Garter’s map comparison.
+
+AwesomeFaceProd
+Labeled comparison
+
+Separate dungeon scenes carry explicit ranking labels.
+
+A worst-to-best dungeon video.
+
+Garter already uses a related panel approach; resemblance alone is not a reason to replace it.
+
+Ryan64
+Character-led framing
+
+A character or person occupies substantial space; labels, icons, or the title carry different parts of the subject.
+
+A comparison where the character or task remains identifiable.
+
+The subjects and viewing uses differ; these are visual options, not direct performance peers.
+
+RuggedEagle
+Billy S
+Deebeegeek
+Mr A-Game
+How Long does it take to Walk across Every LEGO Game Map?
+
+RuggedEagle · 559,000 subscribers
+
+1,270,899 public views · 3 years ago · 22 min
+
+Its recorded character-led composition offers a route-experiment presentation to study.
+
+LEGO maps and the prominent character treatment differ from Garter’s Zelda map-led thumbnail; its views are not a design benchmark.
+
+Why this reference
+
+Insufficient comparable public evidence for a descriptive index
+
+Check the comparison and sources
+Ranking EVERY 3D Legend of Zelda DUNGEON From WORST To BEST
+
+Ryan64 · 28,300 subscribers
+
+364,128 public views · 2 years ago · 48 min
+
+Its recorded panels pair dungeon scenes with explicit ranking labels.
+
+It covers a broader dungeon ranking; the observation does not establish which layout works better.
+
+Why this reference
+
+Insufficient comparable public evidence for a descriptive index
+
+Check the comparison and sources
+How Long Does It Take to Physically Walk Across Hyrule?
+
+AwesomeFaceProd · 111,000 subscribers
+
+99,942 public views · 1 month ago · 26 min
+
+Its recorded route and destination illustrate a physical-crossing question.
+
+A Hyrule crossing is narrower than Garter’s every-map comparison.
+
+Why this reference
+
+Insufficient comparable public evidence for a descriptive index
+
+Check the comparison and sources
+Ranking Every Water Dungeon in The Legend of Zelda Series
+
+Billy S · 45,900 subscribers
+
+11,907 public views · 1 year ago · 31 min
+
+Its recorded central face offers an alternative to an exclusively panel-led water-dungeon ranking.
+
+It does not show ranking labels, and its audience or results are not comparable evidence.
+
+Why this reference
+
+Insufficient comparable public evidence for a descriptive index
+
+Check the comparison and sources
+I FINALLY ranked EVERY Zelda game I played from BEST to WORST - Zelda tier list
+
+Deebeegeek · 401,000 subscribers
+
+39,212 public views · 5 days ago · 60 min
+
+Its recorded tier labels and game covers show an overt tier-list format.
+
+A ranking of played games has a different scope from Garter’s dungeon rankings.
+
+Why this reference
+
+Insufficient comparable public evidence for a descriptive index
+
+Check the comparison and sources
+How fast can I TAKE DAMAGE in every 3D Zelda?
+
+Mr A-Game · 370,000 subscribers
+
+236,597 public views · 2 years ago · 24 min
+
+Its recorded character and heart icons show a game-mechanic question without overlaid wording.
+
+Taking damage is a different task from measuring completion or travel time.
+
+Why this reference
+
+Insufficient comparable public evidence for a descriptive index
+
+Check the comparison and sources
+Sources, coverage and limits
+Build a suggested variant in AI Thumbnail
+
+These follow the report's priority order. They are ideas to test, not a promise of more clicks.
+
+Videos to prepare
+All formats
+
+This filter changes this list only. Duration alone does not identify a Short, so unverified formats stay unknown.
+
+Which Skyward Sword Dungeon Takes the Longest to Reach?
+Experiment: Skyward Sword reach-question framing · unknown
+Channel preferences
+No profile
+Prepare projects · free
+
+Choose up to three videos. Each project needs your review before creating images. Private analytics recommendations are not sent to the image tools.
+
+Evidence board
+
+What is literally observable in your packaging. Facts first — every reading of them is marked as a hypothesis.
+
+18
+
+videos examined
+
+68
+
+observations recorded
+
+1
+
+experiments proposed
+
+770K
+Open
+How Long Does It Take to Walk Across EVERY Zelda Map?
+Exact image analysed
+
+OBSERVED
+
+A brown map fills the background, with a red dashed route running from a lower-left pin to an upper-right pin.
+A green-clad Link stands at lower right; his illustrated face occupies a small part of the frame.
+Thumbnail text: "HOW LONG?".
+Visual detail to verify: A brown map fills the background, with two red location pins joined by a dashed red route from lower left to upper right.
+Visual detail to verify: Link stands at lower right; his illustrated face occupies roughly one-tenth of the frame's width.
+330K
+Open
+Which 3D Zelda Game Actually Takes the Longest to Beat?
+Exact image analysed
+
+OBSERVED
+
+Confirmed visible text: "38+ HOURS"; "31+ HOURS"; "55+ HOURS"; "59+ HOURS"; "WHICH 3D ZELDA IS THE LONGEST?". Other text is omitted.
+130K
+Open
+Ranking EVERY Forest Dungeon in Zelda from Worst to Best
+Exact image analysed
+
+OBSERVED
+
+Three tall panels are arranged side by side: a tree above a stone entrance, a purple forest doorway and an overgrown stone room with water.
+Thumbnail text: "WORST"; "MID"; "BEST"; "RANKING EVERY FOREST DUNGEON".
+Visual detail to verify: Three tall vertical panels are arranged left to right: a tree-topped stone structure, a purple forest entrance, and a mossy stone courtyard with water.
+24K
+Open
+Which Skyward Sword Dungeon Takes the Longest to Reach?
+Exact image analysed
+
+OBSERVED
+
+Link is at right behind a large orange, pink and purple rounded object that fills much of the lower center.
+His illustrated face occupies roughly one fifth of the frame width, with a grassy landscape and doorway behind him.
+Thumbnail text: "SO MANY TASKS".
+Visual detail to verify: An illustrated Link stands on the right behind a large orange, pink and purple round object filling much of the lower frame.
+Visual detail to verify: His face occupies roughly one-fifth of the frame's width; a sword hilt rises behind his head.
+24K
+Open
+Which Dungeon in Wind Waker Takes the Longest to Beat?
+Exact image analysed
+
+OBSERVED
+
+Three tall panels are arranged side by side: a wooded island, a white tower at sea and a blue face-like structure with two small faces in its eyes.
+Thumbnail text: "SHORT"; "???"; "LONG"; "LONGEST DUNGEON?".
+Visual detail to verify: Three tall vertical panels are arranged left to right: a wooded island, a white tower in the sea, and a blue carved face with two small figures visible in its eyes.
+24K
+Open
+Which Dungeon in Majora's Mask Takes the Longest to Beat?
+Exact image analysed
+
+OBSERVED
+
+Five tall panels are arranged side by side, showing a dead tree, an icy structure, a gold-and-green interior, a face-like building and a tree on a green hill.
+The dominant panel colors include blue, white, gold and green.
+Thumbnail text: "WHICH DUNGEON IN MAJORA'S MASK"; "IS THE LONGEST?".
+Visual detail to verify: Five tall vertical panels are arranged side by side, showing a dead tree, an icy structure, a gold-and-green interior, a face-like building, and a tree on a hill.
+25K
+Open
+Which Dungeon in Breath of the Wild Takes the Longest to Beat?
+Exact image analysed
+
+OBSERVED
+
+Three tall panels are arranged side by side, showing a structure in water, a castle and a green-lit interior.
+Thumbnail text: "SHORT"; "???"; "LONG"; "LONGEST DUNGEON?".
+Visual detail to verify: Three tall vertical panels are arranged left to right: a mechanical structure in water, a castle, and a glowing green interior.
+22K
+Open
+Which Dungeon in Skyward Sword Takes the Longest to Beat?
+Exact image analysed
+
+OBSERVED
+
+Three tall panels are arranged side by side, showing a golden statue-like structure, a floating tower and a golden city.
+Thumbnail text: "SHORT"; "???"; "LONG"; "LONGEST DUNGEON?".
+Visual detail to verify: Three tall vertical panels are arranged left to right: a golden statue and building, a floating structure, and a golden city scene.
+29K
+Open
+Which Majora's Mask Dungeon Takes the Longest to Reach?
+Exact image analysed
+
+OBSERVED
+
+A dead-tree landscape on the left and an icy structure on the right form two side-by-side backgrounds.
+A large red, purple and yellow mask overlaps the central divide and both backgrounds.
+Thumbnail text: "HOW LONG TO REACH"; "EVERY DUNGEON".
+Visual detail to verify: Two background scenes sit side by side: a dead tree on the left and an icy structure on the right.
+Visual detail to verify: A large multicolored mask is centered over the dividing line and overlaps both scenes.
+29K
+Open
+Which OoT Dungeon Takes the Longest to Reach?
+Exact image analysed
+
+OBSERVED
+
+A red, tooth-lined tunnel is on the left and a green forest doorway is on the right; a tiny figure stands inside the left tunnel.
+A large illustrated Link face overlaps both scenes at center, occupying roughly two fifths of the frame width and two thirds of its height.
+Thumbnail text: "HOW LONG TO REACH"; "EVERY DUNGEON".
+Visual detail to verify: A red tooth-lined interior is on the left and a green forest entrance is on the right; a tiny figure stands in the left scene.
+Visual detail to verify: A large illustrated Link face overlaps the center of both scenes, occupying roughly 45% of the frame's width and 65% of its height.
+29K
+Open
+Which Dungeon in Ocarina of Time Takes the Longest to Beat?
+Exact image analysed
+
+OBSERVED
+
+Link stands at center in a blue interior, holding a large pocket watch to the left of his torso; a sword rises behind his right shoulder.
+His illustrated face occupies roughly one fifth of the frame width.
+Thumbnail text: "LONGEST DUNGEON IN"; "OCARINA OF TIME".
+Visual detail to verify: An illustrated Link holding a pocket watch is centered in a blue dungeon interior; a sword rises behind his right shoulder.
+Visual detail to verify: His face and hair occupy roughly one-fifth of the frame's width and one-third of its height.
+12K
+Open
+Which Wind Waker Dungeon Takes the Longest to Reach?
+Exact image analysed
+
+OBSERVED
+
+A white tower at sea is on the left and a blue face-like structure is on the right; two small faces are visible in the structure's eyes.
+A large illustrated Link face overlaps both locations at center, filling roughly half the frame width and most of the upper two thirds.
+Thumbnail text: "HOW LONG TO REACH"; "EVERY DUNGEON".
+Visual detail to verify: Two scenes sit side by side: a white tower in the sea on the left and a blue carved face on the right, with small figures visible in its eyes.
+Visual detail to verify: A large illustrated Link face overlaps both scenes at center, occupying roughly half the frame's width and 70% of its height.
+12K
+Open
+Which 3D Zelda Mini-Dungeon Takes the Longest to Beat?
+Exact image analysed
+
+OBSERVED
+
+Three tall panels are arranged side by side: a blue tiled room, a stone head on grass and a blue-lit scene with a small character at right.
+Thumbnail text: "7+ MIN"; "33+ MIN"; "1+ HOURS".
+Visual detail to verify: Three tall vertical panels are arranged left to right, showing a blue tiled room, a stone face on grass, and a blue interior with a small figure on the right.
+9.6K
+Open
+Ranking EVERY 3D Zelda Dungeon from Shortest to Longest
+Exact image analysed
+
+OBSERVED
+
+Two scenes are arranged left to right with a diagonal divider: floating structures in the sky and a stone doorway beside water.
+A small creature sits on the platform in front of the right-hand doorway.
+Thumbnail text: "EVERY 3D ZELDA"; "DUNGEON"; "SHORTEST"; "LONGEST".
+Visual detail to verify: Two scenes are arranged left to right across a diagonal divider: floating buildings in clouds and a stone doorway beside water.
+Visual detail to verify: A small spider-like creature sits on the platform in the right scene.
+8.9K
+Open
+Which Dungeon in Tears of the Kingdom Takes the Longest to Beat?
+Exact image analysed
+
+OBSERVED
+
+Three tall panels are arranged side by side, showing a white structure, a circular gold-and-green object and a face-like object against a red wall.
+Thumbnail text: "SHORT"; "???"; "LONG"; "LONGEST DUNGEON?".
+Visual detail to verify: Three tall vertical panels are arranged left to right, showing a ruined structure outdoors, a circular green-and-gold mechanism, and a face-like object in a red interior.
+41K
+Open
+Which 2D Zelda Game Actually Takes the Longest to Beat?
+Exact image analysed
+
+OBSERVED
+
+Three tall panels are arranged side by side: a green pixel-art scene with several small figures, an illustrated figure with outstretched arms and two pixel-art figures.
+Thumbnail text: "SHORT"; "???"; "LONG"; "WHICH 2D ZELDA GAME IS"; "ACTUALLY THE LONGEST?".
+Visual detail to verify: Three tall vertical panels are arranged side by side: a green pixel-art scene with several figures and music notes, a wooden-looking character, and two pixel-art figures against black.
+43K
+Open
+Ranking EVERY Water Dungeon in Zelda from Worst to Best
+Exact image analysed
+
+OBSERVED
+
+Three tall panels are arranged side by side: a white structure against blue sky, an orange pixel-art face and a white question mark over a blurred gold background.
+Thumbnail text: "WORST"; "MID"; "BEST"; "RANKING EVERY WATER DUNGEON".
+Visual detail to verify: Three tall vertical panels are arranged left to right: a ruined structure against blue sky, an orange pixel-art face, and a white question mark over a blurred yellow background.
+3.3K
+Open
+How Long Does It Take to Get All 900 Korok Seeds in BOTW?
+Exact image analysed
+
+OBSERVED
+
+Two tall panels are arranged side by side, each showing a blue-clad Link and a small leaf-faced character.
+At left, Link holds up a rock; at right, the small red-faced character floats beside him.
+Thumbnail text: "SEED 1"; "00:00:00"; "SEED 900"; "19:43:02".
+Visual detail to verify: Two tall panels are arranged side by side: Link holds a rock beside a green-faced Korok on the left, while another Link stands beside a floating red-faced Korok on the right.
+Standout video: subjects, text and composition
+
+Compare the standout with examples near the middle of this sample. Their titles and thumbnails show different ways to present a video idea. These examples do not represent every format on the channel. A different question or visual format may reach a different audience; that remains an idea to test.
+
+How Long Does It Take to Walk Across EVERY Zelda Map?
+Which Skyward Sword Dungeon Takes the Longest to Reach?
+Subject / question in the title
+
+How Long Does It Take to Walk Across EVERY Zelda Map?: How Long Does It Take to Walk Across EVERY Zelda Map?
+
+Which Skyward Sword Dungeon Takes the Longest to Reach?: Which Skyward Sword Dungeon Takes the Longest to Reach?
+
+Visible text
+
+How Long Does It Take to Walk Across EVERY Zelda Map?: Thumbnail text: "HOW LONG?".
+
+Which Skyward Sword Dungeon Takes the Longest to Reach?: Thumbnail text: "SO MANY TASKS".
+
+Possible viewer interpretation: The standout uses 2 words versus 3 in this example. Its shorter wording may be quicker to scan, while the other gives more context in the image.
+
+Scene / composition
+
+How Long Does It Take to Walk Across EVERY Zelda Map?: A brown map fills the background, with a red dashed route running from a lower-left pin to an upper-right pin.
+
+Which Skyward Sword Dungeon Takes the Longest to Reach?: Link is at right behind a large orange, pink and purple rounded object that fills much of the lower center.
+
+Subject / question in the title
+
+How Long Does It Take to Walk Across EVERY Zelda Map?: How Long Does It Take to Walk Across EVERY Zelda Map?
+
+Which Dungeon in Majora's Mask Takes the Longest to Beat?: Which Dungeon in Majora's Mask Takes the Longest to Beat?
+
+Possible viewer interpretation: The standout title asks about an entire set of maps or games, while the example names a specific setting. The broader question may invite fans familiar with different parts of the set.
+
+Visible text
+
+How Long Does It Take to Walk Across EVERY Zelda Map?: Thumbnail text: "HOW LONG?".
+
+Which Dungeon in Majora's Mask Takes the Longest to Beat?: Thumbnail text: "WHICH DUNGEON IN MAJORA'S MASK"; "IS THE LONGEST?".
+
+Possible viewer interpretation: The standout uses 2 words versus 9 in this example. Its shorter wording may be quicker to scan, while the other gives more context in the image.
+
+Scene / composition
+
+How Long Does It Take to Walk Across EVERY Zelda Map?: A brown map fills the background, with a red dashed route running from a lower-left pin to an upper-right pin.
+
+Which Dungeon in Majora's Mask Takes the Longest to Beat?: Five tall panels are arranged side by side, showing a dead tree, an icy structure, a gold-and-green interior, a face-like building and a tree on a green hill.
+
+Possible viewer interpretation: The route makes the journey visible, while the sections put examples side by side. A viewer may understand the walking challenge from the route.
+
+Subject / question in the title
+
+How Long Does It Take to Walk Across EVERY Zelda Map?: How Long Does It Take to Walk Across EVERY Zelda Map?
+
+Which Dungeon in Wind Waker Takes the Longest to Beat?: Which Dungeon in Wind Waker Takes the Longest to Beat?
+
+Possible viewer interpretation: The standout title asks about an entire set of maps or games, while the example names a specific setting. The broader question may invite fans familiar with different parts of the set.
+
+Visible text
+
+How Long Does It Take to Walk Across EVERY Zelda Map?: Thumbnail text: "HOW LONG?".
+
+Which Dungeon in Wind Waker Takes the Longest to Beat?: Thumbnail text: "SHORT"; "???"; "LONG"; "LONGEST DUNGEON?".
+
+Possible viewer interpretation: The standout uses 2 words versus 4 in this example. Its shorter wording may be quicker to scan, while the other gives more context in the image.
+
+Scene / composition
+
+How Long Does It Take to Walk Across EVERY Zelda Map?: A brown map fills the background, with a red dashed route running from a lower-left pin to an upper-right pin.
+
+Which Dungeon in Wind Waker Takes the Longest to Beat?: Three tall panels are arranged side by side: a wooded island, a white tower at sea and a blue face-like structure with two small faces in its eyes.
+
+Possible viewer interpretation: The route makes the journey visible, while the sections put examples side by side. A viewer may understand the walking challenge from the route.
+
+How Long Does It Take to Walk Across EVERY Zelda Map?
+
+770000 lifetime public views.
+
+Which Skyward Sword Dungeon Takes the Longest to Reach?
+
+24000 lifetime public views.
+
+Which Dungeon in Majora's Mask Takes the Longest to Beat?
+
+24000 lifetime public views.
+
+Which Dungeon in Wind Waker Takes the Longest to Beat?
+
+24000 lifetime public views.
+
+Review queue
+
+Where this sample sits around its own median of 24K views. Descriptive only — a starting point for what to look at next.
+
+views not adjusted for upload age
+
+Far above the median
+
+How Long Does It Take to Walk Across EVERY Zelda Map?
+770K
+Which 3D Zelda Game Actually Takes the Longest to Beat?
+330K
+Ranking EVERY Forest Dungeon in Zelda from Worst to Best
+130K
+All 21 Zelda Games Ranked from WORST to BEST
+120K
+Which Dungeon in Twilight Princess Takes the Longest to Beat?
+68K
+
+Far below the median
+
+The Legend of Zelda: Tears of the Kingdom 100% Walkthrough - Part 214: Korok Forest
+189
+The Legend of Zelda: Tears of the Kingdom 100% Walkthrough - Part 215: The Master Sword
+281
+The Legend of Zelda: Tears of the Kingdom 100% Walkthrough - Part 219: Final Boss + Credits
+456
+The Legend of Zelda: Tears of the Kingdom 100% Walkthrough - Part 218: The Demon King's Army
+461
+The Legend of Zelda: Tears of the Kingdom 100% Walkthrough - Part 217: Hestu's Gift
+494

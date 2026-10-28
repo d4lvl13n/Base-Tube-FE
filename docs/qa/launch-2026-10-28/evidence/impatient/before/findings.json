@@ -1,0 +1,83 @@
+{
+  "persona": "impatient",
+  "round": "before",
+  "entryUrl": "https://beta.base.tube/ai-thumbnails",
+  "browserSession": "launch-impatient",
+  "browser": "headed Chromium (isolated fresh profile)",
+  "success": false,
+  "firstSuccessDefinition": "A usable generated thumbnail",
+  "elapsedToGateSecondsApprox": 45,
+  "elapsedTimingNote": "Wall time includes CLI observation and screenshot overhead; not a product performance measurement.",
+  "steps": [
+    {
+      "action": "Open requested landing URL",
+      "url": "https://beta.base.tube/ai-thumbnails",
+      "result": "Redirected to https://base.tube/ai-thumbnails; primary trial CTA visible.",
+      "screenshot": "01-landing.png"
+    },
+    {
+      "action": "Click first obvious header CTA: Start free trial",
+      "url": "https://base.tube/ai-thumbnails",
+      "result": "Signup page opened; trial/Creator details restored after plan params disappear from URL."
+    },
+    {
+      "action": "Skim signup screen; quit at first unanswered commitment question",
+      "url": "https://beta.base.tube/ai-thumbnails/sign-up",
+      "result": "Asked to create account and proceed to Stripe; day-8 charge disclosed but no charge amount or billing cadence visible.",
+      "screenshot": "02-trial-signup-no-price.png"
+    }
+  ],
+  "blockers": [
+    {
+      "kind": "account_and_checkout_gate",
+      "appDefect": false,
+      "detail": "No disposable account credentials supplied; new account creation/terms acceptance and possible card checkout were not performed. First-success generation remains unverified. Root coordinates authorized existing-session phase."
+    }
+  ],
+  "issues": [
+    {
+      "key": "trial-renewal-price-missing-on-signup",
+      "title": "Trial signup discloses a day-8 charge without showing the amount or cadence",
+      "exactText": "Next: secure checkout for your 7-day free trial of Creator, 2 videos included. Your card is charged on day 8 unless you cancel.",
+      "url": "https://beta.base.tube/ai-thumbnails/sign-up",
+      "repro": [
+        "Open landing",
+        "Click Start free trial",
+        "Read the highlighted next-step box on signup"
+      ],
+      "impact": "I have to create an account before learning what the announced day-8 charge will be; as the impatient persona I abandon here.",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/impatient/before/02-trial-signup-no-price.png"
+      ],
+      "severity": "P1",
+      "observedIn": "visible UI"
+    },
+    {
+      "key": "anonymous-signup-channel-request-loop",
+      "title": "Anonymous signup repeatedly requests private channel data and logs 401 errors",
+      "exactText": "Authentication required. Please sign in.",
+      "url": "https://beta.base.tube/ai-thumbnails/sign-up",
+      "repro": [
+        "Open signup without authentication",
+        "Remain idle about 20 seconds",
+        "Inspect browser console/network"
+      ],
+      "impact": "Repeated unauthorized channel requests and high-severity error logs while signup is correctly anonymous. No visible toast was observed, so this is a technical finding rather than claimed visible user confusion.",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/impatient/before/02-trial-signup-no-price.png"
+      ],
+      "evidencePaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/impatient/before/console.log"
+      ],
+      "severity": "P2",
+      "observedIn": "browser console/network only"
+    }
+  ],
+  "actionsNotTaken": [
+    "No account was created",
+    "No terms accepted",
+    "No payment/subscription initiated",
+    "No image generation request made",
+    "No existing account session changed"
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "persona": "Non-native English speaker: literal wording only",
+  "session": "launch-literal",
+  "conditions": {
+    "browser": "Isolated real Playwright Chrome browser session",
+    "network": "Unthrottled; no request mocks",
+    "authentication": "Fresh logged-out visitor"
+  },
+  "steps": [
+    {
+      "action": "Open https://beta.base.tube/ai-thumbnails",
+      "result": "Redirected to https://base.tube/ai-thumbnails; landing explains thumbnails and has trial CTA.",
+      "screenshot": "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/before/01-landing.png"
+    },
+    {
+      "action": "Click hero \u201cStart 7-day free trial\u201d",
+      "result": "Reached trial signup with Creator plan intent, form and card-charge note.",
+      "screenshot": "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/before/02-signup-videos-charge-wording.png"
+    },
+    {
+      "action": "Read signup literally, then stop at account-creation gate",
+      "result": "No account details entered, no agreement accepted, no checkout or generation."
+    }
+  ],
+  "success": false,
+  "blockers": [
+    "Actual new-account registration and card-backed checkout were not completed. This is an unverified journey gate, not proof that signup is broken."
+  ],
+  "issues": [
+    {
+      "key": "signup-trial-price-missing",
+      "title": "Signup announces a future card charge without stating the price or billing period",
+      "exactText": "Next: secure checkout for your 7-day free trial of Creator, 2 videos included. Your card is charged on day 8 unless you cancel.",
+      "url": "https://beta.base.tube/ai-thumbnails/sign-up",
+      "repro": [
+        "Open /ai-thumbnails as a fresh visitor; browser redirects to base.tube/ai-thumbnails.",
+        "Click the hero \u201cStart 7-day free trial\u201d link.",
+        "Read the trial note before entering account details. No dollar amount or monthly/yearly cadence is visible on this screen."
+      ],
+      "impact": "A literal reader knows a charge will occur but cannot know how much or how often without leaving signup.",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/before/02-signup-videos-charge-wording.png"
+      ],
+      "severity": "P1"
+    },
+    {
+      "key": "trial-video-unit-ambiguous",
+      "title": "The trial allowance is expressed as \u201c2 videos\u201d on a thumbnail product signup",
+      "exactText": "7-day free trial of Creator, 2 videos included",
+      "url": "https://beta.base.tube/ai-thumbnails/sign-up",
+      "repro": [
+        "Read landing promise \u201cGet three thumbnail ideas built from your video\u201d.",
+        "Follow \u201cStart 7-day free trial\u201d.",
+        "Read the allowance \u201c2 videos included\u201d on signup; the page does not say this means sets of thumbnail actions, rather than generated videos."
+      ],
+      "impact": "For this non-native persona, \u201cvideo\u201d names the output rather than the billing unit. They cannot tell how many thumbnail images/edits the trial covers from this screen.",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/before/02-signup-videos-charge-wording.png"
+      ],
+      "severity": "P2"
+    },
+    {
+      "key": "signup-policy-price-links-missing",
+      "title": "Signup offers no direct pricing, terms or privacy links for a literal reader to resolve questions",
+      "exactText": "Back to AI Thumbnails / Continue / Secured by Clerk",
+      "url": "https://beta.base.tube/ai-thumbnails/sign-up",
+      "repro": [
+        "Follow the free-trial CTA to signup.",
+        "Inspect the full visible page, including the card footer.",
+        "The only product navigation is \u201cBack to AI Thumbnails\u201d and \u201cSign in\u201d; no Pricing, Terms or Privacy links are present."
+      ],
+      "impact": "A reader with a price or data-use question must abandon the form and work out where to look; Clerk is named, but its role is not explained in ordinary words.",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/before/02-signup-videos-charge-wording.png"
+      ],
+      "severity": "P2"
+    }
+  ],
+  "technicalNotes": [
+    "Background console 401 errors accumulated on logged-out signup; no visible error toast was observed. Not counted as a persona-visible error.",
+    "Browser CLI overhead is not reported as product load time."
+  ],
+  "artifacts": {
+    "landingScreenshot": "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/before/01-landing.png",
+    "signupScreenshot": "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/literal/before/02-signup-videos-charge-wording.png"
+  }
+}

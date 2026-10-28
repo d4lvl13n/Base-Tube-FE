@@ -1,0 +1,148 @@
+### Page
+- Page URL: https://beta.base.tube/ai-thumbnails/pricing?_gl=1*qebifv*_ga*MjE3MjMyNzA4LjE3OTMxNjkwNzU.*_ga_DQELH44BE4*czE3OTMxNjkwNzQkbzEkZzEkdDE3OTMxNjkxMzckajYwJGwwJGgw
+- Page Title: Base.Tube - Web3 Video Platform
+- Console: 1 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [ref=f3e6]:
+  - banner:
+    - generic [ref=f3e11]:
+      - link [ref=f3e12] [cursor=pointer]:
+        - /url: /creator-hub
+        - button [ref=f3e15]
+      - button "Sign in" [ref=f3e25] [cursor=pointer]
+  - generic [ref=f3e31]:
+    - complementary [ref=f3e32]:
+      - link "Base.Tube" [ref=f3e33] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f3e36]:
+        - link "Create" [ref=f3e38] [cursor=pointer]:
+          - /url: /ai-thumbnails/generate
+        - link "Projects" [ref=f3e43] [cursor=pointer]:
+          - /url: /ai-thumbnails/pricing
+        - link "Audit" [ref=f3e51] [cursor=pointer]:
+          - /url: /ai-thumbnails/audit
+        - link "Channel Audit" [ref=f3e55] [cursor=pointer]:
+          - /url: /ai-thumbnails/channel-audit
+        - link "History" [ref=f3e65] [cursor=pointer]:
+          - /url: /ai-thumbnails/pricing
+        - link "My Gallery" [ref=f3e75] [cursor=pointer]:
+          - /url: /ai-thumbnails/pricing
+        - link "Settings" [ref=f3e86] [cursor=pointer]:
+          - /url: /ai-thumbnails/pricing
+      - generic [ref=f3e95]:
+        - generic [ref=f3e96]:
+          - paragraph [ref=f3e97]: 3 free audits a day
+          - generic [ref=f3e99]: 3 left today
+        - generic [ref=f3e102]:
+          - link "Start 7-day free trial" [ref=f3e103] [cursor=pointer]:
+            - /url: /ai-thumbnails/sign-up
+          - paragraph [ref=f3e108]:
+            - text: 2 videos free, then US$24/month.
+            - link "Or create a free account" [ref=f3e109] [cursor=pointer]:
+              - /url: /ai-thumbnails/sign-up
+      - button "Collapse navigation" [ref=f3e110] [cursor=pointer]
+    - main [ref=f3e115]:
+      - generic [ref=f3e117]:
+        - generic [ref=f3e118]:
+          - paragraph [ref=f3e119]: AI Thumbnails plans
+          - heading "Thumbnails for every video you publish" [level=1] [ref=f3e120]
+          - paragraph [ref=f3e121]: The price of one designer thumbnail, for your whole month.
+          - paragraph [ref=f3e122]: 2 videos free for 7 days · Cancel before day 8 and pay nothing
+          - paragraph [ref=f3e123]: One video = 3 concepts, 2 AI edits and 1 audit (90 credits).
+        - region "Plans" [ref=f3e124]:
+          - generic [ref=f3e125]:
+            - group "Billing period" [ref=f3e127]:
+              - button "Monthly" [pressed] [ref=f3e128] [cursor=pointer]
+              - button "Yearly · save up to 33%" [ref=f3e129] [cursor=pointer]
+            - generic [ref=f3e130]:
+              - article "Creator" [ref=f3e131]:
+                - heading "Creator" [level=3] [ref=f3e132]
+                - paragraph [ref=f3e133]: 6 videos a month
+                - paragraph [ref=f3e134]:
+                  - generic [ref=f3e135]: US$24
+                  - generic [ref=f3e136]: /month
+                - paragraph [ref=f3e137]: 540 credits a month
+                - list [ref=f3e138]:
+                  - listitem [ref=f3e139]: Thumbnail Studio with your brand kit and face
+                  - listitem [ref=f3e142]: 3 variants per video for YouTube A/B tests
+                  - listitem [ref=f3e145]: Attention audit on every thumbnail
+                  - listitem [ref=f3e148]: 1 channel profile
+                - generic [ref=f3e152]:
+                  - link "Start 7-day free trial · Creator" [ref=f3e153] [cursor=pointer]:
+                    - /url: /ai-thumbnails/sign-up
+                    - text: Start 7-day free trial
+                  - generic [ref=f3e154]: then US$24/month
+              - article "Pro" [ref=f3e155]:
+                - heading "Pro" [level=3] [ref=f3e156]
+                - paragraph [ref=f3e157]: 20 videos a month
+                - paragraph [ref=f3e158]:
+                  - generic [ref=f3e159]: US$49
+                  - generic [ref=f3e160]: /month
+                - paragraph [ref=f3e161]: 1,800 credits a month
+                - list [ref=f3e162]:
+                  - listitem [ref=f3e163]: Everything in Creator
+                  - listitem [ref=f3e166]: 3 channel profiles
+                - generic [ref=f3e170]:
+                  - link "Start 7-day free trial · Pro" [ref=f3e171] [cursor=pointer]:
+                    - /url: /ai-thumbnails/sign-up
+                    - text: Start 7-day free trial
+                  - generic [ref=f3e172]: then US$49/month
+              - article "Agency" [ref=f3e173]:
+                - heading "Agency" [level=3] [ref=f3e174]
+                - paragraph [ref=f3e175]: 50 videos a month
+                - paragraph [ref=f3e176]:
+                  - generic [ref=f3e177]: US$99
+                  - generic [ref=f3e178]: /month
+                - paragraph [ref=f3e179]: 4,500 credits a month
+                - list [ref=f3e180]:
+                  - listitem [ref=f3e181]: Everything in Pro
+                  - listitem [ref=f3e184]: 10 channel profiles for several channels
+                - generic [ref=f3e188]:
+                  - link "Start 7-day free trial · Agency" [ref=f3e189] [cursor=pointer]:
+                    - /url: /ai-thumbnails/sign-up
+                    - text: Start 7-day free trial
+                  - generic [ref=f3e190]: then US$99/month
+          - paragraph [ref=f3e191]: Plan credits you don't use carry over for 1 month. Cancel any time from your billing page.
+        - region [ref=f3e192]:
+          - generic [ref=f3e193]:
+            - heading "Need a few more? Top up with a pack" [level=2] [ref=f3e194]
+            - paragraph [ref=f3e195]: One-time purchase, for any account with or without a plan. Pack credits never expire.
+          - generic [ref=f3e196]:
+            - radiogroup "Credit packs" [ref=f3e197]:
+              - radio "Small 50 credits US$5.00 US$0.10 / credit" [ref=f3e198] [cursor=pointer]:
+                - generic [ref=f3e200]:
+                  - generic [ref=f3e201]: Small
+                  - generic [ref=f3e203]: 50 credits
+                - generic [ref=f3e204]:
+                  - generic [ref=f3e205]: US$5.00
+                  - generic [ref=f3e206]: US$0.10 / credit
+              - radio "Medium 200 credits US$15.00 US$0.075 / credit" [ref=f3e207] [cursor=pointer]:
+                - generic [ref=f3e209]:
+                  - generic [ref=f3e210]: Medium
+                  - generic [ref=f3e212]: 200 credits
+                - generic [ref=f3e213]:
+                  - generic [ref=f3e214]: US$15.00
+                  - generic [ref=f3e215]: US$0.075 / credit
+              - radio "Large Best value 600 credits US$40.00 US$0.067 / credit" [checked] [ref=f3e216] [cursor=pointer]:
+                - generic [ref=f3e219]:
+                  - generic [ref=f3e220]:
+                    - generic [ref=f3e221]: Large
+                    - generic [ref=f3e222]: Best value
+                  - generic [ref=f3e223]: 600 credits
+                - generic [ref=f3e224]:
+                  - generic [ref=f3e225]: US$40.00
+                  - generic [ref=f3e226]: US$0.067 / credit
+            - link "Continue to secure checkout · US$40.00" [ref=f3e227] [cursor=pointer]:
+              - /url: /ai-thumbnails/sign-up
+          - paragraph [ref=f3e231]: Secure payment by Stripe.
+        - navigation "Billing policies" [ref=f3e232]:
+          - link "Terms of Service" [ref=f3e233] [cursor=pointer]:
+            - /url: /terms
+          - link "Privacy Policy" [ref=f3e234] [cursor=pointer]:
+            - /url: /privacy
+          - link "Refund Policy" [ref=f3e235] [cursor=pointer]:
+            - /url: /refund
+```
+### Events
+- New console entries: .playwright-cli/console-2026-10-28T06-31-13-552Z.log#L18

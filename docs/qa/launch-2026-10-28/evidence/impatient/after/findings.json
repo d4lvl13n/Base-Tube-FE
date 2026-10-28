@@ -1,0 +1,88 @@
+{
+  "persona": "impatient",
+  "round": "after",
+  "date": "2026-10-28",
+  "browserSession": "after-impatient",
+  "browser": "headed Chromium, fresh isolated profile",
+  "publicOutcome": "PASS to signup disclosure; signup/checkout not executed",
+  "authenticatedOutcome": "PASS, one usable generated and downloaded thumbnail",
+  "success": true,
+  "firstSuccessDefinition": "A usable generated thumbnail",
+  "freshAccountOnboardingVerified": false,
+  "previousIssues": [
+    {
+      "key": "trial-renewal-price-missing-on-signup",
+      "status": "fixed",
+      "evidence": "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/impatient/after/02-signup-price-legal.png"
+    },
+    {
+      "key": "anonymous-signup-channel-request-loop",
+      "status": "fixed in observed >45s anonymous signup window",
+      "evidence": "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/impatient/after/console-public.log"
+    }
+  ],
+  "generation": {
+    "count": 1,
+    "title": "QA launch Minecraft wooden tools",
+    "style": "Start fresh",
+    "concepts": 1,
+    "projectId": "3abced7d-7cc6-4ff1-b389-41178cf67bdf",
+    "resultLabel": "Version a2c00cb7",
+    "width": 1536,
+    "height": 864,
+    "imageComplete": true,
+    "downloadSucceeded": true,
+    "creditsBefore": 911,
+    "creditsAfter": 896,
+    "costCredits": 15,
+    "submitUtc": "2026-10-28T06:33:05Z",
+    "uiResultUtc": "2026-10-28T06:33:34Z",
+    "durationApproxSeconds": 29
+  },
+  "issues": [
+    {
+      "key": "landing-unused-poster-404",
+      "title": "Two landing poster requests return 404 without observed visual breakage",
+      "severity": "P3",
+      "exactText": [
+        "Failed to load resource: the server responded with a status of 404 ()",
+        "https://base.tube/images/ai-thumbnails/hero-poster.jpg",
+        "https://base.tube/images/ai-thumbnails/product-video-poster.jpg"
+      ],
+      "url": "https://base.tube/ai-thumbnails",
+      "repro": [
+        "Open landing in fresh Chromium",
+        "Inspect console; view hero and scroll to product demo"
+      ],
+      "impact": "Extra failing requests; no visible blank hero/video or blocked CTA observed. No video elements rendered.",
+      "observedIn": "console/network only",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/impatient/after/01-landing.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/impatient/after/07-product-demo.png"
+      ]
+    },
+    {
+      "key": "generated-concept-opaque-label",
+      "title": "Result uses an opaque version identifier rather than the concept name",
+      "severity": "P3",
+      "exactText": "Version a2c00cb7",
+      "url": "https://beta.base.tube/ai-thumbnails/projects/3abced7d-7cc6-4ff1-b389-41178cf67bdf",
+      "repro": [
+        "Generate one concept",
+        "Compare readable in-progress Wooden Tool Spotlight with completed result label"
+      ],
+      "impact": "Minor internal-looking result label; image and download work.",
+      "observedIn": "visible UI",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/impatient/after/06-complete-result.png"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "kind": "fresh_signup_checkout_unverified",
+      "appDefect": false,
+      "detail": "Not executed; user authorized existing account continuation instead."
+    }
+  ]
+}

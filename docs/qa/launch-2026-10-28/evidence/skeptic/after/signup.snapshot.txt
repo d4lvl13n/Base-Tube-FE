@@ -1,0 +1,86 @@
+### Page
+- Page URL: https://beta.base.tube/ai-thumbnails/sign-up
+- Page Title: Base.Tube - Web3 Video Platform
+- Console: 1 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [ref=f3e236]:
+  - banner [ref=f3e239]:
+    - generic [ref=f3e240]:
+      - link "Base.Tube AI Thumbnails" [ref=f3e241] [cursor=pointer]:
+        - /url: https://base.tube/ai-thumbnails
+        - generic [ref=f3e242]:
+          - generic [ref=f3e243]: Base.Tube
+          - generic [ref=f3e244]: AI Thumbnails
+      - link "Back to AI Thumbnails" [ref=f3e245] [cursor=pointer]:
+        - /url: https://base.tube/ai-thumbnails
+  - main [ref=f3e246]:
+    - region [ref=f3e247]:
+      - heading "Start your 7-day free trial." [level=1] [ref=f3e248]:
+        - generic [aria-hidden] [ref=f3e249]:
+          - generic [ref=f3e250]: Start
+          - generic [ref=f3e251]: your
+          - generic [ref=f3e252]: 7-day
+          - generic [ref=f3e253]: free
+          - generic [ref=f3e254]: trial.
+      - paragraph [ref=f3e255]: Create your account, then a secure Stripe page opens. One account for AI Thumbnails and the rest of base.tube.
+      - paragraph [ref=f3e256]:
+        - generic [ref=f3e260]: "Next: secure checkout for your 7-day free trial of Creator. Thumbnails for 2 videos included (3 thumbnail options per video). A card is required. Then US$24/month, starting on day 8, unless you cancel."
+    - generic [ref=f3e261]:
+      - generic [ref=f3e262] [cursor=pointer]:
+        - checkbox "Send me occasional product tips and updates. Optional — you can unsubscribe any time." [ref=f3e263]
+        - generic [ref=f3e264]: Send me occasional product tips and updates. Optional — you can unsubscribe any time.
+      - generic [ref=f3e266]:
+        - generic [ref=f3e267]:
+          - generic [ref=f3e269]:
+            - heading "Create your account" [level=1] [ref=f3e270]
+            - paragraph [ref=f3e271]: Welcome! Please fill in the details to get started.
+          - generic [ref=f3e272]:
+            - generic [ref=f3e274]:
+              - button "Sign in with Discord Discord" [ref=f3e275] [cursor=pointer]:
+                - generic [ref=f3e276]:
+                  - img "Sign in with Discord" [ref=f3e278]
+                  - generic [ref=f3e279]: Discord
+              - button "Sign in with Google Google" [ref=f3e280] [cursor=pointer]:
+                - generic [ref=f3e281]:
+                  - img "Sign in with Google" [ref=f3e283]
+                  - generic [ref=f3e284]: Google
+            - paragraph [ref=f3e287]: or
+            - generic [ref=f3e289]:
+              - generic [ref=f3e290]:
+                - generic [ref=f3e293]:
+                  - generic [ref=f3e294]:
+                    - generic [ref=f3e295]: Username
+                    - generic [ref=f3e296]: Optional
+                  - textbox "Username" [ref=f3e297]:
+                    - /placeholder: ""
+                - generic [ref=f3e301]:
+                  - generic [ref=f3e302]: Email address
+                  - textbox "Email address" [ref=f3e304]:
+                    - /placeholder: Enter your email address
+                - generic [ref=f3e308]:
+                  - generic [ref=f3e309]: Password
+                  - generic [ref=f3e311]:
+                    - textbox "Password" [ref=f3e312]:
+                      - /placeholder: Enter your password
+                    - button "Show password" [ref=f3e313] [cursor=pointer]
+              - button "Continue" [ref=f3e320] [cursor=pointer]
+        - generic [ref=f3e324]:
+          - generic [ref=f3e325]:
+            - generic [ref=f3e326]: Already have an account?
+            - link "Sign in" [ref=f3e327] [cursor=pointer]:
+              - /url: https://beta.base.tube/ai-thumbnails/sign-in
+          - generic [ref=f3e331]:
+            - paragraph [ref=f3e332]: Secured by
+            - link "Clerk logo" [ref=f3e333] [cursor=pointer]:
+              - /url: https://go.clerk.com/components
+  - navigation "Account information" [ref=f3e339]:
+    - link "Pricing" [ref=f3e340] [cursor=pointer]:
+      - /url: /ai-thumbnails/pricing
+    - link "Terms of Service" [ref=f3e341] [cursor=pointer]:
+      - /url: /terms
+    - link "Privacy Policy" [ref=f3e342] [cursor=pointer]:
+      - /url: /privacy
+    - link "Refund Policy" [ref=f3e343] [cursor=pointer]:
+      - /url: /refund
+```

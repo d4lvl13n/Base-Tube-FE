@@ -1,0 +1,264 @@
+### Page
+- Page URL: https://beta.base.tube/ai-thumbnails/channel-audit
+- Page Title: Base.Tube - Web3 Video Platform
+- Console: 4 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [ref=f5e608]:
+  - banner:
+    - generic [ref=f5e613]:
+      - link [ref=f5e614] [cursor=pointer]:
+        - /url: /creator-hub
+        - button [ref=f5e617]
+      - link [ref=f5e625] [cursor=pointer]:
+        - /url: /profile
+        - img "User Avatar" [ref=f5e628]
+  - generic [ref=f5e629]:
+    - complementary [ref=f5e630]:
+      - link "Base.Tube" [ref=f5e631] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f5e634]:
+        - link "Create" [ref=f5e636] [cursor=pointer]:
+          - /url: /ai-thumbnails/generate
+        - link "Projects" [ref=f5e641] [cursor=pointer]:
+          - /url: /ai-thumbnails/projects
+        - link "Audit" [ref=f5e646] [cursor=pointer]:
+          - /url: /ai-thumbnails/audit
+        - link "Channel Audit" [ref=f5e650] [cursor=pointer]:
+          - /url: /ai-thumbnails/channel-audit
+        - link "History" [ref=f5e661] [cursor=pointer]:
+          - /url: /ai-thumbnails/history
+        - link "My Gallery" [ref=f5e668] [cursor=pointer]:
+          - /url: /ai-thumbnails/gallery
+        - link "Settings" [ref=f5e676] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings
+      - button "Invite a creator" [ref=f5e759] [cursor=pointer]
+      - generic [ref=f5e683]:
+        - link "Available Credits 836" [ref=f5e684] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings/credits
+          - generic [ref=f5e685]: Available Credits
+          - generic [ref=f5e686]: "836"
+        - generic [ref=f5e687]:
+          - generic [ref=f5e688]:
+            - paragraph [ref=f5e689]: Generate
+            - paragraph [ref=f5e690]: 15 credits
+          - generic [ref=f5e691]:
+            - paragraph [ref=f5e692]: Audit
+            - paragraph [ref=f5e693]: 2 credits
+      - button "Collapse navigation" [ref=f5e694] [cursor=pointer]
+    - main [ref=f5e699]:
+      - generic [ref=f5e764]:
+        - generic [ref=f5e765]:
+          - button "Audit another channel" [ref=f5e766] [cursor=pointer]
+          - generic [ref=f5e769]:
+            - button "Run fresh audit" [ref=f5e770] [cursor=pointer]
+            - paragraph [ref=f5e776]: Creates a new report. This one stays in history.
+        - generic [ref=f5e777]:
+          - generic [ref=f5e778]:
+            - generic [ref=f5e779]:
+              - generic [ref=f5e780]: Garter
+              - generic [ref=f5e781]: 11.3K subscribers
+              - generic [ref=f5e782]: 30 videos analysed
+            - heading "The 770,000-view “How Long Does It Take to Walk Across EVERY Zelda Map?” and 330,000-view “Which 3D Zelda Game Actually Takes the Longest to Beat?” both ask measured questions across a collection; one measures map travel, the other game completion." [level=1] [ref=f5e783]
+            - paragraph [ref=f5e784]: The standout centers a map, two pins and a dashed route, with small Link and brief “HOW LONG?” text. Recurring thumbnails instead show several scene panels or a large Link face between scenes. The standout’s route makes the journey the main visual.
+            - generic [ref=f5e785]:
+              - figure "Which Dungeon in Wind Waker Takes the Longest to Beat?" [ref=f5e786]:
+                - link "Which Dungeon in Wind Waker Takes the Longest to Beat? Your usual video 24K views" [ref=f5e787] [cursor=pointer]:
+                  - /url: https://www.youtube.com/watch?v=vJCQ8ZwfXJ8
+                  - img "Which Dungeon in Wind Waker Takes the Longest to Beat?" [ref=f5e788]
+                  - generic [ref=f5e789]: Your usual video
+                  - generic [ref=f5e790]: 24K views
+              - generic [ref=f5e792]:
+                - generic [ref=f5e793]: 32×
+                - generic [ref=f5e794]: your usual views
+              - figure "How Long Does It Take to Walk Across EVERY Zelda Map?" [ref=f5e795]:
+                - link "How Long Does It Take to Walk Across EVERY Zelda Map? The one that broke out 770K views" [ref=f5e796] [cursor=pointer]:
+                  - /url: https://www.youtube.com/watch?v=FI3KkTgdXec
+                  - img "How Long Does It Take to Walk Across EVERY Zelda Map?" [ref=f5e797]
+                  - generic [ref=f5e798]: The one that broke out
+                  - generic [ref=f5e799]: 770K views
+            - paragraph [ref=f5e801]: "Usual video = the median of the videos analysed (24K views). Public views show what stood out, not why: impressions, click-through rate and retention are private."
+          - generic [ref=f5e802]:
+            - generic [ref=f5e803]:
+              - paragraph [ref=f5e804]: What changed
+              - heading "Same channel, a different kind of video" [level=2] [ref=f5e805]
+            - generic [ref=f5e806]:
+              - generic [ref=f5e807]:
+                - generic [ref=f5e809]: Your usual video
+                - generic [ref=f5e810]: The one that broke out
+              - generic [ref=f5e811]:
+                - generic [ref=f5e812]: Subject & question in the title
+                - generic [ref=f5e813]: Which Dungeon in Wind Waker Takes the Longest to Beat?
+                - generic [ref=f5e814]: How Long Does It Take to Walk Across EVERY Zelda Map?
+                - paragraph [ref=f5e815]: The standout title asks about an entire set of maps or games, while the example names a specific setting. The broader question may invite fans familiar with different parts of the set.
+              - generic [ref=f5e816]:
+                - generic [ref=f5e817]: Visible text
+                - generic [ref=f5e818]: "\"SHORT\" · \"???\" · \"LONG\" · \"LONGEST DUNGEON?\""
+                - generic [ref=f5e819]: "\"HOW LONG?\""
+                - paragraph [ref=f5e820]: The standout uses 2 words versus 4 in this example. Its shorter wording may be quicker to scan, while the other gives more context in the image.
+              - generic [ref=f5e821]:
+                - generic [ref=f5e822]: Scene & composition
+                - generic [ref=f5e823]: "Three tall panels are arranged left to right: a wooded island, a white tower in the sea, and a blue face-like structure with two figures visible in its eyes."
+                - generic [ref=f5e824]: A brown map fills the background, with two red location pins joined by a dashed red route.
+                - paragraph [ref=f5e825]: The route makes the journey visible, while the sections put examples side by side. A viewer may understand the walking challenge from the route.
+          - generic [ref=f5e826]:
+            - generic [ref=f5e827]:
+              - paragraph [ref=f5e828]: Your next videos
+              - heading "3 ideas in the same vein" [level=2] [ref=f5e829]
+              - paragraph [ref=f5e830]: Each idea comes with a thumbnail direction. Open it in the Studio to get three thumbnails in your style.
+            - generic [ref=f5e831]:
+              - article [ref=f5e832]:
+                - generic [ref=f5e833]:
+                  - generic [ref=f5e834]: "01"
+                  - generic [ref=f5e835]: TOTAL TRAVEL?
+                - generic [ref=f5e836]:
+                  - heading "How Much Travel Time Does Reaching Every Dungeon Add Up To Across the Entire Zelda Series?" [level=3] [ref=f5e837]
+                  - paragraph [ref=f5e838]: Thumbnail
+                  - paragraph [ref=f5e839]: "A map-style collage with dungeon markers linked by dashed red routes and small Link near one marker. Short text: “TOTAL TRAVEL?”"
+                  - paragraph [ref=f5e840]: Why it fits
+                  - paragraph [ref=f5e841]: Keeps the every-Zelda scope of the map-walking question, but adds up travel to dungeon destinations rather than measuring map crossings.
+                  - button "Create this thumbnail" [ref=f5e842] [cursor=pointer]
+              - article [ref=f5e845]:
+                - generic [ref=f5e846]:
+                  - generic [ref=f5e847]: "02"
+                  - generic [ref=f5e848]: LONGEST TRIP?
+                - generic [ref=f5e849]:
+                  - heading "Which Zelda Game Has the Longest Dungeon-to-Dungeon Trip Across the Entire Series?" [level=3] [ref=f5e850]
+                  - paragraph [ref=f5e851]: Thumbnail
+                  - paragraph [ref=f5e852]: "Two dungeon markers on a map-style background, connected by a long dashed red route; small Link beside it. Short text: “LONGEST TRIP?”"
+                  - paragraph [ref=f5e853]: Why it fits
+                  - paragraph [ref=f5e854]: Uses the standout’s marked-route device to compare trips across the entire series, measuring the longest journey between destinations instead of a map crossing.
+                  - button "Create this thumbnail" [ref=f5e855] [cursor=pointer]
+              - article [ref=f5e858]:
+                - generic [ref=f5e859]:
+                  - generic [ref=f5e860]: "03"
+                  - generic [ref=f5e861]: ONE RUN?
+                - generic [ref=f5e862]:
+                  - heading "How Long Does It Take to Beat Every Dungeon in Ocarina of Time in One Run?" [level=3] [ref=f5e863]
+                  - paragraph [ref=f5e864]: Thumbnail
+                  - paragraph [ref=f5e865]: "An Ocarina of Time world-map-inspired backdrop with a dashed route linking dungeon markers and small Link at the edge. Short text: “ONE RUN?”"
+                  - paragraph [ref=f5e866]: Why it fits
+                  - paragraph [ref=f5e867]: Narrows the standout’s broad measured challenge to one named game, while changing the measure from walking time to a complete dungeon run.
+                  - button "Create this thumbnail" [ref=f5e868] [cursor=pointer]
+          - generic [ref=f5e871]:
+            - generic [ref=f5e872]:
+              - paragraph [ref=f5e873]: The test to run
+              - heading "Your usual format against the new one" [level=2] [ref=f5e874]
+              - paragraph [ref=f5e875]: For “Which Zelda Game Has the Longest Dungeon-to-Dungeon Trip Across the Series?”, compare version A and version B using YouTube Test & Compare when available. Review the reported result; it may be inconclusive.
+            - paragraph [ref=f5e876]: Two thumbnail briefs to create for the same video. These are instructions for the test, rather than finished variants.
+            - generic [ref=f5e877]:
+              - generic [ref=f5e878]:
+                - paragraph [ref=f5e879]: A · Your usual format
+                - paragraph [ref=f5e880]: "Use the recurring three-tall-panel layout: propose a dungeon-to-dungeon route in each of three different Zelda game worlds. Use “LONGEST TRIP?” and “ALL ZELDA,” without short/long labels that imply a different question."
+              - generic [ref=f5e881]:
+                - paragraph [ref=f5e882]: B · The new format
+                - paragraph [ref=f5e883]: "Ask the same series-wide question with a map-first composition: one prominent proposed dungeon-to-dungeon trip, two red pins, a dashed route and small Link. Use “LONGEST TRIP?” and “ALL ZELDA.”"
+          - generic [ref=f5e884]:
+            - generic [ref=f5e885]:
+              - paragraph [ref=f5e886]: Your thumbnails today
+              - heading "3 styles you come back to" [level=2] [ref=f5e887]
+            - generic [ref=f5e888]:
+              - article [ref=f5e889]:
+                - generic [ref=f5e890]:
+                  - link "Which Dungeon in Wind Waker Takes the Longest to Beat? 24K views" [ref=f5e891] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=vJCQ8ZwfXJ8
+                    - img "Which Dungeon in Wind Waker Takes the Longest to Beat?" [ref=f5e892]
+                    - generic [ref=f5e893]: 24K views
+                  - link "Which Dungeon in Breath of the Wild Takes the Longest to Beat? 25K views" [ref=f5e894] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=dVlviNatOkY
+                    - img "Which Dungeon in Breath of the Wild Takes the Longest to Beat?" [ref=f5e895]
+                    - generic [ref=f5e896]: 25K views
+                - heading "Three tall panels with short-to-long question text" [level=3] [ref=f5e897]
+                - paragraph [ref=f5e898]: Both show three tall panels and include “SHORT,” “???,” “LONG,” and “LONGEST DUNGEON?” text.
+              - article [ref=f5e899]:
+                - generic [ref=f5e900]:
+                  - link "Ranking EVERY Forest Dungeon in Zelda from Worst to Best 130K views" [ref=f5e901] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=gu91apwspfU
+                    - img "Ranking EVERY Forest Dungeon in Zelda from Worst to Best" [ref=f5e902]
+                    - generic [ref=f5e903]: 130K views
+                  - link "Ranking EVERY Water Dungeon in Zelda from Worst to Best 43K views" [ref=f5e904] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=4Q5jV4F1js8
+                    - img "Ranking EVERY Water Dungeon in Zelda from Worst to Best" [ref=f5e905]
+                    - generic [ref=f5e906]: 43K views
+                - heading "Three tall ranking panels with worst-to-best text" [level=3] [ref=f5e907]
+                - paragraph [ref=f5e908]: Both show three tall visual panels and include “WORST,” “MID,” and “BEST” text.
+              - article [ref=f5e909]:
+                - generic [ref=f5e910]:
+                  - link "Which OoT Dungeon Takes the Longest to Reach? 29K views" [ref=f5e911] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=y4SV1mohGnE
+                    - img "Which OoT Dungeon Takes the Longest to Reach?" [ref=f5e912]
+                    - generic [ref=f5e913]: 29K views
+                  - link "Which Wind Waker Dungeon Takes the Longest to Reach? 12K views" [ref=f5e914] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=KAlO3xNnGbc
+                    - img "Which Wind Waker Dungeon Takes the Longest to Reach?" [ref=f5e915]
+                    - generic [ref=f5e916]: 12K views
+                - heading "Large Link face between two destination scenes" [level=3] [ref=f5e917]
+                - paragraph [ref=f5e918]: A large Link face sits between contrasting scenes; both thumbnails use “HOW LONG TO REACH” and “EVERY DUNGEON.”
+          - generic [ref=f5e919]:
+            - generic [ref=f5e920]:
+              - paragraph [ref=f5e921]: Elsewhere on YouTube
+              - heading "Similar videos from other channels" [level=2] [ref=f5e922]
+              - paragraph [ref=f5e923]: Public examples on the same topics, sorted by views. Reference material, not a ranking.
+            - generic [ref=f5e924]:
+              - link "How Long does it take to Walk across Every LEGO Game Map? 1.3M views How Long does it take to Walk across Every LEGO Game Map? RuggedEagle · 559K subscribers" [ref=f5e925] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=775bUL7xl-Q
+                - generic [ref=f5e926]:
+                  - img "How Long does it take to Walk across Every LEGO Game Map?" [ref=f5e927]
+                  - generic [ref=f5e928]: 1.3M views
+                - generic [ref=f5e929]: How Long does it take to Walk across Every LEGO Game Map?
+                - generic [ref=f5e930]: RuggedEagle · 559K subscribers
+              - link "Ranking EVERY 3D Legend of Zelda DUNGEON From WORST To BEST 364.1K views Ranking EVERY 3D Legend of Zelda DUNGEON From WORST To BEST Ryan64 · 28.3K subscribers" [ref=f5e934] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=NiF8uXdw0uc
+                - generic [ref=f5e935]:
+                  - img "Ranking EVERY 3D Legend of Zelda DUNGEON From WORST To BEST" [ref=f5e936]
+                  - generic [ref=f5e937]: 364.1K views
+                - generic [ref=f5e938]: Ranking EVERY 3D Legend of Zelda DUNGEON From WORST To BEST
+                - generic [ref=f5e939]: Ryan64 · 28.3K subscribers
+              - link "How fast can I TAKE DAMAGE in every 3D Zelda? 236.6K views How fast can I TAKE DAMAGE in every 3D Zelda? Mr A-Game · 370K subscribers" [ref=f5e943] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=c_Wgaxejt8Q
+                - generic [ref=f5e944]:
+                  - img "How fast can I TAKE DAMAGE in every 3D Zelda?" [ref=f5e945]
+                  - generic [ref=f5e946]: 236.6K views
+                - generic [ref=f5e947]: How fast can I TAKE DAMAGE in every 3D Zelda?
+                - generic [ref=f5e948]: Mr A-Game · 370K subscribers
+              - link "How Long Does It Take to Physically Walk Across Hyrule? 100K views How Long Does It Take to Physically Walk Across Hyrule? AwesomeFaceProd · 111K subscribers" [ref=f5e952] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=b2FnYLqhWr0
+                - generic [ref=f5e953]:
+                  - img "How Long Does It Take to Physically Walk Across Hyrule?" [ref=f5e954]
+                  - generic [ref=f5e955]: 100K views
+                - generic [ref=f5e956]: How Long Does It Take to Physically Walk Across Hyrule?
+                - generic [ref=f5e957]: AwesomeFaceProd · 111K subscribers
+              - link "Ranking Every N64 Zelda Dungeon From Worst To Best 49.2K views Ranking Every N64 Zelda Dungeon From Worst To Best FryingPanSam · 10.6K subscribers" [ref=f5e961] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=uNvuaBz0rgw
+                - generic [ref=f5e962]:
+                  - img "Ranking Every N64 Zelda Dungeon From Worst To Best" [ref=f5e963]
+                  - generic [ref=f5e964]: 49.2K views
+                - generic [ref=f5e965]: Ranking Every N64 Zelda Dungeon From Worst To Best
+                - generic [ref=f5e966]: FryingPanSam · 10.6K subscribers
+              - link "Ranking Every Water Dungeon in The Legend of Zelda Series 11.9K views Ranking Every Water Dungeon in The Legend of Zelda Series Billy S · 45.9K subscribers" [ref=f5e970] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=tGmCKD2UTxI
+                - generic [ref=f5e971]:
+                  - img "Ranking Every Water Dungeon in The Legend of Zelda Series" [ref=f5e972]
+                  - generic [ref=f5e973]: 11.9K views
+                - generic [ref=f5e974]: Ranking Every Water Dungeon in The Legend of Zelda Series
+                - generic [ref=f5e975]: Billy S · 45.9K subscribers
+        - generic [ref=f5e979]:
+          - paragraph [ref=f5e980]: No private Analytics added
+          - heading "Everything above is read from what is publicly visible." [level=3] [ref=f5e984]
+          - paragraph [ref=f5e985]: "Add your own numbers and every video below gains a Reach, Hold and Conversion card — impressions and click-through rate, how much of the video people actually watched, and how many of them subscribed. Two ways in, both fine:"
+          - generic [ref=f5e986]:
+            - generic [ref=f5e987]:
+              - generic [ref=f5e988]: Verified
+              - paragraph [ref=f5e992]: Read-only access to your YouTube Analytics. Keeps itself up to date — impressions and CTR arrive within 24-48h, everything else is there immediately.
+              - button "Connect YouTube — verified, automatic" [ref=f5e993] [cursor=pointer]
+            - generic [ref=f5e999]:
+              - generic [ref=f5e1000]: Instant
+              - paragraph [ref=f5e1003]: Export a CSV from YouTube Studio and drop it in. No account access at all. Labelled self-reported, and it only covers the range you confirm.
+              - button "Upload Studio export — instant, self-reported" [ref=f5e1004] [cursor=pointer]
+        - group [ref=f5e1010]:
+          - generic "The full audit Every video analysed, the checks and the raw evidence behind this plan. Show" [ref=f5e1011] [cursor=pointer]:
+            - generic [ref=f5e1012]:
+              - text: The full audit
+              - generic [ref=f5e1013]: Every video analysed, the checks and the raw evidence behind this plan.
+            - generic [ref=f5e1014]: Show
+```

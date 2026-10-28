@@ -1,0 +1,89 @@
+{
+  "persona": "mobile",
+  "session": "launch-mobile",
+  "goal": "Generate first usable thumbnail",
+  "success": false,
+  "conditions": {
+    "browser": "Google Chrome, Playwright CLI isolated context",
+    "device": "iPhone 13 mini emulation",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "network": "Actual Chrome DevTools Protocol Network.emulateNetworkConditions",
+    "latencyMs": 2000,
+    "downloadBytesPerSecond": 62500,
+    "uploadBytesPerSecond": 62500,
+    "approxKbpsEachDirection": 500,
+    "cacheDisabled": true,
+    "mockedNetwork": false
+  },
+  "steps": [
+    {
+      "action": "Open https://beta.base.tube/ai-thumbnails",
+      "result": "Redirected to https://base.tube/ai-thumbnails",
+      "elapsedToDomContentLoadedMs": 11890,
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/before/01-landing.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/before/01a-landing-viewport.png"
+      ]
+    },
+    {
+      "action": "Tap main hero CTA Start 7-day free trial",
+      "result": "Navigated to beta signup route with plan=creator, interval=month, trial=1. Entire viewport black. Snapshot empty.",
+      "url": "https://beta.base.tube/ai-thumbnails/sign-up?plan=creator&interval=month&trial=1",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/before/02-after-primary-cta.png"
+      ]
+    },
+    {
+      "action": "Observe loading and query rendered state",
+      "result": "At performance.now=87412 ms, bodyText was empty, readyState interactive, DOMContentLoadedEventEnd=0 and loadEventEnd=0. No completed static JS/Clerk resource entries. Screenshot still entirely black.",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/before/03-signup-still-black.png"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "type": "application_loading",
+      "description": "Signup did not become usable within approximately 90 seconds of mobile navigation. No text, loader, error or recovery action. Cannot reach registration or generation."
+    },
+    {
+      "type": "account_handoff",
+      "description": "No account created, no terms accepted, no checkout/payment, and no generation submitted. Authenticated phase remains untested."
+    }
+  ],
+  "issues": [
+    {
+      "key": "blank-app-bootstrap-on-slow-network",
+      "title": "Primary CTA leaves mobile visitor on a black page for at least 87 seconds",
+      "exactText": "No UI text. Browser title: Base.Tube - Web3 Video Platform.",
+      "url": "https://beta.base.tube/ai-thumbnails/sign-up?plan=creator&interval=month&trial=1",
+      "repro": [
+        "Fresh isolated Chrome session",
+        "375x812 viewport",
+        "Set CDP throughput 62500 bytes/s each direction and latency 2000ms; disable cache",
+        "Open beta /ai-thumbnails, which redirects to public landing",
+        "Tap Start 7-day free trial",
+        "Observe empty black page and no loading/recovery feedback through 87.4 seconds"
+      ],
+      "impact": "A mobile first-time visitor cannot tell whether signup is loading or broken and cannot reach first success. It presents no useful recovery.",
+      "severity": "P0 launch blocker under tested network conditions",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/before/02-after-primary-cta.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/before/03-signup-still-black.png"
+      ]
+    }
+  ],
+  "positiveChecks": [
+    "Landing scroll width equals viewport width 375px; no horizontal overflow on landing.",
+    "Primary hero CTA and review CTA are within initial viewport.",
+    "Trial duration and cancel-before-day-8 text visible on landing."
+  ],
+  "limitations": [
+    "Observation was bounded at roughly 90 seconds; no claim about eventual completion after this window.",
+    "Chrome mobile emulation, not a physical handset.",
+    "No signup or billing acceptance was performed."
+  ]
+}

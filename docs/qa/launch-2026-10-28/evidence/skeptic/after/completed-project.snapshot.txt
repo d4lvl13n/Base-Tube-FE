@@ -1,0 +1,85 @@
+### Page
+- Page URL: https://beta.base.tube/ai-thumbnails/projects/f036a4c9-d968-4a09-b558-325a8225e2a0
+- Page Title: Base.Tube - Web3 Video Platform
+- Console: 1 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [ref=f5e10]:
+  - banner:
+    - generic [ref=f5e15]:
+      - link [ref=f5e16] [cursor=pointer]:
+        - /url: /creator-hub
+        - button [ref=f5e19]
+      - link [ref=f5e27] [cursor=pointer]:
+        - /url: /profile
+        - img "User Avatar" [ref=f5e30]
+  - generic [ref=f5e31]:
+    - complementary [ref=f5e32]:
+      - link "Base.Tube" [ref=f5e33] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f5e36]:
+        - link "Create" [ref=f5e38] [cursor=pointer]:
+          - /url: /ai-thumbnails/generate
+        - link "Projects" [ref=f5e43] [cursor=pointer]:
+          - /url: /ai-thumbnails/projects
+        - link "Audit" [ref=f5e49] [cursor=pointer]:
+          - /url: /ai-thumbnails/audit
+        - link "Channel Audit" [ref=f5e53] [cursor=pointer]:
+          - /url: /ai-thumbnails/channel-audit
+        - link "History" [ref=f5e63] [cursor=pointer]:
+          - /url: /ai-thumbnails/history
+        - link "My Gallery" [ref=f5e70] [cursor=pointer]:
+          - /url: /ai-thumbnails/gallery
+        - link "Settings" [ref=f5e78] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings
+      - button "Invite a creator" [ref=f5e84] [cursor=pointer]
+      - generic [ref=f5e89]:
+        - link "Available Credits 881" [ref=f5e90] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings/credits
+          - generic [ref=f5e91]: Available Credits
+          - generic [ref=f5e92]: "881"
+        - generic [ref=f5e93]:
+          - generic [ref=f5e94]:
+            - paragraph [ref=f5e95]: Generate
+            - paragraph [ref=f5e96]: 15 credits
+          - generic [ref=f5e97]:
+            - paragraph [ref=f5e98]: Audit
+            - paragraph [ref=f5e99]: 2 credits
+      - button "Collapse navigation" [ref=f5e100] [cursor=pointer]
+    - main [ref=f5e105]:
+      - generic [ref=f5e107]:
+        - generic [ref=f5e108]:
+          - generic [ref=f5e109]:
+            - link "Your projects" [ref=f5e110] [cursor=pointer]:
+              - /url: /ai-thumbnails/projects
+            - paragraph [ref=f5e113]: I Built a Tiny Moon Base From Cardboard — Skeptic QA
+            - button "Rename project" [ref=f5e114] [cursor=pointer]
+          - navigation "Thumbnail creation progress" [ref=f5e118]:
+            - button "1. Brief" [ref=f5e119] [cursor=pointer]
+            - button "2. Choose" [ref=f5e122] [cursor=pointer]
+            - button "3. Refine" [ref=f5e125] [cursor=pointer]
+          - generic [ref=f5e126]:
+            - status [ref=f5e127]: All changes saved
+            - link "Prepare a batch" [ref=f5e130] [cursor=pointer]:
+              - /url: /ai-thumbnails/projects/batch?projects=f036a4c9-d968-4a09-b558-325a8225e2a0
+        - generic [ref=f5e131]:
+          - generic [ref=f5e132]:
+            - generic [ref=f5e133]:
+              - heading "Which direction works best?" [level=2] [ref=f5e135]
+              - button "Edit brief" [ref=f5e136] [cursor=pointer]
+            - generic [ref=f5e143]:
+              - img "Version ec1f0e5f" [ref=f5e145]
+              - generic [ref=f5e146]:
+                - heading "Version ec1f0e5f" [level=3] [ref=f5e148]
+                - paragraph [ref=f5e149]: Original concept · 28/10/2026, 07:34:31
+                - generic [ref=f5e150]:
+                  - button "Refine" [ref=f5e151] [cursor=pointer]
+                  - button "Download" [ref=f5e155] [cursor=pointer]
+                  - button "Keep this version" [ref=f5e159] [cursor=pointer]: Keep
+          - group [ref=f5e162]:
+            - generic "Compare at YouTube size Free" [ref=f5e163] [cursor=pointer]:
+              - text: Compare at YouTube size
+              - generic [ref=f5e164]: Free
+        - paragraph [ref=f5e165]
+        - generic "Ongoing work and results"
+```

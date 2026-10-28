@@ -1,0 +1,43 @@
+{
+  "controlledNetworkFailure": true,
+  "interceptScope": {
+    "hostname": "gateway.storjshare.io",
+    "pathname": "/basetube-thumbnails/studio/42d09d6a-3414-4fde-8cfc-b45e98efb620/ccfd36be-1eaa-425b-957d-e7afeb9df56e/image.png"
+  },
+  "counts": {
+    "abortedImageRequests": 3,
+    "postRequests": 3,
+    "generationPostRequests": 0
+  },
+  "stableAfter4Seconds": true,
+  "creditsBefore": "Available Credits\n836",
+  "creditsAfter": "Available Credits\n836",
+  "failureCopy": "I Built a Tiny Moon Base From Cardboard \u2014 Skeptic QA\n\n1. Brief\n2. Choose\n3. Refine\n\nAll changes saved\n\nPrepare a batch\nWhich direction works best?\nEdit brief\n\nYour image is saved, but the preview could not load.\n\nReload preview \u00b7 Free\n\nYou can also download the saved image below.\n\nOriginal thumbnail \u00b7 07:34:31\n\nOriginal concept \u00b7 28/10/2026, 07:34:31\n\nRefine\nDownload\nKeep\nCompare at YouTube size\nFree",
+  "recoveredImages": [
+    {
+      "alt": "Original thumbnail \u00b7 07:34:31",
+      "width": 1536,
+      "height": 864,
+      "complete": false
+    },
+    {
+      "alt": "Original thumbnail \u00b7 07:34:31",
+      "width": 0,
+      "height": 0,
+      "complete": true
+    }
+  ],
+  "networkRestored": true,
+  "finalVisibleImage": {
+    "label": "Original thumbnail \u00b7 07:34:31",
+    "width": 1536,
+    "height": 864,
+    "complete": true
+  },
+  "screenshots": {
+    "failure": "15-controlled-image-failure.png",
+    "loading": "16-controlled-free-reload-recovered.png",
+    "complete": "17-controlled-recovery-image-complete.png"
+  },
+  "scopeNote": "Controlled failure of one already saved image only. No generation or payment. Other image/network requests unmodified. Hidden compare image remains unloaded; actual visible result complete and inspected."
+}

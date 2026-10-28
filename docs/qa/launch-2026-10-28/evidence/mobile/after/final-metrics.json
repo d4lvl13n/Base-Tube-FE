@@ -1,0 +1,60 @@
+{
+  "frontendBuild": "8c74fc0",
+  "mainAsset": "main.f31b2fb4.js",
+  "session": "final-mobile",
+  "network": {
+    "downloadBytesPerSecond": 62500,
+    "uploadBytesPerSecond": 62500,
+    "latencyMs": 2000,
+    "cacheDisabled": true,
+    "mocked": false
+  },
+  "viewport": {
+    "width": 375,
+    "height": 812
+  },
+  "startupLoadingObservedMs": 7157.1,
+  "chooseObservedMs": 42432.2,
+  "fullImageObservedMs": 77467.8,
+  "mainScript": {
+    "durationMs": 19553.8,
+    "transferSize": 750402,
+    "encodedBodySize": 750102,
+    "decodedBodySize": 2617424
+  },
+  "image": {
+    "complete": true,
+    "width": 1536,
+    "height": 864,
+    "requestDurationMs": 29909.8,
+    "transferSize": null,
+    "encodedBodySize": null,
+    "reasonSizeUnavailable": "Cross-origin timing returns0; do not infer zero bytes",
+    "requestCountInResourceTiming": 1
+  },
+  "profileImageDOMCount": 0,
+  "profileImageResourceCount": 0,
+  "comparisonClosed": {
+    "hiddenImageCount": 1,
+    "loadingAttribute": "auto",
+    "samePathAsVisible": true,
+    "separateTransferObserved": false
+  },
+  "overflow": {
+    "innerWidth": 375,
+    "scrollWidth": 375
+  },
+  "publicLanding": {
+    "observedDOMContentLoadedNavigationMs": 8443.7,
+    "consoleErrors": 0,
+    "posterResources": [],
+    "videoPosters": [],
+    "policyLinks": {
+      "Privacy Policy": "https://beta.base.tube/privacy",
+      "Terms of Service": "https://beta.base.tube/terms",
+      "Refund Policy": "https://beta.base.tube/refund"
+    }
+  },
+  "additionalGenerations": 0,
+  "additionalCreditSpend": 0
+}

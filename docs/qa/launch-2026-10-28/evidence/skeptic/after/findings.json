@@ -1,0 +1,124 @@
+{
+  "persona": "skeptic",
+  "round": "after",
+  "browserSession": "after-skeptic",
+  "realBrowser": true,
+  "anonymousPublicJourney": true,
+  "firstSuccess": "usable generated thumbnail",
+  "success": true,
+  "successQualification": "Existing authorized signed-in account continuation; image was initially broken and required one reload. New-account signup and checkout not submitted or proved.",
+  "releasesReportedByParent": {
+    "frontend": "1411d2e",
+    "marketing": "973e7bf"
+  },
+  "fixed": [
+    {
+      "key": "marketing-legal-mislink",
+      "verified": true,
+      "evidence": [
+        "03-terms.png",
+        "04-privacy.png"
+      ],
+      "detail": "Marketing footer now links beta.base.tube/terms and /privacy; actual pages cover AI tools and uploaded references."
+    },
+    {
+      "key": "marketing-back-stale-route",
+      "verified": true,
+      "evidence": [
+        "05-back-pricing-correct.png",
+        "back-correct.snapshot.yml"
+      ],
+      "detail": "Privacy \u2192 Back \u2192 Terms \u2192 Back returns marketing #pricing with correct title and pricing DOM without reload."
+    },
+    {
+      "key": "app-pricing-legal-discovery",
+      "verified": true,
+      "evidence": [
+        "06-app-pricing.png"
+      ],
+      "detail": "Visible Billing policies navigation offers Terms, Privacy, Refund Policy; signup also offers all legal links."
+    },
+    {
+      "key": "app-terms-subscription-description",
+      "verified": true,
+      "evidence": [
+        "03-terms.png"
+      ],
+      "detail": "Terms dated 28 October covers monthly/yearly subscriptions, packs, trial payment requirements, automatic renewal, billing-portal cancellation."
+    }
+  ],
+  "steps": [
+    "Fresh anonymous Chromium\u2192beta AI landing redirects to marketing",
+    "Pricing\u2192Terms via footer\u2192Privacy\u2192Back\u2192Back returns actual pricing",
+    "Footer app Pricing\u2192Creator trial signup; no account data entered or form submitted",
+    "Signup Refund Policy read",
+    "Authorized private state loaded without reading/printing/copying its contents",
+    "Studio Start fresh, harmless moon-base idea, 1 concept selected; button 15 credits",
+    "One click generates saved project, 896\u2192881 credits; Waiting then Preparing concepts",
+    "Ready after about 31 seconds but broken image: net::ERR_CONNECTION_RESET, naturalWidth=0",
+    "One existing-project reload recovers real 1536\u00d7864 image; 881 credits and saved project retained"
+  ],
+  "generation": {
+    "submissionCount": 1,
+    "projectId": "f036a4c9-d968-4a09-b558-325a8225e2a0",
+    "projectUrl": "https://beta.base.tube/ai-thumbnails/projects/f036a4c9-d968-4a09-b558-325a8225e2a0",
+    "versionVisibleId": "ec1f0e5f",
+    "title": "I Built a Tiny Moon Base From Cardboard \u2014 Skeptic QA",
+    "costShownBeforeClick": 15,
+    "creditsBefore": 896,
+    "creditsAfter": 881,
+    "reloadCount": 1,
+    "initialImageDimensions": [
+      0,
+      0
+    ],
+    "recoveredImageDimensions": [
+      1536,
+      864
+    ],
+    "completedImageVisuallyVerified": true,
+    "completionTimeVisible": "28/10/2026, 07:34:31",
+    "stateSaved": true
+  },
+  "issues": [
+    {
+      "key": "refund-subscription-omission",
+      "title": "Refund policy still frames all credits as packs and omits the subscription trial",
+      "severity": "P2",
+      "exactText": "Credits are a prepaid, digital product purchased in packs. / Unused credits may be eligible for a refund within 14 days of purchase if the feature failed to deliver due to a fault on our side.",
+      "url": "https://beta.base.tube/refund",
+      "repro": [
+        "Landing\u2192app Pricing\u2192Creator free trial\u2192Refund Policy"
+      ],
+      "impact": "Skeptical subscriber cannot tell how the refund policy applies to trial conversion, recurring subscription charges, or cancellation. Terms were fixed but linked refund coverage remains ambiguous.",
+      "screenshotPaths": [
+        "08-refund-pack-only.png"
+      ]
+    },
+    {
+      "key": "completed-image-load-recovery",
+      "title": "Ready thumbnail can display a broken image without recovery guidance",
+      "severity": "P2",
+      "exactText": "1 concept: Ready. / Version ec1f0e5f",
+      "url": "https://beta.base.tube/ai-thumbnails/projects/f036a4c9-d968-4a09-b558-325a8225e2a0",
+      "repro": [
+        "Generate exactly one fresh concept",
+        "Wait for Ready",
+        "Image request to gateway.storjshare.io resets; broken icon remains although result controls appear",
+        "One reload recovers the image"
+      ],
+      "impact": "Creator sees a paid completed result with no image and no error/retry guidance. Actual generation exists and saved project recovers on reload; transient request failure, not missing generation.",
+      "screenshotPaths": [
+        "11-generation-ready.png",
+        "12-image-recovered-after-reload.png"
+      ]
+    }
+  ],
+  "ownerDecisionNeeded": "Exact operating legal entity remains unverified. No company identity or jurisdiction was invented. Corrected navigation and billing text do not resolve this owner question.",
+  "untested": [
+    "New-account creation",
+    "Trial/checkout submission",
+    "Cancellation execution",
+    "Download file content"
+  ]
+}

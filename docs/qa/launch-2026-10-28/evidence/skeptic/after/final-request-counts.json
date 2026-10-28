@@ -1,0 +1,50 @@
+{
+  "controlledProbe": {
+    "abortedSavedImageRequests": 3,
+    "automaticRetriesBeyondInitial": 2,
+    "stableAfter4Seconds": true,
+    "postRequestsDuringProbe": 3,
+    "generationPostRequests": 0
+  },
+  "allRecordedPostEndpointsInFinalSession": [
+    {
+      "method": "POST",
+      "host": "pulse.walletconnect.org",
+      "path": "/batch"
+    },
+    {
+      "method": "POST",
+      "host": "region1.analytics.google.com",
+      "path": "/g/collect"
+    },
+    {
+      "method": "POST",
+      "host": "region1.analytics.google.com",
+      "path": "/g/collect"
+    },
+    {
+      "method": "POST",
+      "host": "clerk.base.tube",
+      "path": "/v1/client/sessions/[redacted]/tokens"
+    },
+    {
+      "method": "POST",
+      "host": "pulse.walletconnect.org",
+      "path": "/batch"
+    },
+    {
+      "method": "POST",
+      "host": "region1.analytics.google.com",
+      "path": "/g/collect"
+    },
+    {
+      "method": "POST",
+      "host": "region1.analytics.google.com",
+      "path": "/g/collect"
+    }
+  ],
+  "apiPostCount": 0,
+  "creditsBefore": 836,
+  "creditsAfter": 836,
+  "newGenerations": 0
+}

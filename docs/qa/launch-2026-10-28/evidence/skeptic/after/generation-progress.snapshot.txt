@@ -1,0 +1,82 @@
+### Page
+- Page URL: https://beta.base.tube/ai-thumbnails/projects/f036a4c9-d968-4a09-b558-325a8225e2a0
+- Page Title: Base.Tube - Web3 Video Platform
+- Console: 2 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [ref=f4e313]:
+  - banner:
+    - generic [ref=f4e318]:
+      - link [ref=f4e319] [cursor=pointer]:
+        - /url: /creator-hub
+        - button [ref=f4e322]
+      - link [ref=f4e330] [cursor=pointer]:
+        - /url: /profile
+        - img "User Avatar" [ref=f4e333]
+  - generic [ref=f4e334]:
+    - complementary [ref=f4e335]:
+      - link "Base.Tube" [ref=f4e336] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f4e339]:
+        - link "Create" [ref=f4e341] [cursor=pointer]:
+          - /url: /ai-thumbnails/generate
+        - link "Projects" [ref=f4e346] [cursor=pointer]:
+          - /url: /ai-thumbnails/projects
+        - link "Audit" [ref=f4e352] [cursor=pointer]:
+          - /url: /ai-thumbnails/audit
+        - link "Channel Audit" [ref=f4e356] [cursor=pointer]:
+          - /url: /ai-thumbnails/channel-audit
+        - link "History" [ref=f4e366] [cursor=pointer]:
+          - /url: /ai-thumbnails/history
+        - link "My Gallery" [ref=f4e373] [cursor=pointer]:
+          - /url: /ai-thumbnails/gallery
+        - link "Settings" [ref=f4e381] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings
+      - button "Invite a creator" [ref=f4e387] [cursor=pointer]
+      - generic [ref=f4e392]:
+        - link "Available Credits 881" [ref=f4e393] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings/credits
+          - generic [ref=f4e394]: Available Credits
+          - generic [ref=f4e395]: "881"
+        - generic [ref=f4e396]:
+          - generic [ref=f4e397]:
+            - paragraph [ref=f4e398]: Generate
+            - paragraph [ref=f4e399]: 15 credits
+          - generic [ref=f4e400]:
+            - paragraph [ref=f4e401]: Audit
+            - paragraph [ref=f4e402]: 2 credits
+      - button "Collapse navigation" [ref=f4e403] [cursor=pointer]
+    - main [ref=f4e408]:
+      - generic [ref=f4e410]:
+        - generic [ref=f4e411]:
+          - generic [ref=f4e412]:
+            - link "Your projects" [ref=f4e413] [cursor=pointer]:
+              - /url: /ai-thumbnails/projects
+            - paragraph [ref=f4e416]: I Built a Tiny Moon Base From Cardboard — Skeptic QA
+            - button "Rename project" [ref=f4e417] [cursor=pointer]
+          - navigation "Thumbnail creation progress" [ref=f4e421]:
+            - button "1. Brief" [ref=f4e422] [cursor=pointer]
+            - button "2. Choose" [ref=f4e425] [cursor=pointer]
+            - button "3. Refine" [disabled] [ref=f4e428]
+          - generic [ref=f4e429]:
+            - status [ref=f4e430]: All changes saved
+            - link "Prepare a batch" [ref=f4e433] [cursor=pointer]:
+              - /url: /ai-thumbnails/projects/batch?projects=f036a4c9-d968-4a09-b558-325a8225e2a0
+        - region "Your brief" [ref=f4e435]:
+          - paragraph [ref=f4e436]: Your brief
+          - heading "I Built a Tiny Moon Base From Cardboard — Skeptic QA" [level=2] [ref=f4e437]
+          - paragraph [ref=f4e438]: 16:9 · 1 concept · High quality
+          - button "Edit brief" [ref=f4e440] [cursor=pointer]
+          - status [ref=f4e441]: Your concepts are being created. They appear here as soon as they are ready.
+        - paragraph [ref=f4e442]
+        - generic "Ongoing work and results" [ref=f4e443]:
+          - region "Studio operation" [ref=f4e444]:
+            - generic [ref=f4e445]:
+              - heading "In progress" [level=3] [ref=f4e446]
+              - paragraph [ref=f4e447]: 0 charged · 0 released
+            - list [ref=f4e448]:
+              - listitem [ref=f4e449]:
+                - generic [ref=f4e450]:
+                  - generic [ref=f4e451]: Concept 1
+                  - generic [ref=f4e452]: Preparing concepts · 0 credits (15 reserved)
+```

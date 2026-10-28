@@ -1,0 +1,65 @@
+{
+  "persona": "breaker",
+  "date": "2026-10-28",
+  "conditions": {
+    "browser": "fresh real Chromium via Playwright CLI0.1.22",
+    "session": "after-breaker",
+    "network": "normal, unmocked live",
+    "frontend": "2b3d981",
+    "marketing": "973e7bf",
+    "authentication": "anonymous public phase then user-authorized existing account through private state-load"
+  },
+  "steps": [
+    "Landing redirected beta /ai-thumbnails to base.tube/ai-thumbnails",
+    "Visible footer Studio \u2192 anonymous Projects \u2192 Create",
+    "Empty and whitespace-only title: account CTA disabled, Enter a video title or idea to continue.",
+    "HTML-looking title <script>alert(1)</script> Floor is lava displayed literally, no script executed",
+    "Double-click nonempty account CTA: account gate remained open",
+    "Closed gate, browser Back then Forward: exact HTML-looking draft preserved",
+    "Loaded authorized existing account browser state without reading or copying it",
+    "Start fresh selected; title Launch QA breaker: I grew a tiny balcony garden for 20 dollars; one concept selected",
+    "Deliberately double-clicked Generate once; did not resubmit",
+    "One201POST /thumbnail-studio/projects/generate; oneoperation and one concept",
+    "Actual rendered garden thumbnail inspected visually; Ready"
+  ],
+  "success": {
+    "thumbnail": true,
+    "channelAudit": "pending root-exclusive audit slot"
+  },
+  "credits": {
+    "beforeGeneration": 851,
+    "afterGeneration": 836,
+    "generationDelta": 15
+  },
+  "generation": {
+    "projectId": "3937a3a8-36f6-4a91-b625-646d505fe479",
+    "operationId": "d2b865fd-bea9-4a8d-94d5-69d5f9cc7378",
+    "version": "99a75765",
+    "requestCount": 1,
+    "conceptCount": 1,
+    "elapsedSecondsApprox": 22
+  },
+  "blockers": [
+    "Waiting for root before channel audit; no audit submitted."
+  ],
+  "issues": [],
+  "verifiedFixes": [
+    "account-gate-doubleclick-dismissal",
+    "empty-whitespace-title-feedback"
+  ],
+  "passes": [
+    "Literal HTML safe",
+    "Back/Forward draft preservation",
+    "Double-click generate makes one project and reserves/charges15credits once",
+    "Actual image renders with Download and Refine actions"
+  ],
+  "screenshotPaths": [
+    "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after/01-empty-disabled.png",
+    "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after/02-whitespace-disabled.png",
+    "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after/03-doubleclick-gate-stays-open.png",
+    "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after/04-back-forward-draft-preserved.png",
+    "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after/05-before-generate-851-credits.png",
+    "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after/06-single-operation-in-progress.png",
+    "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after/07-generated-thumbnail-836-credits.png"
+  ]
+}

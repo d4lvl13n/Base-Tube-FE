@@ -1,0 +1,79 @@
+{
+  "persona": "breaker",
+  "phase": "final-live-channel-audit",
+  "success": {
+    "thumbnail": true,
+    "channelAudit": true,
+    "ideaStudioHandoff": true
+  },
+  "audit": {
+    "id": 21,
+    "channelId": "UCYPAfSAa68ZQWmJOufBkotQ",
+    "requestKey": "ae64f6ef-491c-4f40-9411-d37e0b599f8a",
+    "postCount": 1,
+    "deliberateDoubleClick": true,
+    "navigationRestore": true,
+    "hardReloadRecovery": true,
+    "autoAppearedSavedReport": true,
+    "elapsedMinutesApprox": "6\u20137"
+  },
+  "credits": {
+    "beforeAudit": 836,
+    "afterAudit": 836,
+    "auditDelta": 0
+  },
+  "rendering": {
+    "diagnosisImages": 2,
+    "families": 3,
+    "examplesPerFamily": [
+      2,
+      2,
+      2
+    ],
+    "ideas": 3,
+    "wholeSeriesIdeas": 2,
+    "abTextBriefsOnly": true,
+    "externalReferenceImagesLoaded": 6,
+    "studioTitlePrefilled": true,
+    "studioVisualDirectionPrefilled": true
+  },
+  "issues": [
+    {
+      "key": "audit-idea-concept-count-copy",
+      "severity": "P3",
+      "title": "Ideas intro promises three thumbnails, Studio defaults to two concepts",
+      "exactText": "Open it in the Studio to get three thumbnails in your style. / Generate 2 concepts \u00b7 30 credits",
+      "status": "fixed and verified live",
+      "url": "https://beta.base.tube/ai-thumbnails/channel-audit",
+      "repro": [
+        "Open saved Garter audit21",
+        "Read ideas intro",
+        "Click Create this thumbnail and inspect concept count"
+      ],
+      "impact": "Misleading count promise before generation",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after/13-final-three-ideas.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after/16-final-idea-studio-prefilled.png"
+      ],
+      "fixedExactText": "Each idea comes with a thumbnail direction. Open it in the Studio to create thumbnails in your style.",
+      "verificationScreenshot": "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after/20-final-count-neutral-copy.png"
+    }
+  ],
+  "blockers": [],
+  "noActions": [
+    "No additional thumbnail generated",
+    "No YouTube connection",
+    "No payments/signup/settings change",
+    "No second audit POST"
+  ],
+  "evidenceDirectory": "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/after",
+  "finalLiveVerification": {
+    "frontend": "8d21aee",
+    "loadedAsset": "main.494b1625.js",
+    "auditId": 21,
+    "reportGetStatus": 200,
+    "credits": 836,
+    "additionalPosts": 0,
+    "outstandingIssues": 0
+  }
+}

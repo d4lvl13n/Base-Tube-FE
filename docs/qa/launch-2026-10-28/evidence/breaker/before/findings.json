@@ -1,0 +1,96 @@
+{
+  "persona": "breaker",
+  "date": "2026-10-28",
+  "conditions": {
+    "browser": "isolated Chrome through Playwright CLI 0.1.22",
+    "session": "launch-breaker",
+    "network": "normal, unmocked production",
+    "authentication": "anonymous"
+  },
+  "steps": [
+    {
+      "action": "Open beta /ai-thumbnails",
+      "result": "Redirects to base.tube/ai-thumbnails marketing landing"
+    },
+    {
+      "action": "Double-click visible footer Studio link",
+      "result": "Loads beta /ai-thumbnails/projects with anonymous sign-in choices; no duplicate action visible"
+    },
+    {
+      "action": "Click sidebar Create",
+      "result": "Public thumbnail brief form opens"
+    },
+    {
+      "action": "Double-click Create a free account to generate with empty required title",
+      "result": "No account dialog remains visible, no inline error; page stays on form"
+    },
+    {
+      "action": "Fill title with <script>alert(1)</script> Floor is lava, then double-click account CTA",
+      "result": "Text appears literally, no alert; no account dialog remains visible after repeated click"
+    },
+    {
+      "action": "Browser Back, then Forward",
+      "result": "Returns through projects and restores same literal HTML title"
+    },
+    {
+      "action": "Replace with I built a tiny balcony garden for 20 dollars; SINGLE-click account CTA",
+      "result": "Dialog opens: Generating needs a free account; contains Create my free account and I already have an account"
+    },
+    {
+      "action": "Stop at account gate, close baseline browser",
+      "result": "No signup, binding terms, payment, generation or audit submitted"
+    }
+  ],
+  "success": false,
+  "blockers": [
+    "Fresh user reaches account gate. Authenticated generation and channel audit are coordinated separately by root."
+  ],
+  "issues": [
+    {
+      "key": "account-gate-doubleclick-dismissal",
+      "title": "Double-clicking the account CTA leaves the visitor on the brief, while a single click opens the account dialog",
+      "exactText": "Create a free account to generate / Generating needs a free account",
+      "url": "https://beta.base.tube/ai-thumbnails/generate",
+      "repro": [
+        "Open public Create via visible Studio link and sidebar Create",
+        "Enter a nonempty title",
+        "Double-click Create a free account to generate",
+        "Observe no account dialog remains visible",
+        "Single-click the same CTA with a normal title; observe the account dialog opens"
+      ],
+      "impact": "A repeated click makes signup appear to do nothing; visitor gets no feedback or next step.",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/before/04-html-text-cta.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/breaker/before/05-single-click-opens-account-gate.png"
+      ],
+      "severity": "P2",
+      "rootCauseStatus": "Observed behavior only; root is investigating backdrop dismissal."
+    }
+  ],
+  "passes": [
+    {
+      "name": "HTML-looking input remains literal",
+      "input": "<script>alert(1)</script> Floor is lava",
+      "result": "No script alert executed; literal text visible in field."
+    },
+    {
+      "name": "Back/Forward preserves visitor draft",
+      "result": "Same HTML-looking title restored after leaving via Back then Forward."
+    },
+    {
+      "name": "Double-click Studio navigation",
+      "result": "One projects screen reached; no duplicate charge or creation."
+    }
+  ],
+  "notTested": [
+    "New account creation and checkout",
+    "Paid generation and real channel audit (pending authenticated phase)",
+    "Whitespace-only single-click validation",
+    "Overlong text and invalid URL fields"
+  ],
+  "notes": [
+    "Initial hypothesis that all account CTA clicks were inert was withdrawn after single-click control opened the dialog.",
+    "Empty double-click alone does not establish a required-field validation defect.",
+    "Background console has authentication-required entries, but no visible error toast was observed."
+  ]
+}

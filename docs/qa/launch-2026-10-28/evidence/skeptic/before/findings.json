@@ -1,0 +1,105 @@
+{
+  "persona": "skeptic",
+  "round": "before",
+  "browserSession": "launch-skeptic",
+  "realBrowser": true,
+  "anonymous": true,
+  "firstSuccess": "usable generated thumbnail",
+  "success": false,
+  "stopReason": "Persona declines signup at legal/product-policy mismatch. No account or payment steps were submitted. Full first-success generation requires authorized account continuation; no new terms were accepted.",
+  "steps": [
+    "Open beta landing -> redirected base.tube landing",
+    "Inspect marketing pricing",
+    "Read linked Terms and Privacy",
+    "Use browser Back twice; observe stale Terms at pricing URL; reload recovers",
+    "Inspect full app pricing",
+    "Follow-up: inspect root-supplied correct app privacy and terms destinations"
+  ],
+  "positiveObservations": [
+    "Marketing and app prices agree: Creator US$24, Pro US$49, Agency US$99 per month.",
+    "Marketing FAQ clearly says 7 days, 2 videos, charge on day 8 unless cancelled.",
+    "App privacy explicitly addresses thumbnail prompts, Clerk, AI processors and deletion; linking it is better supported than writing a new policy."
+  ],
+  "issues": [
+    {
+      "key": "marketing-legal-mislink",
+      "title": "The thumbnail landing page links to Content Pass terms and a policy that omits AI processing",
+      "exactText": [
+        "The Platform is operated by Base Labs (incorporation in progress, United States).",
+        "Content Pass purchases are non-refundable, because access is granted immediately upon purchase.",
+        "We share data only with the following categories of third parties, and only as necessary:"
+      ],
+      "url": "https://base.tube/ai-thumbnails",
+      "repro": [
+        "Open beta.base.tube/ai-thumbnails (redirects to base.tube/ai-thumbnails)",
+        "Read pricing, then follow footer Terms of Service",
+        "Read footer Privacy Policy"
+      ],
+      "impact": "A skeptical thumbnail customer cannot verify the product-specific billing, generated-image rights, or handling of submitted reference images from the documents linked before signup. This is the point at which this persona declines to continue.",
+      "screenshotPaths": [
+        "output/playwright/launch-qa-2026-10-28/skeptic/before/03-terms.png",
+        "output/playwright/launch-qa-2026-10-28/skeptic/before/04-privacy.png"
+      ],
+      "severity": "P1",
+      "notes": "The app has more appropriate /terms and /privacy documents; those were inspected separately as follow-up, not reached from the marketing footer. Do not invent operator/legal promises to repair."
+    },
+    {
+      "key": "marketing-back-stale-route",
+      "title": "Browser Back restores the pricing URL but keeps Terms content on screen",
+      "exactText": [
+        "https://base.tube/ai-thumbnails#pricing",
+        "Terms and Conditions"
+      ],
+      "url": "https://base.tube/ai-thumbnails#pricing",
+      "repro": [
+        "Landing -> footer Terms of Service",
+        "On Terms follow footer Privacy",
+        "Browser Back returns to Terms",
+        "Browser Back again changes URL to /ai-thumbnails#pricing but leaves Terms title and body",
+        "Reload restores the correct thumbnail landing page"
+      ],
+      "impact": "Returning from legal review does not return to the offer; users are stranded on the wrong content under a misleading URL.",
+      "screenshotPaths": [
+        "output/playwright/launch-qa-2026-10-28/skeptic/before/05-back-shows-terms-at-pricing-url.png"
+      ],
+      "severity": "P1"
+    },
+    {
+      "key": "app-pricing-legal-discovery",
+      "title": "Full app pricing has no visible Terms or Privacy navigation",
+      "exactText": [
+        "Start 7-day free trial",
+        "Continue to secure checkout \u00b7 US$40.00",
+        "Secure payment by Stripe."
+      ],
+      "url": "https://beta.base.tube/ai-thumbnails/pricing",
+      "repro": [
+        "Follow full Pricing link from the marketing footer",
+        "Inspect the entire app pricing page before choosing a paid trial or credit pack"
+      ],
+      "impact": "The price page displays payment CTAs but offers no visible product-policy links for a cautious new user.",
+      "screenshotPaths": [
+        "output/playwright/launch-qa-2026-10-28/skeptic/before/06-app-pricing.png"
+      ],
+      "severity": "P2"
+    },
+    {
+      "key": "app-terms-subscription-description",
+      "title": "The AI-specific Terms still describe credit packs, not the subscription trial offer",
+      "exactText": [
+        "Certain features consume credits, purchased in packs via Stripe. Prices are shown at checkout. Credits are consumed per action; see our Refund Policy."
+      ],
+      "url": "https://beta.base.tube/terms",
+      "repro": [
+        "Inspect the app-specific Terms as a follow-up destination",
+        "Compare section 4 Credits & payments with the monthly Creator/Pro/Agency and 7-day-trial offer"
+      ],
+      "impact": "The correct AI terms explain generated content but do not explain the monthly recurring trial, day-8 charge, or cancellation that the pricing UI advertises.",
+      "screenshotPaths": [
+        "output/playwright/launch-qa-2026-10-28/skeptic/before/08-correct-app-terms.png"
+      ],
+      "severity": "P2"
+    }
+  ],
+  "ownerDecisionNeeded": "Confirm the actual operator legal identity; displayed marketing text says Base Labs (incorporation in progress, United States)."
+}

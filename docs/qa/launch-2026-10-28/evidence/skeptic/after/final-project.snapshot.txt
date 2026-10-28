@@ -1,0 +1,87 @@
+### Page
+- Page URL: https://beta.base.tube/ai-thumbnails/projects/f036a4c9-d968-4a09-b558-325a8225e2a0
+- Page Title: Base.Tube - Web3 Video Platform
+- Console: 3 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [ref=f1e5]:
+  - banner:
+    - generic [ref=f1e10]:
+      - link [ref=f1e11] [cursor=pointer]:
+        - /url: /creator-hub
+        - button [ref=f1e14]
+      - link [ref=f1e22] [cursor=pointer]:
+        - /url: /profile
+        - img "User Avatar" [ref=f1e25]
+  - generic [ref=f1e26]:
+    - complementary [ref=f1e27]:
+      - link "Base.Tube" [ref=f1e28] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f1e31]:
+        - link "Create" [ref=f1e33] [cursor=pointer]:
+          - /url: /ai-thumbnails/generate
+        - link "Projects" [ref=f1e38] [cursor=pointer]:
+          - /url: /ai-thumbnails/projects
+        - link "Audit" [ref=f1e44] [cursor=pointer]:
+          - /url: /ai-thumbnails/audit
+        - link "Channel Audit" [ref=f1e48] [cursor=pointer]:
+          - /url: /ai-thumbnails/channel-audit
+        - link "History" [ref=f1e58] [cursor=pointer]:
+          - /url: /ai-thumbnails/history
+        - link "My Gallery" [ref=f1e65] [cursor=pointer]:
+          - /url: /ai-thumbnails/gallery
+        - link "Settings" [ref=f1e73] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings
+      - button "Invite a creator" [ref=f1e79] [cursor=pointer]
+      - generic [ref=f1e84]:
+        - link "Available Credits 836" [ref=f1e85] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings/credits
+          - generic [ref=f1e86]: Available Credits
+          - generic [ref=f1e87]: "836"
+        - generic [ref=f1e88]:
+          - generic [ref=f1e89]:
+            - paragraph [ref=f1e90]: Generate
+            - paragraph [ref=f1e91]: 15 credits
+          - generic [ref=f1e92]:
+            - paragraph [ref=f1e93]: Audit
+            - paragraph [ref=f1e94]: 2 credits
+      - button "Collapse navigation" [ref=f1e95] [cursor=pointer]
+    - main [ref=f1e100]:
+      - generic [ref=f1e102]:
+        - generic [ref=f1e103]:
+          - generic [ref=f1e104]:
+            - link "Your projects" [ref=f1e105] [cursor=pointer]:
+              - /url: /ai-thumbnails/projects
+            - paragraph [ref=f1e108]: I Built a Tiny Moon Base From Cardboard — Skeptic QA
+            - button "Rename project" [ref=f1e109] [cursor=pointer]
+          - navigation "Thumbnail creation progress" [ref=f1e113]:
+            - button "1. Brief" [ref=f1e114] [cursor=pointer]
+            - button "2. Choose" [ref=f1e117] [cursor=pointer]
+            - button "3. Refine" [ref=f1e120] [cursor=pointer]
+          - generic [ref=f1e121]:
+            - status [ref=f1e122]: All changes saved
+            - link "Prepare a batch" [ref=f1e125] [cursor=pointer]:
+              - /url: /ai-thumbnails/projects/batch?projects=f036a4c9-d968-4a09-b558-325a8225e2a0
+        - generic [ref=f1e126]:
+          - generic [ref=f1e127]:
+            - generic [ref=f1e128]:
+              - heading "Which direction works best?" [level=2] [ref=f1e130]
+              - button "Edit brief" [ref=f1e131] [cursor=pointer]
+            - generic [ref=f1e138]:
+              - img "Original thumbnail · 07:34:31" [ref=f1e162]
+              - generic [ref=f1e142]:
+                - heading "Original thumbnail · 07:34:31" [level=3] [ref=f1e144]
+                - paragraph [ref=f1e145]: Original concept · 28/10/2026, 07:34:31
+                - generic [ref=f1e146]:
+                  - button "Refine" [ref=f1e147] [cursor=pointer]
+                  - button "Download" [ref=f1e151] [cursor=pointer]
+                  - button "Keep this version" [ref=f1e155] [cursor=pointer]: Keep
+          - group [ref=f1e158]:
+            - generic "Compare at YouTube size Free" [ref=f1e159] [cursor=pointer]:
+              - text: Compare at YouTube size
+              - generic [ref=f1e160]: Free
+        - paragraph [ref=f1e161]
+        - generic "Ongoing work and results"
+```
+### Events
+- New console entries: .playwright-cli/console-2026-10-28T07-00-55-118Z.log#L7

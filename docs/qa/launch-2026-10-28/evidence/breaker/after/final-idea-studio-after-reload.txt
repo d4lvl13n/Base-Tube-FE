@@ -1,0 +1,133 @@
+### Page
+- Page URL: https://beta.base.tube/ai-thumbnails/generate
+- Page Title: Base.Tube - Web3 Video Platform
+- Console: 2 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [ref=f5e403]:
+  - banner:
+    - generic [ref=f5e408]:
+      - link [ref=f5e409] [cursor=pointer]:
+        - /url: /creator-hub
+        - button [ref=f5e412]
+      - link [ref=f5e420] [cursor=pointer]:
+        - /url: /profile
+        - img "User Avatar" [ref=f5e423]
+  - generic [ref=f5e424]:
+    - complementary [ref=f5e425]:
+      - link "Base.Tube" [ref=f5e426] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f5e429]:
+        - link "Create" [ref=f5e431] [cursor=pointer]:
+          - /url: /ai-thumbnails/generate
+        - link "Projects" [ref=f5e437] [cursor=pointer]:
+          - /url: /ai-thumbnails/projects
+        - link "Audit" [ref=f5e442] [cursor=pointer]:
+          - /url: /ai-thumbnails/audit
+        - link "Channel Audit" [ref=f5e446] [cursor=pointer]:
+          - /url: /ai-thumbnails/channel-audit
+        - link "History" [ref=f5e456] [cursor=pointer]:
+          - /url: /ai-thumbnails/history
+        - link "My Gallery" [ref=f5e463] [cursor=pointer]:
+          - /url: /ai-thumbnails/gallery
+        - link "Settings" [ref=f5e471] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings
+      - generic [ref=f5e478]:
+        - link "Available Credits 836" [ref=f5e479] [cursor=pointer]:
+          - /url: /ai-thumbnails/settings/credits
+          - generic [ref=f5e480]: Available Credits
+          - generic [ref=f5e481]: "836"
+        - generic [ref=f5e482]:
+          - generic [ref=f5e483]:
+            - paragraph [ref=f5e484]: Generate
+            - paragraph [ref=f5e485]: 15 credits
+          - generic [ref=f5e486]:
+            - paragraph [ref=f5e487]: Audit
+            - paragraph [ref=f5e488]: 2 credits
+      - button "Collapse navigation" [ref=f5e489] [cursor=pointer]
+    - main [ref=f5e494]:
+      - generic [ref=f5e496]:
+        - generic [ref=f5e497]:
+          - generic [ref=f5e498]:
+            - paragraph [ref=f5e499]: AI Thumbnail Studio
+            - paragraph [ref=f5e500]: Your next video, made unmissable.
+          - navigation "Thumbnail creation progress" [ref=f5e501]:
+            - generic [ref=f5e502]: 1. Brief
+            - generic [ref=f5e505]: 2. Choose
+            - generic [ref=f5e508]: 3. Refine
+        - form "Thumbnail brief" [ref=f5e509]:
+          - generic [ref=f5e510]:
+            - group [ref=f5e511]:
+              - generic [ref=f5e512]:
+                - heading "What’s your video about?" [level=1] [ref=f5e513]
+                - paragraph [ref=f5e514]: Start with the idea. We’ll turn it into distinct visual directions for you to choose from.
+              - generic [ref=f5e515]:
+                - text: Video title or idea *
+                - textbox "Video title or idea" [ref=f5e516]:
+                  - /placeholder: e.g. Why AI might change the future of work
+                  - text: Which Zelda Game Has the Longest Dungeon-to-Dungeon Trip Across the Entire Series?
+              - generic [ref=f5e517]:
+                - text: What’s the most interesting thing viewers will discover?
+                - textbox "Creator hook" [ref=f5e518]:
+                  - /placeholder: The surprising result, feeling or takeaway. Optional, but helpful.
+              - group [ref=f5e519]:
+                - generic "Add description Optional" [ref=f5e520] [cursor=pointer]:
+                  - text: Add description
+                  - generic [ref=f5e521]: Optional
+              - group [ref=f5e522]:
+                - generic "Have a visual in mind? Optional" [ref=f5e523] [cursor=pointer]:
+                  - text: Have a visual in mind?
+                  - generic [ref=f5e524]: Optional
+              - button "Discard draft" [ref=f5e525] [cursor=pointer]
+              - group [ref=f5e526]:
+                - generic "More options 16:9" [ref=f5e527] [cursor=pointer]:
+                  - text: More options
+                  - generic [ref=f5e528]: 16:9
+            - generic [ref=f5e529]:
+              - group [ref=f5e530]:
+                - generic "Add a video, script or existing image Optional" [ref=f5e531] [cursor=pointer]:
+                  - text: Add a video, script or existing image
+                  - generic [ref=f5e532]: Optional
+              - group [ref=f5e533]:
+                - generic "Your look Optional" [ref=f5e534] [cursor=pointer]:
+                  - generic [ref=f5e535]: Your look
+                  - generic [ref=f5e536]: Optional
+                - group [ref=f5e539]:
+                  - group "Channel style" [ref=f5e540]:
+                    - group "Channel style" [ref=f5e542]:
+                      - button "Start fresh A new visual direction" [disabled] [pressed] [ref=f5e543]:
+                        - text: Start fresh
+                        - generic [ref=f5e544]: A new visual direction
+                      - status [ref=f5e545]: Loading styles…
+                    - paragraph [ref=f5e546]: To add another style, choose “Save style” on any thumbnail in your results or gallery.
+                  - group [ref=f5e547]:
+                    - generic "Use another style image" [ref=f5e548] [cursor=pointer]
+                  - paragraph [ref=f5e549]: No channel profile is selected. Choose one under More options, or add a style image above.
+                  - group "Channel logo" [ref=f5e550]:
+                    - paragraph [ref=f5e552]: Add your logo once, then save the thumbnail as a channel style to reuse it.
+                    - generic [ref=f5e553]:
+                      - generic [ref=f5e559]:
+                        - paragraph [ref=f5e560]: No logo selected
+                        - status [ref=f5e561]: Optional · PNG, JPEG or WebP · Up to 5 MB
+                      - button "Choose logo" [ref=f5e563] [cursor=pointer]
+                  - group "Use your real subject" [ref=f5e568]:
+                    - paragraph [ref=f5e570]: Choose the person, product or scene to keep recognizable across your concepts.
+                    - generic [ref=f5e572] [cursor=pointer]:
+                      - text: Add photos
+                      - button "Subject photo" [ref=f5e573]
+                    - paragraph [ref=f5e574]: Only your chosen photos are used as subject references.
+                  - group [ref=f5e575]:
+                    - generic "Your face reference" [ref=f5e576] [cursor=pointer]
+                  - group [ref=f5e577]:
+                    - generic "Colours and text style" [ref=f5e578] [cursor=pointer]
+          - generic [ref=f5e579]:
+            - generic [ref=f5e580]:
+              - generic [ref=f5e581]: Concepts
+              - button "Number of concepts" [ref=f5e584] [cursor=pointer]:
+                - generic [ref=f5e585]: "2"
+            - button "Generate 2 concepts · 30 credits" [ref=f5e589] [cursor=pointer]
+            - paragraph [ref=f5e592]: One click saves your brief as a project and starts the generation there.
+        - link "Open saved projects" [ref=f5e593] [cursor=pointer]:
+          - /url: /ai-thumbnails/projects
+  - button "Open help" [ref=f5e595] [cursor=pointer]
+```

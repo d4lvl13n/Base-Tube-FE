@@ -1,0 +1,2 @@
+Verified in actual browser request list after reload: GET https://beta.base.tube/static/js/main.f31b2fb4.js returned200 before audit POST.
+Backend root-reported18dd6915; frontend root-reported8c74fc0.

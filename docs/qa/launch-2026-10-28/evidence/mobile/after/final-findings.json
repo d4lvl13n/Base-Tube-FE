@@ -1,0 +1,101 @@
+{
+  "persona": "mobile",
+  "success": true,
+  "sourceBuild": "8c74fc0/main.f31b2fb4.js",
+  "savedProjectId": "592cd6f5-b6a2-4181-a9b7-35ff6ff47b5d",
+  "additionalGenerations": 0,
+  "additionalCreditSpend": 0,
+  "fixed": [
+    "blank-app-bootstrap-on-slow-network",
+    "hidden-profile-images-download-on-project",
+    "result-image-loading-feedback",
+    "machine-version-id-label",
+    "optional-marketing-poster404"
+  ],
+  "issues": [
+    {
+      "key": "slow-cold-navigation-mobile",
+      "title": "Cold saved-project navigation still takes77.47s to show a fully downloaded result on500kbps/2s",
+      "severity": "P2",
+      "impact": "Noticeable waiting remains despite clear feedback and reduced transfer volume",
+      "screenshotPaths": [
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/final-02-image-loading.png",
+        "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/final-03-image-complete.png"
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "key": "comparison-hidden-current-image",
+      "detail": "Closed comparison contains hiddenimg loading=auto sharing currentimagepath; one PNG resource request, so separate bandwidth duplication not observed."
+    }
+  ],
+  "conditions": {
+    "downloadBytesPerSecond": 62500,
+    "uploadBytesPerSecond": 62500,
+    "latencyMs": 2000,
+    "cacheDisabled": true,
+    "mocked": false
+  },
+  "metrics": {
+    "frontendBuild": "8c74fc0",
+    "mainAsset": "main.f31b2fb4.js",
+    "session": "final-mobile",
+    "network": {
+      "downloadBytesPerSecond": 62500,
+      "uploadBytesPerSecond": 62500,
+      "latencyMs": 2000,
+      "cacheDisabled": true,
+      "mocked": false
+    },
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "startupLoadingObservedMs": 7157.1,
+    "chooseObservedMs": 42432.2,
+    "fullImageObservedMs": 77467.8,
+    "mainScript": {
+      "durationMs": 19553.8,
+      "transferSize": 750402,
+      "encodedBodySize": 750102,
+      "decodedBodySize": 2617424
+    },
+    "image": {
+      "complete": true,
+      "width": 1536,
+      "height": 864,
+      "requestDurationMs": 29909.8,
+      "transferSize": null,
+      "encodedBodySize": null,
+      "reasonSizeUnavailable": "Cross-origin timing returns0; do not infer zero bytes",
+      "requestCountInResourceTiming": 1
+    },
+    "profileImageDOMCount": 0,
+    "profileImageResourceCount": 0,
+    "comparisonClosed": {
+      "hiddenImageCount": 1,
+      "loadingAttribute": "auto",
+      "samePathAsVisible": true,
+      "separateTransferObserved": false
+    },
+    "overflow": {
+      "innerWidth": 375,
+      "scrollWidth": 375
+    },
+    "publicLanding": {
+      "observedDOMContentLoadedNavigationMs": 8443.7,
+      "consoleErrors": 0,
+      "posterResources": [],
+      "videoPosters": [],
+      "policyLinks": {
+        "Privacy Policy": "https://beta.base.tube/privacy",
+        "Terms of Service": "https://beta.base.tube/terms",
+        "Refund Policy": "https://beta.base.tube/refund"
+      }
+    },
+    "additionalGenerations": 0,
+    "additionalCreditSpend": 0
+  },
+  "reportPath": "/Users/damienlarquey/base-tube-mockup/output/playwright/launch-qa-2026-10-28/mobile/after/final-report.md"
+}
