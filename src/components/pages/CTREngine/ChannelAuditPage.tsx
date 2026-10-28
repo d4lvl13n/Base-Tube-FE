@@ -210,7 +210,8 @@ const ChannelAuditPage: React.FC = () => {
       const entry=getAuditSession(accountId);
       if(!entry) return;
       // An explicit History link wins over an already-completed in-memory report.
-      if(linkedAuditId !== null && ownRequestRef.current !== entry.requestKey && entry.status === 'completed') return;
+      // The recovered request is over either way, so the re-run button is free again.
+      if(linkedAuditId !== null && ownRequestRef.current !== entry.requestKey && entry.status === 'completed') {setRecoveryStatus(null);setIsAuditing(false);return;}
       if((entry.error as any)?.response?.status === 401) {setSignInRequired(true);return;}
       setChannelUrl(entry.channel);setCreatorGoal(entry.goal || '');
       setRecoveryStatus(entry.status === 'recovering' || entry.status === 'unresolved' ? entry.status : null);

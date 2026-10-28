@@ -10,7 +10,7 @@ jest.mock('../../../../contexts/AuthContext',()=>({useAuth:()=>({isAuthenticated
 jest.mock('../../../../hooks/useCTREngine',()=>({__esModule:true,default:()=>({usageAccess:null,isLoadingQuota:false,refreshQuota:jest.fn(),isAnonymous:false})}));
 jest.mock('../../../../api/ctr',()=>({__esModule:true,default:{auditChannel:jest.fn(),getChannelAuditRequestStatus:jest.fn(),getChannelAudit:jest.fn(),listChannelAudits:jest.fn()}}));
 jest.mock('../AIThumbnailsLayout',()=>({__esModule:true,default:({children}:any)=><div>{children}</div>}));
-jest.mock('../components/ChannelAuditReport',()=>({ChannelAuditReport:({audit}:any)=><div>Report {audit.id}</div>}));
+jest.mock('../components/ChannelAuditReport',()=>({ChannelAuditReport:({audit,isRerunning}:any)=><div>Report {audit.id}{isRerunning ? ' (re-running)' : ''}</div>}));
 jest.mock('../components/ChannelAuditProgress',()=>({__esModule:true,default:()=> <div>Preparing audit</div>}));
 jest.mock('../components/AIThumbnailsSignInOptions',()=>({__esModule:true,default:()=>null}));
 jest.mock('framer-motion',()=>{
@@ -110,4 +110,17 @@ it('never stops a known active POST even after twenty minutes',async()=>{
  expect(ctrApi.auditChannel).toHaveBeenCalledTimes(1);
  await act(async()=>{request.resolve({schemaVersion:2,id:47});});
  view.unmount();jest.useRealTimers();
+});
+it('frees the re-run button when a recovered request completes under a History link',async()=>{
+ const account=`clerk:${mockAccount}`;
+ window.history.replaceState({},'','/?audit=45');
+ sessionStorage.setItem('bt.channelAudit.pending.v1:'+account,JSON.stringify({accountId:account,requestKey:'linked-request-123',channel:'@Garter',startedAt:Date.now()}));
+ (ctrApi.getChannelAuditRequestStatus as jest.Mock).mockResolvedValue({status:'completed',auditId:44});
+ (ctrApi.getChannelAudit as jest.Mock).mockImplementation(async(id:number)=>({schemaVersion:2,id}));
+ (ctrApi.listChannelAudits as jest.Mock).mockResolvedValue([]);
+ render(<MemoryRouter initialEntries={['/ai-thumbnails/channel-audit?audit=45']}><ChannelAuditPage/></MemoryRouter>);
+ expect(await screen.findByText('Report 45')).toBeInTheDocument();
+ await waitFor(()=>expect(ctrApi.getChannelAudit).toHaveBeenCalledWith(44));
+ await waitFor(()=>expect(screen.queryByText(/re-running/)).not.toBeInTheDocument());
+ expect(screen.getByText('Report 45')).toBeInTheDocument();
 });
