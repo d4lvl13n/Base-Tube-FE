@@ -69,6 +69,8 @@ it('waits for the account before choosing a screen', () => {
 it('a visitor writes the brief on the same form, and the one button creates an account with the welcome credits it gets', async () => {
   render(page());
   expect(screen.getByRole('heading', { name: 'What’s your video about?' })).toBeInTheDocument();
+  expect(createAccount()).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('Video title or idea'), { target: { value: 'Ocean music' } });
   expect(createAccount()).toBeEnabled();
   expect(await screen.findByText('New accounts get 50 free credits — enough for one generation, one edit and an audit.')).toBeInTheDocument();
   // No free generation, no price, no account-only pickers, and nothing that bypasses the gate.
@@ -98,6 +100,7 @@ it('without the welcome gift (the default), the button and the gate lead to the 
   expect(
     await screen.findByText('The account is free. Then try any plan free for 7 days, with 2 videos included. Cancel before day 8 and you pay nothing.'),
   ).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Video title or idea'), { target: { value: 'A tiny balcony garden' } });
   fireEvent.click(createAccount());
   const gate = await screen.findByRole('dialog');
   expect(gate).toHaveTextContent('The account is free. After signing up, try any plan free for 7 days, with 2 videos included.');
