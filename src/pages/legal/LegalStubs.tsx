@@ -197,8 +197,9 @@ export const TermsPage: React.FC = () => (
 // ─────────────────────────────────────────────────────────────────────────────
 export const RefundPage: React.FC = () => (
   <Shell title="Refund Policy">
-    <Section heading="1. Credit purchases">
-      <p>Credits are a prepaid, digital product purchased in packs. Once purchased, credits are added to your balance and consumed as you use paid features.</p>
+    <Section heading="1. Credits and subscriptions">
+      <p>Credits can be included in a recurring monthly or yearly subscription, or purchased as a one-time pack. Credits are added to your balance and consumed as you use paid features.</p>
+      <p>For free-trial charges, subscription renewal and cancellation details, see the <Link className="text-[#fa7517] hover:underline" to="/terms">Credits &amp; payments section of our Terms</Link>. You can manage or cancel a subscription from your account's billing section, which opens Stripe's billing portal. To request a refund, follow the steps below.</p>
     </Section>
     <Section heading="2. Consumed vs. unused credits">
       <p><strong>Consumed credits</strong> (an audit or generation that ran) are non-refundable, because the underlying processing and provider costs were incurred. <strong>Unused credits</strong> may be eligible for a refund within 14 days of purchase if the feature failed to deliver due to a fault on our side.</p>
