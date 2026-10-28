@@ -195,7 +195,7 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
           <SectionHead
             eyebrow="Your next videos"
             title={`${plan.ideas.length} ideas in the same vein`}
-            lead="Each idea comes with a thumbnail direction. Open it in the Studio to get three thumbnails in your style."
+            lead="Each idea comes with a thumbnail direction. Open it in the Studio to create thumbnails in your style."
           />
           <div className="ap-ideas">
             {plan.ideas.map((idea, index) => {
