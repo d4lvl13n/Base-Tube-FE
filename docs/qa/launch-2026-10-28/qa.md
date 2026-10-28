@@ -1,5 +1,11 @@
 # Base.Tube launch QA — 28 October 2026
 
+Checkout follow-up: the owner subsequently approved testing from the existing
+account. Creator trial, preserved Studio brief, real thumbnail generation and
+an explicitly approved US$5 sandbox pack completed after billing fixes. See
+[checkout QA and release evidence](../checkout-2026-10-28/qa.md). New-account
+signup and real-money collection remain outside that follow-up.
+
 Five real thumbnail generations and two complete Garter channel audits succeeded. The five personas repeated the corrected journeys; final targeted checks cover recovery, pricing/legal copy, image loading, downloads and Studio handoff. Fixes are committed, pushed and live. New-account signup/checkout remains unverified under the owner-approved existing-account scope. Cold sign-up still takes43.48 seconds on the severe slow-3G profile; operator identity remains an owner fact to confirm.
 
 ## Scope and evidence standard
