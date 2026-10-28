@@ -4,8 +4,12 @@ import { MemoryRouter } from 'react-router-dom';
 import ChannelAuditPage from '../ChannelAuditPage';
 import useCTREngine from '../../../../hooks/useCTREngine';
 import ctrApi from '../../../../api/ctr';
+import { clearAuditSession } from '../../../../hooks/channelAuditSession';
+let mockAccount = 'ChannelAuditErrors.test.tsx-initial';
+jest.mock('@clerk/clerk-react', () => ({ useUser: () => ({ isLoaded: true, isSignedIn: true, user: { id: mockAccount } }) }));
+jest.mock('../../../../contexts/AuthContext', () => ({ useAuth: () => ({ isAuthenticated: false, user: null, isRestoring: false }) }));
 jest.mock('../../../../hooks/useCTREngine', () => ({ __esModule: true, default: jest.fn() }));
-jest.mock('../../../../api/ctr', () => ({ __esModule: true, default: { listChannelAudits: jest.fn(), auditChannel: jest.fn(), getChannelAudit: jest.fn() } }));
+jest.mock('../../../../api/ctr', () => ({ __esModule: true, default: { listChannelAudits: jest.fn(), auditChannel: jest.fn(), getChannelAudit: jest.fn(), getChannelAuditRequestStatus: jest.fn() } }));
 jest.mock('../AIThumbnailsLayout', () => ({ __esModule: true, default: ({ children }: any) => <main>{children}</main> }));
 jest.mock('../components/ChannelAuditReport', () => ({ ChannelAuditReport: () => <p>Report</p> }));
 const api = ctrApi as jest.Mocked<typeof ctrApi>;
@@ -13,6 +17,11 @@ const INCOMPLETE = 'The audit analysis did not finish. Please try again; no inco
 const failure = (status: number, data: unknown = {}) => ({ isAxiosError: true, message: `Request failed with status code ${status}`, response: { status, data } });
 const env = process.env.NODE_ENV;
 beforeEach(() => {
+  clearAuditSession(`clerk:${mockAccount}`);
+  mockAccount = 'ChannelAuditErrors.test.tsx-' + Math.random();
+  sessionStorage.clear();
+  localStorage.clear();
+  jest.clearAllMocks();
   window.matchMedia = jest.fn(() => ({ matches: false, addListener: jest.fn(), removeListener: jest.fn() })) as any;
   (useCTREngine as jest.Mock).mockImplementation(() => ({ usageAccess: null, isLoadingQuota: false, refreshQuota: jest.fn(), isAnonymous: false }));
   api.listChannelAudits.mockResolvedValue([]);
@@ -34,7 +43,7 @@ it('says the audit did not finish in the server\'s words and runs the same chann
   expect(screen.queryByText(/HTTP 503/)).not.toBeInTheDocument();
   api.auditChannel.mockResolvedValueOnce({ version: 2 } as any);
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
-  await waitFor(() => expect(api.auditChannel).toHaveBeenLastCalledWith('@mychannel', undefined));
+  await waitFor(() => expect(api.auditChannel).toHaveBeenLastCalledWith('@mychannel', undefined, expect.stringMatching(/^[\w-]{8,128}$/)));
   expect(await screen.findByText('Report')).toBeInTheDocument();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });

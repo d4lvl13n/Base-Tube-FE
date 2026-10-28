@@ -24,7 +24,7 @@ export function SaveThumbnailStyle({ imageUrl, hasLogo }: { imageUrl: string; ha
     <button type="button" className={buttonClass} disabled={busy} onClick={() => { setOpen(!open); setError(''); }}>{saved ? 'Rename style' : 'Save style'}</button>
     {saved && <p role="status" className="text-sm text-emerald-300">Saved as “{saved}”. Choose it under Channel style next time.</p>}
     {open && <div className="space-y-2 rounded-xl border border-white/10 p-3">
-      <img src={thumbnailMediaUrl(imageUrl)} alt="Style to save" className="aspect-video w-32 rounded-lg object-contain" />
+      <img loading="lazy" decoding="async" src={thumbnailMediaUrl(imageUrl)} alt="Style to save" className="aspect-video w-32 rounded-lg object-contain" />
       {hasLogo !== undefined && <p className="text-xs text-emerald-300">{hasLogo ? "Original logo included" : "No original logo attached"}</p>}
       <label className="block text-sm text-white">Channel or style name
         <input aria-label="Channel or style name" value={name} maxLength={80} disabled={busy} onChange={event => setName(event.target.value)} placeholder="e.g. My music channel" className="mt-2 block w-full rounded-lg bg-white/5 p-2" />
@@ -66,7 +66,7 @@ export function ThumbnailStylePicker({ value, onChange, disabled, visual = false
     <legend className="px-1 text-sm font-semibold text-white">Channel style</legend>
     {visual ? <div role="group" aria-label="Channel style" className="grid grid-cols-2 gap-2">
       <button type="button" aria-pressed={!value && !selectedReference} disabled={loading} onClick={() => onChange(undefined, undefined)} className={`rounded-xl border p-3 text-left text-sm ${!value && !selectedReference ? 'border-orange-400 bg-orange-500/10 text-orange-300' : 'border-white/10 text-zinc-300'}`}>Start fresh<span className="mt-1 block text-xs text-zinc-400">A new visual direction</span></button>
-      {styles.map(style => <button type="button" key={style.id} aria-label={style.name} aria-pressed={style.id === value} disabled={loading} onClick={() => onChange(style.id, style.hasLogo)} className={`overflow-hidden rounded-xl border text-left ${style.id === value ? 'border-orange-400 bg-orange-500/10' : 'border-white/10'}`}><img src={thumbnailMediaUrl(style.imageUrl)} alt="" className="aspect-video w-full object-contain bg-black" /><span className="block truncate px-2 py-2 text-xs text-white">{style.name}{style.hasLogo && <span className="mt-1 block text-emerald-300">{copySavedLogo ? 'Logo included' : 'Logo visible in reference'}</span>}</span></button>)}
+      {styles.map(style => <button type="button" key={style.id} aria-label={style.name} aria-pressed={style.id === value} disabled={loading} onClick={() => onChange(style.id, style.hasLogo)} className={`overflow-hidden rounded-xl border text-left ${style.id === value ? 'border-orange-400 bg-orange-500/10' : 'border-white/10'}`}><img loading="lazy" decoding="async" src={thumbnailMediaUrl(style.imageUrl)} alt="" className="aspect-video w-full object-contain bg-black" /><span className="block truncate px-2 py-2 text-xs text-white">{style.name}{style.hasLogo && <span className="mt-1 block text-emerald-300">{copySavedLogo ? 'Logo included' : 'Logo visible in reference'}</span>}</span></button>)}
       {loading && <p role="status" className="col-span-2 text-xs text-zinc-400">Loading styles…</p>}
       {value && !selected && !loading && <p role="alert" className="col-span-2 text-xs text-amber-300">Selected style unavailable. Choose another style.</p>}
     </div> : <StudioSelect aria-label="Channel style" value={value ?? ''} disabled={loading} onChange={event => onChange(event.target.value ? Number(event.target.value) : undefined, styles.find(style => style.id === Number(event.target.value))?.hasLogo)} className="w-full rounded-lg bg-[#171719] p-3 text-white">
@@ -75,12 +75,12 @@ export function ThumbnailStylePicker({ value, onChange, disabled, visual = false
       {styles.map(style => <option key={style.id} value={style.id}>{style.name}</option>)}
     </StudioSelect>}
     {selected ? <div className="mt-3 flex items-center gap-3">
-      {!visual && <img src={thumbnailMediaUrl(selected.imageUrl)} alt={selected.name} className="w-32 rounded-lg aspect-video object-contain" />}
+      {!visual && <img loading="lazy" decoding="async" src={thumbnailMediaUrl(selected.imageUrl)} alt={selected.name} className="w-32 rounded-lg aspect-video object-contain" />}
       <div className="space-y-2"><p className="text-xs text-gray-400">Match this style. Use your new brief for the subject and words.{selected.hasLogo && (copySavedLogo ? ' Your saved original logo will be included automatically.' : ' Add the original logo separately if you want to include it.')}</p>
         <button type="button" className={buttonClass} disabled={loading} onClick={remove}>Remove saved style</button>
       </div>
     </div> : null}
-    {selectedReference && !selected && <div className="mt-3 flex items-center gap-3"><img src={thumbnailMediaUrl(selectedReference.url)} alt="Current style reference" className="aspect-video w-32 rounded-lg object-contain" /><p className="text-xs text-gray-300">{selectedReference.name}</p><button type="button" className={buttonClass} onClick={() => onChange(undefined)}>Clear current reference</button></div>}
+    {selectedReference && !selected && <div className="mt-3 flex items-center gap-3"><img loading="lazy" decoding="async" src={thumbnailMediaUrl(selectedReference.url)} alt="Current style reference" className="aspect-video w-32 rounded-lg object-contain" /><p className="text-xs text-gray-300">{selectedReference.name}</p><button type="button" className={buttonClass} onClick={() => onChange(undefined)}>Clear current reference</button></div>}
     <p className="mt-2 text-xs text-gray-400">To add another style, choose “Save style” on any thumbnail in your results or gallery.</p>
     {error && <p role="alert" className="mt-2 text-sm text-red-300">{error} <button type="button" onClick={() => setRevision(n => n + 1)}>Retry</button></p>}
   </fieldset>;

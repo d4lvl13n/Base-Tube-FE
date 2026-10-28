@@ -784,7 +784,7 @@ export const ChannelAuditReport: React.FC<ChannelAuditReportProps> = ({
         >
           <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
             <BookMarked className="w-5 h-5 text-[#fa7517]" />
-            Swipe file
+            Examples from other channels
           </h2>
           <p className="text-sm text-gray-500 mb-3">
             Packaging worth studying in your niche. Reference material — not a scoreboard.

@@ -21,3 +21,11 @@ it('does not report a rejected test update as saved',async()=>{
  (api.patch as jest.Mock).mockResolvedValueOnce({data:{success:false,error:{message:'Invalid date'}}});
  await expect(ctrApi.updateAuditExperiment(42,'exp1',{status:'prepared'})).rejects.toThrow('Invalid date');
 });
+it('uses a caller-owned idempotency key and checks its status through GET only',async()=>{
+ (api.post as jest.Mock).mockResolvedValueOnce({data:{success:true,data:{schemaVersion:2}}});
+ await ctrApi.auditChannel('@Garter',undefined,'session-request-123');
+ expect(api.post).toHaveBeenLastCalledWith('/api/v1/ctr/channel-audit',{channelUrl:'@Garter'},{headers:{'Idempotency-Key':'session-request-123'}});
+ (api.get as jest.Mock).mockResolvedValueOnce({data:{success:true,data:{status:'completed',auditId:44}}});
+ expect(await ctrApi.getChannelAuditRequestStatus('session-request-123')).toEqual({status:'completed',auditId:44});
+ expect(api.get).toHaveBeenLastCalledWith('/api/v1/ctr/channel-audit/requests/session-request-123');
+});

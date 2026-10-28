@@ -121,7 +121,6 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
       .map((id) => byId.get(id))
       .filter((v): v is ChannelAuditV2PerVideo => !!v)
       .slice(0, 3);
-  const testCurrentVideo = familyVideos(plan.families[0] ?? { name: '', description: '', evidence: [] })[0] ?? usual;
   const examples = [...(audit.swipeFile?.examples ?? [])].sort((a, b) => b.views - a.views).slice(0, 6);
 
   return (
@@ -233,18 +232,17 @@ export const AuditCreatorPlan: React.FC<{ audit: ChannelPackagingAuditV2; plan: 
       {(plan.testCurrent || plan.testNew) && (
         <section className="ap-section">
           <SectionHead eyebrow="The test to run" title="Your usual format against the new one" lead={testText(plan.test)} />
+          <p className="ap-footnote">Two thumbnail briefs to create for the same video. These are instructions for the test, rather than finished variants.</p>
           <div className="ap-ab">
             {plan.testCurrent && (
               <div className="ap-ab-card">
                 <p className="ap-ab-tag">A · Your usual format</p>
-                <Thumb video={testCurrentVideo} />
                 <p className="ap-ab-text">{plan.testCurrent}</p>
               </div>
             )}
             {plan.testNew && (
               <div className="ap-ab-card ap-ab-card--accent">
                 <p className="ap-ab-tag ap-accent">B · The new format</p>
-                <Thumb video={standout} accent />
                 <p className="ap-ab-text">{plan.testNew}</p>
               </div>
             )}

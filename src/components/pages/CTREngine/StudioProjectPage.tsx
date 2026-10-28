@@ -385,7 +385,7 @@ function Workspace({ projectId }: { projectId: string }) {
     prompt: version.instruction || "",
     conceptName: studioVersionLabel(version),
     conceptDescription: [version.kind === 'edit' ? 'Edit' : version.kind === 'overlay' ? 'Text edit' : version.kind === 'import' ? 'Imported image' : 'Original concept',
-      version.parentVersionId ? `from ${studioVersionLabel({ id: version.parentVersionId })}` : '', new Date(version.createdAt).toLocaleString()].filter(Boolean).join(' · '),
+      version.parentVersionId ? `from ${versions.find(parent => parent.id === version.parentVersionId) ? studioVersionLabel(versions.find(parent => parent.id === version.parentVersionId)!) : 'an earlier version'}` : '', new Date(version.createdAt).toLocaleString()].filter(Boolean).join(' · '),
     estimatedCTRScore: 0,
     editing: version.editing || undefined,
   }));
@@ -818,7 +818,7 @@ function Workspace({ projectId }: { projectId: string }) {
       ))}
       <div hidden={stage !== "brief"} className="space-y-5">
         <StudioCreditsScope availableCredits={availableCredits}>
-          <BriefReview
+          {stage === "brief" && <BriefReview
             onBusyChange={setReferencesBusy}
             value={draft}
             revision={data.currentRevision}
@@ -891,7 +891,7 @@ function Workspace({ projectId }: { projectId: string }) {
                 />
               </details>
             </>}
-          />
+          />}
           {/* The brief's actions stay in reach while the form scrolls. */}
           <div className="sticky bottom-4 z-20 mt-6 flex flex-wrap items-start gap-3 rounded-2xl border border-white/10 bg-[#111113]/95 p-3 shadow-[0_15px_45px_rgba(0,0,0,.35)] backdrop-blur">
             <div className="flex flex-wrap items-center gap-3">

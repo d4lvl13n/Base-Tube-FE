@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { GeneratedConceptsGrid, ControlledConceptsGrid } from '../GeneratedConceptsGrid';
 import { thumbnailApi } from '../../../../../api/thumbnail';
 import { ctrApi } from '../../../../../api/ctr';
@@ -17,6 +17,46 @@ beforeEach(() => {
   controlled = { onRefine: jest.fn(), onSelect: jest.fn(), onDownload: jest.fn(), renderVersionInfo: concept => <p>{`Review warning ${concept.id}`}</p>, renderActions: concept => <p>{`Running edit ${concept.id}`}</p> };
 });
 function grid(value = concepts) { return <GeneratedConceptsGrid concepts={value} detectedNiche={null} generationTime={null} onClear={jest.fn()} controlled={controlled} />; }
+
+it('recovers a transient preview failure without generating or charging for another image', () => {
+  jest.useFakeTimers();
+  const view = render(grid([concepts[0]]));
+  const initial = screen.getByRole('img');
+  fireEvent.error(initial);
+  expect(screen.getByRole('status')).toHaveTextContent('Image saved');
+  act(() => { jest.advanceTimersByTime(1000); });
+  const retried = screen.getByRole('img');
+  expect(retried).not.toBe(initial);
+  expect(retried).toHaveAttribute('src', '/v1.png');
+  fireEvent.load(retried);
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(controlled.onRefine).not.toHaveBeenCalled();
+  expect(controlled.onDownload).not.toHaveBeenCalled();
+  expect(thumbnailApi.refineThumbnailConversationally).not.toHaveBeenCalled();
+  view.unmount();
+  jest.useRealTimers();
+});
+
+it('limits automatic preview retries and offers a free recovery action, resetting on a renewed URL', () => {
+  jest.useFakeTimers();
+  const view = render(grid([concepts[0]]));
+  fireEvent.error(screen.getByRole('img'));
+  act(() => { jest.advanceTimersByTime(1000); });
+  fireEvent.error(screen.getByRole('img'));
+  act(() => { jest.advanceTimersByTime(2000); });
+  fireEvent.error(screen.getByRole('img'));
+  expect(screen.getByRole('alert')).toHaveTextContent('Your image is saved');
+  expect(jest.getTimerCount()).toBe(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Reload preview · Free' }));
+  expect(screen.getByRole('img')).toHaveAttribute('src', '/v1.png');
+  fireEvent.error(screen.getByRole('img'));
+  view.rerender(grid([{ ...concepts[0], thumbnailUrl: '/renewed.png' }]));
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByRole('img')).toHaveAttribute('src', '/renewed.png');
+  expect(controlled.onRefine).not.toHaveBeenCalled();
+  view.unmount();
+  jest.useRealTimers();
+});
 
 it('shows compact Choose cards: Refine, a free download and Keep, with supplied warnings and no legacy side effects', async () => {
   const view = render(grid());

@@ -155,10 +155,10 @@ export const ctrApi = {
    * @param channelUrl - Channel URL, @handle, or channel id
    * @returns The full packaging audit report (v2, or a legacy v1 row)
    */
-  auditChannel: async (channelUrl: string, creatorGoal?: string): Promise<ChannelAuditResult> => {
+  auditChannel: async (channelUrl: string, creatorGoal?: string, requestKey?: string): Promise<ChannelAuditResult> => {
     // Stable for any transport-level retry of this request. The backend replays
     // the settled row and atomically rejects same-account concurrent work.
-    const idempotencyKey =
+    const idempotencyKey = requestKey ??
       globalThis.crypto?.randomUUID?.() ??
       `audit-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const response = await api.post<ChannelAuditResponse | CTRErrorResponse>(
@@ -185,6 +185,13 @@ export const ctrApi = {
     );
     if (!response.data.success) throw new Error(response.data.error.message);
     return response.data.data.experimentTracking;
+  },
+
+  /** Authenticated, account-scoped saved-request lookup. Never launches work. */
+  getChannelAuditRequestStatus: async (requestKey: string): Promise<{status:'completed'|'unknown';auditId?:number}> => {
+    const response = await api.get(`${CTR_BASE_PATH}/channel-audit/requests/${encodeURIComponent(requestKey)}`);
+    if(!response.data.success) throw new Error(response.data.error?.message || 'Could not check the audit request.');
+    return response.data.data;
   },
 
   exportChannelAudit: async (id: number): Promise<Blob> => {

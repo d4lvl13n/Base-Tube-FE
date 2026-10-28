@@ -7,7 +7,7 @@ import { AuditContext, CTRUsageAccess } from '../../../../types/ctr';
 // src/components/pages/CTREngine/components/GeneratedConceptsGrid.tsx
 // Premium grid display for generated thumbnail concepts
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Download, RefreshCw, Sparkles, Clock, Check, Wand2 } from 'lucide-react';
 import { GeneratedConcept } from '../../../../types/ctr';
@@ -78,6 +78,22 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat,
   // EXPORT_TOO_LARGE names a format and size that fit: offered as one click.
   const [suggestedExport, setSuggestedExport] = useState<StudioExportChoice | null>(null);
   const imageUrl = concept.thumbnailUrl;
+  const [previewAttempt, setPreviewAttempt] = useState(0);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewLoaded, setPreviewLoaded] = useState(false);
+  useEffect(() => {
+    setPreviewAttempt(0);
+    setPreviewFailed(false);
+    setPreviewLoaded(false);
+  }, [imageUrl]);
+  useEffect(() => {
+    if (!previewFailed || previewAttempt >= 2) return;
+    const timer = window.setTimeout(() => {
+      setPreviewAttempt(attempt => attempt + 1);
+      setPreviewFailed(false);
+    }, (previewAttempt + 1) * 1000);
+    return () => window.clearTimeout(timer);
+  }, [previewFailed, previewAttempt]);
   const imageAspectClass = outputFormat === 'short' ? 'aspect-[9/16]' : 'aspect-video';
 
   const handleDownload = async (choice?: StudioExportChoice) => {
@@ -106,10 +122,21 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, index, outputFormat,
   const image = (
     <div className={`relative ${imageAspectClass} bg-black/40 overflow-hidden`}>
       {controlled && !imageUrl ? <p className="p-5 text-sm text-gray-400">Preview unavailable. You can still choose or download this saved version.</p> : <img
+        key={`${imageUrl}:${previewAttempt}`}
         src={thumbnailMediaUrl(imageUrl)}
         alt={concept.conceptName}
-        className="w-full h-full object-contain"
+        onError={() => setPreviewFailed(true)}
+        onLoad={() => { setPreviewFailed(false); setPreviewLoaded(true); }}
+        className={`w-full h-full object-contain ${previewFailed ? 'invisible' : ''}`}
       />}
+      {imageUrl && !previewLoaded && !previewFailed && <p role="status" className="absolute inset-0 flex items-center justify-center p-5 text-center text-sm text-gray-300">Loading your saved image…</p>}
+      {previewFailed && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center text-sm text-gray-300">
+        {previewAttempt < 2 ? <p role="status">Image saved. Reconnecting the preview…</p> : <>
+          <p role="alert">Your image is saved, but the preview could not load.</p>
+          <button type="button" className={compactButton} onClick={() => { setPreviewAttempt(0); setPreviewFailed(false); setPreviewLoaded(false); }}>Reload preview · Free</button>
+          <p className="text-xs text-gray-400">You can also download the saved image below.</p>
+        </>}
+      </div>}
     </div>
   );
   const downloadProblems = <>

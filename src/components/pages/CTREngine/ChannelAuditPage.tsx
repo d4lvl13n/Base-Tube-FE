@@ -7,6 +7,10 @@
 // and what to test. Legacy v1 rows render through the minimal legacy view.
 
 import React, { useState } from 'react';
+import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../../../contexts/AuthContext';
+import { AuthMethod } from '../../../types/auth';
+import { getAuditSession, subscribeAuditSession, restoreAuditSession, startAuditSession, clearAuditSession, checkAuditSession, stopWaitingForAuditSession, AUDIT_RECOVERY_WINDOW_MS } from '../../../hooks/channelAuditSession';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ScanSearch,
@@ -119,9 +123,9 @@ const setAuditIdParam = (id: number | null): void => {
   }
 };
 
-const readLastAuditUrl = (): string => {
+const readLastAuditUrl = (accountId: string): string => {
   try {
-    return window.sessionStorage.getItem(LAST_AUDIT_URL_KEY) || '';
+    return window.sessionStorage.getItem(`${LAST_AUDIT_URL_KEY}:${accountId}`) || '';
   } catch {
     return '';
   }
@@ -132,8 +136,8 @@ const readLastAuditUrl = (): string => {
 
 /**
  * A failed audit or re-open, in plain words, with what "Try again" repeats.
- * An audit that does not finish is not saved (the server says so in its 503
- * message), so trying again is always safe.
+ * An interrupted transport is reconciled through read-only request lookup.
+ * A fresh attempt always requires an explicit click.
  */
 type ChannelAuditError = PlainApiError & {
   retry: { kind: 'audit'; channel: string; goal?: string } | { kind: 'open'; summary: ChannelAuditSummary };
@@ -149,12 +153,20 @@ const ChannelAuditPage: React.FC = () => {
   // Channel audits need an account: visitors get the sign-in choices, never a raw 401.
   const [signInRequired, setSignInRequired] = useState(false);
   const needsSignIn = isAnonymous || signInRequired;
+  const {isLoaded:clerkLoaded,isSignedIn,user:clerkUser}=useUser();
+  const {isAuthenticated:web3Authenticated,user:web3User,isRestoring:web3Restoring}=useAuth();
+  const walletAuth=localStorage.getItem('auth_method') === AuthMethod.WEB3;
+  const authReady=walletAuth ? !web3Restoring : clerkLoaded;
+  const accountId=walletAuth ? (web3Authenticated && web3User ? `web3:${web3User.id}` : 'anonymous') : (isSignedIn && clerkUser ? `clerk:${clerkUser.id}` : 'anonymous');
+  const [recoveryStatus,setRecoveryStatus]=useState<'recovering'|'unresolved'|null>(null);
+  const ownRequestRef=React.useRef<string|null>(null);
+
 
   // Returning from the OAuth callback? Prefill with whatever they audited before
   // connecting so "run it again" is one click.
   const [oauthNotice, setOauthNotice] = useState<OAuthNotice | null>(readOAuthNotice);
   const [channelUrl, setChannelUrl] = useState(() =>
-    oauthNotice ? readLastAuditUrl() : ''
+    oauthNotice ? readLastAuditUrl(accountId) : ''
   );
   const [creatorGoal, setCreatorGoal] = useState('');
   const [audit, setAudit] = useState<ChannelAuditResult | null>(null);
@@ -184,6 +196,40 @@ const ChannelAuditPage: React.FC = () => {
    * overwrite a fresh report that finished after it started.
    */
   const opRef = React.useRef(0);
+  React.useEffect(()=>()=>{++opRef.current;},[]);
+
+  // The owner survives route unmounts. Components only subscribe; leaving never cancels work.
+  React.useEffect(() => {
+    ++opRef.current;
+    setAudit(null);setError(null);setIsAuditing(false);setRecoveryStatus(null);setReportChannelRef('');setSignInRequired(false);setOpeningAuditId(null);
+    setChannelUrl(oauthNotice ? readLastAuditUrl(accountId) : '');setCreatorGoal('');
+    setIsRestoring(linkedAuditId !== null && authReady && accountId !== 'anonymous');
+    ownRequestRef.current=null;
+    if(!authReady || accountId === 'anonymous') return;
+    const sync=()=>{
+      const entry=getAuditSession(accountId);
+      if(!entry) return;
+      // An explicit History link wins over an already-completed in-memory report.
+      if(linkedAuditId !== null && ownRequestRef.current !== entry.requestKey && entry.status === 'completed') return;
+      if((entry.error as any)?.response?.status === 401) {setSignInRequired(true);return;}
+      setChannelUrl(entry.channel);setCreatorGoal(entry.goal || '');
+      setRecoveryStatus(entry.status === 'recovering' || entry.status === 'unresolved' ? entry.status : null);
+      setIsAuditing(['pending','recovering','unresolved'].includes(entry.status));
+      if(entry.status === 'completed' && entry.result){
+        setError(null);setAudit(entry.result);setReportChannelRef(entry.channel);
+        setAuditIdParam(isChannelAuditV2(entry.result) && typeof entry.result.id === 'number' ? entry.result.id : null);
+        void refreshQuota();
+      } else if(entry.status === 'failed') {
+        setError({...plainApiError(entry.error,(entry.error as any)?.response?.status === 503 ? 'The audit did not finish, and no incomplete report was saved. Please try again.' : 'The channel audit did not finish. Please try again.'),retry:{kind:'audit',channel:entry.channel,goal:entry.goal}});
+        void refreshQuota();
+      }
+    };
+    const unsubscribe=subscribeAuditSession(accountId,sync);
+    restoreAuditSession(accountId);sync();
+    return unsubscribe;
+    // Account changes invalidate every old component operation and hide its report immediately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[accountId,authReady]);
 
   /** Open a persisted audit. Also primes the URL field so "re-run" works. */
   const openAudit = async (summary: ChannelAuditSummary) => {
@@ -215,7 +261,7 @@ const ChannelAuditPage: React.FC = () => {
   // the empty form, and any user action supersedes it via the generation check.
   React.useEffect(() => {
     const auditId = linkedAuditId;
-    if (auditId === null) return;
+    if (auditId === null || !authReady || accountId === 'anonymous') return;
     const op = opRef.current; // generation 0 — any user action invalidates it
     let cancelled = false;
     const graceTimer = window.setTimeout(() => setIsRestoring(false), 4000);
@@ -245,7 +291,7 @@ const ChannelAuditPage: React.FC = () => {
       window.clearTimeout(graceTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [accountId,authReady]);
 
   // The banner now owns the OAuth result — get it out of the URL so a refresh
   // (or a shared link) does not replay it.
@@ -289,40 +335,21 @@ const ChannelAuditPage: React.FC = () => {
   const runAudit = async (rawUrl: string, goal = creatorGoal) => {
     const trimmed = rawUrl.trim();
     if (!trimmed || isAuditing || openingAuditId !== null) return;
-    const op = ++opRef.current;
+    ++opRef.current;
 
     // Remembered so a creator who leaves for the Google consent screen can come
     // back and re-run the same audit without retyping it.
     try {
-      window.sessionStorage.setItem(LAST_AUDIT_URL_KEY, trimmed);
+      window.sessionStorage.setItem(`${LAST_AUDIT_URL_KEY}:${accountId}`, trimmed);
     } catch {
       /* private mode / storage disabled — the flow just loses the prefill. */
     }
 
-    setError(null);
-    setIsAuditing(true);
-    try {
-      const result = await ctrApi.auditChannel(trimmed, goal || undefined);
-      if (opRef.current !== op) return;
-      setAudit(result);
-      setReportChannelRef(trimmed);
-      setAuditIdParam(isChannelAuditV2(result) && typeof result.id === 'number' ? result.id : null);
-    } catch (err: any) {
-      if (opRef.current !== op) return;
-      if (err?.response?.status === 401) { setSignInRequired(true); return; }
-      setError({
-        ...plainApiError(
-          err,
-          err?.response?.status === 503
-            ? 'The audit did not finish, and no incomplete report was saved. Please try again.'
-            : 'The channel audit did not finish. Please try again.'
-        ),
-        retry: { kind: 'audit', channel: trimmed, goal },
-      });
-    } finally {
-      void refreshQuota();
-      if (opRef.current === op) setIsAuditing(false);
-    }
+    if(!authReady || accountId === 'anonymous'){setSignInRequired(true);return;}
+    setError(null);setAudit(null);setAuditIdParam(null);
+    const entry=startAuditSession(accountId,trimmed,goal || undefined);
+    ownRequestRef.current=entry.requestKey;
+    setIsAuditing(['pending','recovering','unresolved'].includes(entry.status));
   };
 
   const retryAfterError = () => {
@@ -338,22 +365,21 @@ const ChannelAuditPage: React.FC = () => {
   };
 
   const handleReset = () => {
-    // Reset is a user intent like any other: it supersedes whatever is in
-    // flight (a pending re-run would otherwise complete later and resurrect
-    // the report it just cleared). The superseded flow's guarded finally will
-    // not touch the spinners, so they are cleared here.
+    // Keep an unresolved request visible; reset never cancels or replaces provider work.
+    if(getAuditSession(accountId) && ['pending','recovering','unresolved'].includes(getAuditSession(accountId)!.status)) return;
+    clearAuditSession(accountId);
     opRef.current += 1;
     setAudit(null);
     setError(null);
     setChannelUrl('');
     setReportChannelRef('');
     setIsAuditing(false);
+    setRecoveryStatus(null);
     setOpeningAuditId(null);
     setAuditIdParam(null);
   };
 
-  // The sidebar's "Channel Audit" link is a new visit: back to the empty form,
-  // even when a report is on screen (same route, so no remount).
+  // A sidebar visit clears a settled report; active or unresolved work stays visible.
   const firstLocationKey = React.useRef(location.key);
   React.useEffect(() => {
     if (location.key === firstLocationKey.current || readAuditIdParam(location.search) !== null) return;
@@ -485,7 +511,7 @@ const ChannelAuditPage: React.FC = () => {
                 <ScanSearch className="w-5 h-5 text-[#fa7517]" />
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-white mb-3">
-                Channel Packaging Audit
+                Channel Audit
               </h1>
               <p className="text-base leading-relaxed text-zinc-400">
                 Sign in to audit a channel. Your audits are saved to your account so you can
@@ -546,7 +572,7 @@ const ChannelAuditPage: React.FC = () => {
                 Evidence before advice
               </p>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
-                Channel Packaging Audit
+                Channel Audit
               </h1>
               <p className="text-base sm:text-lg leading-relaxed text-zinc-400 max-w-xl mx-auto">
                 Find what to keep, what to improve and how to test it. We inspect up to eighteen thumbnails,
@@ -624,8 +650,19 @@ const ChannelAuditPage: React.FC = () => {
               </div>
             </motion.form>
 
+            <p className="mb-4 text-sm text-zinc-400">Channel audits are free during beta. A public channel does not need a YouTube connection.</p>
+
+            {recoveryStatus && <div role="status" className="text-sm text-gray-300 mb-4">
+              <p>Checking for your saved audit report. The page was reloaded or the connection was interrupted. No new audit has been started.</p>
+              <p>If a report becomes available, it will appear here or in History.</p>
+              <button type="button" className="text-[#fa7517] mt-2" onClick={()=>void checkAuditSession(accountId)}>Check for saved report</button>
+              {Date.now() - (getAuditSession(accountId)?.startedAt || Date.now()) >= AUDIT_RECOVERY_WINDOW_MS && <div className="mt-3">
+                <p>The result is still unknown. You can stop waiting; a completed report may still appear in History.</p>
+                <button type="button" className="text-[#fa7517] mt-2" onClick={()=>{if(stopWaitingForAuditSession(accountId)) handleReset();}}>Stop waiting and return to form</button>
+              </div>}
+            </div>}
             {/* Auditing progress */}
-            <AnimatePresence>{isAuditing && <ChannelAuditProgress />}</AnimatePresence>
+            <AnimatePresence>{isAuditing && !recoveryStatus && <ChannelAuditProgress />}</AnimatePresence>
 
             {/* What you'll get */}
             <motion.div
@@ -643,11 +680,11 @@ const ChannelAuditPage: React.FC = () => {
                 {
                   icon: FlaskConical,
                   title: 'Experiments',
-                  desc: 'Ordered, falsifiable tests with a variant brief and how to measure it.',
+                  desc: 'A thumbnail test to try next, with clear instructions and what to measure.',
                 },
                 {
                   icon: BookMarked,
-                  title: 'Swipe file',
+                  title: 'Examples from other channels',
                   desc: 'Packaging worth studying in your niche, honestly labelled by size.',
                 },
               ].map((feature) => (

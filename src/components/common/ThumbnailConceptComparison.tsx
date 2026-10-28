@@ -120,7 +120,7 @@ export function ThumbnailConceptComparison({ concepts, context, onComplete, usag
         const key = keyFor(concept);
         const audit = results[key];
         return <article key={concept.id} className="rounded-lg border border-white/10 p-3">
-          <img src={thumbnailMediaUrl(concept.imageUrl)} alt={concept.name} className="aspect-video w-full rounded object-contain bg-black" />
+          <img loading="lazy" decoding="async" src={thumbnailMediaUrl(concept.imageUrl)} alt={concept.name} className="aspect-video w-full rounded object-contain bg-black" />
           <h4 className="mt-2 text-sm font-semibold">{concept.name}</h4>
           {audit ? <>
             <p className="mt-2 text-sm">AI assessment: {audit.overallScore.toFixed(1)}/10 {!usesSharedAccess && <span className="text-xs text-gray-400">({audit.confidence} confidence)</span>}</p>
