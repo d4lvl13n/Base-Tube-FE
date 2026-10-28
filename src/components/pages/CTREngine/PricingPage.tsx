@@ -5,7 +5,7 @@
 // AI Thumbnails sign-up page, then straight on to Stripe Checkout for the plan
 // clicked (auth/AIThumbnailsAuthContinue).
 import React, { useState } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
 import useCTREngine from '../../../hooks/useCTREngine';
@@ -129,6 +129,11 @@ export default function PricingPage() {
           />
           <p className="text-center text-[11px] text-zinc-500">Secure payment by Stripe.</p>
         </section>
+        <nav aria-label="Billing policies" className="flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm text-zinc-400">
+          <Link to="/terms" className="hover:text-white">Terms of Service</Link>
+          <Link to="/privacy" className="hover:text-white">Privacy Policy</Link>
+          <Link to="/refund" className="hover:text-white">Refund Policy</Link>
+        </nav>
       </div>
     </AIThumbnailsLayout>
   );

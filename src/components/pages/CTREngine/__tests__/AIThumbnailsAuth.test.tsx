@@ -160,8 +160,11 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     render(app('/ai-thumbnails/sign-up'));
     expect(await screen.findByRole('heading', { name: 'Start your 7-day free trial.' })).toBeInTheDocument();
     expect(
-      await screen.findByText('Next: secure checkout for your 7-day free trial of Creator, 2 videos included. Your card is charged on day 8 unless you cancel.'),
+      await screen.findByText('Next: secure checkout for your 7-day free trial of Creator. Thumbnails for 2 videos included (3 thumbnail options per video). A card is required. Then $24/month, starting on day 8, unless you cancel.'),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pricing', exact: true })).toHaveAttribute('href', '/ai-thumbnails/pricing');
+    expect(screen.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms');
+    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
   });
 
   it('a plan link from base.tube is remembered and taken out of the address; the page says the trial checkout comes next', async () => {
@@ -172,6 +175,11 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     expect(readStudioAuthOrigin()).toMatchObject({ destination: '/ai-thumbnails/projects', intent: 'sign-up' });
     expect(await screen.findByRole('heading', { name: 'Start your 7-day free trial.' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Clerk sign-up' })).toHaveAttribute('data-done', CONTINUE);
+  });
+
+  it('discloses the annual renewal even when welcome credits are available', async () => {
+    render(app('/ai-thumbnails/sign-up?plan=creator&interval=year&trial=1'));
+    expect(await screen.findByText(/Then \$199\/year, starting on day 8, unless you cancel\./)).toBeInTheDocument();
   });
 
   it('a link with an unknown plan or interval remembers nothing and keeps the rest of the address', () => {

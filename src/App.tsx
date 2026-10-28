@@ -6,66 +6,73 @@ import 'react-toastify/dist/ReactToastify.css';
 import Header from './components/common/Header';
 import CreatorHubShell from './components/pages/CreatorHub/CreatorHubShell';
 import ProtectedRoute from './components/pages/ProtectedRoute';
-import V2HomePage from './components/pages/V2HomePage';
-import SingleVideo from './components/pages/SingleVideo';
-import DiscoveryPage from './components/pages/DiscoveryPage/index';
-import SearchPage from './components/pages/SearchPage';
-import SubscribedChannelPage from './components/pages/SubscribedChannelPage/index';
-import NFTMarketplace from './components/pages/NFTMarketplace';
-import UserProfileWallet from './components/pages/UserProfileWallet';
-import SignInPage from './components/pages/SignInPage';
-import SignUpPage from './components/pages/SignUpPage';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import Loader from './components/common/Loader';
 import ReferralAttributionBridge from './components/common/ReferralAttributionBridge';
 import CryptoResumeBridge from './components/common/CryptoResumeBridge';
 import StudioFunnelBridge from './components/common/StudioFunnelBridge';
-import ChannelPage from './components/pages/ChannelPage';
-import ChannelDetailPage from './components/pages/ChannelDetailPage';
-import CreateChannelPage from './components/pages/CreateChannelPage';
-import ProfileSettings from './components/pages/ProfileSettings';
-import CreatorHubLandingPage from './components/pages/CreatorHub/CreatorHubLandingPage';
-import UploadEntry from './components/pages/CreatorHub/UploadEntry';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import AnalyticsPage from './components/pages/CreatorHub/Analytics/AnalyticsPage';
 import { useAnalyticsContext } from './hooks/useAnalyticsData';
-import CreatorResourcesPage from './components/common/CreatorHub/CreatorResourcesPage';
 import { VideoProvider } from './contexts/VideoContext';
 import { ConfigProvider } from './contexts/ConfigContext';
 import './styles/prosemirror.css';
 import MiniPlayer from './components/common/Video/MiniPlayer/MiniPlayer';
 import DescriptionDock from './components/common/Video/DescriptionDock/DescriptionDock';
 import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
-import VideosManagement from './components/pages/CreatorHub/VideosManagement';
-import ChannelManagement from './components/pages/CreatorHub/ChannelManagement';
 import { SystemHealth } from './health/SystemHealth';
-import ChannelList from './components/pages/CreatorHub/ChannelManagement/ChannelList';
-import OnboardingModal from './components/pages/OnboardingModal';
-import SignInWeb3 from './components/pages/SignInWeb3';
-import OnboardingWeb3 from './components/pages/OnboardingWeb3';
-import NFTSimulator from './components/pages/NftContentPass/NFTCPsimulator/NftContentPassSimulator';
-import MonetizationInfo from './components/pages/CreatorHub/MonetizationInfo';
-import Leaderboard from './components/pages/Leaderboard/Index';
-import EmbedVideo from './components/pages/EmbedVideo';
-import FAQPage from './pages/FAQ/index';
-import MomentNFTsPage from './pages/FAQ/MomentNFTs';
-import MomentNFTMintPage from './pages/MomentNFTMint';
 import { GrowthTab } from './components/pages/CreatorHub/Analytics/tabs/GrowthMonetizationTab';
-import PassDetailsPage from './pages/PassDetailsPage';
-import CheckoutSuccessPage from './pages/CheckoutSuccessPage';
-import CreditsSuccessPage from './pages/CreditsSuccessPage';
 import { TermsPage, PrivacyPage, RefundPage } from './pages/legal/LegalStubs';
-import WatchPassPage from './pages/WatchPassPage';
 import { ManagePassesPage } from './components/pages/CreatorHub/ManagePasses';
 import { PassDetailView } from './components/pages/CreatorHub/ManagePasses';
-import MyPasses from './components/pages/MyPasses';
-import YouTubeAuthCallback from './components/pages/CreatorHub/YouTubeAuthCallback';
-import LandingPage from './components/pages/landingPage';
 import LandingMoved from './components/pages/ThumbnailLanding/LandingMoved';
-import { AuditPage as CTRAuditPage, ChannelAuditPage as CTRChannelAuditPage, GeneratePage as CTRGeneratePage, SettingsPage as CTRSettingsPage, GalleryPage as CTRGalleryPage } from './components/pages/CTREngine';
-import AuditHistoryPage from './components/pages/CTREngine/AuditHistoryPage';
 import { AIThumbnailsSignInPage, AIThumbnailsSignUpPage } from './components/pages/CTREngine/auth/AIThumbnailsAuthPage';
 import AIThumbnailsAuthContinue from './components/pages/CTREngine/auth/AIThumbnailsAuthContinue';
 import { UploadQueueProvider } from './contexts/UploadQueueContext';
+
+// Route pages load only when visited, keeping account screens small on slow connections.
+const V2HomePage = lazy(() => import('./components/pages/V2HomePage'));
+const SingleVideo = lazy(() => import('./components/pages/SingleVideo'));
+const DiscoveryPage = lazy(() => import('./components/pages/DiscoveryPage/index'));
+const SearchPage = lazy(() => import('./components/pages/SearchPage'));
+const SubscribedChannelPage = lazy(() => import('./components/pages/SubscribedChannelPage/index'));
+const NFTMarketplace = lazy(() => import('./components/pages/NFTMarketplace'));
+const UserProfileWallet = lazy(() => import('./components/pages/UserProfileWallet'));
+const SignInPage = lazy(() => import('./components/pages/SignInPage'));
+const SignUpPage = lazy(() => import('./components/pages/SignUpPage'));
+const ChannelPage = lazy(() => import('./components/pages/ChannelPage'));
+const ChannelDetailPage = lazy(() => import('./components/pages/ChannelDetailPage'));
+const CreateChannelPage = lazy(() => import('./components/pages/CreateChannelPage'));
+const ProfileSettings = lazy(() => import('./components/pages/ProfileSettings'));
+const CreatorHubLandingPage = lazy(() => import('./components/pages/CreatorHub/CreatorHubLandingPage'));
+const UploadEntry = lazy(() => import('./components/pages/CreatorHub/UploadEntry'));
+const AnalyticsPage = lazy(() => import('./components/pages/CreatorHub/Analytics/AnalyticsPage'));
+const CreatorResourcesPage = lazy(() => import('./components/common/CreatorHub/CreatorResourcesPage'));
+const VideosManagement = lazy(() => import('./components/pages/CreatorHub/VideosManagement'));
+const ChannelManagement = lazy(() => import('./components/pages/CreatorHub/ChannelManagement'));
+const ChannelList = lazy(() => import('./components/pages/CreatorHub/ChannelManagement/ChannelList'));
+const OnboardingModal = lazy(() => import('./components/pages/OnboardingModal'));
+const SignInWeb3 = lazy(() => import('./components/pages/SignInWeb3'));
+const OnboardingWeb3 = lazy(() => import('./components/pages/OnboardingWeb3'));
+const NFTSimulator = lazy(() => import('./components/pages/NftContentPass/NFTCPsimulator/NftContentPassSimulator'));
+const MonetizationInfo = lazy(() => import('./components/pages/CreatorHub/MonetizationInfo'));
+const Leaderboard = lazy(() => import('./components/pages/Leaderboard/Index'));
+const EmbedVideo = lazy(() => import('./components/pages/EmbedVideo'));
+const FAQPage = lazy(() => import('./pages/FAQ/index'));
+const MomentNFTsPage = lazy(() => import('./pages/FAQ/MomentNFTs'));
+const MomentNFTMintPage = lazy(() => import('./pages/MomentNFTMint'));
+const PassDetailsPage = lazy(() => import('./pages/PassDetailsPage'));
+const CheckoutSuccessPage = lazy(() => import('./pages/CheckoutSuccessPage'));
+const CreditsSuccessPage = lazy(() => import('./pages/CreditsSuccessPage'));
+const WatchPassPage = lazy(() => import('./pages/WatchPassPage'));
+const MyPasses = lazy(() => import('./components/pages/MyPasses'));
+const YouTubeAuthCallback = lazy(() => import('./components/pages/CreatorHub/YouTubeAuthCallback'));
+const LandingPage = lazy(() => import('./components/pages/landingPage'));
+const AuditHistoryPage = lazy(() => import('./components/pages/CTREngine/AuditHistoryPage'));
+const CTRAuditPage = lazy(() => import('./components/pages/CTREngine/AuditPage'));
+const CTRChannelAuditPage = lazy(() => import('./components/pages/CTREngine/ChannelAuditPage'));
+const CTRGeneratePage = lazy(() => import('./components/pages/CTREngine/GeneratePage'));
+const CTRSettingsPage = lazy(() => import('./components/pages/CTREngine/SettingsPage'));
+const CTRGalleryPage = lazy(() => import('./components/pages/CTREngine/GalleryPage'));
 
 // Lazy-loaded components
 const ThumbnailGalleryPage = lazy(() => import('./pages/thumbnail-gallery'));
@@ -142,6 +149,7 @@ function App() {
                 <CryptoResumeBridge />
                 {/* AI Thumbnails account gate and welcome credits: above the routes, so sign-in never unmounts them. */}
                 <StudioFunnelBridge />
+                <Suspense fallback={<Loader fullPage label="Loading your workspace…" />}>
                 <Routes>
                   {/* Public routes that don't need channel context */}
                   <Route path="/" element={<V2HomePage />} />
@@ -478,6 +486,7 @@ function App() {
                     }
                   />
                 </Routes>
+                </Suspense>
                 <DescriptionDock />
                 <MiniPlayer />
                 <ToastContainer />

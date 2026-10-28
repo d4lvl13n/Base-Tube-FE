@@ -102,6 +102,10 @@ export default function VisitorCreatePage({ usageAccess, isLoadingQuota }: {
   // Generating needs an account: the brief is kept, the gate opens in place.
   const createAccount = (event?: React.FormEvent) => {
     event?.preventDefault();
+    if (!videoTitle.trim()) {
+      flow.current?.querySelector<HTMLTextAreaElement>('textarea[aria-label="Video title or idea"]')?.focus();
+      return;
+    }
     persistDraft();
     openEmailGate('generate');
   };
@@ -127,7 +131,8 @@ export default function VisitorCreatePage({ usageAccess, isLoadingQuota }: {
         />
         <div className="thumbnail-generate-bar" style={barBounds}>
           <label className="flex items-center gap-2 text-sm text-zinc-300">Concepts<StudioSelect aria-label="Number of concepts" value={count} onChange={event => setCount(Number(event.target.value))} className="rounded-lg border border-white/10 px-3 py-2 text-white">{[1, 2, 3].map(number => <option key={number} value={number}>{number}</option>)}</StudioSelect></label>
-          <button type="submit" className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#fa7517] px-6 py-3 text-sm font-semibold text-white hover:bg-orange-500"><Sparkles className="h-4 w-4" />Create a free account to generate</button>
+          <button type="submit" disabled={!videoTitle.trim()} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#fa7517] px-6 py-3 text-sm font-semibold text-white hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"><Sparkles className="h-4 w-4" />Create a free account to generate</button>
+          {!videoTitle.trim() && <p className="basis-full text-xs text-zinc-400">Enter a video title or idea to continue.</p>}
           <p className="basis-full text-xs text-zinc-400">{visitorWelcomeLine(offer, catalogTrial(plans.data))}</p>
         </div>
       </form>

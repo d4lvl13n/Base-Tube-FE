@@ -3,6 +3,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useQuery } from '@tanstack/react-query';
 import { getMyChannels } from '../api/channel';
 import type { Channel, ChannelQueryOptions } from '../types/channel';
+import { useStudioAccountState } from '../hooks/useStudioAccount';
 
 interface ChannelSelectionContextType {
   selectedChannelId: string;
@@ -15,6 +16,8 @@ interface ChannelSelectionContextType {
 const ChannelSelectionContext = createContext<ChannelSelectionContextType | undefined>(undefined);
 
 export const ChannelSelectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { account, resolved } = useStudioAccountState();
+  const signedIn = resolved && account !== 'anonymous';
   const [selectedChannelId, setSelectedChannelId] = useLocalStorage<string>('selectedChannelId', '');
   
   const queryOptions: ChannelQueryOptions = {
@@ -27,13 +30,16 @@ export const ChannelSelectionProvider: React.FC<{ children: React.ReactNode }> =
     data: channels = [],
     isLoading
   } = useQuery({
-    queryKey: ['myChannels', queryOptions],
+    queryKey: ['myChannels', account, queryOptions],
     queryFn: () => getMyChannels(queryOptions),
+    enabled: signedIn,
+    retry: (failureCount, error: any) => ![401, 403].includes(error?.response?.status) && failureCount < 2,
     staleTime: 5 * 60 * 1000
   });
 
   // Set initial channel if none selected and validate existing selection
   useEffect(() => {
+    if (!resolved || isLoading) return;
     if (channels.length > 0) {
       // If no channel is selected or the selected channel is not in the list
       const isValidSelection = channels.some(
@@ -50,7 +56,7 @@ export const ChannelSelectionProvider: React.FC<{ children: React.ReactNode }> =
     if (selectedChannelId) {
       setSelectedChannelId('');
     }
-  }, [channels, selectedChannelId, setSelectedChannelId]);
+  }, [channels, selectedChannelId, setSelectedChannelId, resolved, isLoading]);
 
   // Ensure selectedChannel is always valid
   const selectedChannel = React.useMemo(() => 
@@ -88,4 +94,4 @@ export const useChannelSelection = () => {
     throw new Error('useChannelSelection must be used within a ChannelSelectionProvider');
   }
   return context;
-}; 
+};

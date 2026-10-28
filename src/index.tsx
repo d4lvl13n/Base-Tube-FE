@@ -13,7 +13,8 @@ import { DescriptionDockProvider } from './contexts/DescriptionDockContext';
 import { Buffer } from 'buffer';
 
 // Clerk
-import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-react';
+import { ClerkProvider, ClerkLoaded, ClerkLoading } from '@clerk/clerk-react';
+import Loader from './components/common/Loader';
 
 // Wagmi / OnchainKit
 import { WagmiProvider } from 'wagmi';
@@ -68,6 +69,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 >
                   <RainbowKitProvider modalSize="wide">
                     <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+                      <ClerkLoading><Loader fullPage label="Loading secure sign-in…" /></ClerkLoading>
                       <ClerkLoaded>
                         <AuthCacheBoundary>
                         <ChannelSelectionProvider>

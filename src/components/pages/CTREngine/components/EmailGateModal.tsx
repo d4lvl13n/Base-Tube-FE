@@ -108,8 +108,10 @@ export const EmailGateModal: React.FC<EmailGateModalProps> = ({ record, signedIn
   // Focus returns to what opened the window (when it is still on the page).
   const opener = useRef<HTMLElement | null>(null);
   const wasOpen = useRef(false);
+  const openedAt = useRef(0);
   useEffect(() => {
     if (open && !wasOpen.current) {
+      openedAt.current = Date.now();
       const active = document.activeElement;
       opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
     }
@@ -211,7 +213,12 @@ export const EmailGateModal: React.FC<EmailGateModalProps> = ({ record, signedIn
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[100] overflow-y-auto bg-black/70 backdrop-blur-sm"
-          onClick={() => closeEmailGate()}
+          onClick={(event) => {
+            // The second click of the opener's double-click lands on this new
+            // backdrop. Keep the dialog open instead of immediately dismissing it.
+            if (event.detail > 1 || Date.now() - openedAt.current < 500) return;
+            closeEmailGate();
+          }}
         >
           <div className="flex min-h-full items-center justify-center p-4">
             <motion.div

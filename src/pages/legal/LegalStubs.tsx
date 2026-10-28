@@ -8,7 +8,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const UPDATED = '6 August 2026';
+const UPDATED = '28 October 2026';
 const CONTACT = 'support@base.tube';
 
 const Shell: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
@@ -57,6 +57,7 @@ export const PrivacyPage: React.FC = () => (
     <Section heading="1. Information we collect">
       <p><strong>Account data.</strong> When you sign in, we receive basic account information (such as your email and a user identifier) from our authentication provider, Clerk, or from a connected Web3 wallet.</p>
       <p><strong>Content you submit.</strong> Channel URLs/handles, video titles, thumbnails, and prompts you provide or that we retrieve to produce your audit or generated images.</p>
+      <p><strong>Reference photos and files.</strong> Faces, logos, products, style images and scripts you upload are used to carry out the generation, editing or review you request. The selected references and prompt may be sent to the AI provider used for that action. Saved projects and uploaded assets remain associated with your account; you can request their deletion as described below.</p>
       <p><strong>Google / YouTube data (only if you connect your channel).</strong> See Section 2.</p>
       <p><strong>Usage &amp; device data.</strong> Log data, feature usage, and basic device/browser information used to operate and secure the Service.</p>
       <p><strong>Payment metadata.</strong> If you purchase credits, our payment processor (Stripe) handles your card details; we receive only transaction metadata (e.g., status, amount, last-4). We never store full card numbers.</p>
@@ -160,7 +161,9 @@ export const TermsPage: React.FC = () => (
     </Section>
 
     <Section heading="4. Credits & payments">
-      <p>Certain features consume credits, purchased in packs via Stripe. Prices are shown at checkout. Credits are consumed per action; see our <Link className="text-[#fa7517] hover:underline" to="/refund">Refund Policy</Link>.</p>
+      <p>Generating, editing and reviewing thumbnails can consume credits. You can buy credits through a recurring monthly or yearly subscription, or as a one-time pack, using Stripe. The selected plan, price, billing period and included credits are shown on our <Link className="text-[#fa7517] hover:underline" to="/ai-thumbnails/pricing">Pricing page</Link> and at checkout. Credits are consumed per action; the price is shown before you start it.</p>
+      <p><strong>Free trials.</strong> When an eligible account chooses a free trial, checkout shows its duration, included allowance, payment method requirement and the charge that follows. A trial does not mean unlimited generation. Unless you cancel before the trial ends, the selected subscription starts charging at the price and billing period confirmed at checkout.</p>
+      <p><strong>Renewal and cancellation.</strong> Subscriptions renew automatically until cancelled. You can manage or cancel your subscription from the billing section of your account, which opens Stripe's billing portal. One-time credit packs do not start a subscription. See our <Link className="text-[#fa7517] hover:underline" to="/refund">Refund Policy</Link> for refund requests.</p>
     </Section>
 
     <Section heading="5. Acceptable use">

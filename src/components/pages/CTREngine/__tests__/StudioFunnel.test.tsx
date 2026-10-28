@@ -122,6 +122,17 @@ const expectNothingStarted = () => {
 };
 afterEach(() => client.clear());
 
+it('asks for a nonblank idea before opening the account gate', () => {
+  render(app());
+  const button = screen.getByRole('button', { name: 'Create a free account to generate' });
+  expect(button).toBeDisabled();
+  expect(screen.getByText('Enter a video title or idea to continue.')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Video title or idea'), { target: { value: '   ' } });
+  expect(button).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('Video title or idea'), { target: { value: 'Floor is lava' } });
+  expect(button).toBeEnabled();
+});
+
 it('a visitor\'s "Create a free account to generate" → the gate → the AI Thumbnails sign-up in place → continue, no onboarding → credits confirmed once → the brief on the signed-in create page, nothing started', async () => {
   localStorage.setItem('pending_referral_code', 'FRIEND');
   const visit = render(app());
@@ -465,10 +476,13 @@ describe('gate focus and keyboard', () => {
 
   it('focuses the main action, hides the page behind, keeps Tab inside and gives focus back on close', async () => {
     inRoot(app());
+    fireEvent.change(screen.getByLabelText('Video title or idea'), { target: { value: 'My next video' } });
     const opener = screen.getByRole('button', { name: 'Create a free account to generate' });
     opener.focus();
     fireEvent.click(opener);
     const gate = await screen.findByRole('dialog');
+    fireEvent.click(gate.parentElement!.parentElement!, { detail: 2 });
+    expect(screen.getByRole('dialog')).toBe(gate);
     const create = within(gate).getByRole('button', { name: 'Create my free account' });
     await waitFor(() => expect(create).toHaveFocus());
     const root = document.getElementById('root')!;

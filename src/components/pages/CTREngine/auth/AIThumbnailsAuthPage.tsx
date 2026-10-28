@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { Check, Coins, CreditCard, Wallet } from 'lucide-react';
 import { useStudioAccountState } from '../../../../hooks/useStudioAccount';
 import { useWelcomeOffer, WELCOME_CREDITS_GIVEN_OUT } from '../../../../hooks/useWelcomeOffer';
@@ -95,10 +95,15 @@ function AuthNote({ planIntent, gift }: { planIntent: PlanIntent | null; gift: b
   const plan = planIntent ? plans.data?.plans.find(({ id }) => id === planIntent.planId) ?? null : null;
   let Icon = Coins;
   let text: string | null = null;
-  if (gift && offer.credits !== null) text = offer.givenOut ? WELCOME_CREDITS_GIVEN_OUT : `${offer.credits} free credits once your email is verified.`;
+  if (gift && !planIntent && offer.credits !== null) text = offer.givenOut ? WELCOME_CREDITS_GIVEN_OUT : `${offer.credits} free credits once your email is verified.`;
   else if (trial) {
     Icon = CreditCard;
-    text = `Next: secure checkout for your ${trial.days}-day free trial${plan ? ` of ${plan.name}` : ''}, ${trial.videos} video${trial.videos === 1 ? '' : 's'} included. Your card is charged on day ${trial.days + 1} unless you cancel.`;
+    const options = plans.data?.videoBreakdown.concepts;
+    const allowance = `Thumbnails for ${trial.videos} video${trial.videos === 1 ? '' : 's'} included${options ? ` (${options} thumbnail options per video)` : ''}.`;
+    const renewal = plan && planIntent
+      ? `Then ${planPriceText(plan, planIntent.interval)}, starting on day ${trial.days + 1}, unless you cancel.`
+      : `The selected plan's price is shown before checkout. Cancel before day ${trial.days + 1} to avoid a charge.`;
+    text = `Next: secure checkout for your ${trial.days}-day free trial${plan ? ` of ${plan.name}` : ''}. ${allowance} A card is required. ${renewal}`;
   } else if (planIntent && plan && !planIntent.trial) {
     Icon = CreditCard;
     text = `Next: secure checkout for ${plan.name} (${planPriceText(plan, planIntent.interval)}).`;
@@ -124,7 +129,7 @@ function AuthLayout({ heading, subtitle, note, children }: { heading: HeadingPar
   const titleId = useId();
   return (
     <div className="lp relative isolate min-h-screen overflow-hidden text-zinc-100">
-      <ThumbnailWall rows={5} className="-z-20 opacity-80" />
+      <ThumbnailWall rows={5} lazy className="-z-20 hidden opacity-80 lg:block" />
       <div
         aria-hidden="true"
         className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(7,7,9,0.82)_0%,rgba(7,7,9,0.9)_45%,rgba(7,7,9,0.97)_60%,#070709_100%)] max-lg:bg-[linear-gradient(180deg,rgba(7,7,9,0.85)_0%,rgba(7,7,9,0.96)_40%,#070709_70%)]"
@@ -164,6 +169,12 @@ function AuthLayout({ heading, subtitle, note, children }: { heading: HeadingPar
         </section>
         <div className="min-w-0 space-y-4 lg:col-span-5">{children}</div>
       </main>
+      <nav aria-label="Account information" className="relative mx-auto flex max-w-7xl flex-wrap justify-center gap-x-6 gap-y-3 px-5 pb-8 text-sm text-zinc-400">
+        <Link to="/ai-thumbnails/pricing" className="hover:text-white">Pricing</Link>
+        <Link to="/terms" className="hover:text-white">Terms of Service</Link>
+        <Link to="/privacy" className="hover:text-white">Privacy Policy</Link>
+        <Link to="/refund" className="hover:text-white">Refund Policy</Link>
+      </nav>
     </div>
   );
 }

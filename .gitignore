@@ -36,3 +36,6 @@ apps/*/.expo/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+# Browser QA sessions and raw evidence are local artifacts, not application source.
+.playwright-cli/
+/output/playwright/

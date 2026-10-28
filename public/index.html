@@ -63,7 +63,14 @@
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <div id="root">
+      <div role="status" aria-live="polite" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;background:#09090b;color:#e4e4e7;text-align:center;font:16px/1.6 system-ui,sans-serif">
+        <p style="color:#fa7517;font-weight:700">Base.Tube</p>
+        <p>Loading your workspace…</p>
+        <p style="max-width:340px;color:#a1a1aa;font-size:14px">On a slow connection this can take a moment. If it stays here, <a href="" onclick="window.location.reload();return false" style="color:#fb923c">reload the page</a>.</p>
+        <nav aria-label="Service information" style="margin-top:16px;font-size:13px"><a href="/privacy" style="color:#a1a1aa;margin:0 8px">Privacy</a><a href="/terms" style="color:#a1a1aa;margin:0 8px">Terms</a></nav>
+      </div>
+    </div>
     <!-- Static, always-crawlable legal links, OUTSIDE #root so React never
          removes them. Guarantees Google/YouTube OAuth verification finds the
          Privacy Policy link on the home page even without full SPA rendering.
