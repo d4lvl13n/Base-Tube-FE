@@ -1,7 +1,7 @@
 // src/pages/CreditsSuccessPage.tsx
 // Post-checkout return for credit purchases. Stripe redirects here
 // (/credits/success?session_id=...&return=<path>). The credit grant lands via an async Stripe
-// webhook, so we poll the balance briefly and model every outcome explicitly —
+// webhook, so we poll this checkout's ledger grant and the current balance —
 // never a false "success" and never a permanent spinner.
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -31,7 +31,6 @@ const CreditsSuccessPage: React.FC = () => {
 
   const mountedRef = useRef(true);
   const pollsRef = useRef(0);
-  const initialBalanceRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -40,18 +39,22 @@ const CreditsSuccessPage: React.FC = () => {
 
     const poll = async () => {
       try {
-        const { creditInfo: info } = await creditsApi.getCreditBalance();
+        const [{ creditInfo: info }, entries] = await Promise.all([
+          creditsApi.getCreditBalance(),
+          creditsApi.getCreditLedger({ limit: 100 }),
+        ]);
         if (!mountedRef.current) return;
         setCreditInfo(info);
-        if (initialBalanceRef.current === null) initialBalanceRef.current = info.balance;
-
-        const granted = info.balance > (initialBalanceRef.current ?? info.balance);
+        // The webhook often finishes before the first balance read. A balance
+        // increase can also belong to another purchase. Match the committed
+        // grant for this exact session, which still works after a refresh.
+        const granted = entries.some(entry => entry.type === 'purchase' && entry.balanceDelta > 0 && entry.metadata?.sessionId === sessionId);
         pollsRef.current += 1;
 
         if (granted) {
           setStatus('confirmed');
         } else if (pollsRef.current >= MAX_POLLS) {
-          setStatus('pending'); // paid, grant hasn't landed yet — do NOT tell them to re-buy
+          setStatus('pending');
         } else {
           timerRef.current = setTimeout(poll, POLL_INTERVAL_MS);
         }
@@ -75,8 +78,10 @@ const CreditsSuccessPage: React.FC = () => {
       : status === 'error'
       ? "Couldn't confirm your top-up"
       : status === 'pending'
-      ? 'Payment received'
-      : 'Payment received';
+      ? 'Still checking your top-up'
+      : status === 'confirmed'
+      ? 'Credits added'
+      : 'Checking your top-up';
 
   const subline =
     status === 'no-session'
@@ -84,7 +89,7 @@ const CreditsSuccessPage: React.FC = () => {
       : status === 'error'
       ? "We couldn't load your balance just now. Your payment is safe — check your balance in the studio in a minute."
       : status === 'pending'
-      ? "Your credits are still being added (this can take a moment). No need to pay again — they'll appear on your balance shortly."
+      ? "We haven't confirmed this top-up yet. Check your balance and purchase history in the studio. Do not start another checkout."
       : status === 'confirmed'
       ? 'Your credits have been added to your balance.'
       : 'Confirming your top-up…';
