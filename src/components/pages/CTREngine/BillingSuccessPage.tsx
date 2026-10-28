@@ -114,10 +114,8 @@ export default function BillingSuccessPage() {
     text = `${(me?.credits.subscription.available ?? 0).toLocaleString()} credits from your plan are in your balance.`;
   } else if (status === 'slow') {
     icon = <Clock className="h-7 w-7 text-amber-400" aria-hidden="true" />;
-    heading = trialing ? 'Free trial confirmed' : 'Payment confirmed';
-    text = trialing
-      ? 'Stripe confirmed your free trial. Your credits arrive within a minute. Nothing is charged today.'
-      : 'Stripe confirmed your payment. Your credits arrive within a minute. No need to pay again.';
+    heading = 'Still waiting for your plan';
+    text = 'Your plan and credits have not appeared yet. Refresh to check again, or check Settings › Subscription. Do not start another checkout.';
   } else if (status === 'no-session') {
     icon = <AlertCircle className="h-7 w-7 text-zinc-400" aria-hidden="true" />;
     heading = 'No checkout session';

@@ -85,13 +85,14 @@ it("reads the plan every 2 seconds until it is active with its credits, then say
   expect(getMe).toHaveBeenCalledTimes(3);
 });
 
-it("after about a minute says plainly the payment is confirmed and the credits are coming, with a refresh", async () => {
+it("after about a minute reports pending activation without promising a payment or delivery time", async () => {
   getMe.mockResolvedValue(me("active", 0));
   show("/ai-thumbnails/billing/success?session_id=cs_1");
   for (let poll = 0; poll < BILLING_MAX_POLLS; poll++) await nextPoll();
   await settle();
-  expect(screen.getByRole("heading", { name: "Payment confirmed" })).toBeInTheDocument();
-  expect(screen.getByRole("status")).toHaveTextContent("Stripe confirmed your payment. Your credits arrive within a minute.");
+  expect(screen.getByRole("heading", { name: "Still waiting for your plan" })).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("Your plan and credits have not appeared yet.");
+  expect(screen.getByRole("status")).toHaveTextContent("Do not start another checkout.");
   expect(getMe).toHaveBeenCalledTimes(BILLING_MAX_POLLS);
   // Without a return page, the way on is the projects list.
   expect(screen.getByRole("link", { name: /Go to your projects/ })).toHaveAttribute("href", "/ai-thumbnails/projects");
