@@ -10,7 +10,7 @@ import type {
   StudioAsset,
 } from "../../../../../types/thumbnailStudio";
 import { AssetInput, studioField, studioSecondary } from "./StudioControls";
-import { defaultStudioSettings } from "../../../../../types/thumbnailStudio";
+import { defaultStudioSettings, STUDIO_LETTERING_CHOICES, studioLettering, normalizeStudioStyle, studioStyleOverrides, StudioLettering } from "../../../../../types/thumbnailStudio";
 import { thumbnailStudioApi, studioError } from "../../../../../api/thumbnailStudio";
 import type { StudioErrorInfo } from "../../../../../api/studioErrors";
 import { StudioErrorText } from "./StudioErrorDetail";
@@ -161,19 +161,20 @@ export function StyleFields({
         ),
       )}
       <label className="text-xs text-zinc-300">
-        Font
+        Lettering style
         <StudioSelect
           className={studioField}
-          value={value.font}
+          value={studioLettering(value)}
+          aria-label="Lettering style"
           onChange={(event) =>
-            onChange({
+            onChange(normalizeStudioStyle({
               ...value,
-              font: event.target.value as StudioStyle["font"],
-            })
+              lettering: event.target.value as StudioLettering,
+            }))
           }
         >
-          {["DejaVu Sans", "DejaVu Serif", "DejaVu Sans Mono"].map((font) => (
-            <option key={font}>{font}</option>
+          {STUDIO_LETTERING_CHOICES.map(([id, label]) => (
+            <option key={id} value={id}>{label}</option>
           ))}
         </StudioSelect>
       </label>
@@ -257,7 +258,7 @@ export function BriefReview({ value, revision, profile, onChange, onBlur, disabl
     if (setting === "inherit") delete rules[key]; else rules[key] = setting as "allow" | "forbid";
     onChange({ ...value, overrides: { ...value.overrides, rules } });
   };
-  const resolvedStyle = { ...inherited.style, ...value.styleOverrides };
+  const resolvedStyle = normalizeStudioStyle({ ...inherited.style, ...studioStyleOverrides(value.styleOverrides) });
   const profileName = profile?.name || revision?.profileSnapshot?.name;
   const usingProfileStyle = Boolean(inherited.styleAssetId) && value.overrides.styleAssetId === undefined;
   return <ThumbnailBriefForm

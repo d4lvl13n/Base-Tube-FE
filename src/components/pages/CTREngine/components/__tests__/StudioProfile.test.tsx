@@ -123,8 +123,35 @@ it("in Settings, lists profiles as cards and opens the profile a link asks for",
   );
   expect(await screen.findByLabelText("Profile name")).toHaveValue("My channel");
   expect(screen.getByRole("form", { name: "Edit My channel" })).toBeInTheDocument();
-  expect(screen.getByText("English · DejaVu Sans · Suggested text")).toBeInTheDocument();
+  expect(screen.getByText("English · Heavy block letters · Suggested text")).toBeInTheDocument();
   // The project wording stays on the project page.
   expect(screen.queryByText(/Applying a profile copies/)).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Apply/ })).not.toBeInTheDocument();
+});
+
+it('loads a legacy font profile and saves the chosen lettering with its local overlay font', async () => {
+  const legacy = { ...profile, settings: { ...profile.settings, style: { ...profile.settings.style, font: 'DejaVu Serif' as const } } };
+  delete legacy.settings.style.lettering;
+  api.profiles.mockResolvedValue({ items: [legacy], nextCursor: null });
+  api.patchProfile.mockResolvedValue(profile);
+  render(<QueryClientProvider client={client}><ChannelProfilePanel /></QueryClientProvider>);
+  await screen.findByText('English · Elegant serif · Suggested text');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit My channel' }));
+  expect(screen.getByRole('button', { name: 'Lettering style' })).toHaveTextContent('Elegant serif');
+  fireEvent.click(screen.getByRole('button', { name: 'Lettering style' }));
+  expect(await screen.findAllByRole('option')).toHaveLength(8);
+  expect(screen.queryByText('DejaVu Serif')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('option', { name: 'Comic', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+  await waitFor(() => expect(api.patchProfile).toHaveBeenCalledWith('profile-id', 1, expect.objectContaining({ settings: expect.objectContaining({ style: expect.objectContaining({ lettering: 'comic', font: 'DejaVu Sans' }) }) })));
+});
+
+it('creates a new channel profile with heavy block lettering by default', async () => {
+  api.createProfile.mockResolvedValue(profile);
+  render(<QueryClientProvider client={client}><ChannelProfilePanel /></QueryClientProvider>);
+  await screen.findByText('English · Heavy block letters · Suggested text');
+  fireEvent.click(screen.getByRole('button', { name: 'New profile' }));
+  fireEvent.change(screen.getByLabelText('Profile name'), { target: { value: 'New channel' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+  await waitFor(() => expect(api.createProfile).toHaveBeenCalledWith(expect.objectContaining({ name: 'New channel', settings: expect.objectContaining({ style: expect.objectContaining({ lettering: 'heavy_block', font: 'DejaVu Sans' }) }) })));
 });

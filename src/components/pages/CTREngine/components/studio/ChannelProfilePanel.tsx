@@ -12,6 +12,10 @@ import {
   StudioProfile,
   StudioProfileSettings,
   StudioProfileRef,
+  STUDIO_LETTERING_CHOICES,
+  studioLettering,
+  normalizeStudioStyle,
+  studioStyleOverrides,
 } from "../../../../../types/thumbnailStudio";
 import {
   AssetInput,
@@ -30,14 +34,14 @@ import {
   type ProfileQuotaProblem,
 } from "../billing/ProfileQuotaNotice";
 
-/** "English · DejaVu Sans · Suggested text": a profile at a glance. */
+/** A profile at a glance, using the same readable lettering labels as its picker. */
 export function studioProfileSummary(settings: StudioProfileSettings): string {
   const language =
     studioLanguages.find(([code]) => code === settings.language)?.[1] ||
     settings.language;
   return [
     language,
-    settings.style.font,
+    STUDIO_LETTERING_CHOICES.find(([id]) => id === studioLettering(settings.style))![1],
     settings.textMode === "none" ? "No added text" : "Suggested text",
   ].join(" · ");
 }
@@ -85,7 +89,7 @@ export function ChannelProfilePanel({
     if (acceptedStyle) {
       setSettings((previous) => ({
         ...previous,
-        style: { ...previous.style, ...acceptedStyle.style },
+        style: normalizeStudioStyle({ ...previous.style, ...studioStyleOverrides(acceptedStyle.style) }),
         ...("styleAssetId" in acceptedStyle
           ? { styleAssetId: acceptedStyle.styleAssetId || null }
           : {}),
@@ -140,7 +144,7 @@ export function ChannelProfilePanel({
     setEditing(profile || null);
     setName(profile?.name || "");
     setChannel(profile?.youtubeChannelId || "");
-    setSettings(profile?.settings || defaultStudioSettings());
+    setSettings(profile?.settings ? { ...profile.settings, style: normalizeStudioStyle(profile.settings.style) } : defaultStudioSettings());
     setDefault(profile?.isDefault || false);
     setOpen(true);
     setWarnings([]);

@@ -63,6 +63,16 @@ describe('reliable final adjustments', () => {
     jest.clearAllMocks();
     (ctrApi.applyFinalAdjustments as jest.Mock).mockImplementation(async (recipe: ThumbnailEditing) => ({ id: 20, thumbnailUrl: `final-${recipe.textPlan.headline}`, editing: recipe }));
   });
+  it('keeps the three DejaVu font choices for no-AI adjustments', async () => {
+    const onRefine = jest.fn();
+    render(<PreciseThumbnailEditor initial={{ imageUrl: 'original', editing }} onRefine={onRefine} onChange={jest.fn()} />);
+    const picker = screen.getByLabelText('Text font');
+    expect(Array.from((picker as HTMLSelectElement).options).map(option => option.value)).toEqual(['DejaVu Sans', 'DejaVu Serif', 'DejaVu Sans Mono']);
+    fireEvent.change(picker, { target: { value: 'DejaVu Sans Mono' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply adjustments' }));
+    await waitFor(() => expect(ctrApi.applyFinalAdjustments).toHaveBeenCalledWith(expect.objectContaining({ textStyle: expect.objectContaining({ font: 'DejaVu Sans Mono' }) })));
+    expect(onRefine).not.toHaveBeenCalled();
+  });
   it('replaces/removes text from the same clean base without AI, then restores the recipe on undo', async () => {
     const onRefine = jest.fn(); const onChange = jest.fn();
     render(<PreciseThumbnailEditor initial={{ imageUrl: 'original-final', id: 8, editing }} onRefine={onRefine} onChange={onChange} />);

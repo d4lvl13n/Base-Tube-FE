@@ -107,7 +107,7 @@ it("puts every creator setting in one place, opening on Channel style", async ()
   expect(screen.getByRole("heading", { name: "Channel style" })).toBeInTheDocument();
   // The channel profiles, brought in from the old projects/profiles page.
   expect(await screen.findByRole("button", { name: "Edit Gaming" })).toBeInTheDocument();
-  expect(screen.getByText("Français · DejaVu Sans · Suggested text")).toBeInTheDocument();
+  expect(screen.getByText("Français · Heavy block letters · Suggested text")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "New profile" })).toBeInTheDocument();
 });
 

@@ -7,13 +7,38 @@ export interface StudioRules {
   prices: StudioRule;
   additional: string[];
 }
+export const STUDIO_LETTERING_CHOICES = [
+  ['heavy_block', 'Heavy block letters'],
+  ['condensed_tall', 'Tall condensed letters'],
+  ['rounded_bold', 'Rounded bold letters'],
+  ['comic', 'Comic'],
+  ['handwritten', 'Handwritten'],
+  ['elegant_serif', 'Elegant serif'],
+  ['clean_minimal', 'Clean and minimal'],
+  ['tech_mono', 'Technical monospace'],
+] as const;
+export type StudioLettering = typeof STUDIO_LETTERING_CHOICES[number][0];
 export interface StudioStyle {
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
+  /** Absent only on legacy profiles, revisions and saved drafts. */
+  lettering?: StudioLettering;
+  /** Local no-AI overlay fallback; never an image-generation instruction. */
   font: "DejaVu Sans" | "DejaVu Serif" | "DejaVu Sans Mono";
   textPosition: "left" | "right" | "top" | "bottom" | "center";
   stroke: boolean;
+}
+export function studioLettering(style: Partial<StudioStyle>): StudioLettering {
+  return style.lettering || (style.font === 'DejaVu Serif' ? 'elegant_serif' : style.font === 'DejaVu Sans Mono' ? 'tech_mono' : 'heavy_block');
+}
+export function studioStyleOverrides(style: Partial<StudioStyle> = {}): Partial<StudioStyle> {
+  if (style.lettering === undefined && style.font === undefined) return { ...style };
+  const lettering = studioLettering(style);
+  return { ...style, lettering, font: lettering === 'elegant_serif' ? 'DejaVu Serif' : lettering === 'tech_mono' ? 'DejaVu Sans Mono' : 'DejaVu Sans' };
+}
+export function normalizeStudioStyle(style: StudioStyle): StudioStyle & { lettering: StudioLettering } {
+  return { ...style, ...studioStyleOverrides(style), lettering: studioLettering(style) };
 }
 export interface StudioProfileRef {
   id: string;
@@ -410,6 +435,7 @@ export const defaultStudioSettings = (): StudioProfileSettings => ({
     primaryColor: "#ffffff",
     secondaryColor: "#111111",
     accentColor: "#fa7517",
+    lettering: "heavy_block",
     font: "DejaVu Sans",
     textPosition: "bottom",
     stroke: true,
