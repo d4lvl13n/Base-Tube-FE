@@ -1,9 +1,11 @@
 // src/components/pages/CTREngine/components/AuditCreatorPlan.tsx
-// The creator-facing top of every channel audit: what broke out, what changed,
-// three next-video ideas, the test to run, the recurring styles and examples from
-// other channels. Images first, short text, one action per idea. The full evidence
-// stays below it in the report. Without a creator plan (no breakout video), the
-// same layout shows the positioning, the thumbnails to test and the fixes.
+// The creator-facing top of every channel audit: what broke out, what the numbers
+// say (formats, pace, findings), what changed, three next-video ideas, the test to
+// run, the recurring styles and examples from other channels. Images first, short
+// text, one action per idea. The full evidence stays below it in the report.
+// Without a creator plan, the same layout shows the thumbnails to test and the fixes.
+// Fresh audits compare videos by views per month since publication, so a video
+// online for three years does not win on age alone.
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +13,7 @@ import { ArrowUpRight, Sparkles } from 'lucide-react';
 import { useStudioAccount } from '../../../../hooks/useStudioAccount';
 import { studioCreateUrlForIdea } from '../../../../utils/studioDraft';
 import type { ChannelAuditV2PerVideo, ChannelPackagingAuditV2 } from '../../../../types/ctr';
+import type { PublicStatGroup } from '../../../../types/publicChannelAudit';
 import '../styles/auditPlan.css';
 
 type CreatorPlan = NonNullable<NonNullable<ChannelPackagingAuditV2['publicReview']>['creatorPlan']>;
@@ -21,6 +24,22 @@ const formatCount = (value: number | undefined | null): string => {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
   return String(n);
 };
+
+// Monthly averages: whole numbers from 100, one decimal below.
+const formatPace = (value: number | undefined | null): string => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '';
+  return value >= 100 ? Math.round(value).toLocaleString('en-US') : String(Math.round(value * 10) / 10);
+};
+
+const formatMonth = (iso?: string | null): string => {
+  const date = iso ? new Date(iso) : null;
+  return date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+    : '';
+};
+
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+const upperFirst = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 // Machine prefixes on observations mean nothing to a creator.
 const cleanFact = (value: string) =>
@@ -37,8 +56,19 @@ const testText = (value: string) =>
   value.replace(/\btestCurrent\b/g, 'version A').replace(/\btestNew\b/g, 'version B');
 
 // Split after a sentence end, including one closed by a quote: “HOW LONG?” Next…
-const sentences = (text: string) =>
-  text.split(/(?<=[.?!][”"]?)\s+(?=[A-Z“"])/).map((s) => s.trim()).filter(Boolean);
+// A question mark inside a quoted video title does not end the sentence.
+const sentences = (text: string) => {
+  const unclosed = (s: string) => (s.match(/“/g)?.length ?? 0) > (s.match(/”/g)?.length ?? 0);
+  return text
+    .split(/(?<=[.?!][”"]?)\s+(?=[A-Z“"])/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .reduce<string[]>((out, part) => {
+      if (out.length && unclosed(out[out.length - 1])) out[out.length - 1] += ` ${part}`;
+      else out.push(part);
+      return out;
+    }, []);
+};
 
 // The short text an idea puts on the image: the last quoted phrase of its brief.
 const imageText = (brief: string): string | null => {
@@ -70,6 +100,69 @@ const Thumb: React.FC<{ video?: ChannelAuditV2PerVideo; label?: string; accent?:
   );
 };
 
+const PaceLine: React.FC<{ video: ChannelAuditV2PerVideo }> = ({ video }) => {
+  if (typeof video.viewsPerMonth !== 'number') return null;
+  const since = formatMonth(video.publishedAt);
+  return (
+    <span className="ap-pace">
+      {formatPace(video.viewsPerMonth)} views a month{since ? ` · since ${since}` : ''}
+    </span>
+  );
+};
+
+const FormatTable: React.FC<{
+  formats: PublicStatGroup[];
+  maxPace: number;
+  videoFor: (id?: string | null) => ChannelAuditV2PerVideo | undefined;
+}> = ({ formats, maxPace, videoFor }) => (
+  <div className="ap-formats" role="table" aria-label="Views by format">
+    <div className="ap-format-row ap-format-row--head" role="row">
+      <span role="columnheader">Format</span>
+      <span role="columnheader">Views a month (median)</span>
+      <span role="columnheader">Views (median)</span>
+      <span role="columnheader">Best video</span>
+    </div>
+    {formats.map((format) => {
+      const best = videoFor(format.bestVideoId);
+      const pace = format.medianViewsPerMonth;
+      const width = typeof pace === 'number' && maxPace > 0 ? Math.max(2, (pace / maxPace) * 100) : 0;
+      return (
+        <div key={format.key} className="ap-format-row" role="row">
+          <span className="ap-format-name" role="cell">
+            {format.label}
+            <span className="ap-format-count">
+              {format.count === 1 ? '1 video' : `${format.count} videos`}
+            </span>
+          </span>
+          <span className="ap-format-pace" role="cell">
+            <span className="ap-format-bar">
+              <span style={{ width: `${width}%` }} />
+            </span>
+            <span className="ap-format-value">
+              {typeof pace === 'number' ? formatPace(pace) : 'no dates'}
+              {typeof pace === 'number' && <span className="ap-format-unit"> a month</span>}
+            </span>
+          </span>
+          <span className="ap-format-views" role="cell">
+            {formatCount(format.medianViews)}
+            <span className="ap-format-unit"> views</span>
+            <span className="ap-format-count">
+              {formatCount(format.minViews)} to {formatCount(format.maxViews)}
+            </span>
+          </span>
+          <span className="ap-format-best" role="cell">
+            {best ? (
+              <a href={youtubeUrl(best)} target="_blank" rel="noopener noreferrer" title={best.title}>
+                {best.thumbnailUrl && <img src={best.thumbnailUrl} alt={best.title} loading="lazy" />}
+              </a>
+            ) : null}
+          </span>
+        </div>
+      );
+    })}
+  </div>
+);
+
 const SectionHead: React.FC<{ eyebrow: string; title: string; lead?: string }> = ({ eyebrow, title, lead }) => (
   <header className="ap-section-head">
     <p className="ap-eyebrow">{eyebrow}</p>
@@ -89,11 +182,42 @@ export const AuditCreatorPlan: React.FC<{
   const perVideo = audit.perVideo ?? [];
   const byId = new Map(perVideo.map((v) => [v.videoId, v]));
   const summary = audit.comparativeSummary;
-  const median = audit.reviewQueue?.medianViews ?? 0;
+  const queue = audit.reviewQueue;
+  const median = queue?.medianViews ?? 0;
   const families = plan?.families ?? [];
+  const stats = audit.publicResearch?.statistics;
+  const findings = audit.publicReview?.findings ?? [];
+
+  // Every listed video, including the ones whose thumbnail was not inspected.
+  const statVideos = new Map((stats?.videos ?? []).map((v) => [v.videoId, v]));
+  const videoFor = (id?: string | null): ChannelAuditV2PerVideo | undefined => {
+    if (!id) return undefined;
+    const known = byId.get(id);
+    if (known) return known;
+    const stat = statVideos.get(id);
+    if (!stat) return undefined;
+    return {
+      videoId: stat.videoId,
+      title: stat.title,
+      views: stat.views,
+      publishedAt: stat.publishedAt,
+      viewsPerMonth: stat.viewsPerMonth,
+      thumbnailUrl: `https://i.ytimg.com/vi/${encodeURIComponent(stat.videoId)}/mqdefault.jpg`,
+      videoUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(stat.videoId)}`,
+      observed: [],
+      hypothesis: '',
+      experimentId: null,
+    };
+  };
+
+  // Pace: lifetime views per month. Older audits only have raw views.
+  const medianPace = queue?.medianViewsPerMonth ?? stats?.medianViewsPerMonth ?? null;
+  const byPace = typeof medianPace === 'number' && medianPace > 0 && (queue?.basis === 'views_per_month' || !!stats);
+  const paceStandout = byPace ? videoFor(queue?.standoutVideoId ?? stats?.standoutVideoId) : undefined;
+  const paceUsual = byPace ? videoFor(queue?.usualVideoId ?? stats?.usualVideoId) : undefined;
 
   const topByViews = [...perVideo].sort((a, b) => b.views - a.views)[0];
-  const standout = (summary?.standoutVideoId && byId.get(summary.standoutVideoId)) || topByViews;
+  const standout = paceStandout || (summary?.standoutVideoId && byId.get(summary.standoutVideoId)) || topByViews;
 
   // The "usual" video: a compared example that also belongs to a recurring style,
   // so the side-by-side shows the channel's real habit, not an odd one out.
@@ -105,8 +229,11 @@ export const AuditCreatorPlan: React.FC<{
   const closestToMedian = [...perVideo]
     .filter((v) => v.videoId !== standout?.videoId && v.thumbnailUrl)
     .sort((a, b) => Math.abs(a.views - median) - Math.abs(b.views - median))[0];
-  const usual = (usualId && byId.get(usualId)) || (median > 0 ? closestToMedian : undefined);
-  const multiple = standout && median > 0 ? Math.round(standout.views / median) : null;
+  const usual = paceUsual || (usualId && byId.get(usualId)) || (median > 0 ? closestToMedian : undefined);
+  const standoutPace = standout?.viewsPerMonth;
+  const multiple = byPace
+    ? typeof standoutPace === 'number' ? Math.round(standoutPace / (medianPace as number)) : null
+    : standout && median > 0 ? Math.round(standout.views / median) : null;
   const brokeOut = !!plan || (multiple !== null && multiple >= 3);
 
   // One row per dimension, against the chosen usual video when it was compared.
@@ -127,11 +254,36 @@ export const AuditCreatorPlan: React.FC<{
     });
   });
 
-  const [headline, ...rest] = plan
-    ? sentences(plan.diagnosis)
-    : [...sentences(audit.positioning ?? ''), audit.headline]
-        .filter((s): s is string => !!s?.trim())
-        .map((s) => s.replace(/\.{2,}(?=\s|$)/g, '.')); // the positioning template can double the final period
+  // Formats ranked by pace. The lead names the best and the weakest when the gap is
+  // at least two to one; groups of one video say nothing about a format.
+  const formats = [...(stats?.formats ?? [])]
+    .filter((f) => f.count > 0)
+    .sort((a, b) => (b.medianViewsPerMonth ?? -1) - (a.medianViewsPerMonth ?? -1));
+  const comparable = formats.filter(
+    (f) => f.count >= 2 && typeof f.medianViewsPerMonth === 'number' && f.key !== 'unknown' && f.key !== 'other',
+  );
+  const bestFormat = comparable[0];
+  const weakFormat = comparable[comparable.length - 1];
+  const formatLead =
+    bestFormat && weakFormat && bestFormat !== weakFormat &&
+    (bestFormat.medianViewsPerMonth as number) >= 2 * (weakFormat.medianViewsPerMonth as number)
+      ? `Your ${lowerFirst(bestFormat.label)} get ${formatPace(bestFormat.medianViewsPerMonth)} views a month. Your ${lowerFirst(weakFormat.label)} get ${formatPace(weakFormat.medianViewsPerMonth)}.`
+      : null;
+  const maxPace = Math.max(...formats.map((f) => f.medianViewsPerMonth ?? 0), 0);
+  const formatLabels = formats.map((f) => f.label);
+  // The format table already shows these sentences.
+  const detailLines = (detail: string) =>
+    sentences(detail).filter((line) => !(formats.length > 0 && formatLabels.some((label) => line.startsWith(`${label}:`))));
+
+  const leadLines = formatLead
+    ? [formatLead]
+    : plan
+      ? sentences(plan.diagnosis)
+      : [...sentences(audit.positioning ?? ''), audit.headline]
+          .filter((s): s is string => !!s?.trim())
+          .map((s) => s.replace(/\.{2,}(?=\s|$)/g, '.')); // the positioning template can double the final period
+  // The backend can send the same sentence as positioning and headline.
+  const [headline, ...rest] = leadLines.filter((line, index) => leadLines.indexOf(line) === index);
   const familyVideos = (family: CreatorPlan['families'][number]) =>
     Array.from(new Set(family.evidence.map((e) => e.videoId)))
       .map((id) => byId.get(id))
@@ -168,26 +320,42 @@ export const AuditCreatorPlan: React.FC<{
             {usual && (
               <figure className="ap-versus-item">
                 <Thumb video={usual} label="Your usual video" />
-                <figcaption>{usual.title}</figcaption>
+                <figcaption>
+                  {usual.title}
+                  {byPace && <PaceLine video={usual} />}
+                </figcaption>
               </figure>
             )}
             <div className="ap-versus-stat" aria-hidden={!multiple}>
               {multiple && multiple >= 2 ? (
                 <>
                   <span className="ap-multiple">{multiple}×</span>
-                  <span className="ap-multiple-label">your usual views</span>
+                  <span className="ap-multiple-label">{byPace ? 'your usual views per month' : 'your usual views'}</span>
                 </>
               ) : (
                 <span className="ap-multiple-label">vs</span>
               )}
             </div>
             <figure className="ap-versus-item">
-              <Thumb video={standout} label={brokeOut ? 'The one that broke out' : 'Your most viewed'} accent />
-              <figcaption>{standout.title}</figcaption>
+              <Thumb
+                video={standout}
+                label={brokeOut ? 'The one that broke out' : byPace ? 'Your fastest' : 'Your most viewed'}
+                accent
+              />
+              <figcaption>
+                {standout.title}
+                {byPace && <PaceLine video={standout} />}
+              </figcaption>
             </figure>
           </div>
         )}
-        {median > 0 && (
+        {byPace ? (
+          <p className="ap-footnote">
+            Usual video = the median pace of the videos analysed: {formatPace(medianPace)} views a month since
+            publication. These are lifetime averages, not recent traffic. Impressions, click-through rate and
+            retention are private.
+          </p>
+        ) : median > 0 && (
           <p className="ap-footnote">
             Usual video = the median of the videos analysed ({formatCount(median)} views). Public views show what
             stood out, not why: impressions, click-through rate and retention are private.
@@ -195,7 +363,73 @@ export const AuditCreatorPlan: React.FC<{
         )}
       </section>
 
-      {/* 2. What changed */}
+      {/* 2. What the numbers say */}
+      {(findings.length > 0 || formats.length > 0) && (
+        <section className="ap-section">
+          <SectionHead
+            eyebrow="What the numbers say"
+            title={
+              findings.length === 1
+                ? 'One thing your numbers show'
+                : findings.length > 1
+                  ? `${findings.length} things your numbers show`
+                  : 'Your views by format'
+            }
+            lead={`Computed from the public views and publication dates of ${
+              stats?.videos?.length ?? audit.channel?.videosAnalyzed ?? perVideo.length
+            } videos. Monthly figures are lifetime averages since publication, not recent traffic.`}
+          />
+          {formats.length > 0 && <FormatTable formats={formats} maxPace={maxPace} videoFor={videoFor} />}
+          {findings.length > 0 && (
+            <ol className="ap-findings">
+              {findings.map((finding, index) => {
+                const lines = detailLines(finding.detail);
+                const videos =
+                  finding.videoIds.length <= 4
+                    ? finding.videoIds.map((id) => videoFor(id)).filter((v): v is ChannelAuditV2PerVideo => !!v)
+                    : [];
+                const action = upperFirst(finding.action.replace(/^For the next video,?\s*/i, ''));
+                return (
+                  <li key={index} className="ap-finding">
+                    <span className="ap-finding-num">{String(index + 1).padStart(2, '0')}</span>
+                    <div className="ap-finding-body">
+                      <h3 className="ap-h3">{finding.headline}</h3>
+                      {lines.length > 0 && (
+                        <ul className="ap-finding-lines">
+                          {lines.map((line, i) => (
+                            <li key={i}>{line}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {videos.length > 0 && (
+                        <div className="ap-finding-thumbs">
+                          {videos.map((video) => (
+                            <figure key={video.videoId}>
+                              <Thumb video={video} />
+                              <figcaption>
+                                {video.title}
+                                <PaceLine video={video} />
+                              </figcaption>
+                            </figure>
+                          ))}
+                        </div>
+                      )}
+                      {action && (
+                        <>
+                          <p className="ap-idea-label">For your next video</p>
+                          <p className="ap-idea-brief">{action}</p>
+                        </>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
+      )}
+
+      {/* 3. What changed */}
       {rows.length > 0 && usual && standout && (
         <section className="ap-section">
           <SectionHead eyebrow="What changed" title="Same channel, a different kind of video" />
@@ -217,7 +451,7 @@ export const AuditCreatorPlan: React.FC<{
         </section>
       )}
 
-      {/* 3a. Without a plan: new thumbnails for videos already published */}
+      {/* 4a. Without a plan: new thumbnails for videos already published */}
       {trials.length > 0 && (
         <section className="ap-section">
           <SectionHead
@@ -260,7 +494,7 @@ export const AuditCreatorPlan: React.FC<{
         </section>
       )}
 
-      {/* 3b. Without a plan: what to correct */}
+      {/* 4b. Without a plan: what to correct */}
       {fixes.length > 0 && (
         <section className="ap-section">
           <SectionHead
@@ -287,7 +521,7 @@ export const AuditCreatorPlan: React.FC<{
         </section>
       )}
 
-      {/* 3. Ideas */}
+      {/* 5. Ideas */}
       {plan && plan.ideas.length > 0 && (
         <section className="ap-section">
           <SectionHead
@@ -326,7 +560,7 @@ export const AuditCreatorPlan: React.FC<{
         </section>
       )}
 
-      {/* 4. The test */}
+      {/* 6. The test */}
       {plan && (plan.testCurrent || plan.testNew) && (
         <section className="ap-section">
           <SectionHead eyebrow="The test to run" title="Your usual format against the new one" lead={testText(plan.test)} />
@@ -348,7 +582,7 @@ export const AuditCreatorPlan: React.FC<{
         </section>
       )}
 
-      {/* 5. Recurring styles */}
+      {/* 7. Recurring styles */}
       {families.length > 0 && (
         <section className="ap-section">
           <SectionHead
@@ -374,7 +608,7 @@ export const AuditCreatorPlan: React.FC<{
         </section>
       )}
 
-      {/* 6. Other channels */}
+      {/* 8. Other channels */}
       {examples.length > 0 && (
         <section className="ap-section">
           <SectionHead

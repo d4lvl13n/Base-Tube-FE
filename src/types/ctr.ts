@@ -707,6 +707,11 @@ export interface ChannelAuditV2PerVideo {
   views: number;
   thumbnailUrl: string;
   videoUrl: string;
+  publishedAt?: string | null;
+  monthsOnline?: number | null;
+  /** Lifetime views divided by months online (minimum one month). */
+  viewsPerMonth?: number | null;
+  format?: string;
   /** Literally visible/countable facts only — no interpretation. */
   observed: string[];
   /** Hedged, never causal ("may", "could"). */
@@ -760,11 +765,17 @@ export interface ChannelAuditV2ReviewQueueItem {
   videoId: string;
   title: string;
   views: number;
+  viewsPerMonth?: number | null;
 }
 
 /** Descriptive only — the "upload age not adjusted" caveat is mandatory in the FE. */
 export interface ChannelAuditV2ReviewQueue {
   medianViews: number;
+  /** Fresh audits pick the usual and standout videos by lifetime views per month. */
+  basis?: 'views_per_month';
+  medianViewsPerMonth?: number | null;
+  usualVideoId?: string | null;
+  standoutVideoId?: string | null;
   high: ChannelAuditV2ReviewQueueItem[];
   low: ChannelAuditV2ReviewQueueItem[];
 }

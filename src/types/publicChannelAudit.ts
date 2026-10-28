@@ -269,6 +269,8 @@ export interface PublicResearch {
     reason: string;
   };
   thumbnailSnapshots?: ThumbnailSnapshot[];
+  /** Numbers computed in code over every listed video (formats, years, pace). */
+  statistics?: PublicChannelStatistics;
   videoCoverage?: VideoCoverage[];
   visualChecks?: {
     videoId: string;
@@ -328,7 +330,56 @@ export interface PublicDecision {
     requiredSource: string;
   };
 }
+/** One group of videos (a format or a publication year) with its computed medians. */
+export interface PublicStatGroup {
+  key: string;
+  label: string;
+  count: number;
+  datedCount: number;
+  videoIds: string[];
+  medianViews: number;
+  medianViewsPerMonth: number | null;
+  minViews: number;
+  maxViews: number;
+  bestVideoId: string | null;
+}
+export interface PublicStatVideo {
+  videoId: string;
+  title: string;
+  views: number;
+  publishedAt: string | null;
+  monthsOnline: number | null;
+  viewsPerMonth: number | null;
+  format: string;
+}
+export interface PublicChannelStatistics {
+  version: "1";
+  asOf: string;
+  videos?: PublicStatVideo[];
+  formats: PublicStatGroup[];
+  publicationYears: PublicStatGroup[];
+  medianViews: number;
+  medianViewsPerMonth: number | null;
+  usualVideoId: string | null;
+  standoutVideoId: string | null;
+  sample: {
+    datedCount: number;
+    undatedVideoIds: string[];
+    spanMonths: number | null;
+    maxUploadGapMonths: number | null;
+    flags: ("spans_over_12_months" | "upload_gap_over_6_months")[];
+  };
+}
+/** A fact computed from public numbers, with what to do about it. */
+export interface PublicFinding {
+  headline: string;
+  detail: string;
+  videoIds: string[];
+  action: string;
+}
 export interface PublicReview {
+  /** 3 to 5 computed findings; the report leads with them. */
+  findings?: PublicFinding[];
   creatorPlan?: {
     diagnosis: string;
     families: { name: string; description: string; evidence: { videoId: string; observationIndex: number }[] }[];
