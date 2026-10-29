@@ -186,3 +186,19 @@ it('leads with precise moves, including a creator of the same size, and drops th
   expect(screen.getByText('See the proof (1)')).toBeInTheDocument();
   expect(screen.queryByText('A new thumbnail brief.')).not.toBeInTheDocument();
 });
+
+it("uses the channel's own formats for the headline and the table", () => {
+  const g = (key: string, label: string, count: number, medianViews: number, medianViewsPerMonth: number) =>
+    ({ key, label, count, datedCount: count, videoIds: [], medianViews, medianViewsPerMonth, minViews: 1, maxViews: 2, bestVideoId: null });
+  const audit: any = {
+    channel: { title: 'Réflexion JV', subscribers: 956, videosAnalyzed: 30 }, positioning: '', headline: '',
+    perVideo: [], reviewQueue: { medianViews: 800, high: [], low: [] }, swipeFile: { examples: [] },
+    publicResearch: { statistics: { version: '1', asOf: '', videos: [], formats: [g('unknown', 'Unclassified videos', 30, 869, 26)], publicationYears: [], medianViews: 869, medianViewsPerMonth: 26, usualVideoId: null, standoutVideoId: null, sample: { datedCount: 30, undatedVideoIds: [], spanMonths: null, maxUploadGapMonths: null, flags: [] } } },
+    channelUnderstanding: { version: '1', generatedAt: '', limitations: [], videos: [], findings: [], formats: [g('rants', 'Rants', 4, 3500, 120), g('game reviews', 'Game reviews', 20, 700, 18), g('other uploads', 'Other uploads', 6, 300, 5)] },
+  };
+  render(<MemoryRouter><AuditCreatorPlan audit={audit} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { level: 1, name: 'Your rants get 120 views a month. Your game reviews get 18.' })).toBeInTheDocument();
+  const table = screen.getByRole('table', { name: 'Views by format' });
+  expect(within(table).getByText('Rants')).toBeInTheDocument();
+  expect(within(table).queryByText('Unclassified videos')).not.toBeInTheDocument();
+});

@@ -379,11 +379,12 @@ export const AuditCreatorPlan: React.FC<{
 
   // Formats ranked by pace. The lead names the best and the weakest when the gap is
   // at least two to one; groups of one video say nothing about a format.
-  const formats = [...(stats?.formats ?? [])]
+  // The channel's own formats when the audit grouped them; keyword formats otherwise.
+  const formats = [...(understanding?.formats?.length ? understanding.formats : stats?.formats ?? [])]
     .filter((f) => f.count > 0)
     .sort((a, b) => (b.medianViewsPerMonth ?? -1) - (a.medianViewsPerMonth ?? -1));
   const comparable = formats.filter(
-    (f) => f.count >= 2 && typeof f.medianViewsPerMonth === 'number' && f.key !== 'unknown' && f.key !== 'other',
+    (f) => f.count >= 2 && typeof f.medianViewsPerMonth === 'number' && !['unknown', 'other', 'other uploads'].includes(f.key),
   );
   const bestFormat = comparable[0];
   const weakFormat = comparable[comparable.length - 1];

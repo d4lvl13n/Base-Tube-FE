@@ -881,6 +881,8 @@ export interface ChannelUnderstanding {
   videos: WatchedVideo[];
   findings: UnderstandingFinding[];
   limitations: string[];
+  /** The channel's own formats (grouped by the model, numbers computed in code). */
+  formats?: import('./publicChannelAudit').PublicStatGroup[];
   recommendations?: Recommendation[];
   peers?: PeerComparison[];
   peerVideos?: WatchedVideo[];
