@@ -15,6 +15,8 @@ import { studioCreateUrlForIdea } from '../../../../utils/studioDraft';
 import type {
   ChannelAuditV2PerVideo,
   ChannelPackagingAuditV2,
+  PeerComparison,
+  Recommendation,
   UnderstandingEvidence,
   WatchedVideo,
 } from '../../../../types/ctr';
@@ -189,7 +191,56 @@ const ROLE_LABEL: Record<WatchedVideo['roles'][number], string> = {
   weakest: 'Weakest',
   recent: 'Recent',
   format: 'Typical of its format',
+  peer: 'Another creator',
 };
+
+const KIND_LABEL: Record<Recommendation['kind'], string> = {
+  focus: 'Do more of this',
+  stop: 'Stop or rework',
+  hooks: 'Openings',
+  packaging: 'Packaging',
+  peer: 'A creator your size',
+  shorts: 'Shorts',
+};
+
+/** Their video against yours on the same topic. */
+const PeerCard: React.FC<{
+  peer: PeerComparison;
+  yours?: ChannelAuditV2PerVideo;
+}> = ({ peer, yours }) => (
+  <div className="ap-peer">
+    <figure className="ap-peer-side">
+      <a className="ap-thumb" href={peer.url} target="_blank" rel="noopener noreferrer" title={peer.title}>
+        {peer.thumbnailUrl && <img src={peer.thumbnailUrl} alt={peer.title} loading="lazy" />}
+        <span className="ap-thumb-label">{peer.channelTitle} · {formatCount(peer.channelSubscribers)} subscribers</span>
+        <span className="ap-thumb-views">{formatCount(peer.views)} views</span>
+      </a>
+      <figcaption>{peer.title}</figcaption>
+    </figure>
+    <div className="ap-versus-stat">
+      <span className="ap-multiple">{peer.multiple}×</span>
+      <span className="ap-multiple-label">your median on this topic</span>
+    </div>
+    <figure className="ap-peer-side">
+      {yours ? <Thumb video={yours} label="Yours" /> : null}
+      <figcaption>
+        {yours?.title}
+        <span className="ap-pace">Your median on this topic: {formatCount(peer.yourMedianViews)} views</span>
+      </figcaption>
+    </figure>
+    {peer.channelRecent.length > 0 && (
+      <p className="ap-peer-more">
+        Their other recent uploads:{' '}
+        {peer.channelRecent.map((r, i) => (
+          <span key={r.url || i}>
+            {i > 0 ? ' · ' : ''}
+            <a href={r.url} target="_blank" rel="noopener noreferrer">{r.title}</a> ({formatCount(r.views)} views)
+          </span>
+        ))}
+      </p>
+    )}
+  </div>
+);
 
 /** A quote with the moment it is said, or a frame cut from the video. */
 const Evidence: React.FC<{ item: UnderstandingEvidence; title?: string }> = ({ item, title }) => {
@@ -247,7 +298,11 @@ export const AuditCreatorPlan: React.FC<{
   const families = plan?.families ?? [];
   const stats = audit.publicResearch?.statistics;
   const understanding = audit.channelUnderstanding;
-  const watchedById = new Map((understanding?.videos ?? []).map((v) => [v.videoId, v]));
+  const watchedById = new Map([...(understanding?.videos ?? []), ...(understanding?.peerVideos ?? [])].map((v) => [v.videoId, v]));
+  const recommendations = understanding?.recommendations ?? [];
+  // A channel audit leads with the channel. The thumbnail-level sections belong
+  // to the thumbnail audit; they stay in the full audit below.
+  const channelFirst = recommendations.length > 0 || (understanding?.findings.length ?? 0) > 0;
   const titleOf = (id: string) => watchedById.get(id)?.title || byId.get(id)?.title || '';
   const findings = audit.publicReview?.findings ?? [];
 
@@ -445,6 +500,45 @@ export const AuditCreatorPlan: React.FC<{
         )}
       </section>
 
+      {/* 2. What to do next */}
+      {recommendations.length > 0 && (
+        <section className="ap-section">
+          <SectionHead
+            eyebrow="What to do next"
+            title={recommendations.length === 1 ? 'One move for your next uploads' : `${recommendations.length} moves for your next uploads`}
+            lead="Drawn from the videos we watched, your numbers, and creators your size on the same topics."
+          />
+          <ol className="ap-findings">
+            {recommendations.map((rec, index) => {
+              const peer = rec.peerVideoId ? understanding?.peers?.find((p) => p.videoId === rec.peerVideoId) : undefined;
+              return (
+                <li key={index} className="ap-finding ap-reco">
+                  <span className="ap-finding-num">{String(index + 1).padStart(2, '0')}</span>
+                  <div className="ap-finding-body">
+                    <p className="ap-reco-kind">{KIND_LABEL[rec.kind]}</p>
+                    <h3 className="ap-reco-title">{rec.title}</h3>
+                    <p className="ap-finding-text">{rec.why}</p>
+                    {peer && <PeerCard peer={peer} yours={videoFor(peer.yourVideoIds[0])} />}
+                    <p className="ap-idea-label">Next upload</p>
+                    <p className="ap-idea-brief">{rec.how}</p>
+                    {rec.evidence.length > 0 && (
+                      <details className="ap-reco-proof">
+                        <summary>See the proof ({rec.evidence.length})</summary>
+                        <div className="ap-evidence">
+                          {rec.evidence.map((item) => (
+                            <Evidence key={item.id} item={item} title={titleOf(item.videoId)} />
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
+
       {/* 2a. What we saw watching the videos */}
       {understanding && understanding.findings.length > 0 && (
         <section className="ap-section">
@@ -608,7 +702,7 @@ export const AuditCreatorPlan: React.FC<{
               <FormatTable formats={formats} maxPace={maxPace} videoFor={videoFor} />
             </>
           )}
-          {findings.length > 0 && (
+          {findings.length > 0 && !channelFirst && (
             <ol className="ap-findings">
               {findings.map((finding, index) => {
                 const lines = detailLines(finding.detail);
@@ -658,7 +752,7 @@ export const AuditCreatorPlan: React.FC<{
       )}
 
       {/* 3. What changed */}
-      {rows.length > 0 && usual && standout && (
+      {rows.length > 0 && usual && standout && !channelFirst && (
         <section className="ap-section">
           <SectionHead eyebrow="What changed" title="Same channel, a different kind of video" />
           <div className="ap-diff">
@@ -680,7 +774,7 @@ export const AuditCreatorPlan: React.FC<{
       )}
 
       {/* 4a. Without a plan: new thumbnails for videos already published */}
-      {trials.length > 0 && (
+      {trials.length > 0 && !channelFirst && (
         <section className="ap-section">
           <SectionHead
             eyebrow="Thumbnails to test"
@@ -723,7 +817,7 @@ export const AuditCreatorPlan: React.FC<{
       )}
 
       {/* 4b. Without a plan: what to correct */}
-      {fixes.length > 0 && (
+      {fixes.length > 0 && !channelFirst && (
         <section className="ap-section">
           <SectionHead
             eyebrow="Quick fixes"

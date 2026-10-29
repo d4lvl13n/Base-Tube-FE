@@ -155,3 +155,34 @@ it('puts Shorts and long videos side by side, never in one median', () => {
   const shortLink = screen.getAllByRole('link').find((a) => a.getAttribute('href')?.includes('/shorts/discsShort1'));
   expect(shortLink).toBeTruthy();
 });
+
+it('leads with precise moves, including a creator of the same size, and drops thumbnail sections', () => {
+  const quote = { id: 'gta:0', videoId: 'gta', kind: 'quote', quote: 'The showcase proved the world.', atSeconds: 514, note: 'verdict' };
+  const audit: any = {
+    channel: { title: 'FinalBoss', subscribers: 1020, videosAnalyzed: 30 },
+    positioning: '', headline: '',
+    perVideo: [
+      { videoId: 'gta', title: 'GTA 6 Is Secretly Red Dead 3', views: 1407, thumbnailUrl: '/gta.jpg', videoUrl: '', observed: [], hypothesis: '', experimentId: null },
+      { videoId: 'ifuu', title: 'How to Beat Ifuu', views: 17, thumbnailUrl: '/ifuu.jpg', videoUrl: '', observed: [], hypothesis: '', experimentId: null },
+    ],
+    reviewQueue: { medianViews: 484, high: [], low: [] },
+    swipeFile: { examples: [] },
+    experiments: [{ id: 'e1', title: 'T', hypothesis: 'h', variantBrief: { thumbnail: 'A new thumbnail brief.' }, method: 'm', priority: 1, videoIds: ['gta'] }],
+    channelUnderstanding: {
+      version: '1', generatedAt: '', limitations: [], videos: [], findings: [],
+      peers: [{ videoId: 'peer1', title: 'How to Beat Ifuu & Burai on CARNAGE | Full Breakdown', url: 'https://www.youtube.com/watch?v=peer1', thumbnailUrl: '/peer.jpg', channelId: 'UCp', channelTitle: 'tateyou', channelSubscribers: 3570, views: 5118, durationSeconds: 374, publishedText: '1 month ago', yourVideoIds: ['ifuu'], yourMedianViews: 30, multiple: 171, channelRecent: [{ title: 'How to Beat Yoshitsune on CARNAGE with ZERO skill', views: 120000, url: 'u1' }], channelRecentMedianViews: 15500 }],
+      recommendations: [
+        { kind: 'peer', title: 'Rework the next Onimusha guide as a difficulty-specific breakdown.', why: 'tateyou got 5118 views on the same boss.', how: 'Name the difficulty in the title.', videoIds: ['ifuu'], evidence: [], peerVideoId: 'peer1' },
+        { kind: 'hooks', title: 'Open on your verdict.', why: 'Your fastest video opens on a thesis.', how: 'Say it in the first sentence.', videoIds: ['gta'], evidence: [quote] },
+      ],
+    },
+  };
+  render(<MemoryRouter><AuditCreatorPlan audit={audit} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { name: '2 moves for your next uploads' })).toBeInTheDocument();
+  expect(screen.getByText('A creator your size')).toBeInTheDocument();
+  expect(screen.getByText('171×')).toBeInTheDocument();
+  expect(screen.getByText('tateyou · 3.6K subscribers')).toBeInTheDocument();
+  expect(screen.getByText(/Your median on this topic: 30 views/)).toBeInTheDocument();
+  expect(screen.getByText('See the proof (1)')).toBeInTheDocument();
+  expect(screen.queryByText('A new thumbnail brief.')).not.toBeInTheDocument();
+});

@@ -816,13 +816,13 @@ export interface UnderstandingEvidence {
 export interface WatchedVideo {
   videoId: string;
   /** Absent on audits made before Shorts were read: those are long videos. */
-  kind?: 'short' | 'long';
+  kind?: 'short' | 'long' | 'peer';
   title: string;
   views: number;
   viewsPerMonth: number | null;
   publishedAt: string | null;
   durationSeconds: number | null;
-  roles: ('fastest' | 'most_viewed' | 'usual' | 'weakest' | 'recent' | 'format')[];
+  roles: ('fastest' | 'most_viewed' | 'usual' | 'weakest' | 'recent' | 'format' | 'peer')[];
   transcript: 'read' | 'unavailable';
   framesSeen: number;
   format: string;
@@ -845,6 +845,35 @@ export interface UnderstandingFinding {
   evidence: UnderstandingEvidence[];
 }
 
+/** A creator of comparable size who does much better on the same topic. */
+export interface PeerComparison {
+  videoId: string;
+  title: string;
+  url: string;
+  thumbnailUrl: string;
+  channelId: string;
+  channelTitle: string;
+  channelSubscribers: number;
+  views: number;
+  durationSeconds: number | null;
+  publishedText: string | null;
+  yourVideoIds: string[];
+  yourMedianViews: number;
+  multiple: number;
+  channelRecent: { title: string; views: number; url: string }[];
+  channelRecentMedianViews: number | null;
+}
+
+export interface Recommendation {
+  kind: 'focus' | 'stop' | 'hooks' | 'packaging' | 'peer' | 'shorts';
+  title: string;
+  why: string;
+  how: string;
+  videoIds: string[];
+  evidence: UnderstandingEvidence[];
+  peerVideoId?: string;
+}
+
 /** The videos the audit watched (transcripts + frames) and what they explain. */
 export interface ChannelUnderstanding {
   version: '1';
@@ -852,6 +881,9 @@ export interface ChannelUnderstanding {
   videos: WatchedVideo[];
   findings: UnderstandingFinding[];
   limitations: string[];
+  recommendations?: Recommendation[];
+  peers?: PeerComparison[];
+  peerVideos?: WatchedVideo[];
 }
 
 export interface ChannelPackagingAuditV2 {
