@@ -1,4 +1,5 @@
 import React from "react";
+import { StudioSpinner } from "./StudioControls";
 
 /**
  * Private Studio pages: wait for the account (Clerk or wallet) to load before
@@ -16,7 +17,8 @@ export function StudioAuthGate({
   if (access.isAuthenticated) return <>{children}</>;
   if (!access.isAnonymous)
     return (
-      <p role="status" className="text-zinc-300">
+      <p role="status" className="flex items-center gap-2 text-zinc-300">
+        <StudioSpinner />
         Loading your account…
       </p>
     );

@@ -439,3 +439,27 @@
 @media (max-width: 600px) {
   .ai-studio-shell:has(.thumbnail-flow form:not([hidden])) > div:has(> button[aria-label="Open help"]) { bottom: 13rem; }
 }
+
+/* Running work: a thin bar that keeps moving, so the page never looks stuck. */
+.studio-progress {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(250, 117, 23, 0.15);
+}
+.studio-progress > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 35%;
+  border-radius: 9999px;
+  background: #fa7517;
+  animation: studio-progress-slide 1.4s ease-in-out infinite;
+}
+@keyframes studio-progress-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .studio-progress > span { animation: none; width: 100%; opacity: 0.5; }
+}

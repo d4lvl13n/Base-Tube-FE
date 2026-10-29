@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useId, useRef
 import { createPortal } from "react-dom";
 import { CheckCircle, Coins } from "lucide-react";
 import { BuyCreditsModal } from "../BuyCreditsModal";
-import { studioButton, studioSecondary } from "./StudioControls";
+import { studioButton, studioSecondary, StudioSpinner } from "./StudioControls";
 import { StudioErrorDetail } from "./StudioErrorDetail";
 import { studioCreditsLabel } from "../../../../../utils/studioPricing";
 import type { StudioActionState } from "../../../../../hooks/useStudioOperation";
@@ -126,6 +126,7 @@ export function StudioPaidAction({
   disabled = false,
   working = false,
   workingLabel = "Starting…",
+  running = null,
   availableCredits,
   unavailable = null,
   state,
@@ -148,6 +149,11 @@ export function StudioPaidAction({
   /** This click is being handled. */
   working?: boolean;
   workingLabel?: string;
+  /**
+   * The work this button started is still running ("Generating 2 concepts…"):
+   * the button shows it with a turning circle and cannot be clicked again.
+   */
+  running?: string | null;
   /** Current shared balance (useStudioBalance); undefined while unknown. */
   availableCredits?: number;
   /** Why new work cannot start right now (paused or unavailable). */
@@ -224,13 +230,18 @@ export function StudioPaidAction({
         ref={button}
         type={type}
         className={`${buttonClassName || (secondary ? studioSecondary : studioButton)}${arrived ? " ring-2 ring-emerald-400/70 ring-offset-2 ring-offset-[#09090B]" : ""}`}
-        disabled={disabled || working || short || Boolean(unavailable)}
+        disabled={disabled || working || Boolean(running) || short || Boolean(unavailable)}
+        aria-busy={working || Boolean(running) || undefined}
+        // A button that is working stays fully visible: greyed out reads as broken.
+        style={working || running ? { opacity: 1, cursor: "progress" } : undefined}
         onClick={click}
       >
-        {icon}
+        {working || running ? <StudioSpinner className="mr-2 h-4 w-4" /> : icon}
         {working
           ? workingLabel
-          : credits === null
+          : running
+            ? running
+            : credits === null
             ? label
             : `${label} · ${studioCreditsLabel(credits)}`}
       </button>

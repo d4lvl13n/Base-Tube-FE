@@ -4,7 +4,8 @@ import type {
   StudioOperation,
   StudioOperationItem,
 } from "../../../../../types/thumbnailStudio";
-import { studioSecondary } from "./StudioControls";
+import { studioSecondary, StudioSpinner } from "./StudioControls";
+import { isStudioTerminal } from "../../../../../hooks/useStudioOperation";
 import {
   studioActionNames,
   studioItemFailureMessage,
@@ -39,6 +40,7 @@ export function StudioOperationPanel({
   /** What the work does, shown under its state (for example an edit's change). */
   summary?: React.ReactNode;
 }) {
+  const active = !isStudioTerminal(operation.state);
   const dismissible =
     Boolean(onDismiss) &&
     ["succeeded", "partial", "failed"].includes(operation.state) &&
@@ -47,16 +49,23 @@ export function StudioOperationPanel({
     <section
       id={`studio-operation-${operation.id}`}
       aria-label="Studio operation"
-      className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+      aria-busy={active || undefined}
+      className={`space-y-3 rounded-2xl border p-4 ${active ? "border-orange-500/30 bg-orange-500/[0.04]" : "border-white/10 bg-white/[0.03]"}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 tabIndex={-1} data-studio-focus className="font-semibold text-white focus:outline-none">
+        <h3 tabIndex={-1} data-studio-focus className="flex items-center gap-2 font-semibold text-white focus:outline-none">
+          {active && <StudioSpinner className="h-4 w-4 text-orange-400" />}
           {states[operation.state] || states.running}
         </h3>
         <p className="text-sm text-zinc-300">
           {`${operation.capturedCredits} charged · ${operation.releasedCredits} released`}
         </p>
       </div>
+      {active && (
+        <div className="studio-progress" aria-hidden="true">
+          <span />
+        </div>
+      )}
       {summary}
       <ul className="space-y-2">
         {operation.items.map((item, index) => (
@@ -71,7 +80,10 @@ export function StudioOperationPanel({
                 {item.preparedConcept?.name ||
                   `${actionNames[item.action]} ${index + 1}`}
               </span>
-              <span className="text-zinc-300">
+              <span className="flex items-center gap-1.5 text-zinc-300">
+                {!["failed", "succeeded", "outcome_unknown"].includes(item.state) && (
+                  <StudioSpinner className="h-3.5 w-3.5 text-orange-400" />
+                )}
                 {states[item.state] || states.queued} · {item.actualCredits} credits
                 {!["failed", "succeeded"].includes(item.state)
                   ? ` (${item.quotedCredits} reserved)`

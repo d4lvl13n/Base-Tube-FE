@@ -179,6 +179,7 @@ function app(entry: { search?: string; state?: object } = {}) {
 }
 function open(entry: { search?: string; state?: object } = {}) { return render(app(entry)); }
 const work = () => screen.getByLabelText("Ongoing work and results");
+const creating = () => screen.getByLabelText("Concepts being created");
 const storedKey = (id: string) => JSON.parse(localStorage.getItem("thumbnail-studio:start:v1:" + id)!).key;
 async function describeBackgroundEdit(refine: HTMLElement) {
   fireEvent.click(refine);
@@ -356,8 +357,15 @@ it("generates in one click: quotes at the price on the button, stores the key, s
   })));
   const [id, key] = api.start.mock.calls[0];
   expect(key).toBe(storedKey(id));
-  expect(await within(work()).findByRole("heading", { name: "In progress" })).toBeInTheDocument();
+  expect(await within(creating()).findByRole("heading", { name: "In progress" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "2. Choose" })).toHaveAttribute("aria-current", "step");
+  // While the concepts are created, the Generate buttons say so and cannot start the same work twice.
+  const runningButtons = screen.getAllByRole("button", { name: "Generating 2 concepts…", hidden: true });
+  expect(runningButtons.length).toBeGreaterThan(0);
+  runningButtons.forEach((button) => {
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+  });
   expect(screen.queryByText(/price ready|get a new price|confirm and start/i)).not.toBeInTheDocument();
 });
 it("handles a double click on Generate once: one quote, one start", async () => {
@@ -367,7 +375,7 @@ it("handles a double click on Generate once: one quote, one start", async () => 
   fireEvent.click(generate);
   fireEvent.click(generate);
   await waitFor(() => expect(api.start).toHaveBeenCalledTimes(1));
-  await within(work()).findByRole("heading", { name: "In progress" });
+  await within(creating()).findByRole("heading", { name: "In progress" });
   expect(api.quote).toHaveBeenCalledTimes(1);
 });
 it("asks once when the quote's price differs from the button: 'The price is now X credits — Generate'", async () => {
@@ -423,7 +431,7 @@ it("prices and starts the same work once more when the brief changed, inside the
   expect(api.quote).toHaveBeenCalledTimes(2);
   expect(api.quote.mock.calls[1][0].items).toEqual(api.quote.mock.calls[0][0].items);
   expect(api.start.mock.calls[1][0]).not.toBe(api.start.mock.calls[0][0]);
-  expect(await within(work()).findByRole("heading", { name: "In progress" })).toBeInTheDocument();
+  expect(await within(creating()).findByRole("heading", { name: "In progress" })).toBeInTheDocument();
   expect(screen.queryByText(/Couldn't start/)).not.toBeInTheDocument();
 });
 it("shows a plain error when the new attempt is refused too", async () => {
@@ -653,7 +661,7 @@ it("retries a failed concept in one click, as a retry of that output", async () 
     retryOfItemId: "concept-1",
   });
   // The failed work keeps its entry while the retry runs.
-  expect(await within(work()).findByRole("heading", { name: "In progress" })).toBeInTheDocument();
+  expect(await within(await screen.findByLabelText("Concepts being created")).findByRole("heading", { name: "In progress" })).toBeInTheDocument();
   expect(JSON.parse(localStorage.getItem(storageKey)!)).toContain(failedId);
   // The creator can still put the failed work away.
   fireEvent.click(within(work()).getByRole("button", { name: "Dismiss" }));

@@ -1,6 +1,6 @@
 import { useStudioAccount } from "../../../../../hooks/useStudioAccount";
 import React, { useEffect, useId, useState } from "react";
-import { Check, ImagePlus, FileText, X } from "lucide-react";
+import { Check, ImagePlus, FileText, Loader2, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   thumbnailStudioApi,
@@ -27,6 +27,10 @@ export const studioButton =
   "rounded-xl bg-[#fa7517] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40";
 export const studioSecondary =
   "rounded-xl border border-white/20 px-3 py-2 text-sm text-white disabled:opacity-40";
+/** A small turning circle: work is running. Hidden from screen readers (the text says it). */
+export function StudioSpinner({ className = "h-4 w-4" }: { className?: string }) {
+  return <Loader2 aria-hidden="true" data-testid="studio-spinner" className={`inline-block shrink-0 animate-spin align-[-3px] ${className}`} />;
+}
 const SCRIPT_BYTES = 1024 * 1024;
 /**
  * A script refused for its size. Over 1 MiB (checked here, and by the server while

@@ -63,6 +63,7 @@ import {
 import {
   AuditCorrectionPicker,
   OutputWarnings,
+  StudioSpinner,
   ThumbnailPreview,
   studioButton,
   studioField,
@@ -405,7 +406,8 @@ function Workspace({ projectId }: { projectId: string }) {
   const summaryQuality = lastGeneration?.quality ?? quality;
   if (project.isPending)
     return (
-      <p role="status" className="text-zinc-300">
+      <p role="status" className="flex items-center gap-2 text-zinc-300">
+        <StudioSpinner />
         Opening your saved project…
       </p>
     );
@@ -637,8 +639,14 @@ function Workspace({ projectId }: { projectId: string }) {
       ),
     );
   };
-  const generating = operation.operations.some(
+  // Concepts being created right now: shown on step 2 where they will land, and on the Generate buttons.
+  const generations = operation.operations.filter(
     (item) => !isStudioTerminal(item.state) && item.items.some((entry) => entry.action === "generate"),
+  );
+  const generating = generations.length > 0;
+  const generatingCount = generations.reduce(
+    (total, item) => total + item.items.filter((entry) => entry.action === "generate").length,
+    0,
   );
   const generateAction = (secondary = false) =>
     paid(generateKey, {
@@ -646,6 +654,9 @@ function Workspace({ projectId }: { projectId: string }) {
       credits: generateCredits,
       secondary,
       disabled: actionsDisabled || !draft.videoTitle.trim(),
+      running: generating
+        ? `Generating ${generatingCount} concept${generatingCount === 1 ? "" : "s"}…`
+        : null,
       onRun: () => void generate(),
       confirmLabel: "Generate",
     });
@@ -970,15 +981,20 @@ function Workspace({ projectId }: { projectId: string }) {
                 >
                   Edit brief
                 </button>
-                {!generating && generateAction(true)}
+                {generateAction(true)}
               </div>
               {generating && (
-                <p role="status" className="text-xs text-zinc-400">
-                  Your concepts are being created. They appear here as soon as
-                  they are ready.
+                <p className="text-xs text-zinc-400">
+                  Your concepts appear here as soon as they are ready. You can
+                  leave this page: the work continues.
                 </p>
               )}
             </section>
+          )}
+          {stage === "choose" && generating && (
+            <div aria-label="Concepts being created" className="space-y-4">
+              {generations.map((item) => listedPanel(item))}
+            </div>
           )}
           {versions.length > 0 && (
             <GeneratedConceptsGrid
@@ -1353,6 +1369,8 @@ function Workspace({ projectId }: { projectId: string }) {
         <div aria-label="Ongoing work and results" className="space-y-4">
           {operation.operations
             .filter((item) => !editsNextToImage.some((edit) => edit.item.id === item.id))
+            // Running concept creation shows on step 2, above where the concepts land.
+            .filter((item) => !(stage === "choose" && generations.includes(item)))
             .reverse()
             .map(listedPanel)}
         </div>
