@@ -45,6 +45,17 @@ const formatMonth = (iso?: string | null): string => {
     : '';
 };
 
+/**
+ * Same rule as the backend (PublicChannelStatistics): a gap is reported only when
+ * it is large in absolute terms. 50 views against 15 is chance, not a breakout.
+ */
+const MEANINGFUL_VIEW_GAP = 500;
+const MEANINGFUL_PACE_GAP = 50;
+const meaningfulViewGap = (high: number, low: number, ratio = 3) =>
+  high - low >= MEANINGFUL_VIEW_GAP && high >= ratio * Math.max(low, 1);
+const meaningfulPaceGap = (high: number, low: number, ratio = 2) =>
+  high - low >= MEANINGFUL_PACE_GAP && high >= ratio * Math.max(low, 0.1);
+
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 const upperFirst = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
@@ -357,7 +368,15 @@ export const AuditCreatorPlan: React.FC<{
   const multiple = byPace
     ? typeof standoutPace === 'number' ? Math.round(standoutPace / (medianPace as number)) : null
     : standout && median > 0 ? Math.round(standout.views / median) : null;
-  const brokeOut = !!plan || (multiple !== null && multiple >= 3);
+  // Show the comparison only when the gap is real, in views, not only as a ratio.
+  const realGap = !!standout && (byPace
+    ? typeof standoutPace === 'number' && meaningfulPaceGap(standoutPace, medianPace as number)
+    : meaningfulViewGap(standout.views, median, 2));
+  const brokeOut = realGap && (!!plan || (multiple !== null && multiple >= 3));
+  // Too few views anywhere to rank one video above another.
+  const longViews = (stats?.videos ?? perVideo).map((v) => v.views);
+  const tooFewViews =
+    longViews.length > 0 && Math.max(...longViews) - (stats?.medianViews ?? median) < MEANINGFUL_VIEW_GAP;
 
   // One row per dimension, against the chosen usual video when it was compared.
   const rows: { key: string; dimension: string; usual: string; standout: string; note?: string }[] = [];
@@ -390,7 +409,7 @@ export const AuditCreatorPlan: React.FC<{
   const weakFormat = comparable[comparable.length - 1];
   const formatLead =
     bestFormat && weakFormat && bestFormat !== weakFormat &&
-    (bestFormat.medianViewsPerMonth as number) >= 2 * (weakFormat.medianViewsPerMonth as number)
+    meaningfulPaceGap(bestFormat.medianViewsPerMonth as number, weakFormat.medianViewsPerMonth as number)
       ? `Your ${lowerFirst(bestFormat.label)} get ${formatPace(bestFormat.medianViewsPerMonth)} views a month. Your ${lowerFirst(weakFormat.label)} get ${formatPace(weakFormat.medianViewsPerMonth)}.`
       : null;
   const maxPace = Math.max(...formats.map((f) => f.medianViewsPerMonth ?? 0), 0);
@@ -404,12 +423,15 @@ export const AuditCreatorPlan: React.FC<{
   const shortsPace = shorts?.statistics.medianViewsPerMonth ?? null;
   const longPace = stats?.medianViewsPerMonth ?? null;
   const shortsLead =
-    shortsPace && longPace && (shortsPace >= 2 * longPace || longPace >= 2 * shortsPace)
+    shortsPace && longPace && (meaningfulPaceGap(shortsPace, longPace) || meaningfulPaceGap(longPace, shortsPace))
       ? `Your Shorts get ${formatPace(shortsPace)} views a month. Your long videos get ${formatPace(longPace)}.`
       : null;
 
-  const leadLines = shortsLead || formatLead
-    ? [shortsLead, formatLead].filter((l): l is string => !!l)
+  const lowViewsLead = tooFewViews
+    ? `Your videos get ${formatCount(Math.min(...longViews))} to ${formatCount(Math.max(...longViews))} views. That is too few to tell which ones work better yet.`
+    : null;
+  const leadLines = shortsLead || formatLead || lowViewsLead
+    ? [shortsLead, formatLead || lowViewsLead].filter((l): l is string => !!l)
     : plan
       ? sentences(plan.diagnosis)
       : [...sentences(audit.positioning ?? ''), audit.headline]
@@ -453,7 +475,7 @@ export const AuditCreatorPlan: React.FC<{
         <h1 className="ap-h1">{headline}</h1>
         {rest.length > 0 && <p className="ap-hero-text">{rest.join(' ')}</p>}
 
-        {standout && (
+        {standout && realGap && (
           <div className="ap-versus">
             {usual && (
               <figure className="ap-versus-item">
@@ -487,7 +509,7 @@ export const AuditCreatorPlan: React.FC<{
             </figure>
           </div>
         )}
-        {byPace ? (
+        {!realGap ? null : byPace ? (
           <p className="ap-footnote">
             Usual video = the median pace of the videos analysed: {formatPace(medianPace)} views a month since
             publication. These are lifetime averages, not recent traffic. Impressions, click-through rate and

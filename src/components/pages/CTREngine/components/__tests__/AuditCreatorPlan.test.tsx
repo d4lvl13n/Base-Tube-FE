@@ -202,3 +202,22 @@ it("uses the channel's own formats for the headline and the table", () => {
   expect(within(table).getByText('Rants')).toBeInTheDocument();
   expect(within(table).queryByText('Unclassified videos')).not.toBeInTheDocument();
 });
+
+it('never presents 32 views against 14 as a breakout', () => {
+  const vid = (videoId: string, views: number, viewsPerMonth: number) =>
+    ({ videoId, title: `Aerial ${videoId}`, views, viewsPerMonth, publishedAt: '2026-06-01T00:00:00Z', thumbnailUrl: `/${videoId}.jpg`, videoUrl: '', observed: [], hypothesis: '', experimentId: null });
+  const videos = [vid('dubai', 32, 32), vid('ph', 25, 13.4), vid('amalfi', 5, 5)];
+  const audit: any = {
+    channel: { title: 'Amazing Aerial TV', subscribers: 10, videosAnalyzed: 3 },
+    positioning: '“Dubai” averages 32 views per month; the sample median is 14.1 views per month.', headline: '',
+    perVideo: videos,
+    reviewQueue: { medianViews: 21, basis: 'views_per_month', medianViewsPerMonth: 14.1, usualVideoId: 'ph', standoutVideoId: 'dubai', high: [], low: [] },
+    swipeFile: { examples: [] },
+    publicResearch: { statistics: { version: '1', asOf: '', videos, formats: [], publicationYears: [], medianViews: 21, medianViewsPerMonth: 14.1, usualVideoId: 'ph', standoutVideoId: 'dubai', sample: { datedCount: 3, undatedVideoIds: [], spanMonths: null, maxUploadGapMonths: null, flags: [] } } },
+  };
+  render(<MemoryRouter><AuditCreatorPlan audit={audit} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { level: 1, name: 'Your videos get 5 to 32 views. That is too few to tell which ones work better yet.' })).toBeInTheDocument();
+  expect(screen.queryByText(/broke out/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/×$/)).not.toBeInTheDocument();
+  expect(screen.queryByText('Your usual video')).not.toBeInTheDocument();
+});
