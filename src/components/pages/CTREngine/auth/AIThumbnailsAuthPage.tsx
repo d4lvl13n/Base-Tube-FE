@@ -258,7 +258,7 @@ export function AIThumbnailsSignUpPage() {
   const subtitle = planIntent
     ? 'Create your account, then a secure Stripe page opens. One account for AI Thumbnails and the rest of base.tube.'
     : trial
-      ? `Create your free account. Then try any plan free for ${trial.days} days, with ${trial.videos} video${trial.videos === 1 ? '' : 's'} included.`
+      ? `Create your free account. Then try any plan free for ${trial.days} days, with thumbnails for ${trial.videos} video${trial.videos === 1 ? '' : 's'} included.`
       : 'Create your free account. One account for AI Thumbnails and the rest of base.tube.';
   return (
     <AuthLayout heading={heading} subtitle={subtitle} note={<AuthNote planIntent={planIntent} gift />}>

@@ -174,7 +174,7 @@ function BuyCreditsDialog({
                     Try {trialPlan.name} free for {trial.days} days
                   </h3>
                   <p className="mt-0.5 text-xs text-zinc-300">
-                    {trial.videos.toLocaleString()} video{trial.videos === 1 ? '' : 's'} included. Then {planPriceText(trialPlan, 'month')}.
+                    Thumbnails for {trial.videos.toLocaleString()} video{trial.videos === 1 ? '' : 's'} included. Then {planPriceText(trialPlan, 'month')}.
                     Cancel before day {trial.days + 1} and you pay nothing.
                   </p>
                 </div>

@@ -15,7 +15,8 @@ import { thumbnailStudioApi, studioError } from "../../../../../api/thumbnailStu
 import type { StudioErrorInfo } from "../../../../../api/studioErrors";
 import { StudioErrorText } from "./StudioErrorDetail";
 import { thumbnailMediaUrl } from "../../../../../utils/thumbnailMediaUrl";
-import { ThumbnailBriefForm } from "../ThumbnailBriefForm";
+import { templateDirection } from "./StudioTemplateDrawer";
+import { TemplateGuidedText, ThumbnailBriefForm } from "../ThumbnailBriefForm";
 import { ThumbnailStylePicker } from "../../../../common/ThumbnailPackaging";
 import { ThumbnailLogoPicker } from "../../../../common/ThumbnailLogoPicker";
 import { ThumbnailSubjectPicker } from "../../../../common/ThumbnailSubjectPicker";
@@ -271,14 +272,17 @@ export function BriefReview({ value, revision, profile, onChange, onBlur, disabl
       ...(patch.format !== undefined ? { outputFormat: patch.format === "short" ? "portrait" as const : "landscape" as const } : {}),
     })}
     disabled={disabled || uploading || styleUploading || faceUploading} onBlur={onBlur} onDiscard={onDiscard} limits={{ title: 500, description: 3000, direction: 3000, headline: 90 }}
+    onUseTemplate={template => onChange({ ...value, visualDirection: templateDirection(template),
+      // The words stay to write: empty and highlighted, never the example's.
+      overrides: { ...value.overrides, text: { mode: "exact" as const, value: "" } } })}
     headlineControl={<div className="mt-4 space-y-3">
-      <label className="block text-sm text-zinc-200">Text on the thumbnail<StudioSelect className={studioField} value={value.overrides.text?.mode || "inherit"} onChange={event => {
+      <TemplateGuidedText filled={text.mode !== "exact" || Boolean(text.value.trim())}><label className="block text-sm text-zinc-200">Text on the thumbnail<StudioSelect className={studioField} value={value.overrides.text?.mode || "inherit"} onChange={event => {
         const overrides = { ...value.overrides };
         if (event.target.value === "inherit") delete overrides.text;
         else overrides.text = { mode: event.target.value as "exact" | "suggest" | "none", value: event.target.value === "exact" ? text.value : "" };
         onChange({ ...value, overrides });
       }}><option value="inherit">Use profile / default ({inherited.textMode})</option><option value="suggest">Suggest a short headline</option><option value="exact">Use my exact words</option><option value="none">No added text</option></StudioSelect></label>
-      {text.mode === "exact" && <label className="block text-sm text-zinc-200">Exact words<input aria-label="Initial headline" className={studioField} maxLength={90} value={text.value} onChange={event => onChange({ ...value, overrides: { ...value.overrides, text: { mode: "exact", value: event.target.value } } })} /></label>}
+      {text.mode === "exact" && <label className="mt-3 block text-sm text-zinc-200">Exact words<input aria-label="Initial headline" className={studioField} maxLength={90} value={text.value} placeholder="1 to 4 words for your video" onChange={event => onChange({ ...value, overrides: { ...value.overrides, text: { mode: "exact", value: event.target.value } } })} /></label>}</TemplateGuidedText>
     </div>}
     options={<>
       {options}

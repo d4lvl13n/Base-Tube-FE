@@ -153,7 +153,9 @@ export default function StudioCreatePage({
   const available = usage?.mode === "credits" ? usage.creditInfo.available : undefined;
   const generateBlocked = generationCredits !== null && available !== undefined && available < generationCredits;
   const selectedProfile = profiles.find(profile => profile.id === brief.profile?.id) || null;
-  const blocked = busy || referencesBusy || !brief.videoTitle.trim();
+  // "Use my exact words" with no words cannot start: the server refuses it.
+  const missingWords = brief.overrides.text?.mode === "exact" && !brief.overrides.text.value.trim();
+  const blocked = busy || referencesBusy || !brief.videoTitle.trim() || missingWords;
   return <AIThumbnailsLayout usageAccess={access.usageAccess} isLoadingQuota={access.isLoadingQuota}>
     <div ref={flow} className="thumbnail-flow studio-wide mx-auto w-full pb-8 text-white">
       <header className="mb-8 flex flex-wrap items-center justify-between gap-5">
@@ -186,6 +188,7 @@ export default function StudioCreatePage({
             availableCredits={available}
             unavailable={startAvailability.message}
           />
+          {missingWords && brief.videoTitle.trim() && <p className="basis-full text-xs text-amber-200">Write the words for your thumbnail, or choose “Suggest a short headline”.</p>}
           <p className="basis-full text-xs text-zinc-400">One click saves your brief as a project and starts the generation there.</p>
          </StudioCreditsScope>
         </div>

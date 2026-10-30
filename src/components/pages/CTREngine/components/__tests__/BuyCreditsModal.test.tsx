@@ -187,7 +187,7 @@ describe("not enough credits for an action", () => {
     open({ pendingAction: generate });
     const dialog = await screen.findByRole("dialog", { name: "Get more credits" });
     const trial = await within(dialog).findByRole("region", { name: "Try Creator free for 7 days" });
-    expect(trial).toHaveTextContent("2 videos included. Then $24/month. Cancel before day 8 and you pay nothing.");
+    expect(trial).toHaveTextContent("Thumbnails for 2 videos included. Then $24/month. Cancel before day 8 and you pay nothing.");
     // First in the window: before the plans and the packs.
     const sections = within(dialog).getAllByRole("region").map((section) => section.getAttribute("aria-labelledby"));
     expect(sections[0]).toBe(trial.getAttribute("aria-labelledby"));

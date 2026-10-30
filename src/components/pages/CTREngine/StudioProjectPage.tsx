@@ -653,7 +653,8 @@ function Workspace({ projectId }: { projectId: string }) {
       label: `Generate ${count} concept${count === 1 ? "" : "s"}`,
       credits: generateCredits,
       secondary,
-      disabled: actionsDisabled || !draft.videoTitle.trim(),
+      // "Use my exact words" with no words cannot start: the server refuses it.
+      disabled: actionsDisabled || !draft.videoTitle.trim() || (draft.overrides.text?.mode === "exact" && !draft.overrides.text.value.trim()),
       running: generating
         ? `Generating ${generatingCount} concept${generatingCount === 1 ? "" : "s"}…`
         : null,

@@ -40,6 +40,14 @@
   box-shadow: 0 0 0 3px rgba(250, 117, 23, 0.09) !important;
 }
 
+/* After a template: a field the creator still has to make their own (ThumbnailBriefForm). */
+.ai-studio-shell [data-template-guide],
+.ai-studio-shell [data-template-guide-wrap] input,
+.ai-studio-shell [data-template-guide-wrap] select {
+  border-color: #fa7517 !important;
+  box-shadow: 0 0 0 3px rgba(250, 117, 23, 0.28) !important;
+}
+
 .ai-studio-shell button {
   -webkit-tap-highlight-color: transparent;
 }

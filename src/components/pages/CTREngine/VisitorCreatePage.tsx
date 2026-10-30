@@ -3,7 +3,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import AIThumbnailsLayout from './AIThumbnailsLayout';
-import { ThumbnailBriefForm } from './components/ThumbnailBriefForm';
+import { ThumbnailBriefForm, TemplateGuidedText } from './components/ThumbnailBriefForm';
+import { templateDirection } from './components/studio/StudioTemplateDrawer';
 import { StudioLayoutPicker } from './components/studio/BriefReview';
 import { studioField } from './components/studio/StudioControls';
 import { StudioSelect } from './components/studio/StudioSelect';
@@ -57,6 +58,8 @@ export default function VisitorCreatePage({ usageAccess, isLoadingQuota }: {
   const [direction, setDirection] = useState(restored?.draft.direction || '');
   const [headline, setHeadline] = useState(restored?.draft.headline || '');
   const [textMode, setTextMode] = useState<TextMode>(restored?.draft.textMode || (restored?.draft.headline ? 'exact' : 'suggest'));
+  // "Use my exact words" with no words cannot start: the server refuses it.
+  const missingWords = textMode === 'exact' && !headline.trim();
   const [layout, setLayout] = useState<StudioBriefInputV1['layout']>(restored?.draft.layout || 'auto');
   const [format, setFormat] = useState<ThumbnailOutputFormat>(restored?.draft.format || 'landscape');
   const [count, setCount] = useState<number>(restored?.draft.count || 2);
@@ -118,11 +121,19 @@ export default function VisitorCreatePage({ usageAccess, isLoadingQuota }: {
       </header>
       <form onSubmit={createAccount} aria-label="Thumbnail brief" noValidate>
         <ThumbnailBriefForm value={{ videoTitle, creatorHook, description, direction, headline, format }} onDiscard={discardDraft}
+          onUseTemplate={template => {
+            setDirection(templateDirection(template));
+            // The words stay to write: empty and highlighted, never the example's.
+            setTextMode('exact');
+            setHeadline('');
+          }}
           onChange={patch => { if (patch.videoTitle !== undefined) setVideoTitle(patch.videoTitle); if (patch.creatorHook !== undefined) setCreatorHook(patch.creatorHook); if (patch.description !== undefined) setDescription(patch.description); if (patch.direction !== undefined) setDirection(patch.direction); if (patch.format !== undefined) setFormat(patch.format); }}
           limits={{ title: 500, description: 3000, direction: 3000, headline: 90 }}
           headlineControl={<div className="mt-4 space-y-3">
+            <TemplateGuidedText filled={!missingWords}>
             <label className="block text-sm text-zinc-200">Text on the thumbnail<StudioSelect aria-label="Text on the thumbnail" className={studioField} value={textMode} onChange={event => setTextMode(event.target.value as TextMode)}><option value="suggest">Suggest a short headline</option><option value="exact">Use my exact words</option><option value="none">No added text</option></StudioSelect></label>
-            {textMode === 'exact' && <label className="block text-sm text-zinc-200">Exact words<input aria-label="Initial headline" className={studioField} maxLength={90} value={headline} onChange={event => setHeadline(event.target.value)} /></label>}
+            {textMode === 'exact' && <label className="mt-3 block text-sm text-zinc-200">Exact words<input aria-label="Initial headline" className={studioField} maxLength={90} value={headline} placeholder="1 to 4 words for your video" onChange={event => setHeadline(event.target.value)} /></label>}
+            </TemplateGuidedText>
           </div>}
           options={<>
             <StudioLayoutPicker value={layout} onChange={setLayout} />
@@ -131,8 +142,9 @@ export default function VisitorCreatePage({ usageAccess, isLoadingQuota }: {
         />
         <div className="thumbnail-generate-bar" style={barBounds}>
           <label className="flex items-center gap-2 text-sm text-zinc-300">Concepts<StudioSelect aria-label="Number of concepts" value={count} onChange={event => setCount(Number(event.target.value))} className="rounded-lg border border-white/10 px-3 py-2 text-white">{[1, 2, 3].map(number => <option key={number} value={number}>{number}</option>)}</StudioSelect></label>
-          <button type="submit" disabled={!videoTitle.trim()} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#fa7517] px-6 py-3 text-sm font-semibold text-white hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"><Sparkles className="h-4 w-4" />Create a free account to generate</button>
+          <button type="submit" disabled={!videoTitle.trim() || missingWords} className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#fa7517] px-6 py-3 text-sm font-semibold text-white hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"><Sparkles className="h-4 w-4" />Create a free account to generate</button>
           {!videoTitle.trim() && <p className="basis-full text-xs text-zinc-400">Enter a video title or idea to continue.</p>}
+          {videoTitle.trim() && missingWords && <p className="basis-full text-xs text-amber-200">Write the words for your thumbnail, or choose “Suggest a short headline”.</p>}
           <p className="basis-full text-xs text-zinc-400">{visitorWelcomeLine(offer, catalogTrial(plans.data))}</p>
         </div>
       </form>

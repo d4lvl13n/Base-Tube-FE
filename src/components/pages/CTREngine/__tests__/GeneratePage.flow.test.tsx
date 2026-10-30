@@ -98,12 +98,12 @@ it('without the welcome gift (the default), the button and the gate lead to the 
   offer.mockResolvedValue({ credits: 0, available: false, resetsAt: '2030-01-02T00:00:00.000Z' });
   render(page());
   expect(
-    await screen.findByText('The account is free. Then try any plan free for 7 days, with 2 videos included. Cancel before day 8 and you pay nothing.'),
+    await screen.findByText('The account is free. Then try any plan free for 7 days, with thumbnails for 2 videos included. Cancel before day 8 and you pay nothing.'),
   ).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Video title or idea'), { target: { value: 'A tiny balcony garden' } });
   fireEvent.click(createAccount());
   const gate = await screen.findByRole('dialog');
-  expect(gate).toHaveTextContent('The account is free. After signing up, try any plan free for 7 days, with 2 videos included.');
+  expect(gate).toHaveTextContent('The account is free. After signing up, try any plan free for 7 days, with thumbnails for 2 videos included.');
   expect(gate).not.toHaveTextContent(/credits/);
 });
 

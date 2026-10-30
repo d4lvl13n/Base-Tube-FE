@@ -40,9 +40,9 @@ export const freeCreditsText = (credits: number) => `${credits} free credits`;
 
 export const WELCOME_CREDITS_GIVEN_OUT = "Today’s welcome credits are all given — create your account now and get them tomorrow.";
 
-/** "try any plan free for 7 days, with 2 videos included". */
+/** "try any plan free for 7 days, with thumbnails for 2 videos included". */
 const trialOfferText = (trial: SubscriptionTrial) =>
-  `try any plan free for ${trial.days} day${trial.days === 1 ? "" : "s"}, with ${trial.videos} video${trial.videos === 1 ? "" : "s"} included`;
+  `try any plan free for ${trial.days} day${trial.days === 1 ? "" : "s"}, with thumbnails for ${trial.videos} video${trial.videos === 1 ? "" : "s"} included`;
 
 /**
  * The line under the visitor's "Create a free account to generate" button: the

@@ -81,9 +81,9 @@ export function entryPlan(catalog: SubscriptionCatalog | null | undefined): Subs
 /** "Start 7-day free trial". */
 export const trialButtonLabel = (trial: SubscriptionTrial) => `Start ${trial.days}-day free trial`;
 
-/** "2 videos free for 7 days · Cancel before day 8 and pay nothing". */
+/** "Thumbnails for 2 videos, free for 7 days · Cancel before day 8 and pay nothing". */
 export const trialTermsText = (trial: SubscriptionTrial) =>
-  `${trial.videos.toLocaleString()} video${trial.videos === 1 ? '' : 's'} free for ${trial.days} day${trial.days === 1 ? '' : 's'} · Cancel before day ${trial.days + 1} and pay nothing`;
+  `Thumbnails for ${trial.videos.toLocaleString()} video${trial.videos === 1 ? '' : 's'}, free for ${trial.days} day${trial.days === 1 ? '' : 's'} · Cancel before day ${trial.days + 1} and pay nothing`;
 
 /** "Oct 31" (with the year when it is not this year). */
 export function shortDate(iso: string | null | undefined, now = new Date()): string {

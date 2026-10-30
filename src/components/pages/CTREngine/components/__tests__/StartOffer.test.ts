@@ -20,7 +20,7 @@ describe("the landing page's start button", () => {
   it("offers a visitor the free trial of the smallest plan, with its terms from the catalog", () => {
     const offer = startOffer({ catalog: withTrial, signedIn: false });
     expect(offer).toMatchObject({ kind: "trial", plan: { id: "creator" }, signedIn: false });
-    expect(startOfferTerms(offer)).toBe("2 videos free for 7 days · Cancel before day 8 and pay nothing");
+    expect(startOfferTerms(offer)).toBe("Thumbnails for 2 videos, free for 7 days · Cancel before day 8 and pay nothing");
   });
 
   it("shows the plan with its price when trials are off", () => {
