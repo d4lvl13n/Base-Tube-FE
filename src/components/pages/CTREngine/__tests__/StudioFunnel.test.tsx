@@ -435,7 +435,8 @@ it('Google or Discord from the gate: the full AI Thumbnails sign-up with the gat
   expect(page).toHaveAttribute('data-routing', 'path');
   expect(page).toHaveAttribute('data-social', 'shown');
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  expect(screen.getByRole('checkbox', { name: /product tips/ })).toBeChecked();
+  // The page has no box of its own: the gate's answer goes with the sign-up.
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   // Google comes back (Clerk's own sub-paths), the account exists: the continue screen.
   mockAccount = 'clerk:google-creator';
   fireEvent.click(screen.getByRole('button', { name: 'Finish Clerk sign-up' }));
@@ -448,12 +449,11 @@ it('Google or Discord from the gate: the full AI Thumbnails sign-up with the gat
   expectNothingStarted();
 });
 
-it.each([true, false])('the AI Thumbnails sign-up page without the gate (opt-in %s): the welcome credits confirmed once with its box', async consent => {
+it('the AI Thumbnails sign-up page without the gate: no opt-in box, the welcome credits confirmed once without consent', async () => {
+  const consent = false;
   startStudioAuth('sign-up', '/ai-thumbnails/projects');
   const view = render(app('/ai-thumbnails/sign-up'));
-  const box = screen.getByRole('checkbox', { name: /product tips/ });
-  expect(box).not.toBeChecked();
-  if (consent) fireEvent.click(box);
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   mockAccount = 'clerk:page-creator';
   fireEvent.click(screen.getByRole('button', { name: 'Finish Clerk sign-up' }));
   view.rerender(app('/ai-thumbnails/sign-up'));

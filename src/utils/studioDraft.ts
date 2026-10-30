@@ -188,7 +188,8 @@ export function readPlanIntent(now = Date.now()): PlanIntent | null {
  * sign-up address: `/ai-thumbnails/sign-up?plan=creator&interval=month&trial=1`. Its plan intent, or
  * null when there is none or the plan or interval is unknown (the visitor then picks a plan later).
  */
-const PLAN_LINK_PARAMS = ['plan', 'interval', 'trial'];
+// `prompt` (an idea typed or picked on base.tube) and `site_ref` (which page and button) come with it.
+const PLAN_LINK_PARAMS = ['plan', 'interval', 'trial', 'prompt', 'site_ref'];
 export function planIntentFromLink(search: string): PlanIntent | null {
   const params = new URLSearchParams(search);
   const planId = params.get('plan') as SubscriptionPlanId | null;
@@ -368,4 +369,21 @@ export function studioCreateUrlForIdea(videoTitle: string, visualDirection: stri
   const id = createStudioDraftId();
   saveStudioDraft(id, {videoTitle:title,creatorHook:'',description:'',direction,headline:'',format:'landscape',quality:'high',count:2,niche:null,includeFace:false,savedStyleHasLogo:false,localFiles:[]});
   return `/ai-thumbnails/generate?draft=${encodeURIComponent(id)}`;
+}
+
+/**
+ * A base.tube page sent the visitor to sign up with an idea (`prompt`, at most 500 characters):
+ * it becomes this tab's create draft, so the visitor finds it on the create page after the sign-up
+ * and the checkout. Its return path (`/ai-thumbnails/generate?draft=<id>`), or null without an idea.
+ */
+export function draftFromLink(search: string): string | null {
+  const idea = (new URLSearchParams(search).get('prompt') || '').trim().slice(0, 500);
+  if (!idea) return null;
+  const id = createStudioDraftId();
+  const saved = saveStudioDraft(id, {
+    videoTitle: idea, creatorHook: '', description: '', direction: '', headline: '', format: 'landscape',
+    quality: 'high', count: 2, niche: null, includeFace: false, savedStyleHasLogo: false, localFiles: [],
+    textMode: 'suggest', layout: 'auto',
+  });
+  return saved ? `/ai-thumbnails/generate?draft=${id}` : null;
 }

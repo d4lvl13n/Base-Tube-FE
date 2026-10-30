@@ -9,14 +9,13 @@ import { AIThumbnailsSignIn, AIThumbnailsSignUp } from './AIThumbnailsClerk';
 import {
   cleanStudioAuthUrl,
   readStudioAuthOrigin,
-  setStudioAuthConsent,
   startStudioAuth,
   STUDIO_AUTH_CONTINUE_PATH,
   touchStudioAuthOrigin,
   type StudioAuthIntent,
 } from '../../../../utils/studioAuth';
-import { planIntentFromLink, readPlanIntent, rememberPlanIntent, withoutPlanLink, type PlanIntent } from '../../../../utils/studioDraft';
-import { loadEmailGate, saveEmailGate } from '../../../../utils/studioFunnel';
+import { draftFromLink, loadStudioDraft, planIntentFromLink, readPlanIntent, rememberPlanIntent, withoutPlanLink, type PlanIntent } from '../../../../utils/studioDraft';
+import { rememberSiteRef } from '../../../../utils/analytics';
 import { planPriceText } from '../components/billing/PlanChoices';
 import { STUDIO_HOME_PATH } from '../components/billing/StartOffer';
 import { noteStudioAuthStart } from '../../../../utils/studioWelcome';
@@ -54,10 +53,13 @@ function useStudioAuthScreen(intent: StudioAuthIntent) {
   // (where a signed-in visitor goes at once) opens this plan's checkout. The
   // Studio is where the visitor goes if the account already has a plan.
   useState(() => {
+    rememberSiteRef(new URLSearchParams(location.search).get('site_ref'));
+    // An idea from base.tube waits on the create page, after the checkout when there is one.
+    const ideaPath = draftFromLink(location.search);
     const planIntent = planIntentFromLink(location.search);
-    if (!planIntent) return;
-    startStudioAuth(intent, STUDIO_HOME_PATH);
-    rememberPlanIntent(planIntent);
+    if (!planIntent && !ideaPath) return;
+    startStudioAuth(intent, ideaPath ?? STUDIO_HOME_PATH);
+    if (planIntent) rememberPlanIntent(planIntent);
   });
   const planLinkSearch = withoutPlanLink(location.search);
   // A Clerk session that appears while the page is open is Clerk's own sign-in
@@ -120,20 +122,27 @@ function AuthNote({ planIntent, gift }: { planIntent: PlanIntent | null; gift: b
 }
 
 /**
- * The two pages' frame, mirroring the landing page: on the left the drifting wall of thumbnails
- * under a dark veil, a white and orange headline, the outcomes and the next step; on the right the
- * form on a glass panel. On a phone the left side shortens to the headline above the form.
+ * The two pages' frame, mirroring the landing page's hero: on the left the drifting wall of
+ * thumbnails, clearly visible, under a veil that is dark only behind the headline, the outcomes and
+ * the next step; on the right the form on the plain dark page. On a phone a short band of the wall
+ * sits above the headline and the form.
  */
 function AuthLayout({ heading, subtitle, note, children }: { heading: HeadingPart[]; subtitle: string; note?: React.ReactNode; children: React.ReactNode }) {
   useLandingFonts();
   const titleId = useId();
   return (
-    <div className="lp relative isolate min-h-screen overflow-hidden text-zinc-100">
-      <ThumbnailWall rows={5} lazy className="-z-20 hidden opacity-80 lg:block" />
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(7,7,9,0.82)_0%,rgba(7,7,9,0.9)_45%,rgba(7,7,9,0.97)_60%,#070709_100%)] max-lg:bg-[linear-gradient(180deg,rgba(7,7,9,0.85)_0%,rgba(7,7,9,0.96)_40%,#070709_70%)]"
-      />
+    <div className="lp relative isolate min-h-screen overflow-hidden bg-[#070709] text-zinc-100">
+      {/* Large screens: the wall fills the left side, as in the landing page's hero. */}
+      <div aria-hidden="true" data-testid="auth-thumbnail-wall" className="absolute inset-y-0 left-0 -z-10 hidden w-[62%] overflow-hidden lg:block">
+        <ThumbnailWall rows={6} />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_45%_at_42%_52%,rgba(7,7,9,0.9)_0%,rgba(7,7,9,0.66)_50%,rgba(7,7,9,0.2)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_55%,#070709_100%)]" />
+      </div>
+      {/* Phones and tablets: a short band of the wall above the headline. */}
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-10 h-72 overflow-hidden lg:hidden">
+        <ThumbnailWall rows={3} />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,7,9,0.45)_0%,rgba(7,7,9,0.8)_60%,#070709_100%)]" />
+      </div>
       <div aria-hidden="true" className="absolute right-[12%] top-1/3 -z-10 h-[420px] w-[520px] rounded-full bg-[#fa7517]/[0.1] blur-[140px]" />
 
       <header className="relative">
@@ -179,6 +188,19 @@ function AuthLayout({ heading, subtitle, note, children }: { heading: HeadingPar
   );
 }
 
+/** The idea this sign-up returns to (a base.tube link or the create page's draft), or null. */
+function useSavedIdea(): string | null {
+  const location = useLocation();
+  // Read again when the page cleans its address (the draft is saved on the first render).
+  return React.useMemo(() => {
+    const destination = readStudioAuthOrigin()?.destination ?? '';
+    const id = new URLSearchParams(destination.split('?')[1] ?? '').get('draft');
+    if (!destination.startsWith('/ai-thumbnails/generate') || !id) return null;
+    return loadStudioDraft(id)?.draft.videoTitle.trim() || null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+}
+
 /** `/ai-thumbnails/sign-in/*`: email (and Google, Discord) with Clerk, or a wallet. */
 export function AIThumbnailsSignInPage() {
   const { redirect, location } = useStudioAuthScreen('sign-in');
@@ -214,25 +236,18 @@ export function AIThumbnailsSignInPage() {
   );
 }
 
-/** `/ai-thumbnails/sign-up/*`: Clerk's sign-up and the unticked opt-in box. */
+/**
+ * `/ai-thumbnails/sign-up/*`: Clerk's sign-up, nothing else to fill in (no opt-in box: the
+ * shortest way to the trial). A consent given earlier, in the email gate, still goes with it.
+ */
 export function AIThumbnailsSignUpPage() {
   const { redirect } = useStudioAuthScreen('sign-up');
-  // The gate's box when the gate started this sign-up, else this page's.
-  const [consent, setConsent] = useState(() => {
-    const gate = loadEmailGate();
-    return gate?.phase === 'awaiting_sign_in' ? gate.marketingConsent : readStudioAuthOrigin()?.consent === true;
-  });
-  const onConsent = (checked: boolean) => {
-    setConsent(checked);
-    setStudioAuthConsent(checked);
-    const gate = loadEmailGate();
-    if (gate?.phase === 'awaiting_sign_in') saveEmailGate({ ...gate, marketingConsent: checked, updatedAt: Date.now() });
-  };
   // A plan button led here: its checkout opens right after the sign-up (AIThumbnailsAuthContinue).
   const [planIntent] = useState(() => readPlanIntent());
   const plans = useSubscriptionPlans();
   const trial = catalogTrial(plans.data);
   const plan = planIntent ? plans.data?.plans.find(({ id }) => id === planIntent.planId) ?? null : null;
+  const idea = useSavedIdea();
   if (redirect) return redirect;
   // Why the visitor is here decides the headline: a trial button, a paid plan button, or just signing up.
   const heading: HeadingPart[] = planIntent?.trial
@@ -247,18 +262,16 @@ export function AIThumbnailsSignUpPage() {
       : 'Create your free account. One account for AI Thumbnails and the rest of base.tube.';
   return (
     <AuthLayout heading={heading} subtitle={subtitle} note={<AuthNote planIntent={planIntent} gift />}>
-      {/* Read before the form is sent: the value goes with the sign-up confirmation (consent). */}
-      <label className="flex cursor-pointer select-none items-start gap-3 rounded-2xl border border-white/10 bg-[#101015]/90 px-4 py-3 backdrop-blur-xl">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(event) => onConsent(event.target.checked)}
-          className="mt-0.5 h-4 w-4 cursor-pointer rounded border-white/20 bg-white/5 accent-[#fa7517]"
-        />
-        <span className="text-xs leading-relaxed text-zinc-400">
-          Send me occasional product tips and updates. Optional — you can unsubscribe any time.
-        </span>
-      </label>
+      {idea && (
+        <div role="status" className="flex items-start gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.07] px-4 py-3 text-sm backdrop-blur-xl">
+          <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" aria-hidden="true" />
+          <span className="min-w-0">
+            <span className="font-semibold text-white">Your idea is saved</span>
+            <span className="mt-0.5 block truncate text-zinc-300">“{idea}”</span>
+            <span className="mt-0.5 block text-xs text-zinc-400">It will be waiting for you after sign-up.</span>
+          </span>
+        </div>
+      )}
       <AIThumbnailsSignUp routing="path" />
     </AuthLayout>
   );

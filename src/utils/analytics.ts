@@ -9,10 +9,24 @@ function gtag(): Gtag | null {
   return typeof candidate === 'function' ? (candidate as Gtag) : null;
 }
 
+const SITE_REF_KEY = 'ga4:site_ref';
+/**
+ * The base.tube page and button that sent this visitor (`site_ref`, for example
+ * "thumbnails-nba-hero"), kept for this tab and sent with every conversion event as `site_ref`.
+ */
+export function rememberSiteRef(ref: string | null) {
+  if (!ref || !/^[a-z0-9-]{1,80}$/.test(ref)) return;
+  try { sessionStorage.setItem(SITE_REF_KEY, ref); } catch { /* Storage may be disabled. */ }
+}
+function siteRef(): string | null {
+  try { return sessionStorage.getItem(SITE_REF_KEY); } catch { return null; }
+}
+
 /** A GA4 event; `beacon` so it is still sent when the page leaves right after (Stripe Checkout). */
 export function trackEvent(name: string, params: Record<string, unknown> = {}) {
   try {
-    gtag()?.('event', name, { ...params, transport_type: 'beacon' });
+    const ref = siteRef();
+    gtag()?.('event', name, { ...(ref ? { site_ref: ref } : {}), ...params, transport_type: 'beacon' });
   } catch { /* Analytics must never interrupt a purchase or an account action. */ }
 }
 

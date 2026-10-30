@@ -40,6 +40,9 @@ export function aiThumbnailsClerkAppearance({ withSocialButtons = true }: { with
         '&:focus': { borderColor: '#fa7517', boxShadow: '0 0 0 2px rgba(250, 117, 23, 0.2)' },
       },
       footerActionLink: 'text-[#fa7517] hover:text-orange-400',
+      // The username is optional in Clerk (base.tube asks for it later, in its settings; without
+      // one the account gets an automatic name). AI Thumbnails asks only for the email.
+      formFieldRow__username: { display: 'none' },
       ...(withSocialButtons ? {} : { socialButtons: { display: 'none' }, dividerRow: { display: 'none' } }),
     },
   };

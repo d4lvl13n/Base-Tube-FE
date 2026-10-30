@@ -120,7 +120,7 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     expect(screen.getByRole('region', { name: 'Clerk sign-up' })).toHaveAttribute('data-done', CONTINUE);
   });
 
-  it('the sign-up page says what AI Thumbnails does, promises the credits only on a verified email, and keeps an unticked opt-in', async () => {
+  it('the sign-up page says what AI Thumbnails does, promises the credits only on a verified email, and asks nothing beyond the form', async () => {
     startStudioAuth('sign-up', '/ai-thumbnails/gallery');
     render(app('/ai-thumbnails/sign-up'));
     expect(screen.getByRole('heading', { name: 'Make thumbnails that look like your channel.' })).toBeInTheDocument();
@@ -128,12 +128,12 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     // The gift comes from the welcome offer: nothing is promised until the server says so.
     expect(screen.queryByText(/free credits/i)).not.toBeInTheDocument();
     expect(await screen.findByText('50 free credits once your email is verified.')).toBeInTheDocument();
-    const box = screen.getByRole('checkbox', { name: /product tips and updates/ });
-    expect(box).not.toBeChecked();
-    fireEvent.click(box);
-    expect(readStudioAuthOrigin()).toMatchObject({ destination: '/ai-thumbnails/gallery', intent: 'sign-up', consent: true });
-    fireEvent.click(box);
-    expect(readStudioAuthOrigin()).toMatchObject({ consent: false });
+    // No opt-in box: the shortest way to the trial. Nothing is consented on the visitor's behalf.
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(readStudioAuthOrigin()).toMatchObject({ destination: '/ai-thumbnails/gallery', intent: 'sign-up' });
+    expect(readStudioAuthOrigin()?.consent).not.toBe(true);
+    // The wall of thumbnails shows on the left, as on the landing page.
+    expect(screen.getByTestId('auth-thumbnail-wall')).toBeInTheDocument();
   });
 
   it('the sign-up page says when today’s welcome credits are all given', async () => {
@@ -175,6 +175,21 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     expect(readStudioAuthOrigin()).toMatchObject({ destination: '/ai-thumbnails/projects', intent: 'sign-up' });
     expect(await screen.findByRole('heading', { name: 'Start your 7-day free trial.' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Clerk sign-up' })).toHaveAttribute('data-done', CONTINUE);
+  });
+
+  it('a trial link with an idea from a base.tube page keeps the idea for after the checkout and says so', async () => {
+    (getWelcomeOffer as jest.Mock).mockResolvedValue({ credits: 0, available: false, resetsAt: '2030-01-02T00:00:00.000Z' });
+    render(<StrictMode>{app('/ai-thumbnails/sign-up?plan=creator&interval=month&trial=1&prompt=NBA%20trade%20deadline%20winners&site_ref=thumbnails-nba-hero')}</StrictMode>);
+    // The address is clean; the plan and the idea are remembered.
+    expect(where().textContent).toBe('/ai-thumbnails/sign-up');
+    expect(readPlanIntent()).toEqual({ planId: 'creator', interval: 'month', trial: true });
+    const destination = readStudioAuthOrigin()!.destination;
+    expect(destination).toMatch(/^\/ai-thumbnails\/generate\?draft=/);
+    expect(loadStudioDraft(new URLSearchParams(destination.split('?')[1]).get('draft'))!.draft.videoTitle).toBe('NBA trade deadline winners');
+    expect(sessionStorage.getItem('ga4:site_ref')).toBe('thumbnails-nba-hero');
+    const saved = await screen.findByText('Your idea is saved');
+    expect(saved.closest('[role="status"]')).toHaveTextContent('“NBA trade deadline winners”');
+    expect(await screen.findByRole('heading', { name: 'Start your 7-day free trial.' })).toBeInTheDocument();
   });
 
   it('discloses the annual renewal even when welcome credits are available', async () => {
