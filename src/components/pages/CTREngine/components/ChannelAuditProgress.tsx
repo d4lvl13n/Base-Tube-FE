@@ -17,25 +17,25 @@ const ChannelAuditProgress: React.FC = () => (
       <p className="font-semibold text-white">Preparing your channel audit…</p>
     </div>
     <p className="mb-5 text-sm leading-relaxed text-zinc-400">
-      We collect public evidence, inspect up to eighteen thumbnails and turn the
-      findings into practical decisions. This can take a few minutes.
+      We read your recent videos and Shorts, watch how a few of them open, compare
+      your formats and look at creators your size. This can take up to 10 minutes.
     </p>
     <ul className="space-y-3 text-sm text-zinc-300">
       <li className="flex items-center gap-3">
         <ListVideo className="h-4 w-4 text-zinc-500" />
-        Channel and video metadata
+        Your videos, Shorts and their numbers
       </li>
       <li className="flex items-center gap-3">
         <Users className="h-4 w-4 text-zinc-500" />
-        Competitive examples and possible outliers
+        Creators your size on the same topics
       </li>
       <li className="flex items-center gap-3">
         <ScanSearch className="h-4 w-4 text-zinc-500" />
-        Actual thumbnail inspection
+        What your videos say and show
       </li>
       <li className="flex items-center gap-3">
         <FileText className="h-4 w-4 text-zinc-500" />
-        Prioritized advice and suggested variants
+        3 to 5 moves for your next uploads
       </li>
     </ul>
     <p className="mt-5 text-xs text-zinc-500">

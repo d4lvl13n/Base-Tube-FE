@@ -4,7 +4,7 @@ import { StudioSelect } from "../../../common/ThumbnailSelect";
 
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link2, Upload, PlayCircle, Users, ChevronRight, Sparkles, AlertCircle, FileText, Tag, Coins } from 'lucide-react';
+import { Link2, Upload, PlayCircle, Users, Sparkles, AlertCircle, FileText, Tag, Coins } from 'lucide-react';
 import { isValidYouTubeUrl } from '../../../../api/ctr';
 import { AuditContext, AuditProgress, CreditPricingCatalog, UsageMode } from '../../../../types/ctr';
 
@@ -93,6 +93,8 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
   const canSubmit = usageMode === 'credits'
     ? freeReviewsLeft > 0 || (availableCredits ?? 0) >= auditCreditCost
     : quotaRemaining === undefined || quotaRemaining > 0;
+  // The missing-fields message waits until the creator has started on the context.
+  const [contextTouched, setContextTouched] = useState(false);
   const hasRequiredContext =
     Boolean(context.title?.trim()) && Boolean(context.niche?.trim());
 
@@ -326,13 +328,14 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
               type="text"
               value={context.title || ''}
               onChange={(e) => setContext({ ...context, title: e.target.value })}
+              onBlur={() => setContextTouched(true)}
               placeholder="Video title *"
-              className="w-full px-4 py-2.5 pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
+              className="w-full pr-4 py-2.5 !pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
                         text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50"
               disabled={isLoading}
               required
             />
-            <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <FileText className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           </div>
 
           <div className="relative">
@@ -342,6 +345,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
                 value={COMMON_NICHES.includes((context.niche || '').trim()) ? (context.niche || '') : ''}
                 onChange={(e) => {
                   const value = e.target.value;
+                  setContextTouched(true);
                   if (value === '__custom__') {
                     setNicheMode('custom');
                     const current = (context.niche || '').trim();
@@ -351,8 +355,8 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
                     setContext({ ...context, niche: value });
                   }
                 }}
-                className="w-full px-4 py-2.5 pl-10 pr-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
-                          text-sm focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50 appearance-none"
+                className="w-full py-2.5 !pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
+                          text-sm focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50"
                 disabled={isLoading}
                 required
               >
@@ -377,7 +381,7 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
                     setContext({ ...context, niche: value });
                   }}
                   placeholder="Custom niche * (e.g., Thumbnail Design)"
-                  className="flex-1 px-4 py-2.5 pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
+                  className="flex-1 pr-4 py-2.5 !pl-10 bg-black/40 border border-gray-800/50 rounded-lg text-white 
                             text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#fa7517]/50"
                   disabled={isLoading}
                   required
@@ -397,16 +401,11 @@ export const ThumbnailAuditForm: React.FC<ThumbnailAuditFormProps> = ({
                 </button>
               </div>
             )}
-            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            {nicheMode === 'preset' && (
-              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-600">
-                <ChevronRight className="w-4 h-4 rotate-90" />
-              </div>
-            )}
+            <Tag className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           </div>
         </div>
 
-        {!hasRequiredContext && (
+        {!hasRequiredContext && contextTouched && (
           <p className="mt-3 text-xs text-[#fa7517] flex items-center gap-1.5">
             <AlertCircle className="w-3.5 h-3.5" />
             Please provide a video title and niche to run the audit.

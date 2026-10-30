@@ -34,10 +34,10 @@ import AIThumbnailsSignInOptions from './components/AIThumbnailsSignInOptions';
 import { plainApiError, type PlainApiError } from '../../../utils/plainApiError';
 import { TechnicalErrorDetail } from '../../common/TechnicalErrorDetail';
 
+// Channels the audit is made for (a few hundred to a few thousand subscribers), not giants.
 const EXAMPLE_CHANNELS = [
-  '@MrBeast',
-  '@mkbhd',
-  'youtube.com/@veritasium',
+  '@finalboss6969',
+  '@AmazingAerialTV',
 ];
 
 // ---------------------------------------------------------------------------
@@ -576,8 +576,8 @@ const ChannelAuditPage: React.FC = () => {
                 Channel Audit
               </h1>
               <p className="text-base sm:text-lg leading-relaxed text-zinc-400 max-w-xl mx-auto">
-                Find what to keep, what to improve and how to test it. We inspect up to eighteen thumbnails,
-                review the viewer promise and research competitive examples. No YouTube connection required.
+                See what works on your channel and what to do next. We watch your recent videos and Shorts,
+                compare your formats and look at creators your size on the same topics. No YouTube connection required.
               </p>
             </div>
 

@@ -69,7 +69,7 @@ const GalleryPage: React.FC = () => {
   const filteredThumbnails = gallery
     .filter(thumb => 
       searchQuery.trim() === '' || 
-      thumb.prompt.toLowerCase().includes(searchQuery.toLowerCase())
+      `${thumb.title || ''} ${thumb.prompt}`.toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();
@@ -404,7 +404,7 @@ const GalleryPage: React.FC = () => {
               }`}>
                 <img
                   src={thumbnailMediaUrl(thumbnail.thumbnailUrl)}
-                  alt={thumbnail.prompt}
+                  alt={thumbnail.title || thumbnail.prompt}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 
@@ -468,8 +468,9 @@ const GalleryPage: React.FC = () => {
 
               {/* Thumbnail Info */}
               <div className={`p-4 ${viewMode === 'list' ? 'flex-1' : ''}`}>
+                {/* A Studio image shows its video's name, not the prompt sent to the image model. */}
                 <p className="text-sm text-white line-clamp-2 mb-2 group-hover:text-[#fa7517] transition-colors">
-                  {thumbnail.prompt}
+                  {thumbnail.title || thumbnail.prompt}
                 </p>
                 <div className="flex items-center gap-3 text-xs text-gray-500">
                   <span className="flex items-center gap-1">

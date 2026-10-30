@@ -8,6 +8,8 @@ export interface GalleryThumbnail {
   id: number;
   thumbnailUrl: string;
   prompt: string;
+  /** A Studio image: the name of its project (the video it was made for). */
+  title?: string | null;
   size: string;
   quality: string;
   style: string;

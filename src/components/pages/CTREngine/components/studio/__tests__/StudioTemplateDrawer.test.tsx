@@ -72,7 +72,13 @@ it("opens the library, filters by kind, page and words, and fills the brief from
   expect(screen.queryByText(/This describes the example’s video/)).not.toBeInTheDocument();
   // The words are still to write.
   expect(screen.getByRole("status")).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("Initial headline"), { target: { value: "CHECKMATE" } });
+  // The field keeps its place (and the cursor) when the first letter ends the guide.
+  const words = screen.getByLabelText("Initial headline");
+  words.focus();
+  fireEvent.change(words, { target: { value: "C" } });
+  expect(screen.getByLabelText("Initial headline")).toBe(words);
+  expect(words).toHaveFocus();
+  fireEvent.change(words, { target: { value: "CHECKMATE" } });
   expect(screen.queryByText(/Write the words for your thumbnail/)).not.toBeInTheDocument();
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
 });

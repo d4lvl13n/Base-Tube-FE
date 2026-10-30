@@ -188,7 +188,8 @@ const ThumbnailDetailDrawerBody: React.FC<ThumbnailDetailDrawerProps & { gallery
 
                     <div className="min-w-0">
                       <h2 className="truncate text-lg font-semibold tracking-tight sm:text-xl">
-                        Thumbnail
+                        {/* The gallery passes the video's name for a Studio image. */}
+                        {(thumbnail as { title?: string | null } | null)?.title || 'Thumbnail'}
                       </h2>
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
                         <span className="inline-flex items-center gap-1.5 text-emerald-300">

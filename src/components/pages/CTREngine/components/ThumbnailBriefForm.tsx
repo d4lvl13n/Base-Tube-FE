@@ -19,12 +19,14 @@ export function TemplateGuidedText({ filled, children }: {
   const guide = useContext(TemplateTextGuide);
   const done = guide?.done;
   useEffect(() => { if (filled) done?.(); }, [filled, done]);
-  if (!guide || filled) return <>{children}</>;
-  return <div data-template-guide-wrap="">
+  const active = Boolean(guide) && !filled;
+  // Always the same wrapper: switching elements would remount the field and drop the cursor
+  // after the first letter typed.
+  return <div {...(active ? { 'data-template-guide-wrap': '' } : {})}>
     {children}
-    <span className="mt-1.5 block text-xs text-orange-300">
-      Write the words for your thumbnail (1 to 4 words), or choose “Suggest a short headline”.{guide.exampleText ? ` The example said “${guide.exampleText}”: don’t reuse it.` : ''}
-    </span>
+    {active && <span className="mt-1.5 block text-xs text-orange-300">
+      Write the words for your thumbnail (1 to 4 words), or choose “Suggest a short headline”.{guide?.exampleText ? ` The example said “${guide.exampleText}”: don’t reuse it.` : ''}
+    </span>}
   </div>;
 }
 
