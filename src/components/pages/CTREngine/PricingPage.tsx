@@ -1,4 +1,4 @@
-// /ai-thumbnails/pricing — the monthly plans in videos per month (monthly or
+// /ai-thumbnails/pricing — maximum new thumbnails from shared monthly credits (monthly or
 // yearly), then the one-time credit packs as top-ups. Every button carries its
 // price and is one click. A visitor, or an account that never had a plan, sees
 // "Start 7-day free trial" (then the price) on every plan. A visitor goes to the
@@ -19,6 +19,8 @@ import { PlanChoices } from './components/billing/PlanChoices';
 import { CreditPackPicker } from './components/billing/CreditPackPicker';
 import type { CheckoutContext } from './components/billing/billingActions';
 import type { PlanIntentNotice } from './auth/AIThumbnailsAuthContinue';
+
+import { creditUsageText } from '../../../utils/subscriptionPricing';
 
 const PRICING_PATH = '/ai-thumbnails/pricing';
 
@@ -55,8 +57,7 @@ export default function PricingPage() {
           {trial && trialOffered && <p className="text-sm font-medium text-[#fb923c]">{trialTermsText(trial)}</p>}
           {catalog && (
             <p className="text-sm text-zinc-500">
-              One video = {catalog.videoBreakdown.concepts} concepts, {catalog.videoBreakdown.edits} AI edits and{' '}
-              {catalog.videoBreakdown.audits} audit ({catalog.videoCredits} credits).
+              {creditUsageText(catalog.videoBreakdown)}
             </p>
           )}
         </header>

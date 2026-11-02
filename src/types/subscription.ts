@@ -1,5 +1,5 @@
 // AI Thumbnails monthly plans (spec docs/specs/ai-thumbnails-subscription-spec-2026-09-29.md in base-be).
-// Plans are sold in videos per month; inside, everything stays credits.
+// Plans display the maximum new Studio thumbnails; all paid actions share credits.
 
 export type SubscriptionPlanId = 'creator' | 'pro' | 'agency';
 export type BillingInterval = 'month' | 'year';

@@ -1,3 +1,4 @@
+import { PlanChoices } from "../billing/PlanChoices";
 import React from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -106,7 +107,7 @@ it("opens above the page in a portal with full pack names, what each buys and on
   const pro = await within(dialog).findByRole("radio", { name: /Pro/ });
   expect(pro).toHaveTextContent("Pro");
   expect(pro).toHaveTextContent("Best value");
-  expect(pro).toHaveTextContent("≈ 13 concepts · 11 edits · 100 audits");
+  expect(pro).toHaveTextContent("Up to 13 thumbnails or 11 AI edits or 100 thumbnail reviews");
   expect(pro).toHaveTextContent("$0.075 / credit");
   // The best value pack starts selected, so the usual purchase is one click.
   expect(pro).toHaveAttribute("aria-checked", "true");
@@ -148,8 +149,8 @@ it("says in plain words when the packs do not load, and loads them again", async
 });
 
 it("works out what a pack buys from the live prices only", () => {
-  expect(packYield(200, mockPricing as any)).toBe("≈ 13 concepts · 11 edits · 100 audits");
-  expect(packYield(15, mockPricing as any)).toBe("≈ 1 concept · 0 edits · 7 audits");
+  expect(packYield(200, mockPricing as any)).toBe("Up to 13 thumbnails or 11 AI edits or 100 thumbnail reviews");
+  expect(packYield(15, mockPricing as any)).toBe("Up to 1 thumbnail or 0 AI edits or 7 thumbnail reviews");
   expect(packYield(200, null)).toBeNull();
 });
 
@@ -187,7 +188,7 @@ describe("not enough credits for an action", () => {
     open({ pendingAction: generate });
     const dialog = await screen.findByRole("dialog", { name: "Get more credits" });
     const trial = await within(dialog).findByRole("region", { name: "Try Creator free for 7 days" });
-    expect(trial).toHaveTextContent("Thumbnails for 2 videos included. Then $24/month. Cancel before day 8 and you pay nothing.");
+    expect(trial).toHaveTextContent("180 credits shared across thumbnails, AI edits and audits. Then $24/month. Cancel before day 8 and you pay nothing.");
     // First in the window: before the plans and the packs.
     const sections = within(dialog).getAllByRole("region").map((section) => section.getAttribute("aria-labelledby"));
     expect(sections[0]).toBe(trial.getAttribute("aria-labelledby"));
@@ -248,4 +249,25 @@ describe("not enough credits for an action", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(readPendingPaidAction("/ai-thumbnails/projects/project-1")).toBeNull();
   });
+});
+
+
+it("shows maximum thumbnail allowances and the shared-credit restriction on full monthly and yearly cards", () => {
+  render(<QueryClientProvider client={client}><MemoryRouter>
+    <PlanChoices catalog={catalog as any} signedIn={false} variant="page" context={{}} />
+  </MemoryRouter></QueryClientProvider>);
+  for (const count of [36, 120, 300]) expect(screen.getByText(`Up to ${count} AI thumbnails per month`)).toBeInTheDocument();
+  expect(screen.getByText(/Maximum when all credits are used for new thumbnails/)).toHaveTextContent('AI edits, thumbnail reviews and channel audits use the same balance and reduce the number you can generate.');
+  expect(screen.queryByText(/videos a month/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Yearly/ }));
+  for (const count of [36, 120, 300]) expect(screen.getByText(`Up to ${count} AI thumbnails per month`)).toBeInTheDocument();
+  expect(screen.getByText(/Billed \$199 once a year/)).toBeInTheDocument();
+});
+
+it("shows the same thumbnail allowances and shared-credit explanation in the purchase dialog", async () => {
+  open();
+  const dialog = await screen.findByRole('dialog', { name: 'Get more credits' });
+  for (const count of [36, 120, 300]) expect(await within(dialog).findByText(new RegExp(`Up to ${count} AI thumbnails per month`))).toBeInTheDocument();
+  expect(dialog).toHaveTextContent('Generation: 15 credits · AI edit: 18 credits · Thumbnail review: from 2 credits.');
+  expect(dialog).toHaveTextContent('AI edits, thumbnail reviews and channel audits use the same balance');
 });

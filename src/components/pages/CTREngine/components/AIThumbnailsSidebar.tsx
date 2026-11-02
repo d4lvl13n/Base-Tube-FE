@@ -152,7 +152,7 @@ function VisitorAllowance({ usageAccess, isLoadingQuota, isCollapsed, onLinkClic
         </Link>
         {trial && trialPlan && (
           <p className="text-xs text-gray-500">
-            {trial.videos} video{trial.videos === 1 ? '' : 's'} free, then {planPriceText(trialPlan, 'month')}.{' '}
+            {trial.credits.toLocaleString('en-US')} shared credits free, then {planPriceText(trialPlan, 'month')}.{' '}
             <Link to={STUDIO_SIGN_UP_PATH} onClick={signUp} className="text-gray-300 underline hover:text-white">
               Or create a free account
             </Link>

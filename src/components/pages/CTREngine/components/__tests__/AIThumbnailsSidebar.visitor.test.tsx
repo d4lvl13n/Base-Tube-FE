@@ -97,8 +97,8 @@ it("without the welcome gift (the default), a visitor is offered the free trial 
   (getWelcomeOffer as jest.Mock).mockResolvedValue({ credits: 0, available: false });
   show(quota(0, 0));
   const trial = await screen.findByRole("link", { name: "Start 7-day free trial" });
-  expect(screen.getByText(/2 videos free, then \$24\/month\./)).toBeInTheDocument();
-  expect(screen.queryByText(/credits/)).not.toBeInTheDocument();
+  expect(screen.getByText(/180 shared credits free, then \$24\/month\./)).toBeInTheDocument();
+  expect(screen.queryByText(/50 free credits/)).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Or create a free account" })).toHaveAttribute("href", "/ai-thumbnails/sign-up");
   fireEvent.click(trial);
   expect(readPlanIntent()).toEqual({ planId: "creator", interval: "month", trial: true });

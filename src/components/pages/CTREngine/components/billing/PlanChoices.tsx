@@ -1,6 +1,7 @@
-// The monthly plans, shown in videos per month with a monthly / yearly switch.
+// The monthly plans, shown as maximum new thumbnails per month with a monthly / yearly switch.
 // Every plan button carries its price and is one click: Stripe Checkout for a
 // new plan, an in-place upgrade for a bigger one, the billing portal for the rest.
+import { thumbnailAllowanceText, SHARED_CREDIT_EXPLANATION } from '../../../../../utils/subscriptionPricing';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -33,8 +34,7 @@ export function planPriceText(plan: SubscriptionPlan, interval: BillingInterval)
   return `${formatPlanMoney(price.amountCents, price.currency)}/${interval}`;
 }
 
-/** "6 videos a month". */
-export const videosPerMonthText = (videos: number) => `${videos.toLocaleString()} video${videos === 1 ? '' : 's'} a month`;
+export { thumbnailAllowanceText } from '../../../../../utils/subscriptionPricing';
 
 /** The best yearly saving in the catalog, as the server computed it. */
 export const bestYearlySaving = (plans: SubscriptionPlan[]) =>
@@ -265,7 +265,7 @@ export function PlanChoices({
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-white">{plan.name}</span>
                 <span className="block text-xs text-zinc-300">
-                  {videosPerMonthText(plan.videosPerMonth)} · {plan.creditsPerMonth.toLocaleString()} credits
+                  {thumbnailAllowanceText(plan.creditsPerMonth, catalog.videoBreakdown.conceptCredits)} · {plan.creditsPerMonth.toLocaleString()} credits
                 </span>
                 <PriceLines plan={plan} interval={interval} compact />
               </span>
@@ -286,7 +286,7 @@ export function PlanChoices({
                 }`}
               >
                 <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
-                <p className="mt-1 text-sm text-zinc-300">{videosPerMonthText(plan.videosPerMonth)}</p>
+                <p className="mt-1 text-sm text-zinc-300">{thumbnailAllowanceText(plan.creditsPerMonth, catalog.videoBreakdown.conceptCredits)}</p>
                 <PriceLines plan={plan} interval={interval} compact={false} />
                 <p className="mt-1 text-xs text-zinc-500">{plan.creditsPerMonth.toLocaleString()} credits a month</p>
                 <ul className="mt-4 flex-1 space-y-2">
@@ -303,6 +303,7 @@ export function PlanChoices({
           })}
         </div>
       )}
+      <p className="text-sm text-zinc-400">{SHARED_CREDIT_EXPLANATION}</p>
       {exists && (
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/25 bg-amber-500/[.06] px-4 py-3 text-sm text-amber-100">
           You already have a plan.

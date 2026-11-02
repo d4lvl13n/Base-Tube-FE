@@ -160,7 +160,7 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     render(app('/ai-thumbnails/sign-up'));
     expect(await screen.findByRole('heading', { name: 'Start your 7-day free trial.' })).toBeInTheDocument();
     expect(
-      await screen.findByText('Next: secure checkout for your 7-day free trial of Creator. Thumbnails for 2 videos included (3 thumbnail options per video). A card is required. Then $24/month, starting on day 8, unless you cancel.'),
+      await screen.findByText('Next: secure checkout for your 7-day free trial of Creator. 180 credits shared across thumbnails, AI edits and audits included. A card is required. Then $24/month, starting on day 8, unless you cancel.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Pricing', exact: true })).toHaveAttribute('href', '/ai-thumbnails/pricing');
     expect(screen.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms');

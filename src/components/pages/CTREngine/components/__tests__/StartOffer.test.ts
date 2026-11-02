@@ -20,13 +20,13 @@ describe("the landing page's start button", () => {
   it("offers a visitor the free trial of the smallest plan, with its terms from the catalog", () => {
     const offer = startOffer({ catalog: withTrial, signedIn: false });
     expect(offer).toMatchObject({ kind: "trial", plan: { id: "creator" }, signedIn: false });
-    expect(startOfferTerms(offer)).toBe("Thumbnails for 2 videos, free for 7 days · Cancel before day 8 and pay nothing");
+    expect(startOfferTerms(offer)).toBe("180 credits shared across thumbnails, AI edits and audits, free for 7 days · Card required · Cancel before day 8 and pay nothing");
   });
 
   it("shows the plan with its price when trials are off", () => {
     const offer = startOffer({ catalog: noTrial, signedIn: false });
     expect(offer).toMatchObject({ kind: "plan", plan: { id: "creator" } });
-    expect(startOfferTerms(offer)).toBe("Creator: 6 videos a month for $24/month · Cancel any time");
+    expect(startOfferTerms(offer)).toBe("Creator: Up to 36 AI thumbnails per month for $24/month · Cancel any time");
   });
 
   it("offers an account the trial only when the server says it can have one", () => {

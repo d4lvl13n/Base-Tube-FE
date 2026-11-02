@@ -29,21 +29,21 @@ export const bestValuePackId = (packs: CreditPack[]): string | null => {
 
 /**
  * What a pack buys at today's prices, each figure on its own:
- * "≈ 13 concepts · 11 edits · 100 audits". Null while prices are unknown.
+ * "Up to 13 thumbnails or 11 AI edits or 100 thumbnail reviews". Null while prices are unknown.
  */
 export function packYield(credits: number, pricing: CreditPricingCatalog | null): string | null {
   if (!pricing) return null;
   const parts = ([
-    [pricing.ctr.generatePerConcept, 'concept'],
-    [pricing.thumbnail.editPerImage, 'edit'],
-    [pricing.ctr.audit, 'audit'],
+    [pricing.ctr.generatePerConcept, 'thumbnail'],
+    [pricing.thumbnail.editPerImage, 'AI edit'],
+    [pricing.ctr.audit, 'thumbnail review'],
   ] as const)
     .filter(([price]) => price > 0)
     .map(([price, noun]) => {
       const count = Math.floor(credits / price);
       return `${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`;
     });
-  return parts.length ? `≈ ${parts.join(' · ')}` : null;
+  return parts.length ? `Up to ${parts.join(' or ')}` : null;
 }
 
 const CHECKOUT_UNAVAILABLE: PlainApiError = {

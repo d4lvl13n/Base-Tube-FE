@@ -100,8 +100,7 @@ function AuthNote({ planIntent, gift }: { planIntent: PlanIntent | null; gift: b
   if (gift && !planIntent && offer.credits !== null) text = offer.givenOut ? WELCOME_CREDITS_GIVEN_OUT : `${offer.credits} free credits once your email is verified.`;
   else if (trial) {
     Icon = CreditCard;
-    const options = plans.data?.videoBreakdown.concepts;
-    const allowance = `Thumbnails for ${trial.videos} video${trial.videos === 1 ? '' : 's'} included${options ? ` (${options} thumbnail options per video)` : ''}.`;
+    const allowance = `${trial.credits.toLocaleString('en-US')} credits shared across thumbnails, AI edits and audits included.`;
     const renewal = plan && planIntent
       ? `Then ${planPriceText(plan, planIntent.interval)}, starting on day ${trial.days + 1}, unless you cancel.`
       : `The selected plan's price is shown before checkout. Cancel before day ${trial.days + 1} to avoid a charge.`;
@@ -258,7 +257,7 @@ export function AIThumbnailsSignUpPage() {
   const subtitle = planIntent
     ? 'Create your account, then a secure Stripe page opens. One account for AI Thumbnails and the rest of base.tube.'
     : trial
-      ? `Create your free account. Then try any plan free for ${trial.days} days, with thumbnails for ${trial.videos} video${trial.videos === 1 ? '' : 's'} included.`
+      ? `Create your free account. Then try any plan free for ${trial.days} days, with ${trial.credits.toLocaleString('en-US')} credits shared across thumbnails, AI edits and audits.`
       : 'Create your free account. One account for AI Thumbnails and the rest of base.tube.';
   return (
     <AuthLayout heading={heading} subtitle={subtitle} note={<AuthNote planIntent={planIntent} gift />}>

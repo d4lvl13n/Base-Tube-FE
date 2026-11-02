@@ -20,7 +20,7 @@ import type { MySubscription, SubscriptionCatalog, SubscriptionPlan, Subscriptio
 import { STUDIO_SIGN_UP_PATH } from '../../../../../utils/studioAuth';
 import { startPlanSignUp } from './billingActions';
 import { PlanCheckoutButton } from './PlanCheckoutButton';
-import { planPriceText, startPlanLabel, videosPerMonthText } from './PlanChoices';
+import { planPriceText, startPlanLabel, thumbnailAllowanceText } from './PlanChoices';
 
 export const STUDIO_HOME_PATH = '/ai-thumbnails/projects';
 const PRICING_PATH = '/ai-thumbnails/pricing';
@@ -30,7 +30,7 @@ export type StartOffer =
   /** The plans (or the account's plan) did not load: the pricing page instead. */
   | { kind: 'unavailable' }
   | { kind: 'trial'; plan: SubscriptionPlan; trial: SubscriptionTrial; signedIn: boolean }
-  | { kind: 'plan'; plan: SubscriptionPlan; signedIn: boolean }
+  | { kind: 'plan'; plan: SubscriptionPlan; signedIn: boolean; generationCredits: number }
   /** The account has a plan (or one waiting on a payment): its Studio. */
   | { kind: 'studio' };
 
@@ -55,7 +55,7 @@ export function startOffer({
   if (!plan || (signedIn && !me)) return { kind: 'unavailable' };
   const trial = catalogTrial(catalog);
   if (trial && (!signedIn || me?.trialEligible === true)) return { kind: 'trial', plan, trial, signedIn };
-  return { kind: 'plan', plan, signedIn };
+  return { kind: 'plan', plan, signedIn, generationCredits: catalog.videoBreakdown.conceptCredits };
 }
 
 /** The start offer for whoever is on the page. */
@@ -78,7 +78,7 @@ export function useStartOffer(): StartOffer {
 export function startOfferTerms(offer: StartOffer): string | null {
   if (offer.kind === 'trial') return trialTermsText(offer.trial);
   if (offer.kind === 'plan')
-    return `${offer.plan.name}: ${videosPerMonthText(offer.plan.videosPerMonth)} for ${planPriceText(offer.plan, 'month')} · Cancel any time`;
+    return `${offer.plan.name}: ${thumbnailAllowanceText(offer.plan.creditsPerMonth, offer.generationCredits)} for ${planPriceText(offer.plan, 'month')} · Cancel any time`;
   return null;
 }
 

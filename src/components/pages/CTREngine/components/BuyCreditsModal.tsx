@@ -33,6 +33,8 @@ import { PlanChoices, planPriceText } from './billing/PlanChoices';
 import { UpgradeAction } from './billing/UpgradeAction';
 import { currentStudioReturnPath, type CheckoutContext } from './billing/billingActions';
 
+import { thumbnailAllowanceText, creditUsageText } from '../../../../utils/subscriptionPricing';
+
 export { formatMoney } from '../../../../utils/money';
 export { bestValuePackId, packYield } from './billing/CreditPackPicker';
 
@@ -174,7 +176,7 @@ function BuyCreditsDialog({
                     Try {trialPlan.name} free for {trial.days} days
                   </h3>
                   <p className="mt-0.5 text-xs text-zinc-300">
-                    Thumbnails for {trial.videos.toLocaleString()} video{trial.videos === 1 ? '' : 's'} included. Then {planPriceText(trialPlan, 'month')}.
+                    {trial.credits.toLocaleString('en-US')} credits shared across thumbnails, AI edits and audits. Then {planPriceText(trialPlan, 'month')}.
                     Cancel before day {trial.days + 1} and you pay nothing.
                   </p>
                 </div>
@@ -192,11 +194,10 @@ function BuyCreditsDialog({
               <section aria-labelledby={`${titleId}-plans`} className="space-y-3">
                 <div>
                   <h3 id={`${titleId}-plans`} className="text-sm font-semibold text-white">
-                    {trialPlan ? 'Or pick a plan: credits for a set number of videos every month' : 'Subscribe: credits for a set number of videos every month'}
+                    {trialPlan ? 'Or pick a monthly thumbnail plan' : 'Subscribe to a monthly thumbnail plan'}
                   </h3>
                   <p className="mt-0.5 text-xs text-zinc-400">
-                    One video = {catalog.videoBreakdown.concepts} concepts, {catalog.videoBreakdown.edits} AI edits and{' '}
-                    {catalog.videoBreakdown.audits} audit ({catalog.videoCredits} credits).{' '}
+                    {creditUsageText(catalog.videoBreakdown)}{' '}
                     <Link
                       to={`/ai-thumbnails/pricing${returnPath ? `?return=${encodeURIComponent(returnPath)}` : ''}`}
                       onClick={() => {
@@ -230,7 +231,7 @@ function BuyCreditsDialog({
                   </h3>
                   <p className="mt-0.5 text-xs text-zinc-400">
                     {planName ? `You're on ${planName}. ` : ''}
-                    {`${nextPlan.name} gives ${nextPlan.videosPerMonth.toLocaleString()} videos a month (${nextPlan.creditsPerMonth.toLocaleString()} credits). The change is immediate.`}
+                    {`${nextPlan.name}: ${catalog ? thumbnailAllowanceText(nextPlan.creditsPerMonth, catalog.videoBreakdown.conceptCredits) : `${nextPlan.creditsPerMonth.toLocaleString('en-US')} shared credits per month`}. AI edits and audits use the same credits. The change is immediate.`}
                   </p>
                 </div>
                 <UpgradeAction planId={nextPlan.id} planName={nextPlan.name} returnPath={returnPath} onUpgraded={upgraded} />
