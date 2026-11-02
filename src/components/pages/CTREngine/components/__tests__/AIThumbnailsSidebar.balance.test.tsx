@@ -1,3 +1,5 @@
+import SettingsSubscriptionSection from "../settings/SettingsSubscriptionSection";
+import { subscriptionsApi } from "../../../../../api/subscriptions";
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -57,4 +59,33 @@ it("keeps the last balance and says nothing when a background refresh fails", as
   await waitFor(() => expect(client.getQueryState(["thumbnail-studio", "usage", "clerk:alice"])?.status).toBe("error"));
   expect(screen.getByText("42")).toBeInTheDocument();
   expect(screen.queryByText(/Couldn't load your credit balance/)).not.toBeInTheDocument();
+});
+
+
+it('keeps the total thumbnail allowance separate from trial and pack credits', async () => {
+  const trial = { subscription: { planName: 'Creator', status: 'trialing' }, canSubscribe: false,
+    videosRemaining: 2, videoCredits: 90,
+    credits: { available: 448, subscription: { available: 180, expiresAt: '2026-11-09T12:03:15Z', lots: [] }, other: { available: 268 } } };
+  (subscriptionsApi.getMe as jest.Mock).mockResolvedValue(trial);
+  getQuota.mockResolvedValue({ ...credits(448), pricing: { ctr: { generatePerConcept: 15, audit: 2 } } });
+  show();
+  expect(await screen.findByText('Up to 29 AI thumbnails with your balance')).toBeInTheDocument();
+  const detail = await screen.findByRole('button', { name: '180 credits left in your trial' });
+  fireEvent.click(detail);
+  expect(screen.getByText('268 from packs and gifts, no expiry')).toBeInTheDocument();
+  expect(screen.getByText('Credits are shared across thumbnails, AI edits and audits.')).toBeInTheDocument();
+  expect(screen.queryByText(/videos left/)).not.toBeInTheDocument();
+});
+
+
+it('subscription settings show trial credits and shared usage instead of a video quota', async () => {
+  (subscriptionsApi.getMe as jest.Mock).mockResolvedValue({
+    subscription: { planName: 'Creator', status: 'trialing', interval: 'month', amountCents: 2400, currency: 'usd', currentPeriodEnd: '2026-11-09T12:03:15Z' },
+    canSubscribe: false, videosRemaining: 2, videoCredits: 90, channelProfiles: { used: 0, limit: 1 },
+    credits: { available: 448, subscription: { available: 180, expiresAt: '2026-11-09T12:03:15Z', lots: [] }, other: { available: 268 } }
+  });
+  render(<QueryClientProvider client={client}><MemoryRouter><SettingsSubscriptionSection /></MemoryRouter></QueryClientProvider>);
+  expect(await screen.findByText('180 credits left in your trial')).toBeInTheDocument();
+  expect(screen.queryByText('Videos left')).not.toBeInTheDocument();
+  expect(screen.getByText(/Credits are shared across thumbnails, AI edits and audits/)).toBeInTheDocument();
 });

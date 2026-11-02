@@ -56,14 +56,13 @@ export function useUpgradePreview(planId: SubscriptionPlanId | null) {
 export const hasLivePlan = (me: MySubscription | null | undefined): boolean =>
   Boolean(me?.subscription) && !me!.canSubscribe;
 
-/** "≈ 4 videos left this month". */
-export const videosLeftText = (videos: number) => `≈ ${videos.toLocaleString()} video${videos === 1 ? '' : 's'} left this month`;
-
-/** The account's videos left: "≈ 2 videos left in your trial" during the free trial, else per month. */
-export const planVideosLeftText = (me: MySubscription) =>
-  me.subscription?.status === 'trialing'
-    ? `≈ ${me.videosRemaining.toLocaleString()} video${me.videosRemaining === 1 ? '' : 's'} left in your trial`
-    : videosLeftText(me.videosRemaining);
+/** Subscription credits only: packs and gifts are shown separately. */
+export const planCreditsLeftText = (me: MySubscription) => {
+  const credits = me.credits.subscription.available;
+  return me.subscription?.status === 'trialing'
+    ? `${credits.toLocaleString('en-US')} credits left in your trial`
+    : `${credits.toLocaleString('en-US')} subscription credits left`;
+};
 
 /** The catalog's free trial when it is a real one (whole days and videos), else null (trials off). */
 export function catalogTrial(catalog: SubscriptionCatalog | null | undefined): SubscriptionTrial | null {

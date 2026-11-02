@@ -1,11 +1,11 @@
 // Settings › Subscription: the plan, its status, the next invoice, the plan
-// credits and when they expire, videos left, and one "Manage or cancel" button
+// credits and when they expire, and one "Manage or cancel" button
 // (Stripe's customer portal). No plan: a short pitch and the pricing page.
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowUpRight, Clock } from 'lucide-react';
 import type { AccountSubscription, MySubscription } from '../../../../../types/subscription';
-import { hasLivePlan, planVideosLeftText, shortDate, useMySubscription } from '../../../../../hooks/useSubscription';
+import { hasLivePlan, planCreditsLeftText, shortDate, useMySubscription } from '../../../../../hooks/useSubscription';
 import { formatMoney, formatPlanMoney } from '../../../../../utils/money';
 import { plainApiError } from '../../../../../utils/plainApiError';
 import { TechnicalErrorDetail } from '../../../../common/TechnicalErrorDetail';
@@ -103,7 +103,7 @@ function PlanDetails({ me }: { me: MySubscription }) {
         <Row label="Next invoice">
           {renews ? `${longDate(subscription.nextInvoiceAt)} · ${formatMoney(subscription.amountCents, subscription.currency)}` : 'None'}
         </Row>
-        <Row label="Videos left">{planVideosLeftText(me)}</Row>
+        <Row label="Credits left">{planCreditsLeftText(me)}</Row>
         <Row label="Subscription credits">{subscriptionCreditsLine(me)}</Row>
         <Row label="Other credits">{me.credits.other.available.toLocaleString()} from packs and gifts, no expiry</Row>
         <Row label="Channel profiles">
@@ -116,7 +116,7 @@ function PlanDetails({ me }: { me: MySubscription }) {
           Compare plans
         </Link>
       </div>
-      <p className="text-xs text-zinc-500">Change your card, see invoices, switch plans or cancel on Stripe's secure billing page.</p>
+      <p className="text-xs text-zinc-500">Credits are shared across thumbnails, AI edits and audits. Change your card, see invoices, switch plans or cancel on Stripe's secure billing page.</p>
     </div>
   );
 }
@@ -131,7 +131,7 @@ function NoPlan({ me }: { me: MySubscription }) {
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <p className="text-sm font-medium text-white">{endedText}</p>
         <p className="mt-1 text-sm text-zinc-400">
-          A plan gives you credits for a set number of videos every month. The price of one designer thumbnail, for your whole month.
+          A plan gives you monthly credits to share across new thumbnails, AI edits and audits.
         </p>
         <Link
           to="/ai-thumbnails/pricing"

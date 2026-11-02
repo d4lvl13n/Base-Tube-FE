@@ -15,7 +15,7 @@ export async function invalidateStudioBalance(
   userId: string,
 ) {
   const queryKey = studioBalanceKey(userId);
-  // The plan detail (videos left, credits by origin) moves with the balance.
+  // The plan detail (credits by origin) moves with the balance.
   void client.invalidateQueries({ queryKey: subscriptionKey(userId), exact: true });
   // Reading the query signal below makes even a non-abortable legacy HTTP read cancellable.
   await client.cancelQueries({ queryKey, exact: true });

@@ -1,13 +1,13 @@
-// "≈ 4 videos left this month" next to the credit balance, and its detail:
+// Subscription credits next to the total balance, and their detail:
 // the plan, the subscription credits and when they expire, the other credits.
 import React, { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import type { MySubscription } from '../../../../../types/subscription';
-import { planVideosLeftText, shortDate } from '../../../../../hooks/useSubscription';
+import { planCreditsLeftText, shortDate } from '../../../../../hooks/useSubscription';
 
-/** Plan credits are what "videos left" counts; shown for a plan being paid for, or while its credits last. */
-export function showsVideosLeft(me: MySubscription | null | undefined): me is MySubscription {
+/** Show subscription detail while a plan is open or its credits remain. */
+export function showsPlanCredits(me: MySubscription | null | undefined): me is MySubscription {
   if (!me) return false;
   const status = me.subscription?.status;
   return me.credits.subscription.available > 0 || status === 'active' || status === 'trialing' || status === 'past_due';
@@ -37,6 +37,7 @@ export function PlanCreditsDetail({ me, onLinkClick }: { me: MySubscription; onL
         </ul>
       )}
       <p>{me.credits.other.available.toLocaleString()} from packs and gifts, no expiry</p>
+      <p className="text-zinc-500">Credits are shared across thumbnails, AI edits and audits.</p>
       <Link
         to="/ai-thumbnails/settings/subscription"
         onClick={onLinkClick}
@@ -49,7 +50,7 @@ export function PlanCreditsDetail({ me, onLinkClick }: { me: MySubscription; onL
 }
 
 /** The sidebar line under the balance; clicking it opens the detail in place. */
-export function VideosLeftToggle({ me, onLinkClick }: { me: MySubscription; onLinkClick?: () => void }) {
+export function PlanCreditsToggle({ me, onLinkClick }: { me: MySubscription; onLinkClick?: () => void }) {
   const [open, setOpen] = useState(false);
   const detailId = useId();
   return (
@@ -61,7 +62,7 @@ export function VideosLeftToggle({ me, onLinkClick }: { me: MySubscription; onLi
         onClick={() => setOpen((value) => !value)}
         className="flex w-full items-center justify-between gap-2 rounded-md text-left text-xs text-zinc-300 hover:text-white"
       >
-        <span>{planVideosLeftText(me)}</span>
+        <span>{planCreditsLeftText(me)}</span>
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
       {open && (

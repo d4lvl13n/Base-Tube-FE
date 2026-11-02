@@ -2,6 +2,7 @@
 // Sidebar navigation for AI Thumbnails
 
 import React from 'react';
+import { thumbnailAllowanceText } from '../../../../utils/subscriptionPricing';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
@@ -26,14 +27,14 @@ import { startStudioAuth, STUDIO_SIGN_UP_PATH } from '../../../../utils/studioAu
 import {
   catalogTrial,
   entryPlan,
-  planVideosLeftText,
+  planCreditsLeftText,
   trialButtonLabel,
   useMySubscription,
   useSubscriptionPlans,
 } from '../../../../hooks/useSubscription';
 import { startPlanSignUp } from './billing/billingActions';
 import { planPriceText } from './billing/PlanChoices';
-import { showsVideosLeft, VideosLeftToggle } from './billing/PlanCreditsSummary';
+import { showsPlanCredits, PlanCreditsToggle } from './billing/PlanCreditsSummary';
 
 export interface AIThumbnailsSidebarProps {
   usageAccess?: CTRUsageAccess | null;
@@ -184,9 +185,11 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
   // Only a failed first read is reported; background refresh failures stay silent.
   const balanceLoad = useStudioBalanceLoadFailure();
   const balanceUnavailable = !isLoadingQuota && !usageAccess && balanceLoad.failed;
-  // The plan's "≈ N videos left this month" (server-computed), refreshed with the balance.
+  // Subscription and trial credits by origin, refreshed with the balance.
   const plan = useMySubscription(isSignedInAny && usageAccess?.mode === 'credits');
-  const planCredits = showsVideosLeft(plan.data) ? plan.data : null;
+  const planCredits = showsPlanCredits(plan.data) ? plan.data : null;
+
+  const generationCredits = usageAccess?.mode === 'credits' ? usageAccess.pricing?.ctr.generatePerConcept : null;
 
   // Quota calculations
   const auditProgress = usageAccess?.mode === 'quota' && usageAccess.quota.audit.limit > 0
@@ -360,7 +363,7 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
                   <Coins className="w-4 h-4 text-[#fa7517]" />
                   <div className="absolute left-full ml-2 px-3 py-2 bg-black/90 border border-gray-800 rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 whitespace-nowrap">
                     <p className="text-xs text-gray-300">Available: {usageAccess.creditInfo.available}</p>
-                    {planCredits && <p className="text-xs text-gray-300">{planVideosLeftText(planCredits)}</p>}
+                    {planCredits && <p className="text-xs text-gray-300">{planCreditsLeftText(planCredits)}</p>}
                     <p className="text-xs text-gray-400">CTR generate: {formatCreditCost(usageAccess.pricing?.ctr.generatePerConcept ?? 0)}</p>
                   </div>
                 </div>
@@ -375,7 +378,12 @@ const AIThumbnailsSidebar: React.FC<AIThumbnailsSidebarProps> = ({
                   <span className="text-gray-500">Available Credits</span>
                   <span className="text-[#fa7517] font-semibold">{usageAccess.creditInfo.available}</span>
                 </Link>
-                {planCredits && <VideosLeftToggle me={planCredits} onLinkClick={onLinkClick} />}
+                {generationCredits != null && generationCredits > 0 && (
+                  <p className="text-xs text-gray-300">
+                    {thumbnailAllowanceText(usageAccess.creditInfo.available, generationCredits, ' with your balance')}
+                  </p>
+                )}
+                {planCredits && <PlanCreditsToggle me={planCredits} onLinkClick={onLinkClick} />}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-xl border border-gray-800/50 bg-black/40 p-3">
                     <p className="text-gray-500">Generate</p>

@@ -190,7 +190,7 @@ function App() {
                   <Route path="/ai-thumbnails/history" element={<AuditHistoryPage />} />
                   <Route path="/ai-thumbnails/settings" element={<CTRSettingsPage />} />
                   <Route path="/ai-thumbnails/settings/:section" element={<CTRSettingsPage />} />
-                  {/* Monthly plans (videos per month) and the return from their Stripe Checkout. */}
+                  {/* Shared-credit plans and the return from their Stripe Checkout. */}
                   <Route path="/ai-thumbnails/pricing" element={studioPage(<AIThumbnailsPricingPage />)} />
                   <Route path="/ai-thumbnails/billing/success" element={studioPage(<AIThumbnailsBillingSuccessPage />)} />
 

@@ -7,7 +7,8 @@ import { subscriptionsApi } from "../../../../api/subscriptions";
 import { notifyStudioUsageChanged } from "../../../../hooks/useStudioBalance";
 
 jest.mock("../../../../api/subscriptions", () => ({ subscriptionsApi: { getMe: jest.fn() } }));
-jest.mock("../../../../hooks/useCTREngine", () => ({ __esModule: true, default: () => ({ usageAccess: null, isLoadingQuota: false }) }));
+let mockGenerationCredits: number | null = 15;
+jest.mock("../../../../hooks/useCTREngine", () => ({ __esModule: true, default: () => ({ usageAccess: mockGenerationCredits === null ? null : { mode: "credits", pricing: { ctr: { generatePerConcept: mockGenerationCredits } } }, isLoadingQuota: false }) }));
 jest.mock("../AIThumbnailsLayout", () => ({ __esModule: true, default: ({ children }: any) => <main>{children}</main> }));
 jest.mock("../../../../hooks/useStudioAccount", () => ({
   useStudioAccountState: () => ({ account: "clerk:alice", resolved: true, email: null }),
@@ -34,6 +35,7 @@ let client: QueryClient;
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
+  mockGenerationCredits = 15;
   sessionStorage.clear();
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
@@ -76,7 +78,8 @@ it("reads the plan every 2 seconds until it is active with its credits, then say
   await nextPoll();
   await nextPoll();
   await settle();
-  expect(screen.getByRole("heading", { name: "You're on Creator — 6 videos this month" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "You're on Creator" })).toBeInTheDocument();
+  expect(screen.getByText("Up to 36 AI thumbnails if used only for generation.")).toBeInTheDocument();
   expect(getMe).toHaveBeenCalledTimes(3);
   expect(notifyStudioUsageChanged).toHaveBeenCalled();
   expect(screen.getByRole("link", { name: /Back to where you were/ })).toHaveAttribute("href", "/ai-thumbnails/projects/project-1");
@@ -100,15 +103,19 @@ it("after about a minute reports pending activation without promising a payment 
   getMe.mockResolvedValue(me("active", 540));
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await settle();
-  expect(screen.getByRole("heading", { name: "You're on Creator — 6 videos this month" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "You're on Creator" })).toBeInTheDocument();
 });
 
 it("a free trial counts as ready: says what it includes and that nothing is charged before it ends", async () => {
-  getMe.mockResolvedValue({ ...me("trialing", 180), trialEndsAt: "2026-10-06T12:00:00Z" });
+  getMe.mockResolvedValue({ ...me("trialing", 180), credits: { ...me("trialing", 180).credits, available: 448, other: { available: 268 } }, trialEndsAt: "2026-10-06T12:00:00Z" });
   show("/ai-thumbnails/billing/success?session_id=cs_trial");
   await settle();
-  expect(screen.getByRole("heading", { name: "Your free trial of Creator has started — 2 videos to use" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Your free trial of Creator has started" })).toBeInTheDocument();
   expect(screen.getByRole("status")).toHaveTextContent(/^Nothing is charged before Oct 6\. Cancel before Oct 6 in Settings › Subscription and you pay nothing\./);
+  expect(screen.getByText('180 shared credits available from your trial.')).toBeInTheDocument();
+  expect(screen.getByText('Up to 12 AI thumbnails if used only for generation.')).toBeInTheDocument();
+  expect(screen.getByText('AI edits and audits use the same credits.')).toBeInTheDocument();
+  expect(screen.queryByText(/29 AI thumbnails|videos to use/)).not.toBeInTheDocument();
   expect(getMe).toHaveBeenCalledTimes(1);
 });
 
@@ -121,4 +128,22 @@ it("returns automatically to the draft only after trial credits are ready", asyn
   await nextPoll();
   await settle();
   expect(screen.getByTestId('returned-brief')).toHaveTextContent('?draft=visitor-idea');
+});
+
+
+it('shows credits without inventing a thumbnail count while pricing is unavailable', async () => {
+  mockGenerationCredits = null;
+  getMe.mockResolvedValue(me('trialing', 180));
+  show('/ai-thumbnails/billing/success?session_id=cs_trial');
+  await settle();
+  expect(screen.getByText('180 shared credits available from your trial.')).toBeInTheDocument();
+  expect(screen.queryByText(/AI thumbnails if/)).not.toBeInTheDocument();
+});
+
+it('does not confirm delivery from a stale video equivalence when actual subscription credits are zero', async () => {
+  getMe.mockResolvedValue({ ...me('trialing', 0), videosRemaining: 2 });
+  show('/ai-thumbnails/billing/success?session_id=cs_trial');
+  await settle();
+  expect(screen.getByRole('heading', { name: 'Confirming your plan…' })).toBeInTheDocument();
+  expect(screen.queryByText(/has started/)).not.toBeInTheDocument();
 });

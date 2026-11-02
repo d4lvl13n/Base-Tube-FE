@@ -17,6 +17,7 @@ import type { MySubscription } from '../../../types/subscription';
 import { creditsReturnDestination } from '../../../utils/studioDraft';
 import { startStudioAuth, STUDIO_SIGN_IN_PATH } from '../../../utils/studioAuth';
 import { plainApiError } from '../../../utils/plainApiError';
+import { thumbnailAllowanceText } from '../../../utils/subscriptionPricing';
 import { TechnicalErrorDetail } from '../../common/TechnicalErrorDetail';
 
 export const BILLING_POLL_INTERVAL_MS = 2000;
@@ -26,7 +27,7 @@ export const BILLING_MAX_POLLS = 30;
 /** The plan is on, with its credits. */
 export const planIsReady = (me: MySubscription) =>
   (me.subscription?.status === 'active' || me.subscription?.status === 'trialing') &&
-  (me.videosRemaining > 0 || me.credits.subscription.available > 0);
+  me.credits.subscription.available > 0;
 
 type Status = 'no-session' | 'waiting-account' | 'signed-out' | 'polling' | 'confirmed' | 'slow' | 'error';
 
@@ -93,24 +94,24 @@ export default function BillingSuccessPage() {
   }, [sessionId, resolved, signedIn, account, client, run]);
 
   const planName = me?.subscription?.planName;
-  const videos = me?.videosRemaining ?? 0;
-  const videoCount = `${videos.toLocaleString()} video${videos === 1 ? '' : 's'}`;
+  const planCredits = me?.credits.subscription.available ?? 0;
+  const generationCredits = access.usageAccess?.mode === 'credits' ? access.usageAccess.pricing?.ctr.generatePerConcept : null;
   // A free trial: nothing was paid; the plan is charged when the trial ends.
   const trialing = me?.subscription?.status === 'trialing';
   const trialEnd = trialing ? shortDate(me?.trialEndsAt || me?.subscription?.currentPeriodEnd) : '';
 
   let icon = <Loader2 className="h-7 w-7 animate-spin text-[#fa7517]" aria-hidden="true" />;
   let heading = 'Confirming your plan…';
-  let text = 'Stripe confirmed your checkout. Your plan and its credits are being set up.';
+  let text = 'Checking your subscription and credits after checkout.';
   if (status === 'confirmed' && trialing) {
     icon = <CheckCircle className="h-7 w-7 text-emerald-400" aria-hidden="true" />;
-    heading = `Your free trial of ${planName} has started — ${videoCount} to use`;
+    heading = `Your free trial of ${planName} has started`;
     text = trialEnd
       ? `Nothing is charged before ${trialEnd}. Cancel before ${trialEnd} in Settings › Subscription and you pay nothing.`
       : 'Nothing is charged until your trial ends. Cancel before then in Settings › Subscription and you pay nothing.';
   } else if (status === 'confirmed') {
     icon = <CheckCircle className="h-7 w-7 text-emerald-400" aria-hidden="true" />;
-    heading = `You're on ${planName} — ${videoCount} this month`;
+    heading = `You're on ${planName}`;
     text = `${(me?.credits.subscription.available ?? 0).toLocaleString()} credits from your plan are in your balance.`;
   } else if (status === 'slow') {
     icon = <Clock className="h-7 w-7 text-amber-400" aria-hidden="true" />;
@@ -139,6 +140,15 @@ export default function BillingSuccessPage() {
         <div className="rounded-2xl border border-white/10 bg-[#0e0e10] p-8 text-center shadow-2xl shadow-black/50">
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-black/40">{icon}</div>
           <h1 className="mb-2 text-xl font-semibold text-white">{heading}</h1>
+          {status === 'confirmed' && (
+            <div className="mb-4 space-y-1 text-sm text-zinc-300">
+              <p>{planCredits.toLocaleString('en-US')} shared credits available from your {trialing ? 'trial' : 'subscription'}.</p>
+              {generationCredits != null && generationCredits > 0 && (
+                <p>{thumbnailAllowanceText(planCredits, generationCredits, '')} if used only for generation.</p>
+              )}
+              <p className="text-xs text-zinc-400">AI edits and audits use the same credits.</p>
+            </div>
+          )}
           <p role="status" className="mb-6 text-sm text-zinc-400">
             {text}
             {status === 'error' && <TechnicalErrorDetail detail={errorDetail?.technical} />}
