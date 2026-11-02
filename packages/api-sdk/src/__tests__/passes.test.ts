@@ -1,4 +1,4 @@
-import { AxiosAdapter, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { AxiosError, AxiosAdapter, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { createBasetubeClient } from '../index';
 
 function makeAdapter(handler: (config: InternalAxiosRequestConfig) => { status: number; data?: unknown }) {
@@ -92,4 +92,21 @@ describe('passes / access / purchases', () => {
       quantity: 4,
     });
   });
+});
+
+
+it('preserves the disabled-pass refusal without retrying checkout', async () => {
+  let calls = 0;
+  const adapter: AxiosAdapter = async config => {
+    calls += 1;
+    throw new AxiosError('Pass sales closed', '503', config, {}, {
+      data: { success: false, error: { code: 'CONTENT_PASSES_DISABLED', message: 'Content passes are not available yet.' } },
+      status: 503, statusText: 'Service Unavailable', headers: {}, config,
+    });
+  };
+  const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+  await expect(client.passes.checkout('p1', { accepted_terms: true, accepted_withdrawal: true, terms_version: 'v1', withdrawal_version: 'v1' })).rejects.toMatchObject({
+    response: { status: 503, data: { error: { code: 'CONTENT_PASSES_DISABLED' } } },
+  });
+  expect(calls).toBe(1);
 });

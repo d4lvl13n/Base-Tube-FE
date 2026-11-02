@@ -124,3 +124,12 @@ it('frees the re-run button when a recovered request completes under a History l
  await waitFor(()=>expect(screen.queryByText(/re-running/)).not.toBeInTheDocument());
  expect(screen.getByText('Report 45')).toBeInTheDocument();
 });
+
+it('explains the daily allowance without suggesting an immediate retry or resubmitting', async () => {
+ const message="You have reached today's limit of 2 channel audits. Try again after midnight UTC. No credits were used.";
+ (ctrApi.auditChannel as jest.Mock).mockRejectedValue({response:{status:429,data:{error:{code:'AUDIT_DAILY_LIMIT',message,limit:2,resetsAt:'2026-11-03T00:00:00Z'}}}});
+ mount();submit();
+ expect(await screen.findByText(message)).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Try again'})).not.toBeInTheDocument();
+ expect(ctrApi.auditChannel).toHaveBeenCalledTimes(1);
+});

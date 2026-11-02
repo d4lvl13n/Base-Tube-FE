@@ -46,6 +46,8 @@ export function createPassesApi(http: AxiosInstance) {
      * session. Consent is REQUIRED: the API answers 400 CONSENT_REQUIRED
      * without both accepted flags, so callers must show the two consent
      * sentences (`pass.sale_consent`) and collect the ticks first.
+     * HTTP 503 CONTENT_PASSES_DISABLED means new sales are closed; do not
+     * automatically retry. Reads and access to existing purchases remain available.
      */
     async checkout(
       passId: string,

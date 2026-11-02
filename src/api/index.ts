@@ -71,7 +71,7 @@ const isInsightsRegeneration = (config: AxiosRequestConfig): boolean => {
  * seconds is refused again and only delays the page's explanation.
  */
 const isSpentAllowance = (code: unknown): boolean =>
-  typeof code === 'string' && (code === 'ANONYMOUS_AUDIT_CAPACITY' || code.endsWith('QUOTA_EXCEEDED'));
+  typeof code === 'string' && (code === 'ANONYMOUS_AUDIT_CAPACITY' || code === 'AUDIT_DAILY_LIMIT' || code.endsWith('QUOTA_EXCEEDED'));
 
 /**
  * Studio uploads, imports, exports and YouTube source reads are limited per

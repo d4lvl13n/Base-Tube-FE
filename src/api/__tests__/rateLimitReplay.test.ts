@@ -86,7 +86,7 @@ describe('spent daily allowances', () => {
   });
 
   // Waiting a few seconds cannot bring back today's free audits or a quota.
-  it.each(['ANONYMOUS_AUDIT_CAPACITY', 'ANONYMOUS_AUDIT_QUOTA_EXCEEDED', 'QUOTA_EXCEEDED'])('does not replay a 429 %s', async code => {
+  it.each(['ANONYMOUS_AUDIT_CAPACITY', 'ANONYMOUS_AUDIT_QUOTA_EXCEEDED', 'QUOTA_EXCEEDED', 'AUDIT_DAILY_LIMIT'])('does not replay a 429 %s', async code => {
     const { adapter, count } = alwaysRateLimited({ success: false, error: { code, message: 'Refused' } });
     api.defaults.adapter = adapter;
 

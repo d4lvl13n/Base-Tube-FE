@@ -145,7 +145,8 @@ type ChannelAuditError = PlainApiError & {
 
 /** Sending the same request again can help (server trouble, a limit, no answer), unlike a bad channel. */
 const canRetry = (error: ChannelAuditError) =>
-  error.status === null || error.status === 408 || error.status === 429 || error.status >= 500;
+  error.code !== 'AUDIT_DAILY_LIMIT' &&
+  (error.status === null || error.status === 408 || error.status === 429 || error.status >= 500);
 
 const ChannelAuditPage: React.FC = () => {
   // Reuse the CTR engine for the quota/credit sidebar in the shared layout.
