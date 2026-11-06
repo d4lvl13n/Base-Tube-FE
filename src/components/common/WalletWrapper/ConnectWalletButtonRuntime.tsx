@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from 'react';
+import { useAccount } from 'wagmi';
+import { useOnchainKit } from '@coinbase/onchainkit';
 import { useAuth } from '../../../contexts/AuthContext';
 import { AuthenticationStep } from '../../../types/auth';
 import WalletWrapper from './WalletWrapper';
@@ -18,13 +20,31 @@ export default function ConnectWalletButton({
   openOnMount = false
 }: ConnectWalletButtonProps) {
   const { connect, isAuthenticated, step } = useAuth();
+  const { status } = useAccount();
+  const { config } = useOnchainKit();
+  const display = config?.wallet?.display;
   const control = useRef<HTMLDivElement>(null);
   const opened = useRef(false);
   useEffect(() => {
-    if (!openOnMount || opened.current || isAuthenticated) return;
-    opened.current = true;
-    control.current?.querySelector<HTMLButtonElement>('button')?.click();
-  }, [openOnMount, isAuthenticated]);
+    if (!openOnMount || opened.current || isAuthenticated || status !== 'disconnected' || display !== 'modal') return;
+    const container = control.current;
+    if (!container) return;
+
+    // OnchainKit 0.36 Wallet renders null until its own mounted effect. Preserve
+    // the user's click until its actual control exists; never call connect/sign.
+    const observer = new MutationObserver(openChooserWhenReady);
+    function openChooserWhenReady() {
+      if (opened.current) return;
+      const button = container?.querySelector<HTMLButtonElement>('button');
+      if (!button || button.disabled) return;
+      opened.current = true;
+      observer.disconnect();
+      button.click();
+    }
+    observer.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+    openChooserWhenReady();
+    return () => observer.disconnect();
+  }, [openOnMount, isAuthenticated, status, display]);
 
   const buttonText = customText ?? (
     isAuthenticated
