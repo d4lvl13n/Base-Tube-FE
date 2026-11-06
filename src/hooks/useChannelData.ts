@@ -1,28 +1,20 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getChannelById, getChannelByHandle } from '../api/channel';
+import { channelQueryOptions } from '../queries/publicContent';
+import type { InfiniteData } from '@tanstack/react-query';
+import type { ChannelOverview } from '../types/channel';
 import type { Channel } from '../types/channel';
 
 export const useChannelData = (identifier?: number | string | null) => {
   const queryClient = useQueryClient();
 
-  const isHandle = typeof identifier === 'string' && isNaN(Number(identifier));
-
-  const query = useQuery<Channel>({
-    queryKey: ['channel', identifier],
-    queryFn: async () => {
-      if (!identifier) throw new Error('Channel identifier is required');
-
-      if (isHandle) {
-        return getChannelByHandle(identifier as string);
-      } else {
-        const response = await getChannelById(String(identifier));
-        return response.channel;
-      }
-    },
+  const overview = queryClient.getQueriesData<InfiniteData<ChannelOverview>>({ queryKey: ['channel-overview'] })
+    .map(([key, data]) => ({ key, channel: data?.pages[0]?.channel }))
+    .find(({ channel }) => channel && (String(channel.id) === String(identifier) || channel.handle === identifier));
+  const query = useQuery({
+    ...channelQueryOptions(identifier ?? ''),
     enabled: identifier !== null && identifier !== undefined,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    retry: 2,
+    initialData: overview?.channel,
+    initialDataUpdatedAt: overview ? queryClient.getQueryState(overview.key)?.dataUpdatedAt : undefined,
   });
 
   const updateSubscriptionStatus = (newStatus: boolean) => {

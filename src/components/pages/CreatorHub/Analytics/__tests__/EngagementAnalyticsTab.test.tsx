@@ -39,6 +39,7 @@ const mockAnalytics: any = {
   topSharedContent: [],
   topComments: [],
   isLoading: false,
+  loading: Object.fromEntries(Object.keys(noErrors).map(key => [key, false])),
   errors: { ...noErrors }
 };
 
@@ -52,6 +53,8 @@ jest.mock('../../../../../api/video', () => ({
 
 beforeEach(() => {
   mockAnalytics.errors = { ...noErrors };
+  mockAnalytics.isLoading = false;
+  mockAnalytics.loading = Object.fromEntries(Object.keys(noErrors).map(key => [key, false]));
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
@@ -100,3 +103,19 @@ describe('EngagementAnalyticsTab overview cards', () => {
     expect(container.textContent).toContain('40.0%');
   });
 });
+
+  it('renders ready metrics while an unrelated query remains pending', () => {
+    mockAnalytics.isLoading = true;
+    mockAnalytics.loading.demographics = true;
+    const { container } = render(<EngagementAnalyticsTab channelId="1" />);
+    expect(container.textContent).toContain('Total Likes8');
+    expect(container.textContent).toContain('Comments2');
+  });
+
+  it('keeps only the dependent metric loading', () => {
+    mockAnalytics.isLoading = true;
+    mockAnalytics.loading.engagementTrends = true;
+    const { container } = render(<EngagementAnalyticsTab channelId="1" />);
+    expect(container.textContent).not.toContain('Total Likes8');
+    expect(container.textContent).toContain('Avg. % watched');
+  });

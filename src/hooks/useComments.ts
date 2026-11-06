@@ -3,7 +3,7 @@ import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as commentsApi from '../api/comment';
 import type { Comment, CommentsResponse, ApiResponse } from '../types/comment';
-import { useWeb3Auth } from './useWeb3Auth';
+import { useAuth } from '../contexts/AuthContext';
 import { AuthMethod } from '../types/auth';
 
 // Add this helper function at the top of the file, before useComments
@@ -26,7 +26,7 @@ interface UseCommentsProps {
 
 export const useComments = ({ videoId, initialLimit = 30, sortBy = 'latest' }: UseCommentsProps) => {
   const { user: clerkUser } = useUser();
-  const { user: web3User, isAuthenticated: isWeb3Auth } = useWeb3Auth();
+  const { user: web3User, isAuthenticated: isWeb3Auth } = useAuth();
   const authMethod = localStorage.getItem('auth_method');
   
   // Use the correct user based on auth method

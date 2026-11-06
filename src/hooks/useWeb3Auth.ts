@@ -79,7 +79,10 @@ function hasStoredWeb3Session(): boolean {
   }
 }
 
-export function useWeb3Auth() {
+export function useWeb3Auth({ isClerkAuthenticated = false, isClerkPending = false }: {
+  isClerkAuthenticated?: boolean;
+  isClerkPending?: boolean;
+} = {}) {
   const [state, dispatch] = useReducer(authReducer, undefined, () => ({
     step: AuthenticationStep.IDLE,
     error: null,
@@ -231,6 +234,9 @@ export function useWeb3Auth() {
   })();
 
   useEffect(() => {
+    // Stored wallet state may restore before Clerk's script finishes. Do not sign
+    // or consume a linking intent until both identities have been resolved.
+    if (isClerkPending || state.isRestoring) return;
     // Skip auto-connect if user is already authenticated via Clerk
     // This prevents creating duplicate accounts when Clerk users connect a wallet
     const authMethod = localStorage.getItem('auth_method');
@@ -249,7 +255,7 @@ export function useWeb3Auth() {
     // Skip auto-connect if:
     // 1. User is Clerk-authenticated (auth_method or session token)
     // 2. Intent is to link wallet (not sign in)
-    if (isClerkUser || hasClerkSession || isLinkingIntent) {
+    if (isClerkAuthenticated || isClerkUser || hasClerkSession || isLinkingIntent) {
       console.log('[useWeb3Auth] Skipping auto-connect:', {
         isClerkUser,
         hasClerkSession,
@@ -271,7 +277,7 @@ export function useWeb3Auth() {
         attemptedOnceRef.current = false;
       });
     }
-  }, [isConnected, address, state.isAuthenticated, connect, attemptedOnceRef]);
+  }, [isConnected, address, state.isAuthenticated, connect, attemptedOnceRef, isClerkAuthenticated, isClerkPending, state.isRestoring]);
 
   /**
    * disconnect() logs the user out in the backend

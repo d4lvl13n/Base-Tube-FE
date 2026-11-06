@@ -1,93 +1,44 @@
-// src/index.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import './index.css';
-import '@coinbase/onchainkit/styles.css';
-import '@rainbow-me/rainbowkit/styles.css';
-import App from './App';
-import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { PlaybackProvider } from './contexts/PlaybackContext';
-import { DescriptionDockProvider } from './contexts/DescriptionDockContext';
-
+import { ClerkProvider } from '@clerk/clerk-react';
 import { Buffer } from 'buffer';
-
-// Clerk
-import { ClerkProvider, ClerkLoaded, ClerkLoading } from '@clerk/clerk-react';
-import Loader from './components/common/Loader';
-
-// Wagmi / OnchainKit
-import { WagmiProvider } from 'wagmi';
-import { config as wagmiConfig } from './config/wagmi';
-import { baseSepolia } from 'wagmi/chains';
-import { OnchainKitProvider } from '@coinbase/onchainkit';
-
+import './index.css';
+import App from './App';
 import { AuthQueryProvider, AuthCacheBoundary } from './contexts/AuthQueryContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { NavigationProvider } from './contexts/NavigationContext';
 import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
+import { PlaybackProvider } from './contexts/PlaybackContext';
+import { DescriptionDockProvider } from './contexts/DescriptionDockContext';
+import { startBrowserPerformance } from './performance/browserPerformance';
+import { PerformanceRouteObserver } from './performance/PerformanceRouteObserver';
 
 const PUBLISHABLE_KEY = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
-const ONCHAINKIT_API_KEY = process.env.REACT_APP_ONCHAINKIT_API_KEY;
-
 if (!PUBLISHABLE_KEY) throw new Error('Missing Clerk Publishable Key');
-if (!ONCHAINKIT_API_KEY) throw new Error('Missing OnchainKit API Key');
-
 window.Buffer = window.Buffer || Buffer;
 
-
-// GA4 page views are GA4's own: the first load (public/index.html) and every route change
-// (the stream's enhanced measurement follows browser history), as on base.tube.
-
-window.addEventListener('auth:rate-limited', () => {
-  // No invalidation; informational only
-});
-
+// Public content renders while Clerk initializes. Private routes guard their own pending identity.
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AuthQueryProvider>
       <BrowserRouter>
+        <PerformanceRouteObserver />
+        <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
           <NavigationProvider>
-            <WagmiProvider config={wagmiConfig}>
-              <AuthProvider>
-                <OnchainKitProvider
-                  apiKey={ONCHAINKIT_API_KEY}
-                  chain={baseSepolia}
-                  config={{
-                    appearance: {
-                      name: 'Base.Tube',
-                      logo: '/assets/basetubelogo.png',
-                      mode: 'dark',
-                      theme: 'hacker'
-                    },
-                    wallet: {
-                      display: 'modal',
-                      termsUrl: 'https://base.tube/terms',
-                      privacyUrl: 'https://base.tube/privacy'
-                    }
-                  }}
-                >
-                  <RainbowKitProvider modalSize="wide">
-                    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
-                      <ClerkLoading><Loader fullPage label="Loading secure sign-in…" /></ClerkLoading>
-                      <ClerkLoaded>
-                        <AuthCacheBoundary>
-                        <ChannelSelectionProvider>
-                        <PlaybackProvider>
-                          <DescriptionDockProvider>
-                            <App />
-                          </DescriptionDockProvider>
-                        </PlaybackProvider>
-                        </ChannelSelectionProvider>
-                        </AuthCacheBoundary>
-                      </ClerkLoaded>
-                    </ClerkProvider>
-                  </RainbowKitProvider>
-                </OnchainKitProvider>
-              </AuthProvider>
-            </WagmiProvider>
+            <AuthProvider>
+              <AuthCacheBoundary>
+                <ChannelSelectionProvider>
+                  <PlaybackProvider>
+                    <DescriptionDockProvider><App /></DescriptionDockProvider>
+                  </PlaybackProvider>
+                </ChannelSelectionProvider>
+              </AuthCacheBoundary>
+            </AuthProvider>
           </NavigationProvider>
+        </ClerkProvider>
       </BrowserRouter>
     </AuthQueryProvider>
   </React.StrictMode>
 );
+startBrowserPerformance();

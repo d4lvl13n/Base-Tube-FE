@@ -7,12 +7,12 @@ import React, {
 } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getVideoById } from '../../api/video';
-import { getChannelById } from '../../api/channel';
+import { useQuery } from '@tanstack/react-query';
+import { videoQueryOptions } from '../../queries/publicContent';
+import { useChannelData } from '../../hooks/useChannelData';
+import { useContentReady } from '../../performance/useContentReady';
 import VideoPlayer, { VideoPlayerRef } from '../common/Video/VideoPlayer';
 import { usePlayback } from '../../contexts/PlaybackContext';
-import { Video } from '../../types/video';
-import { Channel } from '../../types/channel';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 import CommentPanel from '../common/Video/Comments/CommentPanel';
@@ -35,12 +35,14 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 const SingleVideo: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [video, setVideo] = useState<Video | null>(null);
-  const [channel, setChannel] = useState<Channel | null>(null);
+  const videoQuery = useQuery({ ...videoQueryOptions(id ?? ''), enabled: Boolean(id) });
+  const video = videoQuery.data ?? null;
+  const { channel } = useChannelData(video?.channel_id);
+  useContentReady('video_content_ready', Boolean(video));
   const [showInterface, setShowInterface] = useState(true);
   const [shouldShowOverlay, setShouldShowOverlay] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const error = videoQuery.isError ? 'Failed to load video.' : null;
   const playerRef = useRef<VideoPlayerRef | null>(null) as MutableRefObject<VideoPlayerRef | null>;
   const { isCommentsPanelOpen, setIsCommentsPanelOpen, isInfoPanelOpen, setIsInfoPanelOpen } = useVideoContext();
   const { open: openDescriptionDock } = useDescriptionDock();
@@ -129,40 +131,15 @@ const SingleVideo: React.FC = () => {
   }, [isLiked, toggleLike]);
 
   useEffect(() => {
-    const fetchVideoAndChannel = async () => {
-      if (!id) {
-        console.error('No video ID provided');
-        navigate('/');
-        return;
-      }
-
-      try {
-        const videoData = await getVideoById(id);
-        setVideo(videoData);
-        // Update global playback source so mini player has context
-        try {
-          setSource({
-            videoId: videoData.id.toString(),
-            title: videoData.title,
-            src: videoData.video_url || `${API_BASE_URL}/${videoData.video_path}`,
-            thumbnailUrl: videoData.thumbnail_url || `${API_BASE_URL}/${videoData.thumbnail_path}`,
-            duration: videoData.duration,
-            watchUrl: `/video/${videoData.id}`,
-          });
-        } catch {}
-
-        if (videoData.channel_id) {
-          const channelData = await getChannelById(videoData.channel_id);
-          setChannel(channelData.channel);
-        }
-      } catch (error) {
-        console.error('Error fetching video or channel data:', error);
-        setError('Failed to load video.');
-      }
-    };
-
-    fetchVideoAndChannel();
-  }, [id, navigate, setSource]);
+    if (!id) { navigate('/'); return; }
+    if (!video) return;
+    setSource({
+      videoId: video.id.toString(), title: video.title,
+      src: video.video_url || `${API_BASE_URL}/${video.video_path}`,
+      thumbnailUrl: video.thumbnail_url || `${API_BASE_URL}/${video.thumbnail_path}`,
+      duration: video.duration, watchUrl: `/video/${video.id}`,
+    });
+  }, [id, video, navigate, setSource]);
 
   // Smoothly return to the top (video player) when navigating to another video
   useEffect(() => {
@@ -419,7 +396,7 @@ const SingleVideo: React.FC = () => {
             isOpen={isInfoPanelOpen}
             onClose={() => setIsInfoPanelOpen(false)}
             video={video}
-            channel={channel}
+            channel={channel ?? null}
           />
         )}
       </AnimatePresence>

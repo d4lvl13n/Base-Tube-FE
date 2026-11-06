@@ -157,6 +157,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
     topSharedContent,
     topComments,
     isLoading,
+    loading,
     errors,
   } = useCreatorAnalytics(period, channelId);
   
@@ -225,7 +226,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           icon={ThumbsUp}
           title="Total Likes"
           value={totalLikes.toLocaleString()}
-          loading={isLoading}
+          loading={loading.engagementTrends}
           subtitle={`For ${periodString}`}
           error={engagementError ? 'Error loading likes' : undefined}
         />
@@ -234,7 +235,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           icon={MessageCircle}
           title="Comments"
           value={totalComments.toLocaleString()}
-          loading={isLoading}
+          loading={loading.engagementTrends}
           subtitle={`For ${periodString}`}
           error={engagementError ? 'Error loading comments' : undefined}
         />
@@ -243,7 +244,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           icon={Share2}
           title="Shares"
           value={totalShares.toLocaleString()}
-          loading={isLoading}
+          loading={loading.engagementTrends}
           subtitle={`For ${periodString}`}
           error={engagementError ? 'Error loading shares' : undefined}
         />
@@ -252,7 +253,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           icon={Clock}
           title="Avg. % watched"
           value={formatPercent(avgPercentWatched)}
-          loading={isLoading}
+          loading={loading.channelWatchPatterns}
           subtitle="Share of each video watched, weighted by views"
           error={watchPatternsError ? 'Error loading watch depth' : undefined}
         />
@@ -265,7 +266,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
             <ThumbsUp className="w-5 h-5 mr-2 text-[#fa7517]" />
             Like Growth Trend
           </h3>
-          {isLoading ? (
+          {loading.engagementTrends ? (
             <ChartLoading />
           ) : engagementError ? (
              <div className="h-[300px] flex items-center justify-center text-red-500">Error loading trends.</div>
@@ -291,7 +292,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
             <MessageCircle className="w-5 h-5 mr-2 text-blue-400" />
             Comment Growth Trend
           </h3>
-          {isLoading ? (
+          {loading.engagementTrends ? (
             <ChartLoading />
           ) : engagementError ? (
              <div className="h-[300px] flex items-center justify-center text-red-500">Error loading trends.</div>
@@ -320,10 +321,12 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
             <ThumbsUp className="w-5 h-5 mr-2 text-[#fa7517]" />
             Most Liked Videos
           </h3>
-          {isLoading ? (
+          {loading.topLikedContent ? (
             <div className="flex justify-center py-8">
               <Loader className="w-8 h-8 animate-spin text-gray-500" />
             </div>
+          ) : errors.topLikedContent ? (
+            <p role="alert">Unable to load liked videos.</p>
           ) : topLikedContent && topLikedContent.length > 0 ? (
             <div className="space-y-3">
               {topLikedContent.map((video, index) => (
@@ -354,10 +357,12 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
             <Share2 className="w-5 h-5 mr-2 text-green-400" />
             Most Shared Videos
           </h3>
-          {isLoading ? (
+          {loading.topSharedContent ? (
             <div className="flex justify-center py-8">
               <Loader className="w-8 h-8 animate-spin text-gray-500" />
             </div>
+          ) : errors.topSharedContent ? (
+            <p role="alert">Unable to load shared videos.</p>
           ) : topSharedContent && topSharedContent.length > 0 ? (
             <div className="space-y-3">
               {topSharedContent.map((video, index) => (
@@ -390,11 +395,13 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           <Award className="w-5 h-5 mr-2 text-yellow-400" />
           Top Comments
         </h3>
-        {isLoading ? (
+        {loading.topComments ? (
           <div className="flex justify-center py-8">
             <Loader className="w-8 h-8 animate-spin text-gray-500" />
           </div>
-        ) : topComments && topComments.length > 0 ? (
+        ) : errors.topComments ? (
+            <p role="alert">Unable to load top comments.</p>
+          ) : topComments && topComments.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {topComments.map((comment, index) => (
               <CommentCard

@@ -4,7 +4,7 @@ import { Send, Loader, Smile } from 'lucide-react';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 import { useUser } from '@clerk/clerk-react';
-import { useWeb3Auth } from '../../../../hooks/useWeb3Auth';
+import { useAuth } from '../../../../contexts/AuthContext';
 import { AuthMethod } from '../../../../types/auth';
 import type { ApiResponse, Comment } from '../../../../types/comment';
 
@@ -26,7 +26,7 @@ const CommentInput: React.FC<CommentInputProps> = ({
   onCancel
 }) => {
   const { user: clerkUser } = useUser();
-  const { user: web3User } = useWeb3Auth();
+  const { user: web3User } = useAuth();
   const authMethod = localStorage.getItem('auth_method') as AuthMethod;
   
   // Use the correct user based on auth method

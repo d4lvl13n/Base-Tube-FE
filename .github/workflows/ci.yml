@@ -32,7 +32,7 @@ jobs:
       # timing-flaky on CI runners (passes locally). Fix them and remove the
       # ignore patterns.
       - name: Unit tests
-        run: npx react-scripts test --watchAll=false --testPathIgnorePatterns "App.test.tsx" "useVideoProcessing.test.ts" "useVideoProgress.test.ts" "usePublicThumbnailGenerator.test.ts"
+        run: npx react-scripts test --watchAll=false --runInBand --forceExit --testPathIgnorePatterns "App.test.tsx" "useVideoProcessing.test.ts" "useVideoProgress.test.ts" "usePublicThumbnailGenerator.test.ts"
         env:
           CI: true
 
@@ -40,3 +40,24 @@ jobs:
         run: npx react-scripts build
         env:
           CI: false # CRA treats eslint warnings as errors when CI=true; warnings are tracked separately
+          # Deterministic public test configuration, not live service credentials.
+          REACT_APP_CLERK_PUBLISHABLE_KEY: pk_test_cGVyZi5jbGVyay5hY2NvdW50cy5kZXYk
+          REACT_APP_ONCHAINKIT_API_KEY: performance-fixture
+          REACT_APP_WALLETCONNECT_PROJECT_ID: '00000000000000000000000000000000'
+          REACT_APP_API_URL: http://127.0.0.1:4173
+
+      - name: Performance budget tests and production assets
+        run: npm run perf:test && npm run perf:budget
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Public content under slow network and pending authentication
+        run: npm run perf:smoke
+
+      - name: Performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-performance
+          path: output/performance/

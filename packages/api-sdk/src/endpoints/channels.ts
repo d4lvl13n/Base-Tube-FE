@@ -1,6 +1,7 @@
 import type { AxiosInstance } from 'axios';
 import type {
   Channel,
+  ChannelOverviewResponse,
   ChannelResponse,
   GetChannelsOptions,
   GetChannelsResponse,
@@ -11,6 +12,12 @@ import type { Video } from '../types/video';
 
 export function createChannelsApi(http: AxiosInstance) {
   return {
+    /** Channel and first video page; additive, existing reads remain available. */
+    async overview(identifier: string | number, limit = 12): Promise<ChannelOverviewResponse> {
+      const res = await http.get<ChannelOverviewResponse>(`/api/v1/channels/${encodeURIComponent(String(identifier))}/overview`, { params: { limit } });
+      return res.data;
+    },
+
     /** `GET /api/v1/channels` — note: list lives under `channels`, not `data`. */
     async list(options: GetChannelsOptions = {}): Promise<GetChannelsResponse> {
       const res = await http.get<GetChannelsResponse>('/api/v1/channels', { params: options });

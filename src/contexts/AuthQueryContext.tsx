@@ -26,7 +26,13 @@ const AuthQueryContext = createContext<{
 export function AuthQueryProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState(() => sessionCache('loading', 0));
   const selectIdentity = useCallback((identity: string) => {
-    setSession(previous => previous.identity === identity ? previous : sessionCache(identity, previous.generation + 1));
+    setSession(previous => {
+      if (previous.identity === identity) return previous;
+      // Only Clerk-pending public reads are retained after resolving signed out. Every account
+      // transition still gets a fresh client and a new mounted subtree.
+      if (previous.identity === 'loading' && identity === 'anonymous') return { ...previous, identity };
+      return sessionCache(identity, previous.generation + 1);
+    });
   }, []);
 
   useEffect(() => {
@@ -59,15 +65,22 @@ export function QueryIdentityBoundary({ identity, children }: { identity: string
   const { selectIdentity } = session;
   useLayoutEffect(() => { selectIdentity(identity); }, [identity, selectIdentity]);
   // Do not render even one frame with a previous identity's cache or local state.
-  if (identity !== session.identity) return null;
-  return <React.Fragment key={`${identity}:${session.generation}`}>{children}</React.Fragment>;
+  const resolvingAnonymous = session.identity === 'loading' && identity === 'anonymous';
+  if (identity !== session.identity && !resolvingAnonymous) return null;
+  return <React.Fragment key={session.generation}>{children}</React.Fragment>;
 }
 
 export function AuthCacheBoundary({ children }: { children: React.ReactNode }) {
   const clerk = useClerkAuth();
   const web3 = useAuth();
-  const identity = localStorage.getItem('auth_method') === 'web3' && web3.isAuthenticated && web3.user
-    ? `web3:${web3.user.id}`
-    : clerk.userId ? `clerk:${clerk.userId}:${clerk.sessionId}` : 'anonymous';
+  const walletSession = localStorage.getItem('auth_method') === 'web3';
+  // Wallet cookies can personalize reads before local restoration finishes. Those
+  // provisional reads must be discarded even if restoration resolves signed out.
+  const identity = walletSession && web3.isRestoring
+    ? 'loading:wallet'
+    : walletSession && web3.isAuthenticated && web3.user
+      ? `web3:${web3.user.id}`
+      : clerk.isLoaded === false ? 'loading'
+        : clerk.userId ? `clerk:${clerk.userId}:${clerk.sessionId}` : 'anonymous';
   return <QueryIdentityBoundary identity={identity}>{children}</QueryIdentityBoundary>;
 }

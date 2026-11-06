@@ -1,3 +1,9 @@
+import type { Video } from './video';
+import type { PageMeta, SuccessEnvelope } from './common';
+
+export interface ChannelOverview { channel: Channel; videos: Video[]; pagination: PageMeta; }
+export type ChannelOverviewResponse = SuccessEnvelope<ChannelOverview>;
+
 /** Mirrors `Channels` as exposed by channel endpoints. */
 export interface Channel {
   id: number;

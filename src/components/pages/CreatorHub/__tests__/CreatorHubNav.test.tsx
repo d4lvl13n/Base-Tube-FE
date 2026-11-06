@@ -68,7 +68,7 @@ describe('CreatorHubNav', () => {
     renderNav();
 
     const upload = screen.getByTestId('sidebar-primary-action');
-    expect(upload).toHaveAttribute('href', '/creator-hub/upload');
+    expect(upload).toHaveAttribute('href', '/creator-hub/uploads');
     expect(upload.className).toContain('bg-[#fa7517]');
     expect(screen.queryByText('Create Content Pass')).not.toBeInTheDocument();
     expect(screen.queryByText('Create Channel')).not.toBeInTheDocument();

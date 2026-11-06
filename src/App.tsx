@@ -4,7 +4,6 @@ import { SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Header from './components/common/Header';
-import CreatorHubShell from './components/pages/CreatorHub/CreatorHubShell';
 import ProtectedRoute from './components/pages/ProtectedRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import Loader from './components/common/Loader';
@@ -12,26 +11,30 @@ import ReferralAttributionBridge from './components/common/ReferralAttributionBr
 import CryptoResumeBridge from './components/common/CryptoResumeBridge';
 import StudioFunnelBridge from './components/common/StudioFunnelBridge';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useAnalyticsContext } from './hooks/useAnalyticsData';
+import { WalletFeature } from './contexts/wallet/WalletFeature';
+import { loadVideoPage, loadChannelPage } from './routes/publicRouteLoaders';
 import { VideoProvider } from './contexts/VideoContext';
 import { ConfigProvider } from './contexts/ConfigContext';
 import './styles/prosemirror.css';
 import MiniPlayer from './components/common/Video/MiniPlayer/MiniPlayer';
 import DescriptionDock from './components/common/Video/DescriptionDock/DescriptionDock';
 import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
-import { SystemHealth } from './health/SystemHealth';
-import { GrowthTab } from './components/pages/CreatorHub/Analytics/tabs/GrowthMonetizationTab';
 import { TermsPage, PrivacyPage, RefundPage } from './pages/legal/LegalStubs';
-import { ManagePassesPage } from './components/pages/CreatorHub/ManagePasses';
-import { PassDetailView } from './components/pages/CreatorHub/ManagePasses';
 import LandingMoved from './components/pages/ThumbnailLanding/LandingMoved';
-import { AIThumbnailsSignInPage, AIThumbnailsSignUpPage } from './components/pages/CTREngine/auth/AIThumbnailsAuthPage';
-import AIThumbnailsAuthContinue from './components/pages/CTREngine/auth/AIThumbnailsAuthContinue';
 import { UploadQueueProvider } from './contexts/UploadQueueContext';
+
+const CreatorHubShell = lazy(() => import('./components/pages/CreatorHub/CreatorHubShell'));
+const SystemHealth = lazy(() => import('./health/SystemHealth').then(module => ({ default: module.SystemHealth })));
+const GrowthTab = lazy(() => import('./components/pages/CreatorHub/Analytics/tabs/GrowthMonetizationTab').then(module => ({ default: module.GrowthTab })));
+const ManagePassesPage = lazy(() => import('./components/pages/CreatorHub/ManagePasses/ManagePassesPage'));
+const PassDetailView = lazy(() => import('./components/pages/CreatorHub/ManagePasses/PassDetailView'));
+const AIThumbnailsSignInPage = lazy(() => import('./components/pages/CTREngine/auth/AIThumbnailsAuthPage').then(module => ({ default: module.AIThumbnailsSignInPage })));
+const AIThumbnailsSignUpPage = lazy(() => import('./components/pages/CTREngine/auth/AIThumbnailsAuthPage').then(module => ({ default: module.AIThumbnailsSignUpPage })));
+const AIThumbnailsAuthContinue = lazy(() => import('./components/pages/CTREngine/auth/AIThumbnailsAuthContinue'));
 
 // Route pages load only when visited, keeping account screens small on slow connections.
 const V2HomePage = lazy(() => import('./components/pages/V2HomePage'));
-const SingleVideo = lazy(() => import('./components/pages/SingleVideo'));
+const SingleVideo = lazy(loadVideoPage);
 const DiscoveryPage = lazy(() => import('./components/pages/DiscoveryPage/index'));
 const SearchPage = lazy(() => import('./components/pages/SearchPage'));
 const SubscribedChannelPage = lazy(() => import('./components/pages/SubscribedChannelPage/index'));
@@ -40,7 +43,7 @@ const UserProfileWallet = lazy(() => import('./components/pages/UserProfileWalle
 const SignInPage = lazy(() => import('./components/pages/SignInPage'));
 const SignUpPage = lazy(() => import('./components/pages/SignUpPage'));
 const ChannelPage = lazy(() => import('./components/pages/ChannelPage'));
-const ChannelDetailPage = lazy(() => import('./components/pages/ChannelDetailPage'));
+const ChannelDetailPage = lazy(loadChannelPage);
 const CreateChannelPage = lazy(() => import('./components/pages/CreateChannelPage'));
 const ProfileSettings = lazy(() => import('./components/pages/ProfileSettings'));
 const CreatorHubLandingPage = lazy(() => import('./components/pages/CreatorHub/CreatorHubLandingPage'));
@@ -91,22 +94,11 @@ const CreatorHubLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   </ChannelSelectionProvider>
 );
 
-// Create an analytics wrapper for Creator Hub routes
-const AnalyticsRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
-  const { prefetchCreatorAnalytics } = useAnalyticsContext();
-  
-  React.useEffect(() => {
-    prefetchCreatorAnalytics('7d');
-  }, [prefetchCreatorAnalytics]);
-
-  return element;
-};
-
 // Update CreatorHubRoute to include monitoring routes
 const CreatorHubRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => (
   <ProtectedRoute>
     <CreatorHubLayout>
-      <AnalyticsRoute element={element} />
+      {element}
     </CreatorHubLayout>
   </ProtectedRoute>
 );
@@ -348,7 +340,7 @@ function App() {
                     path="/profile"
                     element={
                       <ProtectedRoute>
-                        <UserProfileWallet />
+                        <WalletFeature><UserProfileWallet /></WalletFeature>
                       </ProtectedRoute>
                     }
                   />
@@ -388,7 +380,7 @@ function App() {
                   />
                   <Route
                     path="/sign-in-web3"
-                    element={<SignInWeb3 />}
+                    element={<WalletFeature><SignInWeb3 /></WalletFeature>}
                   />
                   <Route
                     path="/onboarding"
@@ -452,8 +444,8 @@ function App() {
                   <Route path="/faq/content-creation" element={<div>Coming Soon</div>} />
 
                   {/* New routes */}
-                  <Route path="/p/:slug" element={<PassDetailsPage />} />
-                  <Route path="/pay/success" element={<CheckoutSuccessPage />} />
+                  <Route path="/p/:slug" element={<WalletFeature><PassDetailsPage /></WalletFeature>} />
+                  <Route path="/pay/success" element={<WalletFeature><CheckoutSuccessPage /></WalletFeature>} />
 
                   {/* Credit checkout return (separate from the NFT-pass /pay/success flow) */}
                   <Route path="/credits/success" element={<CreditsSuccessPage />} />

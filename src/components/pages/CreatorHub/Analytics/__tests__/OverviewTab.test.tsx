@@ -52,6 +52,7 @@ const mockAnalytics: any = {
     shareGrowth: []
   },
   isLoading: false,
+  loading: Object.fromEntries(Object.keys(noErrors).map(key => [key, false])),
   errors: { ...noErrors }
 };
 
@@ -87,6 +88,8 @@ const selectPeriod = (value: string) =>
 
 beforeEach(() => {
   mockAnalytics.errors = { ...noErrors };
+  mockAnalytics.isLoading = false;
+  mockAnalytics.loading = Object.fromEntries(Object.keys(noErrors).map(key => [key, false]));
   mockChannel.error = null;
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
@@ -173,3 +176,19 @@ describe('OverviewTab', () => {
     expect(utils.container.textContent).toContain('Error loading views');
   });
 });
+
+  it('renders ready metrics while an unrelated query remains pending', () => {
+    mockAnalytics.isLoading = true;
+    mockAnalytics.loading.demographics = true;
+    const { container } = render(<OverviewTab channelId="1" />);
+    expect(container.textContent).toContain('Likes8');
+    expect(container.textContent).toContain('Comments2');
+  });
+
+  it('keeps only the dependent metric loading', () => {
+    mockAnalytics.isLoading = true;
+    mockAnalytics.loading.engagementTrends = true;
+    const { container } = render(<OverviewTab channelId="1" />);
+    expect(container.textContent).not.toContain('Likes8');
+    expect(container.textContent).toContain('Avg. % watched');
+  });

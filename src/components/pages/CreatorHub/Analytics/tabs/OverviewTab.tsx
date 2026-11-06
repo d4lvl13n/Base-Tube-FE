@@ -31,6 +31,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
     channelWatchPatterns,
     engagementTrends,
     isLoading: analyticsLoading,
+    loading,
     errors,
   } = useCreatorAnalytics(period, channelId);
 
@@ -83,7 +84,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
     if (period === 'all') {
       return {
         value: formatWatchTime(creatorWatchHours?.totalSeconds, creatorWatchHours?.total ?? 0),
-        subtitle: `${(channelWatchPatterns?.durationStats?.totalViews ?? 0).toLocaleString()} views`
+        subtitle: 'For all time'
       };
     } else {
       return {
@@ -113,7 +114,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   // trend badge, so either failing must show as an error rather than a number
   // with a missing badge.
   const viewsError = errors.detailedViewMetrics || errors.growthMetrics;
-  const watchHoursError = errors.allTimeWatchHours || errors.periodWatchHours;
+  const watchHoursError = period === 'all' ? errors.allTimeWatchHours : errors.periodWatchHours;
 
   return (
     <div className="space-y-8">
@@ -149,8 +150,8 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           value={period === 'all' 
             ? (channel?.subscribers_count || 0).toLocaleString()
             : (growthMetrics?.metrics.subscribers.total || 0).toLocaleString()}
-          change={trendBadgeValue(growthMetrics?.metrics.subscribers.trend)}
-          loading={isLoading}
+          change={period === 'all' ? undefined : trendBadgeValue(growthMetrics?.metrics.subscribers.trend)}
+          loading={period === 'all' ? channelLoading : loading.growthMetrics}
           subtitle={period === 'all'
             ? "Total subscriber count"
             : `New in ${periodString}`}
@@ -162,7 +163,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           title="Views"
           value={periodViews.toLocaleString()}
           change={trendBadgeValue(growthMetrics?.metrics.views.trend)}
-          loading={isLoading}
+          loading={loading.detailedViewMetrics || loading.growthMetrics}
           subtitle={`For ${periodString}`}
           error={viewsError ? 'Error loading views' : undefined}
         />
@@ -171,7 +172,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           icon={Clock}
           title="Watch Time"
           value={getPeriodWatchHours().value}
-          loading={isLoading}
+          loading={period === 'all' ? loading.allTimeWatchHours : loading.periodWatchHours}
           subtitle={getPeriodWatchHours().subtitle}
           error={watchHoursError ? 'Error loading watch time' : undefined}
         />
@@ -180,7 +181,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           icon={DollarSign}
           title="Est. Revenue"
           value="Coming Soon"
-          loading={isLoading}
+          loading={false}
           subtitle="Monetization features in development"
           className="opacity-70"
         />
@@ -192,7 +193,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           icon={ThumbsUp}
           title="Interaction rate"
           value={formatPercent(periodInteractionRate)}
-          loading={analyticsLoading}
+          loading={loading.engagementTrends || loading.detailedViewMetrics}
           subtitle={`${interactionsThisPeriod.toLocaleString()} likes + comments / ${periodViews.toLocaleString()} views, ${periodString}`}
           error={interactionError ? "Error loading interactions" : undefined}
         />
@@ -201,7 +202,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           icon={TrendingUp}
           title="Avg. % watched"
           value={formatPercent(averagePercentWatched)}
-          loading={analyticsLoading}
+          loading={loading.channelWatchPatterns}
           subtitle="Share of each video watched, weighted by views"
           error={completionRateError ? "Error loading watch depth" : undefined}
         />
@@ -210,7 +211,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           icon={MessageCircle}
           title="Comments"
           value={totalComments.toLocaleString()}
-          loading={analyticsLoading}
+          loading={loading.engagementTrends}
           subtitle={`For ${periodString}`}
           error={commentsError ? "Error loading comments" : undefined}
         />
@@ -219,7 +220,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           icon={ThumbsUp}
           title="Likes"
           value={totalLikes.toLocaleString()}
-          loading={analyticsLoading}
+          loading={loading.engagementTrends}
           subtitle={`For ${periodString}`}
           error={commentsError ? "Error loading likes" : undefined}
         />
@@ -229,12 +230,16 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
         <div className="space-y-4">
           <h3 className="text-xl font-semibold">Growth Trends</h3>
-          <GrowthChart data={growthMetrics?.metrics} />
+          {loading.growthMetrics ? <p role="status">Loading growth…</p>
+            : errors.growthMetrics ? <p role="alert">Unable to load growth trends.</p>
+            : <GrowthChart data={growthMetrics?.metrics} />}
         </div>
         
         <div className="space-y-4">
           <h3 className="text-xl font-semibold">Watch Time Distribution</h3>
-          <WatchTimeChart 
+          {loading.channelWatchPatterns ? <p role="status">Loading watch patterns…</p>
+            : errors.channelWatchPatterns ? <p role="alert">Unable to load watch patterns.</p>
+            : <WatchTimeChart
             data={
               // Ensure all 24 hours are represented
               Array.from({ length: 24 }, (_, hour) => {
@@ -245,7 +250,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
                 };
               })
             } 
-          />
+          />}
         </div>
       </div>
     </div>

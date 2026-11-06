@@ -1,3 +1,4 @@
+import { useContentReady } from "../../../performance/useContentReady";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -54,6 +55,7 @@ function Projects() {
     retry: false,
     refetchInterval: query => query.state.data?.pages.some(page => page.items.some(project => (project.work?.activeCount || 0) > 0)) ? 5000 : false,
   });
+  useContentReady("studio_projects_ready", Boolean(projects.data));
   /** Hide a project from this list, or show it again (the server's archive flag). */
   const setHidden = async (id: string, hidden: boolean) => {
     setChanging(id);

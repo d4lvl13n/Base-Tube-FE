@@ -27,6 +27,13 @@ export interface Channel {
   // user?: { username: string; profile_image_url: string | null }
 }
 
+export interface ChannelOverview {
+  channel: Channel;
+  videos: Video[];
+  pagination: ChannelVideosResponse['pagination'];
+}
+export interface ChannelOverviewResponse { success: boolean; data: ChannelOverview; }
+
 // Response Types
 export interface ChannelResponse {
   success: boolean;

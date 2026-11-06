@@ -64,6 +64,7 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
     detailedViewMetrics,
     creatorWatchHours,
     isLoading: analyticsLoading,
+    loading,
     errors,
   } = useCreatorAnalytics(period, channelId);
 
@@ -115,7 +116,7 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   // Specific error checks
   const growthError = errors.growthMetrics;
   const viewsError = errors.detailedViewMetrics;
-  const watchHoursError = errors.allTimeWatchHours || errors.periodWatchHours; 
+  const watchHoursError = errors.allTimeWatchHours || (period !== 'all' && errors.periodWatchHours);
   const growthData = growthMetrics?.metrics;
 
   return (
@@ -150,11 +151,11 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           title="Subscribers"
           value={subscribers.toLocaleString()}
           change={period === 'all' ? undefined : trendBadgeValue(growthData?.subscribers.trend)}
-          loading={isLoading}
+          loading={channelLoading || (period !== 'all' && loading.growthMetrics)}
           subtitle={period === 'all' 
             ? 'Total Subscribers' // Show total when 'all' is selected
             : `${(growthData?.subscribers.total ?? 0).toLocaleString()} new in ${periodString}`}
-          error={growthError || !channel ? "Error loading subs/trend" : undefined}
+          error={(period !== 'all' && growthError) || !channel ? "Error loading subs/trend" : undefined}
         />
         
         <StatsCard
@@ -162,19 +163,19 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           title="Video Views"
           value={views.toLocaleString()}
           change={period === 'all' ? undefined : trendBadgeValue(growthData?.views.trend)}
-          loading={isLoading}
+          loading={loading.detailedViewMetrics || (period !== 'all' && loading.growthMetrics)}
           subtitle={period === 'all'
             ? 'Total Views' // Show total when 'all' is selected
             : `${detailedViewMetrics?.viewsByPeriod?.[period === '7d' ? 'last7d' : 'last30d']?.toLocaleString() ?? 'N/A'} in ${periodString}`
           }
-          error={growthError || viewsError ? "Error loading views/trend" : undefined}
+          error={(period !== 'all' && growthError) || viewsError ? "Error loading views/trend" : undefined}
         />
         
         <StatsCard
           icon={Clock}
           title="Watch Hours"
           value={formatWatchTime(creatorWatchHours.totalSeconds, creatorWatchHours.total)}
-          loading={isLoading}
+          loading={loading.allTimeWatchHours || (period !== 'all' && loading.periodWatchHours)}
           subtitle={period === 'all' 
             ? 'Watched, all time'
             : `${formatWatchTime(creatorWatchHours.periodSeconds, creatorWatchHours.periodTotal)} in ${periodString}`}
@@ -186,7 +187,7 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           title="Interaction rate"
           value={formatPercent(periodInteractionRate)}
           change={period === 'all' ? undefined : trendBadgeValue(growthData?.engagement.trend)}
-          loading={isLoading}
+          loading={loading.growthMetrics || loading.detailedViewMetrics}
           subtitle={`${interactionsThisPeriod.toLocaleString()} likes + comments / ${viewsThisPeriod.toLocaleString()} views, ${periodString}`}
           error={growthError || viewsError ? "Error loading engagement" : undefined}
         />
@@ -197,7 +198,9 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
         <div className="space-y-4">
           <h3 className="text-xl font-semibold">Growth Trends</h3>
           <div className="p-4 bg-black/50 rounded-xl border border-gray-800/50">
-            <GrowthChart data={growthMetrics?.metrics} />
+            {loading.growthMetrics ? <p role="status">Loading growth…</p>
+              : errors.growthMetrics ? <p role="alert">Unable to load growth trends.</p>
+              : <GrowthChart data={growthMetrics?.metrics} />}
           </div>
         </div>
         

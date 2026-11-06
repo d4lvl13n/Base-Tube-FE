@@ -1,17 +1,21 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { subscribeToChannel, unsubscribeFromChannel } from '../api/channel';
 import type { Channel, ChannelResponse } from '../types/channel';
+import { updateChannelOverviewCache } from './useChannelOverview';
 
 export const useChannelSubscription = () => {
   const queryClient = useQueryClient();
 
   const updateChannelCache = (channel: Channel, isSubscribed: boolean) => {
+    updateChannelOverviewCache(queryClient, channel, isSubscribed);
     // Update by ID
     queryClient.setQueryData(['channel', channel.id], (oldData: Channel | undefined) => ({
       ...oldData,
       ...channel,
       isSubscribed
     }));
+
+    queryClient.setQueryData(['channel', String(channel.id)], (oldData: Channel | undefined) => ({ ...oldData, ...channel, isSubscribed }));
 
     // Update by handle
     queryClient.setQueryData(['channel', channel.handle], (oldData: Channel | undefined) => ({

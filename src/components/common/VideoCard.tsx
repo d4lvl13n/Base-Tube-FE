@@ -4,6 +4,7 @@ import { Video } from '../../types/video';
 import { Channel } from '../../types/channel';
 import { Play, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useContentPrefetch } from '../../hooks/useContentPrefetch';
 
 interface VideoCardProps {
   video: Video & { channel?: Channel };
@@ -12,6 +13,7 @@ interface VideoCardProps {
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({ video, size, className = '' }) => {
+  const prefetch = useContentPrefetch();
   const [imageLoaded, setImageLoaded] = useState(false);
 
   // Match EXACT fallback logic used elsewhere
@@ -57,7 +59,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, size, className = '' }) =>
   };
 
   return (
-    <Link to={`/video/${video.id}`} className={className}>
+    <Link {...prefetch} to={`/video/${video.id}`} className={className}>
       <motion.div
         className={`group relative w-full bg-gray-900/30 rounded-xl overflow-hidden
                     transition-all duration-300 hover:ring-2 hover:ring-[#fa7517]/50

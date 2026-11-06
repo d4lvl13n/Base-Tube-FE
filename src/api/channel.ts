@@ -2,7 +2,9 @@
 
 import api from './index';
 import { 
-  Channel, 
+  Channel,
+  ChannelOverview,
+  ChannelOverviewResponse,
   ChannelResponse, 
   ChannelWriteResponse,
   ChannelsResponse, 
@@ -20,6 +22,12 @@ import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
 import { ErrorCode } from '../types/error';
 import { getChannelErrorMessage } from '../utils/channelErrorMessages';
 import { retryUnlessCancelled, wasCancelled } from '../utils/requestCancelled';
+
+/** One request for a channel and its first video page. Cancellation follows the account query cache. */
+export async function getChannelOverview(identifier: string | number, limit = 12, signal?: AbortSignal): Promise<ChannelOverview> {
+  const response = await api.get<ChannelOverviewResponse>(`/api/v1/channels/${encodeURIComponent(String(identifier))}/overview`, { params: { limit }, signal });
+  return response.data.data;
+}
 
 export class ChannelApiError extends Error {
   readonly code: string | null;
@@ -285,6 +293,7 @@ export const getChannelDetails = async (identifier: number | string): Promise<Ch
  * browser happens to hold would tell a creator their video does not exist.
  */
 export interface ChannelVideoQuery {
+  limit?: number;
   /** Case-insensitive match on title/description. */
   search?: string;
   visibility?: 'public' | 'private';
@@ -309,6 +318,7 @@ export const getChannelVideos = async (
       params: {
         page,
         include_private: true,
+        limit: query.limit,
         // Undefined params are dropped by axios, so an unfiltered call is
         // byte-for-byte the request this function has always made.
         search: query.search || undefined,

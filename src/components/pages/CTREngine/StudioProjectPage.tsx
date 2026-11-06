@@ -1,3 +1,4 @@
+import { useContentReady } from "../../../performance/useContentReady";
 import { studioVersionLabel } from '../../../utils/studioVersionLabel';
 import { StudioSelect } from "./components/studio/StudioSelect";
 import { studioSourceLabels } from "../../../utils/studioLabels";
@@ -113,6 +114,7 @@ function Workspace({ projectId }: { projectId: string }) {
   // The automatic check can be turned off: then versions carry no note about it.
   const checking = useStudioCapabilities().data?.validation !== false;
   const project = useStudioProject(projectId);
+  useContentReady("studio_editor_ready", Boolean(project.data && project.draft));
   const navigate = useNavigate();
   const location = useLocation();
   const entry = (location.state as { studioEntry?: StudioEntryState } | null)

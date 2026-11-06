@@ -458,7 +458,7 @@ describe('VideosManagement filters', () => {
     expect(await screen.findByText('No videos yet')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Upload your first video' })).toHaveAttribute(
       'href',
-      '/creator-hub/content-studio',
+      '/creator-hub/uploads',
     );
   });
 

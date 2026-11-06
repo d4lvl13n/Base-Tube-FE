@@ -73,7 +73,7 @@
     "video.js": "^8.18.1",
     "viem": "^2.22.8",
     "wagmi": "^2.14.7",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^6.2.3"
   },
   "scripts": {
     "prestart": "npm run build -w @basetube/api",
@@ -83,7 +83,10 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "pretypecheck": "npm run build -w @basetube/api",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "perf:budget": "node scripts/performance-budget.mjs",
+    "perf:smoke": "node scripts/performance-smoke.mjs",
+    "perf:test": "node --test scripts/performance-budget.test.mjs"
   },
   "jest": {
     "transformIgnorePatterns": [
@@ -120,6 +123,7 @@
     "canvas-confetti": "^1.9.3",
     "identity-obj-proxy": "^3.0.0",
     "msw": "^2.12.4",
+    "playwright": "^1.65.0",
     "typescript": "^5.9.3"
   }
 }

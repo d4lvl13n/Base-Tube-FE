@@ -116,7 +116,7 @@ describe('ChannelPreviewCard', () => {
       expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument();
     });
 
-    it('re-measures when the card is resized', () => {
+    it('re-measures when the card is resized', async () => {
       // Collapsing the sidebar widens this card, and text that needed three
       // lines at 240px may well fit in two at 60px.
       const observers: Array<() => void> = [];
@@ -139,7 +139,8 @@ describe('ChannelPreviewCard', () => {
         setOverflowing(true);
         act(() => observers.forEach((notify) => notify()));
 
-        expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument();
+        // Layout updates are scheduled outside ResizeObserver delivery.
+        expect(await screen.findByRole('button', { name: 'More' })).toBeInTheDocument();
       } finally {
         global.ResizeObserver = original;
       }

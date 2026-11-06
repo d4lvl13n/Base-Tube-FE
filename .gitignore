@@ -39,3 +39,4 @@ yarn-error.log*
 # Browser QA sessions and raw evidence are local artifacts, not application source.
 .playwright-cli/
 /output/playwright/
+/output/performance/

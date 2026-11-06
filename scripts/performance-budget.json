@@ -1,0 +1,18 @@
+{
+  "description": "Production entrypoint gzip level 9 budgets. Lazy route chunks are measured by the browser smoke, not counted as every visitor's entrypoint.",
+  "baseline": {
+    "commit": "8e8c97e",
+    "date": "2026-11-06",
+    "initialJsGzipBytes": 749073,
+    "initialCssGzipBytes": 36665,
+    "initialJsFiles": 1
+  },
+  "limits": {
+    "initialJsGzipBytes": 350000,
+    "initialCssGzipBytes": 35000,
+    "initialJsFiles": 3
+  },
+  "browserLimits": {
+    "maxJsBodyBytesBeforeContent": 400000
+  }
+}

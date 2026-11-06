@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { getVideoById } from '../api/video';
-import { Video } from '../types/video';
 import { queryKeys } from '../utils/queryKeys';
 
 export const useVideoFetch = (id: string) => {
@@ -8,7 +7,7 @@ export const useVideoFetch = (id: string) => {
     queryKey: queryKeys.video.byId(id),
     queryFn: async () => {
         const response = await getVideoById(id);
-      return response.data;
+      return response;
     },
     enabled: !!id, // Only run query if id exists
     staleTime: 10 * 60 * 1000, // 10 minutes - video metadata rarely changes after upload

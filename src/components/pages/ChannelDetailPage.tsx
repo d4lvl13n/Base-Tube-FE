@@ -1,95 +1,42 @@
 // src/components/pages/ChannelDetailPage.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useChannelOverview } from '../../hooks/useChannelOverview';
+import { useContentPrefetch } from '../../hooks/useContentPrefetch';
+import { useContentReady } from '../../performance/useContentReady';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 import ChannelHeader from '../common/Channel/ChannelHeader';
 import VideoGrid from '../common/Channel/VideoGrid';
-import { getChannelVideos } from '../../api/channel';
-import { Video } from '../../types/video';
-import { useChannelData } from '../../hooks/useChannelData';
 import RichTextDisplay from '../common/RichTextDisplay';
 import ChannelTabs from '../common/Channel/ChannelTabs';
 import { passApi } from '../../api/pass';
-import type { Pass } from '../../types/pass';
 import { Link } from 'react-router-dom';
 
 const ChannelDetailPage: React.FC = () => {
   const { identifier } = useParams<{ identifier: string }>();
   
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [videoError, setVideoError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const [activeTab, setActiveTab] = useState('videos');
-  const [channelPasses, setChannelPasses] = useState<Pass[]>([]);
-  const [passesLoading, setPassesLoading] = useState(false);
-
-  const {
-    channel,
-    isLoading: isChannelLoading,
-    error: channelError,
-  } = useChannelData(identifier);
-
-  useEffect(() => {
-    if (!channel?.id) return;
-
-    const fetchChannelVideos = async () => {
-      setLoading(true);
-      try {
-        const videosData = await getChannelVideos(channel.id.toString(), 1);
-        setVideos(videosData.data);
-        setHasMore(videosData.pagination.page < videosData.pagination.totalPages);
-        setPage(1);
-        setVideoError(null);
-      } catch (err) {
-        console.error('Error fetching videos:', err);
-        setVideoError('Unable to load videos at this time. Please try again later.');
-      }
-      setLoading(false);
-    };
-
-    fetchChannelVideos();
-  }, [channel?.id]);
-
-  useEffect(() => {
-    if (!channel?.id) return;
-    let cancelled = false;
-    const load = async () => {
-      setPassesLoading(true);
-      try {
-        const result = await passApi.discoverPasses({ channel_id: String(channel.id), limit: 24 });
-        if (!cancelled) setChannelPasses(result.data ?? []);
-      } catch {
-        if (!cancelled) setChannelPasses([]);
-      } finally {
-        if (!cancelled) setPassesLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [channel?.id]);
-
-  const loadMoreVideos = async () => {
-    if (!hasMore || loading || !channel?.id) return;
-
-    setLoading(true);
-    try {
-      const nextPage = page + 1;
-      const videosData = await getChannelVideos(channel.id.toString(), nextPage);
-      setVideos((prev) => [...prev, ...videosData.data]);
-      setPage(nextPage);
-      setHasMore(videosData.pagination.page < videosData.pagination.totalPages);
-    } catch (err) {
-      console.error('Error loading more videos:', err);
-      setVideoError('Failed to load more videos. Please try again.');
-    }
-    setLoading(false);
+  const overview = useChannelOverview(identifier);
+  const { channel, videos } = overview;
+  const isChannelLoading = overview.isLoading;
+  const channelError = overview.error && !channel;
+  const videoError = overview.isFetchNextPageError ? 'Failed to load more videos. Please try again.' : null;
+  const prefetch = useContentPrefetch();
+  useContentReady('channel_content_ready', Boolean(channel));
+  const passes = useQuery({
+    queryKey: ['channel-passes', channel?.id],
+    queryFn: () => passApi.discoverPasses({ channel_id: String(channel!.id), limit: 24 }),
+    enabled: Boolean(channel?.id) && activeTab === 'products',
+    staleTime: 60_000,
+  });
+  const channelPasses = passes.data?.data ?? [];
+  const passesLoading = passes.isLoading;
+  const loadMoreVideos = () => {
+    if (overview.hasNextPage && !overview.isFetching) void overview.fetchNextPage();
   };
 
   // If there's an error loading the channel itself, show that error
@@ -101,7 +48,7 @@ const ChannelDetailPage: React.FC = () => {
           <Sidebar />
           <main className="flex-1 p-8">
             <div className="text-center text-red-500 mt-10">
-              Failed to load channel. Please try again.
+              Failed to load channel. <button onClick={() => void overview.refetch()} className="text-[#fa7517]">Try again</button>
             </div>
           </main>
         </div>
@@ -123,7 +70,7 @@ const ChannelDetailPage: React.FC = () => {
       <Header />
       <div className="flex pt-16">
         <Sidebar />
-        <main className="flex-1 overflow-x-hidden">
+        <main {...prefetch} className="flex-1 overflow-x-hidden">
           <AnimatePresence>
             <motion.div
               initial={{ opacity: 0 }}
@@ -138,41 +85,14 @@ const ChannelDetailPage: React.FC = () => {
               <div className="p-6">
                 {activeTab === 'videos' && (
                   <>
-                    {videoError ? (
-                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 backdrop-blur-sm">
-                        <p className="text-red-400 text-center">{videoError}</p>
-                        <button 
-                          onClick={() => {
-                            setVideoError(null);
-                            if (channel?.id) {
-                              const fetchVideos = async () => {
-                                setLoading(true);
-                                try {
-                                  const videosData = await getChannelVideos(channel.id.toString(), 1);
-                                  setVideos(videosData.data);
-                                  setHasMore(videosData.pagination.page < videosData.pagination.totalPages);
-                                  setPage(1);
-                                  setVideoError(null);
-                                } catch (err) {
-                                  setVideoError('Unable to load videos. Please try again later.');
-                                }
-                                setLoading(false);
-                              };
-                              fetchVideos();
-                            }
-                          }}
-                          className="mt-4 px-4 py-2 bg-[#fa7517] text-black rounded-lg hover:bg-[#fa9517] transition-colors"
-                        >
-                          Try Again
-                        </button>
+                    {videoError && (
+                      <div role="alert" className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 backdrop-blur-sm">
+                        <p className="text-red-400">{videoError}</p>
+                        <button onClick={() => void overview.fetchNextPage()} className="mt-4 px-4 py-2 bg-[#fa7517] text-black rounded-lg">Try Again</button>
                       </div>
-                    ) : (
-                      <VideoGrid
-                        videos={videos}
-                        loadMore={loadMoreVideos}
-                        hasMore={hasMore}
-                      />
                     )}
+                    {videos.length === 0 && <p className="text-gray-400">No videos on this channel yet.</p>}
+                    <VideoGrid videos={videos} loading={overview.isFetchingNextPage} loadMore={loadMoreVideos} hasMore={Boolean(overview.hasNextPage) && !overview.isFetchNextPageError} />
                   </>
                 )}
                 {activeTab === 'products' && (
@@ -180,7 +100,7 @@ const ChannelDetailPage: React.FC = () => {
                     <h2 className="text-2xl font-bold mb-4">Passes</h2>
                     {passesLoading ? (
                       <p className="text-gray-400">Loading passes…</p>
-                    ) : channelPasses.length === 0 ? (
+                    ) : passes.isError ? (<p role="alert" className="text-gray-400">Passes could not be loaded. <button onClick={() => void passes.refetch()} className="text-[#fa7517]">Try again</button></p>) : channelPasses.length === 0 ? (
                       <p className="text-gray-400">No passes for sale on this channel yet.</p>
                     ) : (
                       <ul className="grid gap-4 sm:grid-cols-2">

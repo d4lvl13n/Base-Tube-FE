@@ -80,3 +80,65 @@ it('anonymous 401 responses do not remount the page or restart its requests', as
   expect(mounts).toBe(1);
   expect(screen.getByLabelText('Creator hook')).toBe(originalInput);
 });
+
+it('retains only the provisional public cache when Clerk resolves signed out', async () => {
+  mockClerk = { isLoaded: false, userId: null, sessionId: null };
+  const view = render(<App />);
+  const pendingClient = activeClient;
+  pendingClient.setQueryData(['public-video', 1], { title: 'Public video' });
+  mockClerk = { isLoaded: true, userId: null, sessionId: null };
+  view.rerender(<App />);
+  expect(activeClient).toBe(pendingClient);
+  expect(activeClient.getQueryData(['public-video', 1])).toEqual({ title: 'Public video' });
+});
+
+it('isolates a resolved Clerk account from the pending identity and late callbacks', async () => {
+  mockClerk = { isLoaded: false, userId: null, sessionId: null };
+  const view = render(<App />);
+  const pendingClient = activeClient;
+  pendingClient.setQueryData(['creator-sales'], { buyerEmail: 'pending@example.com' });
+  identity('clerk', 'B');
+  mockClerk.isLoaded = true;
+  mockGetSales.mockResolvedValueOnce({ buyerEmail: 'private-B@example.com' });
+  view.rerender(<App />);
+  expect(screen.queryByText(/pending@example.com/)).toBeNull();
+  await screen.findByText(/private-B@example.com/);
+  expect(activeClient).not.toBe(pendingClient);
+  act(() => { pendingClient.setQueryData(['creator-sales'], { buyerEmail: 'late-pending@example.com' }); });
+  expect(screen.queryByText(/late-pending@example.com/)).toBeNull();
+  expect(activeClient.getQueryData(['creator-sales'])).toEqual({ buyerEmail: 'private-B@example.com' });
+});
+
+it('discards an authenticated cache while identity is pending again', async () => {
+  identity('clerk', 'A');
+  mockGetSales.mockResolvedValueOnce({ buyerEmail: 'private-A@example.com' });
+  const view = render(<App />);
+  await screen.findByText(/private-A@example.com/);
+  const accountClient = activeClient;
+  mockClerk = { isLoaded: false, userId: null, sessionId: null };
+  view.rerender(<App />);
+  expect(screen.queryByText(/private-A@example.com/)).toBeNull();
+  expect(activeClient).not.toBe(accountClient);
+  const pendingClient = activeClient;
+  mockClerk.isLoaded = true;
+  view.rerender(<App />);
+  expect(activeClient).toBe(pendingClient);
+  expect(activeClient.getQueryData(['creator-sales'])).toBeUndefined();
+  await waitFor(() => expect(accountClient.getQueryCache().getAll()).toHaveLength(0));
+});
+
+
+it('discards cookie-backed reads when a pending wallet cannot be restored', async () => {
+  localStorage.setItem('auth_method', 'web3');
+  mockClerk = { isLoaded: true, userId: null, sessionId: null };
+  mockWeb3 = { isRestoring: true, user: null, isAuthenticated: false };
+  const view = render(<App />);
+  const walletClient = activeClient;
+  walletClient.setQueryData(['channel-overview', 'my-channel'], { videos: [{ title: 'Owner-only draft' }] });
+  localStorage.removeItem('auth_method');
+  mockWeb3 = { isRestoring: false, user: null, isAuthenticated: false };
+  view.rerender(<App />);
+  expect(activeClient).not.toBe(walletClient);
+  expect(activeClient.getQueryData(['channel-overview', 'my-channel'])).toBeUndefined();
+  await waitFor(() => expect(walletClient.getQueryCache().getAll()).toHaveLength(0));
+});

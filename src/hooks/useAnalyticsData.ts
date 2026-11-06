@@ -343,6 +343,20 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
     topLikedContent: topLikedContent.data,
     topSharedContent: topSharedContent.data,
     topComments: topComments.data,
+    loading: {
+      viewMetrics: viewMetrics.isLoading,
+      detailedViewMetrics: detailedViewMetrics.isLoading,
+      channelWatchPatterns: channelWatchPatterns.isLoading,
+      demographics: demographics.isLoading,
+      socialMetrics: socialMetrics.isLoading,
+      growthMetrics: growthMetrics.isLoading,
+      allTimeWatchHours: allTimeWatchHours.isLoading,
+      periodWatchHours: periodWatchHours.isLoading,
+      engagementTrends: engagementTrends.isLoading,
+      topLikedContent: topLikedContent.isLoading,
+      topSharedContent: topSharedContent.isLoading,
+      topComments: topComments.isLoading,
+    },
     isLoading: viewMetrics.isLoading || 
                detailedViewMetrics.isLoading ||
                channelWatchPatterns.isLoading ||

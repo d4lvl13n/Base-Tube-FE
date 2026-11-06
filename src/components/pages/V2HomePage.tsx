@@ -1,4 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
+import { useHomeData } from '../../hooks/useHomeData';
+import { useContentPrefetch } from '../../hooks/useContentPrefetch';
+import { useContentReady } from '../../performance/useContentReady';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -17,8 +20,6 @@ import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 import ErrorBoundary from '../common/ErrorBoundary';
 import { useNavigation } from '../../contexts/NavigationContext';
-import { getFeaturedVideos, getRecommendedVideos } from '../../api/video';
-import { getPopularChannels } from '../../api/channel';
 import { useTrendingVideos } from '../../hooks/useTrendingVideos';
 import { usePassDiscover } from '../../hooks/usePass';
 import type { Channel } from '../../types/channel';
@@ -112,14 +113,14 @@ const getPassUrl = (pass: Pass) => `/p/${pass.slug || pass.id}`;
 const V2HomePage: React.FC = () => {
   const { navStyle } = useNavigation();
   const isFloatingNav = navStyle === 'floating';
-  const [featuredVideos, setFeaturedVideos] = useState<HomeVideo[]>([]);
-  const [recommendedVideos, setRecommendedVideos] = useState<HomeVideo[]>([]);
-  const [popularChannels, setPopularChannels] = useState<Channel[]>([]);
-  const [loading, setLoading] = useState(true);
+  const home = useHomeData();
+  const prefetch = useContentPrefetch();
+  const featuredVideos = home.featured.data ?? [];
+  const recommendedVideos = home.recommended.data?.videos ?? [];
+  const popularChannels = home.channels.data ?? [];
 
   const {
     data: passesData,
-    isLoading: passesLoading,
   } = usePassDiscover({ limit: 8 }, { enabled: PASSES_ENABLED });
 
   const contentPasses = useMemo(
@@ -136,35 +137,10 @@ const V2HomePage: React.FC = () => {
     sort: 'trending',
   });
 
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchHomeData = async () => {
-      setLoading(true);
-      const [featuredResult, recommendedResult, channelsResult] = await Promise.allSettled([
-        getFeaturedVideos(3),
-        getRecommendedVideos(1, 8),
-        getPopularChannels(1, 12),
-      ]);
-
-      if (!mounted) return;
-
-      setFeaturedVideos(featuredResult.status === 'fulfilled' ? featuredResult.value as HomeVideo[] : []);
-      setRecommendedVideos(recommendedResult.status === 'fulfilled' ? recommendedResult.value.videos as HomeVideo[] : []);
-      setPopularChannels(channelsResult.status === 'fulfilled' ? channelsResult.value : []);
-      setLoading(false);
-    };
-
-    fetchHomeData();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   const videos = useMemo(() => {
     const seen = new Set<number>();
     return [...featuredVideos, ...(trendingVideos || []), ...recommendedVideos]
-      .filter((video): video is HomeVideo => Boolean(video?.id && video?.title))
+      .filter(video => Boolean(video?.id && video?.title))
       .filter((video) => {
         if (seen.has(video.id)) return false;
         seen.add(video.id);
@@ -177,7 +153,8 @@ const V2HomePage: React.FC = () => {
   const railVideos = videos.slice(2, 8);
   const topPass = contentPasses[0];
   const topChannel = popularChannels[0];
-  const isPageLoading = loading || trendingLoading || (PASSES_ENABLED && passesLoading);
+  const isPageLoading = home.featured.isLoading || home.recommended.isLoading || trendingLoading;
+  useContentReady('home_content_ready', Boolean(heroVideo));
 
   return (
     <ErrorBoundary>
@@ -185,7 +162,7 @@ const V2HomePage: React.FC = () => {
         <Header />
         <div className="flex pt-16">
           <Sidebar className={`${isFloatingNav ? 'hidden' : 'fixed left-0 top-16 bottom-0 z-40'}`} />
-          <main className={`relative flex-1 overflow-hidden ${isFloatingNav ? '' : 'pl-16'}`}>
+          <main {...prefetch} className={`relative flex-1 overflow-hidden ${isFloatingNav ? '' : 'pl-16'}`}>
             <motion.div
               className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(250,117,23,0.16),rgba(0,0,0,0)_42%)]"
               animate={{ opacity: [0.72, 1, 0.72] }}
@@ -205,7 +182,11 @@ const V2HomePage: React.FC = () => {
                   <BentoDiscovery video={bentoVideo} pass={topPass} channel={topChannel} />
                   <VideoRail title="Trending on Base.Tube" linkTo="/discover?tab=trending" videos={railVideos} />
                   <DropsRail passes={contentPasses} />
-                  <CreatorRail channels={popularChannels} />
+                  {home.channels.isLoading ? <p role="status" className="mb-8 text-gray-400">Loading creators…</p>
+                    : home.channels.isError ? <p role="alert" className="mb-8 text-gray-400">Creators could not be loaded. <button onClick={() => void home.channels.refetch()} className="text-[#fa7517]">Try again</button></p>
+                    : <CreatorRail channels={popularChannels} />}
+                  {home.recommended.isError && <p role="alert" className="mb-4 text-gray-400">Recommendations could not be loaded. <button onClick={() => void home.recommended.refetch()} className="text-[#fa7517]">Try again</button></p>}
+                  {home.featured.isError && <p role="alert" className="mb-4 text-gray-400">Featured videos could not be loaded. <button onClick={() => void home.featured.refetch()} className="text-[#fa7517]">Try again</button></p>}
                 </motion.div>
               )}
             </div>

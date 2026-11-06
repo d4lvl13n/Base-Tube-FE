@@ -413,3 +413,17 @@ describe('queryKeys.analytics is the single source of truth', () => {
     expect(queryKeys.analytics.channel('1')[0]).not.toBe('channel');
   });
 });
+
+
+it('keeps ready metric loading flags false while unrelated demographics are pending', async () => {
+  mockApi.getChannelDemographics.mockImplementation(() => new Promise(() => undefined));
+  const { queryClient, wrapper } = makeWrapper();
+  const { result, unmount } = renderHook(() => useCreatorAnalytics('7d', '1'), { wrapper });
+  await waitFor(() => expect(result.current.growthMetrics).toBeDefined());
+  expect(result.current.isLoading).toBe(true);
+  expect(result.current.loading.demographics).toBe(true);
+  expect(result.current.loading.growthMetrics).toBe(false);
+  expect(result.current.loading.detailedViewMetrics).toBe(false);
+  expect(result.current.loading.engagementTrends).toBe(false);
+  unmount(); queryClient.clear();
+});

@@ -53,6 +53,7 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
     detailedViewMetrics,
     demographics,
     isLoading,
+    loading,
     errors,
   } = useCreatorAnalytics(period, channelId);
 
@@ -142,7 +143,7 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
           title="Top Location"
           value={topLocation.country}
           change={0}
-          loading={isLoading}
+          loading={loading.demographics}
           subtitle={`${topLocation.percentage}% of viewers`}
           error={errors.demographics ? "Error loading location" : undefined}
         />
@@ -152,7 +153,7 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
           title="Avg Watch Duration"
           value={`${((channelWatchPatterns?.durationStats?.averageWatchDuration ?? 0) / 60).toFixed(1)}m`}
           change={0}
-          loading={isLoading}
+          loading={loading.channelWatchPatterns || loading.detailedViewMetrics}
           subtitle={`${(detailedViewMetrics?.completedViews ?? 0).toLocaleString()} completed views`}
           error={errors.channelWatchPatterns || errors.detailedViewMetrics ? "Error loading duration/views" : undefined}
         />
@@ -162,7 +163,7 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
           title="Primary Device"
           value={primaryDevice.type}
           change={0}
-          loading={isLoading}
+          loading={loading.demographics}
           subtitle={`${primaryDevice.percentage}% of viewers`}
           error={errors.demographics ? "Error loading device" : undefined}
         />
@@ -171,7 +172,9 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
       {/* Audience Demographics */}
       <div className="p-6 bg-black/50 rounded-xl">
         <h3 className="text-xl font-semibold mb-4">Audience Demographics</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">          
+        {loading.demographics ? <p role="status">Loading demographics…</p>
+          : errors.demographics ? <p role="alert">Unable to load demographics.</p>
+          : <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <DemographicBarChart 
             title={`Geographic Distribution (${period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time'})`} 
             data={countryData} 
@@ -181,7 +184,7 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
             title={`Device Usage (${period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time'})`} 
             data={deviceData} 
           />
-        </div>
+        </div>}
       </div>
 
       {/* Viewing Patterns */}
@@ -190,7 +193,9 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="p-6 bg-black/50 rounded-xl">
             <h4 className="text-base font-medium text-gray-300 mb-4">Watch Time by Hour</h4>
-            <WatchTimeChart 
+            {loading.channelWatchPatterns ? <p role="status">Loading watch patterns…</p>
+              : errors.channelWatchPatterns ? <p role="alert">Unable to load watch patterns.</p>
+              : <WatchTimeChart
               data={Array.from({ length: 24 }, (_, hour) => {
                 const hourData = channelWatchPatterns?.hourlyPatterns?.find(d => d.hour === hour);
                 return {
@@ -198,12 +203,14 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
                   viewCount: hourData?.viewCount || 0
                 };
               })}
-            />
+            />}
           </div>
           
           <div className="p-6 bg-black/50 rounded-xl">
             <h4 className="text-base font-medium text-gray-300 mb-4">Watch Time by Day of Week</h4>
-            <div className="h-64 flex items-end justify-between px-4">
+            {loading.channelWatchPatterns ? <p role="status">Loading watch patterns…</p>
+              : errors.channelWatchPatterns ? <p role="alert">Unable to load watch patterns.</p>
+              : <div className="h-64 flex items-end justify-between px-4">
               {watchTimeByDay.map((day, index) => {
                 const maxViews = Math.max(...watchTimeByDay.map(d => d.views));
                 const percentage = maxViews ? (day.views / maxViews) * 100 : 0;
@@ -218,7 +225,7 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
                   </div>
                 );
               })}
-            </div>
+            </div>}
           </div>
         </div>
       </div>

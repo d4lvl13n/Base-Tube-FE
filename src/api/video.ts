@@ -156,8 +156,8 @@ export interface VideoProgressBatchResponse {
 export const getAllVideos = (page: number = 1, limit: number = 10) =>
   api.get(`/api/v1/videos?page=${page}&limit=${limit}`).then((res) => res.data.data);
 
-export const getVideoById = (id: string) =>
-  api.get(`/api/v1/videos/${id}`).then((res) => res.data.data);
+export const getVideoById = (id: string, signal?: AbortSignal): Promise<Video> =>
+  api.get(`/api/v1/videos/${encodeURIComponent(id)}`, { signal }).then((res) => res.data.data);
 
 export const getFeaturedVideos = (limit: number = 2): Promise<FeaturedVideoResponse['data']['videos']> => 
   api.get<FeaturedVideoResponse>(`/api/v1/videos/featured?limit=${limit}`)

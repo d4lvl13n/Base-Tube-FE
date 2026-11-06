@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { randomUUID } from 'crypto';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -60,6 +61,16 @@ function queueStub() {
     remainingSessionSlots: 50,
   };
 }
+
+// jsdom lacks the browser UUID API used by the real per-tab upload lease.
+const originalCrypto = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+beforeAll(() => {
+  Object.defineProperty(globalThis, 'crypto', { configurable: true, value: { randomUUID } });
+});
+afterAll(() => {
+  if (originalCrypto) Object.defineProperty(globalThis, 'crypto', originalCrypto);
+  else Reflect.deleteProperty(globalThis, 'crypto');
+});
 
 let mounts = 0;
 const Probe: React.FC = () => {
