@@ -20,6 +20,7 @@ const mockUseUser = jest.fn();
 const mockUseAuth = jest.fn();
 const mockUseUploadQueue = jest.fn();
 const mockPurgeLegacyResumeDatabases = jest.fn();
+const mockDraftWorkspace = { atRisk: false };
 
 // Partial mock: NON_DURABLE_NAMESPACES stays REAL so the provider's gate is
 // exercised against the SDK's actual set; only the purge side effect is spied.
@@ -35,6 +36,11 @@ jest.mock('../AuthContext', () => ({
 }));
 jest.mock('../../hooks/useUploadQueue', () => ({
   useUploadQueue: (options: unknown) => mockUseUploadQueue(options),
+}));
+// Namespace/remount tests do not need the draft engine or a configured HTTP client.
+// Keep a stable result so the real workspace boundary can settle its state.
+jest.mock('../../hooks/useDraftWorkspace', () => ({
+  useDraftWorkspace: () => mockDraftWorkspace,
 }));
 jest.mock('../../components/upload/UploadQueuePanel', () => ({
   __esModule: true,
