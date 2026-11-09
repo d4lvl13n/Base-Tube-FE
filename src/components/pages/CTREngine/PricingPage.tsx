@@ -63,6 +63,9 @@ export default function PricingPage() {
         </header>
 
         <section aria-label="Plans" className="space-y-4">
+          {params.get('checkout') === 'cancelled' && (
+            <p role="status" className="text-center text-sm text-zinc-300">You returned from checkout. Choose a plan below when you’re ready.</p>
+          )}
           {notice && (
             <p role="alert" className="mx-auto flex max-w-2xl items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/[.06] px-4 py-3 text-sm text-amber-100">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" aria-hidden="true" />

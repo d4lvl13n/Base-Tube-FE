@@ -24,7 +24,7 @@ export const subscriptionsApi = {
   getMe: async (): Promise<MySubscription> => (await api.get<Envelope<MySubscription>>(`${BASE}/me`)).data.data,
 
   // AUTH — Stripe Checkout for a plan; the caller sends the browser to `url`.
-  // `returnPath` (an /ai-thumbnails page) is where the creator lands after paying or cancelling.
+  // `returnPath` is restored after success; cancel returns to pricing and keeps it for a retry.
   createCheckout: async (body: {
     planId: SubscriptionPlanId;
     interval: BillingInterval;

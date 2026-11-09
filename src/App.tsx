@@ -10,6 +10,7 @@ import Loader from './components/common/Loader';
 import ReferralAttributionBridge from './components/common/ReferralAttributionBridge';
 import CryptoResumeBridge from './components/common/CryptoResumeBridge';
 import StudioFunnelBridge from './components/common/StudioFunnelBridge';
+import SubscriptionCheckoutReturn from './components/common/SubscriptionCheckoutReturn';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { WalletFeature } from './contexts/wallet/WalletFeature';
 import { loadVideoPage, loadChannelPage } from './routes/publicRouteLoaders';
@@ -142,6 +143,7 @@ function App() {
                 {/* AI Thumbnails account gate and welcome credits: above the routes, so sign-in never unmounts them. */}
                 <StudioFunnelBridge />
                 <Suspense fallback={<Loader fullPage label="Loading your workspace…" />}>
+                <SubscriptionCheckoutReturn>
                 <Routes>
                   {/* Public routes that don't need channel context */}
                   <Route path="/" element={<V2HomePage />} />
@@ -478,6 +480,7 @@ function App() {
                     }
                   />
                 </Routes>
+                </SubscriptionCheckoutReturn>
                 </Suspense>
                 <DescriptionDock />
                 <MiniPlayer />

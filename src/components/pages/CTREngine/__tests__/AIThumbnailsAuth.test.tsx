@@ -192,9 +192,10 @@ describe('the AI Thumbnails sign-in and sign-up pages', () => {
     expect(await screen.findByRole('heading', { name: 'Start your 7-day free trial.' })).toBeInTheDocument();
   });
 
-  it('discloses the annual renewal even when welcome credits are available', async () => {
+  it('discloses monthly renewal even when an old annual trial link is used', async () => {
     render(app('/ai-thumbnails/sign-up?plan=creator&interval=year&trial=1'));
-    expect(await screen.findByText(/Then \$199\/year, starting on day 8, unless you cancel\./)).toBeInTheDocument();
+    expect(await screen.findByText(/Then \$24\/month, starting on day 8, unless you cancel\./)).toBeInTheDocument();
+    expect(readPlanIntent()).toEqual({ planId: 'creator', interval: 'month', trial: true });
   });
 
   it('a link with an unknown plan or interval remembers nothing and keeps the rest of the address', () => {
@@ -285,7 +286,7 @@ describe('/ai-thumbnails/auth/continue', () => {
 
     it('a visitor already signed in who follows a plan link from base.tube goes straight to that plan\'s checkout', async () => {
       clerkAccount(Date.now() - 30 * DAY);
-      billing.getMe.mockResolvedValue(noPlan as any);
+      billing.getMe.mockResolvedValue({ ...noPlan, trialEligible: false } as any);
       billing.createCheckout.mockResolvedValue({ url: 'https://checkout.stripe.test/cs_2', sessionId: 'cs_2', trialDays: 0 });
       render(app('/ai-thumbnails/sign-up?plan=pro&interval=year'));
       await waitFor(() => expect(window.location.href).toBe('https://checkout.stripe.test/cs_2'));

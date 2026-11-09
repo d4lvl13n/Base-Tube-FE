@@ -158,7 +158,7 @@ export function PlanChoices({
     setError(null);
     setExists(false);
     try {
-      if (await goToPlanCheckout(plan.id, interval, context)) return;
+      if (await goToPlanCheckout(plan.id, checkoutInterval, context)) return;
       if (mounted.current)
         setError({ message: 'Checkout is not available right now. Please try again in a moment.', technical: 'no checkout URL in the response', status: null, code: null });
     } catch (failure) {
@@ -181,6 +181,7 @@ export function PlanChoices({
   // A visitor, or an account that never had a plan: checkout adds the free trial (the server decides).
   const trial = catalogTrial(catalog);
   const trialOffered = Boolean(trial) && (signedIn ? me?.trialEligible === true && me.canSubscribe && !live : true);
+  const checkoutInterval = trialOffered ? 'month' : interval;
   const startLabel = (plan: SubscriptionPlan) => (trial && trialOffered ? trialButtonLabel(trial) : startPlanLabel(plan, interval));
   // The trial buttons read the same on every plan: their accessible name says which plan.
   const startName = (plan: SubscriptionPlan) => (trial && trialOffered ? `${trialButtonLabel(trial)} · ${plan.name}` : undefined);
@@ -189,7 +190,7 @@ export function PlanChoices({
     trialOffered ? (
       <span className={compact ? 'inline-flex flex-col items-end gap-1' : 'block space-y-1.5'}>
         {button}
-        <span className="block text-center text-xs text-zinc-400">then {planPriceText(plan, interval)}</span>
+        <span className="block text-center text-xs text-zinc-400">then {planPriceText(plan, checkoutInterval)}</span>
       </span>
     ) : (
       button
@@ -202,7 +203,7 @@ export function PlanChoices({
         plan,
         <Link
           to={STUDIO_SIGN_UP_PATH}
-          onClick={() => startPlanSignUp({ planId: plan.id, interval, trial: trialOffered, returnPath: context.returnPath }, signUpReturnPath)}
+          onClick={() => startPlanSignUp({ planId: plan.id, interval: checkoutInterval, trial: trialOffered, returnPath: context.returnPath }, signUpReturnPath)}
           aria-label={startName(plan)}
           className={primary}
         >
@@ -256,7 +257,7 @@ export function PlanChoices({
   return (
     <div className="space-y-4">
       <div className={compact ? "" : "flex justify-center"}>
-        <IntervalToggle value={interval} onChange={setBillingInterval} plans={catalog.plans} />
+        {trialOffered ? <p className="text-sm text-zinc-400">Monthly billing after your free trial. Cancel anytime.</p> : <IntervalToggle value={interval} onChange={setBillingInterval} plans={catalog.plans} />}
       </div>
       {compact ? (
         <ul className="space-y-2">
@@ -267,7 +268,7 @@ export function PlanChoices({
                 <span className="block text-xs text-zinc-300">
                   {thumbnailAllowanceText(plan.creditsPerMonth, catalog.videoBreakdown.conceptCredits)} · {plan.creditsPerMonth.toLocaleString()} credits
                 </span>
-                <PriceLines plan={plan} interval={interval} compact />
+                <PriceLines plan={plan} interval={checkoutInterval} compact />
               </span>
               <span className="shrink-0">{action(plan)}</span>
             </li>
@@ -287,7 +288,7 @@ export function PlanChoices({
               >
                 <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
                 <p className="mt-1 text-sm text-zinc-300">{thumbnailAllowanceText(plan.creditsPerMonth, catalog.videoBreakdown.conceptCredits)}</p>
-                <PriceLines plan={plan} interval={interval} compact={false} />
+                <PriceLines plan={plan} interval={checkoutInterval} compact={false} />
                 <p className="mt-1 text-xs text-zinc-500">{plan.creditsPerMonth.toLocaleString()} credits a month</p>
                 <ul className="mt-4 flex-1 space-y-2">
                   {plan.highlights.map((line) => (

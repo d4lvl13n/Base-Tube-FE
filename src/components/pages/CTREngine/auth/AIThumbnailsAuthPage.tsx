@@ -102,7 +102,7 @@ function AuthNote({ planIntent, gift }: { planIntent: PlanIntent | null; gift: b
     Icon = CreditCard;
     const allowance = `${trial.credits.toLocaleString('en-US')} credits shared across thumbnails, AI edits and audits included.`;
     const renewal = plan && planIntent
-      ? `Then ${planPriceText(plan, planIntent.interval)}, starting on day ${trial.days + 1}, unless you cancel.`
+      ? `Then ${planPriceText(plan, 'month')}, starting on day ${trial.days + 1}, unless you cancel.`
       : `The selected plan's price is shown before checkout. Cancel before day ${trial.days + 1} to avoid a charge.`;
     text = `Next: secure checkout for your ${trial.days}-day free trial${plan ? ` of ${plan.name}` : ''}. ${allowance} A card is required. ${renewal}`;
   } else if (planIntent && plan && !planIntent.trial) {

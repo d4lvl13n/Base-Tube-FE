@@ -14,6 +14,7 @@ import {
 import { readStudioAuthOrigin, startStudioAuth } from '../../../../../utils/studioAuth';
 import { plainApiError } from '../../../../../utils/plainApiError';
 import { ga4ClientId, trackEvent } from '../../../../../utils/analytics';
+import { rememberSubscriptionCheckout } from '../../../../../utils/subscriptionCheckoutReturn';
 
 /** The current screen when it is one checkout may return to (only /ai-thumbnails pages). */
 export function currentStudioReturnPath(): string | undefined {
@@ -23,7 +24,7 @@ export function currentStudioReturnPath(): string | undefined {
 
 /** What to remember before the browser leaves for Stripe. */
 export interface CheckoutContext {
-  /** The screen to come back to; undefined lets the server choose (the pricing page on cancel). */
+  /** The screen to resume after success. Subscription checkout cancellation always opens pricing. */
   returnPath?: string;
   /** The priced action to offer again on that screen once the credits are there. */
   pendingAction?: PendingPaidAction | null;
@@ -50,6 +51,7 @@ export async function goToPlanCheckout(planId: SubscriptionPlanId, interval: Bil
   if (!session?.url) return false;
   trackEvent('begin_checkout', { items: [{ item_id: planId, item_category: 'plan', item_variant: interval }] });
   rememberBeforeLeaving(context);
+  rememberSubscriptionCheckout(context.returnPath);
   window.location.href = session.url;
   return true;
 }
@@ -105,7 +107,8 @@ export async function resumePlanIntent(intent: PlanIntent): Promise<PlanIntentOu
     const me = await subscriptionsApi.getMe();
     if (!me.canSubscribe) return { kind: 'has-plan' };
     if (intent.trial && me.trialEligible !== true) return { kind: 'no-trial' };
-    if (await goToPlanCheckout(intent.planId, intent.interval, { returnPath: intent.returnPath })) return { kind: 'checkout' };
+    const interval = intent.trial || me.trialEligible === true ? 'month' : intent.interval;
+    if (await goToPlanCheckout(intent.planId, interval, { returnPath: intent.returnPath })) return { kind: 'checkout' };
     return { kind: 'failed', message: 'Checkout is not available right now. Please try again in a moment.' };
   } catch (failure) {
     if (billingErrorDetails(failure).code === 'SUBSCRIPTION_EXISTS') return { kind: 'has-plan' };

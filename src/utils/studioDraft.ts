@@ -149,7 +149,7 @@ export interface PlanIntent {
   interval: BillingInterval;
   /** The button promised a free trial: checkout opens only while the account can still have one. */
   trial: boolean;
-  /** Where Stripe brings the creator back (an allowed AI Thumbnails page); none lets the server choose. */
+  /** The allowed AI Thumbnails page to resume after success; cancel retains it on the pricing page. */
   returnPath?: string;
 }
 const PLAN_INTENT_KEY = 'thumbnail-studio:plan-intent:v1';
@@ -160,7 +160,7 @@ export function rememberPlanIntent(intent: PlanIntent, now = Date.now()) {
     const returnPath = studioReturnDestination(intent.returnPath ?? null);
     sessionStorage.setItem(PLAN_INTENT_KEY, JSON.stringify({
       planId: intent.planId,
-      interval: intent.interval,
+      interval: intent.trial ? 'month' : intent.interval,
       trial: intent.trial === true,
       ...(returnPath ? { returnPath } : {}),
       at: now,
@@ -180,7 +180,7 @@ export function readPlanIntent(now = Date.now()): PlanIntent | null {
       return null;
     }
     const returnPath = studioReturnDestination(typeof value.returnPath === 'string' ? value.returnPath : null);
-    return { planId: value.planId, interval: value.interval, trial: value.trial === true, ...(returnPath ? { returnPath } : {}) };
+    return { planId: value.planId, interval: value.trial === true ? 'month' : value.interval, trial: value.trial === true, ...(returnPath ? { returnPath } : {}) };
   } catch { return null; }
 }
 /**
@@ -195,7 +195,8 @@ export function planIntentFromLink(search: string): PlanIntent | null {
   const planId = params.get('plan') as SubscriptionPlanId | null;
   const interval = params.get('interval') ?? 'month';
   if (!planId || !PLAN_IDS.includes(planId) || (interval !== 'month' && interval !== 'year')) return null;
-  return { planId, interval, trial: params.get('trial') === '1' };
+  const trial = params.get('trial') === '1';
+  return { planId, interval: trial ? 'month' : interval, trial };
 }
 /** The address without a plan link's parameters, or null when it has none. */
 export function withoutPlanLink(search: string): string | null {
