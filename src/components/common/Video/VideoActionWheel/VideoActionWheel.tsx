@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   Coins,
   Command,
+  Flag,
   Heart,
   Info,
   LucideIcon,
@@ -25,6 +26,8 @@ interface VideoActionWheelProps {
   onCommentsOpen: () => void;
   onInfoOpen: () => void;
   onSharePopupOpen: (url: string, title: string) => void;
+  /** Shows "Report". Leave it out for the video's own creator. */
+  onReport?: () => void;
 }
 
 interface WheelAction {
@@ -57,6 +60,10 @@ const mobilePositions = [
   { x: 28, y: -38 },
 ];
 
+// "Report" sits apart from the six main actions, just below-left of the arc's start.
+const desktopReportPosition = { x: -96, y: 44 };
+const mobileReportPosition = { x: -82, y: 42 };
+
 const stopWheelEvent = (event: React.SyntheticEvent) => {
   event.stopPropagation();
 };
@@ -72,6 +79,7 @@ const VideoActionWheel: React.FC<VideoActionWheelProps> = ({
   onCommentsOpen,
   onInfoOpen,
   onSharePopupOpen,
+  onReport,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(
@@ -200,6 +208,16 @@ const VideoActionWheel: React.FC<VideoActionWheelProps> = ({
       onClick: () => showComingSoon('boost'),
       kind: 'economy',
     },
+    ...(onReport
+      ? [{
+          key: 'report',
+          label: 'Report',
+          microcopy: 'Flag',
+          Icon: Flag,
+          onClick: onReport,
+          kind: 'core' as const,
+        }]
+      : []),
   ], [
     commentCount,
     isLiked,
@@ -208,11 +226,13 @@ const VideoActionWheel: React.FC<VideoActionWheelProps> = ({
     onCommentsOpen,
     onInfoOpen,
     onLike,
+    onReport,
     shareVideo,
     showComingSoon,
   ]);
 
   const positions = isMobile ? mobilePositions : desktopPositions;
+  const reportPosition = isMobile ? mobileReportPosition : desktopReportPosition;
 
   const runAction = (action: WheelAction) => {
     action.onClick();
@@ -269,7 +289,7 @@ const VideoActionWheel: React.FC<VideoActionWheelProps> = ({
                 key={action.key}
                 action={action}
                 index={index}
-                position={positions[index]}
+                position={action.key === 'report' ? reportPosition : positions[index]}
                 onClick={() => runAction(action)}
               />
             ))}

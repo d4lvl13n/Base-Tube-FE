@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MoreVertical, MessageCircle, Trash, Edit, Pin, Heart } from 'lucide-react';
+import { MoreVertical, MessageCircle, Trash, Edit, Pin, Heart, Flag } from 'lucide-react';
 import type { Comment, ApiResponse } from '../../../../types/comment';
 import CommentInput from './CommentInput';
 import { formatDistanceToNow } from 'date-fns';
+import ReportDialog from '../../ReportDialog/ReportDialog';
+import { reportComment } from '../../../../api/comment';
+import { useSignedInAction } from '../../../../hooks/useSignedInAction';
 
 interface CommentCardProps {
   comment: Comment;
@@ -38,6 +41,16 @@ const CommentCard: React.FC<CommentCardProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const whenSignedIn = useSignedInAction();
+  // Anyone but the comment's author may report it (signed-out visitors go to sign-in first).
+  const canReport = !canModifyComment(comment);
+
+  const submitCommentReport = async (reason: string) => {
+    // This route answers the same way for a first report and a repeat.
+    await reportComment(comment.id, reason);
+    return { alreadyReported: false };
+  };
 
   const commenterImage = comment.commenter?.profile_image_url;
   const timeAgo = formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true });
@@ -215,7 +228,7 @@ const CommentCard: React.FC<CommentCardProps> = ({
               aria-label="Comment options"
               aria-expanded={showOptions}
               className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/50
-                         opacity-0 group-hover:opacity-100 transition-all duration-200"
+                         opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all duration-200"
             >
               <MoreVertical className="w-4 h-4" />
             </button>
@@ -267,6 +280,19 @@ const CommentCard: React.FC<CommentCardProps> = ({
                       {comment.isPinned ? 'Unpin' : 'Pin'}
                     </button>
                   )}
+                  {canReport && (
+                    <button
+                      onClick={() => {
+                        setShowOptions(false);
+                        whenSignedIn(() => setIsReportOpen(true));
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-800/50
+                               transition-colors flex items-center gap-2"
+                    >
+                      <Flag className="w-4 h-4" />
+                      Report
+                    </button>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -316,6 +342,13 @@ const CommentCard: React.FC<CommentCardProps> = ({
             ))}
           </motion.div>
         )}
+
+        <ReportDialog
+          isOpen={isReportOpen}
+          onClose={() => setIsReportOpen(false)}
+          subject="comment"
+          onSubmit={submitCommentReport}
+        />
       </motion.div>
     </AnimatePresence>
   );

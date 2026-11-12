@@ -95,3 +95,22 @@ export const unpinComment = async (
     throw error;
   }
 };
+
+/**
+ * Report a comment to the moderation queue. The reason is optional here
+ * (max 1000 characters). Reporting the same comment again while the first
+ * report is still open succeeds without adding a second one; this route does
+ * not say which case happened.
+ */
+export const reportComment = async (
+  commentId: number,
+  reason?: string
+): Promise<ApiResponse<void>> => {
+  try {
+    const response = await api.post(`/api/v1/comments/${commentId}/report`, reason ? { reason } : {});
+    return response.data;
+  } catch (error) {
+    console.error('Error reporting comment:', error);
+    throw error;
+  }
+};

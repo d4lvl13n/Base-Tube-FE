@@ -1,4 +1,5 @@
 import type { AxiosAdapter } from 'axios';
+import type { AccountRestriction } from './auth/account-restriction';
 
 /**
  * Returns a bearer token to attach to requests, or null when unauthenticated.
@@ -36,6 +37,14 @@ export interface BasetubeClientConfig {
 
   /** Invoked when any request returns 401, for app-level re-auth handling. */
   onUnauthorized?: () => void;
+
+  /**
+   * Invoked when a request is refused because the signed-in account is
+   * suspended or banned (HTTP 403 `ACCOUNT_SUSPENDED` / `ACCOUNT_BANNED`).
+   * The request still rejects with its usual error, now carrying
+   * `accountRestriction`; see `accountRestrictionOf`.
+   */
+  onAccountRestricted?: (restriction: AccountRestriction) => void;
 
   /**
    * Custom axios adapter. Primarily used for tests and SSR; production

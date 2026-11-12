@@ -26,6 +26,9 @@ import { PersistentCreatorBar } from '../common/Video/PersistentCreatorBar';
 import { DiscoveryPanel } from '../common/Video/DiscoveryPanel';
 import { InfoPanel } from '../common/Video/InfoPanel';
 import { useDescriptionDock } from '../../contexts/DescriptionDockContext';
+import ReportDialog from '../common/ReportDialog/ReportDialog';
+import { reportVideo } from '../../api/report';
+import { useSignedInAction } from '../../hooks/useSignedInAction';
 
 // The API origin the shared client uses. REACT_APP_API_BASE_URL is not set for the
 // production build, so it fell back to localhost there, and reading an unset
@@ -248,6 +251,19 @@ const SingleVideo: React.FC = () => {
     setIsSharePopupOpen(true);
   };
 
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const whenSignedIn = useSignedInAction();
+  // Never offer a creator "Report" on their own video. `isOwner` comes from the
+  // channel request, which knows who is signed in; wait for it before showing.
+  const canReport = Boolean(channel) && !channel?.isOwner;
+  const handleReportOpen = useCallback(() => {
+    whenSignedIn(() => setIsReportOpen(true));
+  }, [whenSignedIn]);
+  const submitVideoReport = useCallback(
+    (reason: string) => reportVideo(video?.id ?? id ?? '', reason),
+    [id, video?.id],
+  );
+
   const handleInfoOpen = useCallback(() => {
     if (!video) return;
     setIsCommentsPanelOpen(false);
@@ -371,6 +387,7 @@ const SingleVideo: React.FC = () => {
                 onCommentsOpen={() => setIsCommentsPanelOpen(true)}
                 onSharePopupOpen={handleSharePopupOpen}
                 onInfoOpen={handleInfoOpen}
+                onReport={canReport ? handleReportOpen : undefined}
               />
             </div>
           </motion.div>
@@ -408,6 +425,13 @@ const SingleVideo: React.FC = () => {
         videoUrl={shareUrl}
         title={shareTitle}
         videoId={video.id.toString()}
+      />
+
+      <ReportDialog
+        isOpen={isReportOpen && canReport}
+        onClose={() => setIsReportOpen(false)}
+        subject="video"
+        onSubmit={submitVideoReport}
       />
 
       {/* Persistent Creator Bar - shows when interface is hidden during playback (desktop only) */}

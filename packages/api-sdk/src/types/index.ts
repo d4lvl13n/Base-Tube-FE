@@ -8,3 +8,4 @@ export * from './pass';
 export * from './purchase';
 export * from './auth';
 export * from './thumbnailStudio';
+export * from './report';

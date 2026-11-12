@@ -6,6 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import Header from './components/common/Header';
 import ProtectedRoute from './components/pages/ProtectedRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import AccountBlockedNotice from './components/common/AccountBlockedNotice';
 import Loader from './components/common/Loader';
 import ReferralAttributionBridge from './components/common/ReferralAttributionBridge';
 import CryptoResumeBridge from './components/common/CryptoResumeBridge';
@@ -485,6 +486,7 @@ function App() {
                 <DescriptionDock />
                 <MiniPlayer />
                 <ToastContainer />
+                <AccountBlockedNotice />
                 <ReactQueryDevtools initialIsOpen={false} />
               </div>
               </UploadQueueProvider>

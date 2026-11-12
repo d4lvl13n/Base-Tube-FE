@@ -1,15 +1,21 @@
 import React, { useEffect } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, Platform, StyleSheet, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo';
-import { queryClient } from '../src/lib/query';
+import { ME_QUERY_KEY, queryClient } from '../src/lib/query';
 import { theme } from '../src/theme';
 import { tokenCache } from '../src/lib/tokenCache';
 import { setTokenGetter } from '../src/lib/auth';
+import { api } from '../src/lib/client';
+import {
+  markAccountScreenPresented,
+  setAccountSession,
+  useAccountStatus,
+} from '../src/lib/accountStatus';
 
 // react-navigation (and expo-router) default to a LIGHT theme whose scene
 // background is white. Override so scenes are dark by default.
@@ -41,6 +47,50 @@ function AuthBridge() {
   return null;
 }
 
+/**
+ * Suspended / banned account (403 ACCOUNT_SUSPENDED / ACCOUNT_BANNED, reported
+ * by the SDK client through src/lib/accountStatus.ts): opens the
+ * "Account suspended" screen once, never for a signed-out app, and resets on
+ * every sign-out / sign-in. The account query below finds out on launch, and
+ * re-checks when the app comes back to the foreground while restricted, so a
+ * restored account clears itself.
+ */
+function AccountGate() {
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  const router = useRouter();
+  const status = useAccountStatus();
+  const sessionUser = isLoaded && isSignedIn ? userId ?? null : null;
+
+  useEffect(() => {
+    setAccountSession(sessionUser);
+  }, [sessionUser]);
+
+  const account = useQuery({
+    queryKey: ME_QUERY_KEY,
+    queryFn: () => api.profile.me(),
+    enabled: !!sessionUser,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const recheck = account.refetch;
+
+  useEffect(() => {
+    if (!sessionUser || !status.restriction || status.presented || status.dismissed) return;
+    markAccountScreenPresented();
+    router.push('/account-suspended');
+  }, [sessionUser, status, router]);
+
+  useEffect(() => {
+    if (!sessionUser || !status.restriction) return;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') recheck();
+    });
+    return () => sub.remove();
+  }, [sessionUser, status.restriction, recheck]);
+
+  return null;
+}
+
 /** Routes unauthenticated users to the auth group and authed users into the app. */
 function InitialLayout() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -66,18 +116,22 @@ function InitialLayout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: { backgroundColor: theme.colors.background },
-        headerTintColor: theme.colors.text,
-        headerTitleStyle: { fontWeight: '700' },
-        contentStyle: { backgroundColor: theme.colors.background },
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen name="(app)" />
-      <Stack.Screen name="(auth)" />
-    </Stack>
+    <>
+      <AccountGate />
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: theme.colors.background },
+          headerTintColor: theme.colors.text,
+          headerTitleStyle: { fontWeight: '700' },
+          contentStyle: { backgroundColor: theme.colors.background },
+          headerShown: false,
+        }}
+      >
+        <Stack.Screen name="(app)" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="account-suspended" options={{ gestureEnabled: false }} />
+      </Stack>
+    </>
   );
 }
 

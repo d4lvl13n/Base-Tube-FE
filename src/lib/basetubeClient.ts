@@ -1,4 +1,5 @@
 import { createBasetubeClient, type BasetubeClient } from '@basetube/api';
+import { noteAccountBlock } from '../utils/accountBlock';
 
 /**
  * The shared SDK client for the web app.
@@ -35,6 +36,12 @@ export function getBasetubeClient(): BasetubeClient {
     },
     withCredentials: true,
     onUnauthorized: () => window.dispatchEvent(new CustomEvent('auth:unauthorized')),
+  });
+  // Same suspended / banned detection as the shared axios client
+  // (`src/api/index.ts`), so uploads and drafts raise the one app-wide notice.
+  client.http.interceptors.response.use(undefined, (error: unknown) => {
+    noteAccountBlock(error);
+    return Promise.reject(error);
   });
   return client;
 }

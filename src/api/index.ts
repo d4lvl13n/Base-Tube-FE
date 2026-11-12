@@ -1,4 +1,5 @@
 import axios, { AxiosRequestConfig } from 'axios';
+import { noteAccountBlock } from '../utils/accountBlock';
 
 const RATE_LIMIT_DEFAULT_BACKOFF_MS = 5000;
 const REDEEM_PATH_PATTERN = /\/growth\/rewards\/[^/]+\/redeem$/;
@@ -141,6 +142,10 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // A suspended or banned account: one blocking notice for the whole app
+    // (`AccountBlockedNotice`). The caller still gets its error as before.
+    noteAccountBlock(error);
+
     if (axios.isAxiosError(error)) {
       // Handle 401 Unauthorized errors
       if (error.response?.status === 401) {

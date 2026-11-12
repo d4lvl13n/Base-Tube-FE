@@ -12,6 +12,7 @@ import { createAccessApi, createPurchasesApi } from './endpoints/purchases';
 import { createUploadApi } from './upload';
 import { createCreatorDraftsApi } from './drafts';
 import { createThumbnailStudioApi } from './endpoints/thumbnailStudio';
+import { createReportsApi } from './endpoints/reports';
 
 export * from './types';
 export * from './upload';
@@ -24,6 +25,11 @@ export { DEFAULT_VIEW_TRACKING_CONFIG } from './endpoints/engagement';
 export type { RecordViewOutcome } from './endpoints/engagement';
 export * from './viewTracking/session';
 export { createThumbnailStudioApi } from './endpoints/thumbnailStudio';
+export {
+  REPORT_REASON_MAX_LENGTH,
+  composeReportReason,
+  reportFailureOf,
+} from './endpoints/reports';
 
 export interface BasetubeClient {
   videos: ReturnType<typeof createVideosApi>;
@@ -40,6 +46,8 @@ export interface BasetubeClient {
   /** Creator drafts (`/api/v1/creator-drafts/*`, see `base-be/docs/CREATOR_DRAFTS_API.md`). */
   creatorDrafts: ReturnType<typeof createCreatorDraftsApi>;
   thumbnailStudio: ReturnType<typeof createThumbnailStudioApi>;
+  /** "Report this" for videos and comments (admin Moderation queue). */
+  reports: ReturnType<typeof createReportsApi>;
   web3auth: ReturnType<typeof createWeb3AuthApi>;
   auth: ReturnType<typeof createAuthApi>;
   /** Escape hatch to the underlying axios instance for not-yet-wrapped routes. */
@@ -71,6 +79,7 @@ export function createBasetubeClient(config: BasetubeClientConfig): BasetubeClie
     uploads: createUploadApi(http),
     creatorDrafts: createCreatorDraftsApi(http),
     thumbnailStudio: createThumbnailStudioApi(http),
+    reports: createReportsApi(http),
     web3auth: createWeb3AuthApi(http),
     auth: createAuthApi(http),
     http,

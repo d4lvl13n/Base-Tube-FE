@@ -6,7 +6,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ResizeMode, Video as ExpoVideo } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@clerk/clerk-expo';
 import { api } from '../../../src/lib/client';
+import { reopenAccountRestriction, useAccountStatus } from '../../../src/lib/accountStatus';
+import { ReportSheet, type ReportTarget } from '../../../src/components/report-sheet';
 import { theme } from '../../../src/theme';
 import { AccentHairline, Card, GlassCircleButton } from '../../../src/components/primitives';
 import { ErrorState, LoadingState } from '../../../src/components/media';
@@ -28,11 +31,28 @@ function playableUrl(video: any): string | null {
   return null;
 }
 
-function ActionChip({ icon, label, active, onPress }: { icon: any; label: string; active?: boolean; onPress: () => void }) {
+function ActionChip({
+  icon,
+  label,
+  active,
+  onPress,
+  accessibilityLabel,
+}: {
+  icon: any;
+  label?: string;
+  active?: boolean;
+  onPress: () => void;
+  accessibilityLabel?: string;
+}) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole={accessibilityLabel ? 'button' : undefined}
+      accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}
+    >
       <Ionicons name={icon} size={18} color={active ? theme.colors.accent : theme.colors.text} />
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+      {label ? <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text> : null}
     </Pressable>
   );
 }
@@ -48,6 +68,9 @@ export default function VideoScreen() {
   const videoRef = useRef<ExpoVideo>(null);
 
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+  const { isSignedIn } = useAuth();
+  const accountStatus = useAccountStatus();
 
   const video = useQuery({ queryKey: ['video', id], queryFn: () => api.videos.getById(id), enabled: !!id });
   const liked = useQuery({ queryKey: ['like', id], queryFn: () => api.engagement.likeStatus(id), enabled: !!id });
@@ -133,6 +156,22 @@ export default function VideoScreen() {
     ]);
   };
 
+  // Report (App Store / Play UGC rule): Report chip on the video, "Report" on
+  // other people's comments. Signed-out → sign-in; suspended → the account
+  // screen explains why instead of a form that would be refused.
+  const openReport = (target: ReportTarget) => {
+    haptics.selection();
+    if (!isSignedIn) {
+      router.push('/(auth)/sign-in');
+      return;
+    }
+    if (accountStatus.restriction) {
+      reopenAccountRestriction();
+      return;
+    }
+    setReportTarget(target);
+  };
+
   // Subscribe from the video page (parity with web). Optimistic local state.
   const [subOverride, setSubOverride] = useState<boolean | null>(null);
 
@@ -189,6 +228,10 @@ export default function VideoScreen() {
   const v: any = video.data;
   const url = useMemo(() => playableUrl(v), [v]);
   const channel = v?.channel;
+  // The video payload carries no owner id; the signed-in user's channels do.
+  const videoChannelId = v?.channel_id ?? channel?.id;
+  const ownVideo =
+    videoChannelId != null && !!me.data?.channels?.some((c) => String(c.id) === String(videoChannelId));
 
   const backButton = (
     <GlassCircleButton icon="chevron-back" onPress={() => router.back()} style={[styles.backBtn, { top: insets.top + 6 }]} />
@@ -240,6 +283,9 @@ export default function VideoScreen() {
             <ActionChip icon={liked.data ? 'heart' : 'heart-outline'} label={formatCount(v.likes_count)} active={!!liked.data} onPress={() => toggleLike.mutate()} />
             <ActionChip icon="chatbubble-outline" label={formatCount(comments.data?.totalComments ?? v.comment_count ?? 0)} onPress={() => inputRef.current?.focus()} />
             <ActionChip icon="share-social-outline" label="Share" onPress={onShare} />
+            {!ownVideo ? (
+              <ActionChip icon="flag-outline" accessibilityLabel="Report video" onPress={() => openReport({ kind: 'video', id })} />
+            ) : null}
           </View>
 
           {channel ? (
@@ -322,7 +368,18 @@ export default function VideoScreen() {
                         <Pressable onPress={() => startEdit(c.id, c.content)} hitSlop={6}><Text style={styles.commentAction}>Edit</Text></Pressable>
                         <Pressable onPress={() => confirmDelete(c.id)} hitSlop={6}><Text style={[styles.commentAction, styles.commentDelete]}>Delete</Text></Pressable>
                       </View>
-                    ) : null}
+                    ) : (
+                      <View style={styles.commentActions}>
+                        <Pressable
+                          onPress={() => openReport({ kind: 'comment', id: c.id })}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Report comment by ${c.user?.username || 'user'}`}
+                        >
+                          <Text style={styles.commentAction}>Report</Text>
+                        </Pressable>
+                      </View>
+                    )}
                   </View>
                 </View>
               );
@@ -331,6 +388,7 @@ export default function VideoScreen() {
         </View>
       </ScrollView>
       {backButton}
+      <ReportSheet target={reportTarget} onClose={() => setReportTarget(null)} />
     </View>
   );
 }

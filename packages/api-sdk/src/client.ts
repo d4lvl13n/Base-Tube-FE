@@ -5,6 +5,7 @@ import axios, {
   InternalAxiosRequestConfig,
 } from 'axios';
 import type { BasetubeClientConfig } from './config';
+import { accountRestrictionOf, type AccountRestriction } from './auth/account-restriction';
 
 /**
  * This package is compiled to CommonJS and consumed by three module systems
@@ -36,6 +37,13 @@ type RetryableConfig = InternalAxiosRequestConfig & {
   /** Stamped before `transformRequest` runs; see `isUnreplayableBody`. */
   __rlUnreplayable?: boolean;
 };
+
+/**
+ * Per-request opt-out of the automatic 429 retry, for calls whose UI says
+ * "slow down" itself instead of holding a spinner for up to a minute.
+ * Internal to the SDK's endpoint modules.
+ */
+export const NO_RATE_LIMIT_RETRY = { __rlRetried: true } as AxiosRequestConfig;
 
 const parseRetryAfterMs = (headerValue: unknown): number => {
   if (typeof headerValue !== 'string' && typeof headerValue !== 'number') {
@@ -98,6 +106,7 @@ export function createHttpClient(config: BasetubeClientConfig): AxiosInstance {
     headers,
     maxRateLimitRetries = DEFAULT_RATE_LIMIT_RETRIES,
     onUnauthorized,
+    onAccountRestricted,
     adapter,
   } = config;
 
@@ -132,6 +141,22 @@ export function createHttpClient(config: BasetubeClientConfig): AxiosInstance {
 
       if (status === 401 && onUnauthorized) {
         onUnauthorized();
+      }
+
+      // Suspended / banned account: same rejected error for the caller, now
+      // flagged, plus one app-level signal. A throwing listener must not turn
+      // the caller's error into a different one.
+      const restriction = accountRestrictionOf(error);
+      if (restriction) {
+        (error as AxiosError & { accountRestriction?: AccountRestriction }).accountRestriction =
+          restriction;
+        if (onAccountRestricted) {
+          try {
+            onAccountRestricted(restriction);
+          } catch {
+            // App handler failures stay in the app.
+          }
+        }
       }
 
       if (status === 429 && maxRateLimitRetries > 0) {

@@ -63,9 +63,16 @@ export function Button({
     <Text style={[styles.btnText, variant === 'secondary' && styles.btnTextSecondary]}>{label}</Text>
   );
 
+  // The label stays readable to screen readers while the spinner shows.
+  const a11y = {
+    accessibilityRole: 'button' as const,
+    accessibilityLabel: label,
+    accessibilityState: { disabled: !!isDisabled, busy: !!loading },
+  };
+
   if (variant === 'primary') {
     return (
-      <Pressable onPress={onPress} disabled={isDisabled} style={({ pressed }) => [styles.btnWrap, (pressed || isDisabled) && styles.btnDim]}>
+      <Pressable {...a11y} onPress={onPress} disabled={isDisabled} style={({ pressed }) => [styles.btnWrap, (pressed || isDisabled) && styles.btnDim]}>
         <LinearGradient colors={theme.gradient.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.btn}>
           {inner}
         </LinearGradient>
@@ -74,6 +81,7 @@ export function Button({
   }
   return (
     <Pressable
+      {...a11y}
       onPress={onPress}
       disabled={isDisabled}
       style={({ pressed }) => [styles.btn, styles.btnSecondary, (pressed || isDisabled) && styles.btnDim]}
