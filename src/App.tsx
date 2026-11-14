@@ -36,6 +36,7 @@ const BusinessCustomerDetailPage = lazy(() => import('./components/pages/Creator
 const BusinessSourcesPage = lazy(() => import('./components/pages/CreatorHub/Business/SourcesPage'));
 const BusinessPayoutsPage = lazy(() => import('./components/pages/CreatorHub/Business/PayoutsPage'));
 const BusinessHelpPage = lazy(() => import('./components/pages/CreatorHub/Business/BusinessHelpPage'));
+const ApiKeysPage = lazy(() => import('./components/pages/CreatorHub/ApiKeys/ApiKeysPage'));
 const AIThumbnailsSignInPage = lazy(() => import('./components/pages/CTREngine/auth/AIThumbnailsAuthPage').then(module => ({ default: module.AIThumbnailsSignInPage })));
 const AIThumbnailsSignUpPage = lazy(() => import('./components/pages/CTREngine/auth/AIThumbnailsAuthPage').then(module => ({ default: module.AIThumbnailsSignUpPage })));
 const AIThumbnailsAuthContinue = lazy(() => import('./components/pages/CTREngine/auth/AIThumbnailsAuthContinue'));
@@ -371,6 +372,11 @@ function App() {
                   <Route
                     path="/creator-hub/business/help"
                     element={<CreatorHubRoute element={<BusinessHelpPage />} />}
+                  />
+                  {/* API keys for the creator upload API (/v1 on the backend). */}
+                  <Route
+                    path="/creator-hub/api"
+                    element={<CreatorHubRoute element={<ApiKeysPage />} />}
                   />
 
                   {/* Protected routes */}

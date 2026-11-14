@@ -6,6 +6,7 @@ import {
   Briefcase,
   DollarSign,
   ImageIcon,
+  KeyRound,
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
@@ -110,6 +111,7 @@ const CreatorHubNav: React.FC = () => {
         <SidebarItem icon={Upload} label="Add videos" to="/creator-hub/uploads" />
         <SidebarItem icon={ImageIcon} label="Videos" to="/creator-hub/videos" />
         <SidebarItem icon={Tv} label="Channels" to="/creator-hub/channels" />
+        <SidebarItem icon={KeyRound} label="API" to="/creator-hub/api" />
       </SidebarSection>
 
       <SidebarSection>

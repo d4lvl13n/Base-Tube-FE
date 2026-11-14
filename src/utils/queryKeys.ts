@@ -135,6 +135,11 @@ export const queryKeys = {
       [...queryKeys.creatorBusiness.all, 'passVideoWatch', channelId, params] as const,
   },
 
+  // The creator's API keys and the shared daily upload quota (/api/keys).
+  apiKeys: {
+    all: ['apiKeys'] as const,
+  },
+
   // Onchain pass (access + purchase status)
   onchainPass: {
     all: ['onchainPass'] as const,
