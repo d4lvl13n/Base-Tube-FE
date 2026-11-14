@@ -11,6 +11,8 @@ interface UnlockButtonProps {
   consentReady?: boolean;
   label?: string;
   quantity?: number;
+  /** The unit price on screen: the server charges it or answers PRICE_CHANGED. */
+  expectedUnitPriceCents?: number | null;
 }
 
 /**
@@ -25,6 +27,7 @@ export const UnlockButton: React.FC<UnlockButtonProps> = ({
   consentReady = false,
   label = 'Buy with Card',
   quantity = 1,
+  expectedUnitPriceCents = null,
 }) => {
   const requireAuth = useRequireAuth();
   const checkoutMutation = useCheckout();
@@ -37,7 +40,7 @@ export const UnlockButton: React.FC<UnlockButtonProps> = ({
     if (!ok) return;
 
     checkoutMutation.mutate(
-      { passId, consent, quantity },
+      { passId, consent, quantity, expectedUnitPriceCents },
       {
         onError: (err) => onError?.(err),
       }

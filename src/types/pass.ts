@@ -1,4 +1,5 @@
 import type { BuyerAllowanceDto, PassResaleDto } from '../utils/passTerms';
+import type { PassPricingDto, PriceTierDto, ResaleEligibilityDto, TierSaleDto } from '../utils/passPricing';
 
 export interface PassVideo {
   id: string;
@@ -33,6 +34,11 @@ export interface CreatePassRequest {
   supply_cap?: number;
   /** The most passes one person may buy at the primary sale (1 … supply_cap). */
   max_per_buyer?: number;
+  /**
+   * Optional price grid (utils/passPricing): absent or null = one price. With a
+   * grid, `price_cents` is still sent and equals the first tier's price.
+   */
+  price_tiers?: PriceTierDto[] | null;
 
   /**
    * Single video URL for the pass. Required if videos is not provided.
@@ -85,6 +91,8 @@ export interface UpdateDraftPassRequest {
   currency?: string;
   supply_cap?: number | null;
   max_per_buyer?: number;
+  /** Absent = unchanged; null = back to one price; a list = replace. */
+  price_tiers?: PriceTierDto[] | null;
   creator_settlement_preference?: CreatorSettlementPreference | null;
 }
 
@@ -102,9 +110,18 @@ export interface Pass {
   checkout_url?: string;
   title: string;
   description: string;
+  /** The price in force (the first tier's when nothing is on offer). */
   price_cents: number;
   currency: string;
   formatted_price: string;
+  /** Tiered pricing: the price offered now, what is left at it, the grid (utils/passPricing). */
+  pricing?: PassPricingDto | null;
+  /** The stored grid (creator answers); null for one price. */
+  price_tiers?: PriceTierDto[] | null;
+  /** The creator's own pass answers only: paid / total per tier ([] for one price). */
+  tier_sales?: TierSaleDto[];
+  /** GET /passes/me: when the holder can list this pass for resale. */
+  resale_eligibility?: ResaleEligibilityDto | null;
   tier: string;
   /**
    * How many passes exist. Every pass has one; a pass created before caps were
@@ -157,6 +174,11 @@ export interface CheckoutSessionResponse {
   reservation_id?: string;
   expires_at?: string;
   purchase_id?: string;
+  /** What this checkout charges (tiered pricing contract). */
+  unitPriceCents?: number;
+  quantity?: number;
+  totalCents?: number;
+  reservationExpiresAt?: string;
 }
 
 // API response for fetching a signed video URL

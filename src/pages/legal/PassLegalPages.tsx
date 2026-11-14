@@ -72,7 +72,7 @@ export const PassTermsOfSalePage: React.FC = () => (
         <li>The pass itself, owned by you on the Base network (see section 5).</li>
         <li>For as long as you hold the pass, access to stream every video listed in it inside BaseTube, as many times as you want.</li>
         <li>The videos are hosted on YouTube as unlisted videos and play inside BaseTube. BaseTube does not host them.</li>
-        <li>The creator may add videos to a pass after you buy it. The price, title and number of passes cannot be changed once a pass is published, and no more passes than that number are ever created.</li>
+        <li>The creator may add videos to a pass after you buy it. The price grid (one price, or prices that rise by tiers), title and number of passes cannot be changed once a pass is published, and no more passes than that number are ever created.</li>
         <li>You get access to watch, not ownership of the videos and no right to download, copy, share or show them publicly.</li>
         <li>BaseTube does not promise that the videos are not available anywhere else.</li>
       </ul>
@@ -205,7 +205,7 @@ export const CreatorPassTermsPage: React.FC = () => (
       <ul className="list-disc pl-5 space-y-1">
         <li>A pass gives its holder access to watch your own YouTube videos inside BaseTube. Each video must be unlisted on YouTube when you add it, and you must own it or have the rights to sell access to it.</li>
         <li>You are the seller of the pass to its first buyer. You are responsible for the content and for describing it honestly on the pass page.</li>
-        <li>The price is set in euros (at least €1.00). You set the number of passes. Once a pass is published, its price, title and number of passes cannot be changed, and no more passes than that number are ever created. You can still add videos.</li>
+        <li>The price is set in euros (at least €1.00): one price, or a price grid that rises by tiers. You set the number of passes. Once a pass is published, its price grid, title and number of passes cannot be changed, and no more passes than that number are ever created. You can still add videos.</li>
         <li>Each pass is owned by its holder on the Base network and may be resold on the BaseTube marketplace. Access to your videos moves with the pass to each new holder.</li>
         <li>Keep the videos in a pass available on YouTube. If a video is deleted or made private, holders lose access to it and buyers may be entitled to a refund under consumer law.</li>
         <li>Do not present a pass as an investment or promise buyers that it will gain value.</li>

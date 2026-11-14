@@ -7,6 +7,7 @@ import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 import { Pass } from '../../types/pass';
 import CreatorContactConsents from '../pass/CreatorContactConsents';
+import { resaleOpeningText } from '../../utils/passPricing';
 
 interface PassCardProps {
   pass: Pass;
@@ -86,6 +87,10 @@ const PassCard: React.FC<PassCardProps> = ({ pass }) => {
             <span>Purchased: {purchaseDate}</span>
           </div>
         </div>
+        {/* When this pass can be resold (resale opens at sell-out or 30 days after payment). */}
+        {resaleOpeningText(pass.resale_eligibility) && (
+          <p className="mt-3 text-xs text-gray-400">{resaleOpeningText(pass.resale_eligibility)}</p>
+        )}
       </div>
       
       {/* Card footer */}

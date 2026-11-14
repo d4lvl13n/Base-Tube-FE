@@ -524,6 +524,7 @@ const PassDetailsPage: React.FC = () => {
                     purchase_block_reason: pass.purchase_block_reason,
                     sale_consent: pass.sale_consent,
                     creator_name: pass.channel?.name,
+                    pricing: pass.pricing,
                   }}
                   alreadyOwns={alreadyOwns}
                   isAccessLoading={isAccessLoading}

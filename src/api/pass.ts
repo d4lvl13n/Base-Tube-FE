@@ -123,13 +123,16 @@ export const passApi = {
   createCheckoutSession: async (
     passId: string,
     consent?: import('../constants/passConsent').SaleConsentPayload,
-    quantity?: number
+    quantity?: number,
+    /** The unit price the page displayed: the server charges it or refuses (PRICE_CHANGED). */
+    expectedUnitPriceCents?: number | null
   ): Promise<CheckoutSessionResponse> => {
     const response = await api.post<CheckoutSessionResponse>(
       `/api/v1/passes/${passId}/checkout`,
       {
         ...(consent ?? {}),
         ...(quantity != null ? { quantity } : {}),
+        ...(expectedUnitPriceCents != null ? { expectedUnitPriceCents } : {}),
       }
     );
     return response.data;

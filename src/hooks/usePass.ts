@@ -40,12 +40,19 @@ export const useCheckout = () => {
   return useMutation<
     CheckoutSessionResponse,
     Error,
-    string | { passId: string; consent?: import('../constants/passConsent').SaleConsentPayload; quantity?: number },
+    | string
+    | {
+        passId: string;
+        consent?: import('../constants/passConsent').SaleConsentPayload;
+        quantity?: number;
+        /** The unit price the page displayed (tiered pricing contract). */
+        expectedUnitPriceCents?: number | null;
+      },
     unknown
   >({
     mutationFn: (input) => {
       if (typeof input === 'string') return passApi.createCheckoutSession(input);
-      return passApi.createCheckoutSession(input.passId, input.consent, input.quantity);
+      return passApi.createCheckoutSession(input.passId, input.consent, input.quantity, input.expectedUnitPriceCents);
     },
     onSuccess: (data, input) => {
       const passId = typeof input === 'string' ? input : input.passId;

@@ -9,8 +9,22 @@ export interface PublicSaleCopy {
   short: string;
 }
 
-export function publicSaleCopy(pass: { can_purchase?: boolean; purchase_block_reason_code?: string | null }): PublicSaleCopy | null {
+export function publicSaleCopy(pass: {
+  can_purchase?: boolean;
+  purchase_block_reason_code?: string | null;
+  /** Tiered pricing (utils/passPricing): tells "sold out" from "the last ones are in checkouts". */
+  pricing?: { state?: string } | null;
+}): PublicSaleCopy | null {
   if (pass.can_purchase !== false) return null;
+  // The sale-level code counts passes in someone's checkout as taken, so it
+  // says "sold out" while they may still come back: the pricing state knows.
+  if (pass.purchase_block_reason_code === 'PASS_SOLD_OUT' && pass.pricing?.state === 'all_reserved') {
+    return {
+      headline: "The last passes are in someone's checkout.",
+      body: 'Try again in a few minutes: a checkout that is not paid in time puts its pass back on sale.',
+      short: 'In checkouts',
+    };
+  }
   switch (pass.purchase_block_reason_code) {
     case 'PASS_SALE_INACTIVE':
       return {

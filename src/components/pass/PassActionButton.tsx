@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
 import { PlayCircle, Wallet, Clock3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import UnlockButton from './UnlockButton';
@@ -21,6 +22,18 @@ import {
   perPersonText,
   type BuyerAllowanceDto,
 } from '../../utils/passTerms';
+import {
+  ALL_RESERVED_TEXT,
+  CRYPTO_NOT_FOR_TIERED_TEXT,
+  displayedUnitPrice,
+  leftAtPriceText,
+  priceChangedText,
+  pricingOf,
+  pricingRefusalOf,
+  thenPriceText,
+  tierQuantityNote,
+  type PassPricingDto,
+} from '../../utils/passPricing';
 
 interface PassActionButtonProps {
   pass: {
@@ -44,6 +57,8 @@ interface PassActionButtonProps {
     sale_consent?: SaleConsentPublic;
     /** Shown in the optional "let this creator email me" box. */
     creator_name?: string | null;
+    /** Tiered pricing: the price on offer now, what is left at it, the grid (utils/passPricing). */
+    pricing?: PassPricingDto | null;
   };
   alreadyOwns: boolean;
   isAccessLoading: boolean;
@@ -58,6 +73,8 @@ const BLOCK_REASON_FALLBACKS: Record<string, string> = {
 
 function getBlockMessage(pass: PassActionButtonProps['pass']): string | null {
   if (pass.can_purchase !== false) return null;
+  // The sale-level code counts passes in checkouts as taken; the pricing state tells them apart.
+  if (pass.pricing?.state === 'all_reserved') return ALL_RESERVED_TEXT;
   if (pass.purchase_block_reason) return pass.purchase_block_reason;
   if (pass.purchase_block_reason_code) {
     return BLOCK_REASON_FALLBACKS[pass.purchase_block_reason_code] ?? 'This pass cannot be purchased right now.';
@@ -172,6 +189,40 @@ function QuantityStepper({
   );
 }
 
+/** "See all prices": the grid, fully-paid tiers struck through. No chart, no change figures. */
+function PriceGrid({ pricing, currency }: { pricing: PassPricingDto; currency?: string }) {
+  const [open, setOpen] = useState(false);
+  if (pricing.mode !== 'tiered' || pricing.tiers.length < 2) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="text-xs text-[#a1a4a5] hover:text-[#f0f0f0] text-left"
+      >
+        {open ? 'Hide prices' : 'See all prices'}
+      </button>
+      {open ? (
+        <ol className="flex flex-col gap-1 text-xs text-[#a1a4a5]">
+          {pricing.tiers.map((tier, i) => (
+            <li
+              key={i}
+              className={`flex justify-between gap-6 tabular-nums ${tier.state === 'sold' ? 'line-through text-[#5c5c5c]' : tier.state === 'current' ? 'text-[#f0f0f0]' : ''}`}
+            >
+              <span>
+                {tier.size.toLocaleString('en-US')} {tier.size === 1 ? 'pass' : 'passes'}
+                {tier.state === 'current' ? ' · now' : tier.state === 'sold' ? ' · sold' : ''}
+              </span>
+              <span>{formatCheckoutTotal(tier.priceCents, 1, currency)}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </div>
+  );
+}
+
 const PRIMARY_PILL =
   'w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-white text-black font-medium text-sm tracking-tight transition-colors hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed';
 
@@ -218,14 +269,30 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
   const { markCompletedFromResume, markConflictFromResume, retryPendingConfirmation } = cryptoDirect;
   const [cryptoReservationExpiresAt, setCryptoReservationExpiresAt] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const remaining = remainingForPass(pass);
+  // The price on offer. A PRICE_CHANGED answer replaces it with the new one, so
+  // the next press of Buy sends the price now on screen (spec §8.1).
+  const passPricing = useMemo(() => pricingOf(pass), [pass]);
+  const [refusedPricing, setRefusedPricing] = useState<PassPricingDto | null>(null);
+  // A fresh answer from the server (a refetch) replaces what a refusal said.
+  useEffect(() => setRefusedPricing(null), [pass.pricing]);
+  const pricing = refusedPricing ?? passPricing;
+  const tiered = pricing.mode === 'tiered';
+  const unitPriceCents = displayedUnitPrice(pricing, pass.price_cents) ?? pass.price_cents;
+  const priceLabel =
+    tiered && unitPriceCents != null ? formatCheckoutTotal(unitPriceCents, 1, pass.currency) : pass.formatted_price;
+  // One checkout stays at one price: on a tiered pass, what is left at it.
+  const remaining = tiered ? (pricing.state === 'on_sale' ? pricing.leftAtCurrentPrice : 0) : remainingForPass(pass);
   // The buyer's allowance (signed in only): the selector never offers more than they may still buy.
   const allowance = buyerAllowanceOf(pass);
   const quantityCeiling = checkoutQuantityCeiling(remaining, allowance, MAX_CHECKOUT_QUANTITY);
   const maxQty = Math.max(1, quantityCeiling);
   const buyerLimitReached = allowance !== null && allowance.remaining <= 0;
   const perBuyerLimit = allowance?.maxPerBuyer ?? (pass.max_per_buyer && pass.max_per_buyer > 0 ? pass.max_per_buyer : null);
-  const limitNote = allowanceSentence(allowance) ?? (perBuyerLimit ? `${perPersonText(perBuyerLimit)}.` : null);
+  const limitNote =
+    tierQuantityNote(pricing, quantityCeiling) ??
+    allowanceSentence(allowance) ??
+    (perBuyerLimit ? `${perPersonText(perBuyerLimit)}.` : null);
+  const tierLine = [leftAtPriceText(pricing), thenPriceText(pricing, pass.currency || 'EUR')].filter(Boolean).join(' · ');
   const [quantity, setQuantity] = useState(1);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutIntent, setCheckoutIntent] = useState<'card' | 'crypto' | null>(null);
@@ -241,6 +308,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
   });
   const canPurchase =
     pass.can_purchase === true &&
+    pricing.state === 'on_sale' &&
     (pass.publish_status === undefined || pass.publish_status === 'published');
   const blockMessage = getBlockMessage(pass);
 
@@ -381,6 +449,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
   const checkoutFinePrint = (
     <p className="text-xs text-[#a1a4a5] leading-relaxed">
       Card checkout unlocks access instantly. Claim the NFT to your wallet any time.
+      {tiered ? null : (
       <span className="inline-flex items-center gap-1 ml-1 text-[#5c5c5c]">
         <Clock3 className="w-3 h-3" />
         Crypto quotes hold inventory for ~5 minutes.
@@ -396,6 +465,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
           </span>
         ) : null}
       </span>
+      )}
     </p>
   );
 
@@ -408,7 +478,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
             className={`text-5xl font-medium ${canPurchase ? 'text-[#f0f0f0]' : 'text-[#5c5c5c]'}`}
             style={{ letterSpacing: '-0.03em', lineHeight: 1 }}
           >
-            {pass.formatted_price}
+            {priceLabel}
           </div>
           {alreadyOwns ? (
             <span
@@ -419,6 +489,10 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
             </span>
           ) : null}
         </div>
+        {tiered && pricing.state === 'on_sale' && tierLine ? (
+          <p className="-mt-3 text-sm text-[#a1a4a5] tabular-nums">{tierLine}</p>
+        ) : null}
+        <PriceGrid pricing={pricing} currency={pass.currency} />
 
         {alreadyOwns ? (
           <button
@@ -445,8 +519,8 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
                 disabled={cryptoInFlight}
                 onChange={setQuantity}
                 totalLabel={
-                  quantity > 1 && pass.price_cents != null
-                    ? formatCheckoutTotal(pass.price_cents, quantity, pass.currency)
+                  quantity > 1 && unitPriceCents != null
+                    ? formatCheckoutTotal(unitPriceCents, quantity, pass.currency)
                     : null
                 }
                 limitNote={limitNote}
@@ -473,7 +547,24 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
                   consentReady={consentReady}
                   quantity={quantity}
                   label="Continue to card"
+                  expectedUnitPriceCents={unitPriceCents ?? null}
                   onError={(err) => {
+                    const refusal = pricingRefusalOf(axios.isAxiosError(err) ? err.response?.data : null);
+                    if (refusal?.code === 'PRICE_CHANGED' && refusal.unitPriceCents != null) {
+                      if (refusal.pricing) setRefusedPricing(refusal.pricing);
+                      if (refusal.maxQuantity) setQuantity((q) => Math.min(q, refusal.maxQuantity as number));
+                      setCheckoutError(`${priceChangedText(refusal.unitPriceCents, pass.currency || 'EUR')} Press the button again to buy at this price.`);
+                      return;
+                    }
+                    if (refusal?.code === 'QUANTITY_SPANS_PRICE_TIERS' && refusal.maxQuantity) {
+                      if (refusal.pricing) setRefusedPricing(refusal.pricing);
+                      setQuantity(refusal.maxQuantity);
+                    }
+                    if (refusal?.code === 'PASS_ALL_RESERVED') {
+                      if (refusal.pricing) setRefusedPricing(refusal.pricing);
+                      setCheckoutError(ALL_RESERVED_TEXT);
+                      return;
+                    }
                     const parsed = getPassErrorMessage(err);
                     setCheckoutError(parsed.message);
                   }}
@@ -501,13 +592,15 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
 
               {!cryptoInFlight ? (
                 <div className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => chooseMethod(checkoutIntent === 'card' ? 'crypto' : 'card')}
-                    className="text-xs text-[#a1a4a5] hover:text-[#f0f0f0] text-left"
-                  >
-                    {checkoutIntent === 'card' ? 'Pay with crypto instead' : 'Pay with card instead'}
-                  </button>
+                  {tiered ? null : (
+                    <button
+                      type="button"
+                      onClick={() => chooseMethod(checkoutIntent === 'card' ? 'crypto' : 'card')}
+                      className="text-xs text-[#a1a4a5] hover:text-[#f0f0f0] text-left"
+                    >
+                      {checkoutIntent === 'card' ? 'Pay with crypto instead' : 'Pay with card instead'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -532,8 +625,8 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
                 disabled={cryptoInFlight}
                 onChange={setQuantity}
                 totalLabel={
-                  quantity > 1 && pass.price_cents != null
-                    ? formatCheckoutTotal(pass.price_cents, quantity, pass.currency)
+                  quantity > 1 && unitPriceCents != null
+                    ? formatCheckoutTotal(unitPriceCents, quantity, pass.currency)
                     : null
                 }
                 limitNote={limitNote}
@@ -545,14 +638,18 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
               >
                 {alreadyOwns ? 'Buy more with card' : 'Buy with Card'}
               </button>
-              <button
-                type="button"
-                onClick={() => chooseMethod('crypto')}
-                className={SECONDARY_PILL}
-              >
-                <Wallet className="w-4 h-4" />
-                {alreadyOwns ? 'Buy more with crypto' : 'Buy with crypto'}
-              </button>
+              {tiered ? (
+                <p className="text-xs text-[#a1a4a5] leading-relaxed">{CRYPTO_NOT_FOR_TIERED_TEXT}</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => chooseMethod('crypto')}
+                  className={SECONDARY_PILL}
+                >
+                  <Wallet className="w-4 h-4" />
+                  {alreadyOwns ? 'Buy more with crypto' : 'Buy with crypto'}
+                </button>
+              )}
               <PassBuyerDisclosure />
               {checkoutFinePrint}
             </>
