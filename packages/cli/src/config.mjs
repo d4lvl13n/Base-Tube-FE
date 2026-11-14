@@ -92,6 +92,14 @@ export function normalizeApiBase(value) {
   return url.href.replace(/\/+$/, '');
 }
 
+/** Accept legacy keys too, but never pass unsafe header characters to fetch. */
+export function validateApiKey(key) {
+  if (key && /[^\x21-\x7e]/.test(key)) {
+    throw usageError('The key must contain only printable ASCII characters without spaces or line breaks.',
+      'Copy the key again with the "Copy key" button.');
+  }
+}
+
 /**
  * The key and the API address to use.
  * Key: BASETUBE_API_KEY, else the stored key.
@@ -100,7 +108,8 @@ export function normalizeApiBase(value) {
 export async function resolveSettings(env, apiFlag) {
   const config = await readConfig(env);
   const envKey = env.BASETUBE_API_KEY?.trim();
-  const key = envKey || (typeof config.apiKey === 'string' ? config.apiKey : null);
+  const key = envKey || (typeof config.apiKey === 'string' ? config.apiKey.trim() : null);
+  validateApiKey(key);
   const keySource = envKey ? 'BASETUBE_API_KEY' : key ? configPath(env) : null;
   const api = normalizeApiBase(apiFlag ?? env.BASETUBE_API_URL ?? config.apiUrl ?? DEFAULT_API);
   return { key, keySource, api, config };

@@ -151,7 +151,9 @@ function uploadStopped(state, uploadId) {
 async function sendParts({ call, uploadId, file, fileSize, log }) {
   const handle = await open(file, 'r');
   try {
-    for (let round = 1; round <= SEND_ROUNDS; round += 1) {
+    // Reconcile after every send, including the last allowed attempt. A PUT
+    // can also reach storage even when its response is lost.
+    for (let round = 0; round <= SEND_ROUNDS; round += 1) {
       const state = (await call('GET', `/uploads/${uploadId}`)).data;
       // A rerun after the completion already went through: nothing left to send.
       if (['completing', 'processing', 'ready'].includes(state.uploadState)) return null;
@@ -164,6 +166,7 @@ async function sendParts({ call, uploadId, file, fileSize, log }) {
           .sort((a, b) => a.partNumber - b.partNumber)
           .map((part) => ({ partNumber: part.partNumber, etag: part.etag }));
       }
+      if (round === SEND_ROUNDS) break; // final reconciliation never sends again
       let sentBytes = state.completedParts.reduce((sum, part) => sum + (part.sizeBytes ?? 0), 0);
       let sentParts = done.size;
       log(`Sending ${missing.length} of ${state.partCount} parts (${mb(fileSize)} in total)`);
@@ -187,7 +190,7 @@ async function sendParts({ call, uploadId, file, fileSize, log }) {
         });
         await Promise.all(workers);
       }
-      if (sentParts < state.partCount && round < SEND_ROUNDS) log('Retrying the parts that did not go through');
+      if (sentParts < state.partCount && round + 1 < SEND_ROUNDS) log('Retrying the parts that did not go through');
     }
     throw new CliError(`Some parts could not be sent after ${SEND_ROUNDS} rounds.`, {
       code: 'PARTS_NOT_SENT', hint: 'Run the same command again: it resumes where it stopped.',
@@ -352,8 +355,9 @@ export async function upload(options, { call, api, log, dir }) {
   }
 
   if (!options.wait) {
-    await deleteCheckpoint(context);
     const video = (await call('GET', `/videos/${videoId}`)).data;
+    // Keep the completed upload resumable if its final video lookup fails.
+    await deleteCheckpoint(context);
     return { uploadId, video };
   }
 

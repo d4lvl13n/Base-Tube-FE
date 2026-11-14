@@ -23,6 +23,6 @@
   ],
   "homepage": "https://beta.base.tube",
   "scripts": {
-    "test": "node --test test/cli.test.mjs"
+    "test": "node --test test/*.test.mjs"
   }
 }

@@ -12,9 +12,9 @@ import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { createClient } from './api.mjs';
 import { parseArgs, parseId, parsePositiveInt, parseTags } from './args.mjs';
-import { CliError, EXIT, asCliError, notSignedIn, usageError } from './errors.mjs';
+import { CliError, EXIT, asCliError, notSignedIn, redactSecrets, usageError } from './errors.mjs';
 import {
-  DEFAULT_API, configPath, deleteConfig, normalizeApiBase, readConfig, resolveSettings, saveConfig, uploadsDir,
+  DEFAULT_API, configPath, deleteConfig, normalizeApiBase, readConfig, resolveSettings, saveConfig, uploadsDir, validateApiKey,
 } from './config.mjs';
 import { checkVideoFile, pickChannel, readThumbnail, upload } from './upload.mjs';
 
@@ -197,14 +197,18 @@ ${GLOBAL_HELP}`,
 // ---------------------------------------------------------------------------
 
 function makeOutput(json) {
+  const secrets = new Set();
+  const redact = (value) => redactSecrets(value, secrets);
   return {
     json,
-    log: (line) => process.stderr.write(`${line}\n`),
+    hideSecret: (key) => { if (key) secrets.add(key); },
+    log: (line) => process.stderr.write(`${redact(String(line))}\n`),
     result(data, human) {
-      if (json) process.stdout.write(`${JSON.stringify({ ok: true, data }, null, 2)}\n`);
-      else if (human) process.stdout.write(`${human}\n`);
+      if (json) process.stdout.write(`${JSON.stringify({ ok: true, data: redact(data) }, null, 2)}\n`);
+      else if (human) process.stdout.write(`${redact(human)}\n`);
     },
     error(error) {
+      error = redact({ ...error, message: error.message });
       const lines = [`Error: ${error.message}${error.code && error.code !== 'USAGE' ? ` [${error.code}]` : ''}`];
       const issues = Array.isArray(error.details?.issues) ? error.details.issues : [];
       for (const issue of issues) lines.push(`  - ${issue.path || 'request'}: ${issue.message}`);
@@ -301,6 +305,7 @@ async function readStdin() {
 async function signedIn(options, out) {
   const settings = await resolveSettings(process.env, options.api);
   if (!settings.key) throw notSignedIn();
+  out.hideSecret(settings.key);
   return { ...settings, call: createClient({ base: settings.api, key: settings.key, log: out.log }) };
 }
 
@@ -316,7 +321,8 @@ async function login(argv, out) {
     key = (await promptHidden('Paste your API key (from base.tube → Creator Hub → API): ')).trim();
   }
   if (!key) throw usageError('No key given.', 'Create a key on base.tube → Creator Hub → API, then paste it.');
-  if (/\s/.test(key)) throw usageError('The key contains spaces or line breaks.', 'Copy the key again with the "Copy key" button.');
+  validateApiKey(key);
+  out.hideSecret(key);
 
   const config = await readConfig(process.env);
   const api = normalizeApiBase(options.api ?? process.env.BASETUBE_API_URL ?? config.apiUrl ?? DEFAULT_API);
@@ -512,6 +518,7 @@ const COMMANDS = { login, logout, whoami, channels, upload: uploadCommand, video
 
 export async function main(argv) {
   const out = makeOutput(argv.includes('--json'));
+  out.hideSecret(process.env.BASETUBE_API_KEY?.trim());
   const [command, ...rest] = argv;
   try {
     if (!command || command === 'help' || command === '--help' || command === '-h') {

@@ -123,3 +123,17 @@ export function asCliError(error) {
   }
   return new CliError(error?.message ?? String(error), { code: 'ERROR' });
 }
+
+/** Redact active credentials in strings and nested JSON values, including object keys. */
+export function redactSecrets(value, secrets) {
+  if (typeof value === 'string') {
+    for (const secret of secrets) if (secret) value = value.split(secret).join('[REDACTED]');
+    return value;
+  }
+  if (Array.isArray(value)) return value.map((entry) => redactSecrets(entry, secrets));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) =>
+      [redactSecrets(key, secrets), redactSecrets(entry, secrets)]));
+  }
+  return value;
+}
