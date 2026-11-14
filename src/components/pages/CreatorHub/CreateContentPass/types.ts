@@ -1,11 +1,23 @@
 import { CreatePassRequest } from '../../../../types/pass';
+import type { PriceTierDto } from '../../../../utils/passPricing';
+
+/** One price (the default) or a price that rises by tiers. */
+export type PricingMode = 'single' | 'tiered';
 
 // Form values type for React Hook Form's useFieldArray compatibility
 export interface FormData {
   title: string;
   description?: string;
+  /** One price; with tiers, the START price (the first tier's). */
   price_cents: number;
   currency?: string;
+  pricing_mode?: PricingMode;
+  /** Tiers only: the final price typed into the builder. */
+  final_price_cents?: number;
+  /** Tiers only: how many tiers the builder makes (2–10). */
+  tier_count?: number;
+  /** Tiers only: the grid, built from the three entries above and editable. */
+  price_tiers?: PriceTierDto[];
   /** How many passes exist. Required: every pass has a cap. */
   supply_cap?: number;
   /** The most passes one person may buy (1 … supply_cap). */
@@ -25,6 +37,10 @@ const YOUTUBE_URL = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/;
 export const validVideoRows = (rows: FormData['src_urls'] | undefined): FormData['src_urls'] =>
   (rows ?? []).filter((item) => item?.value?.trim()?.length > 0 && YOUTUBE_URL.test(item.value));
 
+/** The form sells by a grid of two tiers or more. */
+export const isTieredForm = (formData: Pick<FormData, 'pricing_mode' | 'price_tiers'>): boolean =>
+  formData.pricing_mode === 'tiered' && Array.isArray(formData.price_tiers) && formData.price_tiers.length >= 2;
+
 /**
  * Transforms form data to the API request format
  * @param formData Form data with src_urls array of objects
@@ -37,13 +53,16 @@ export function transformFormToApiFormat(formData: FormData): CreatePassRequest 
     duration: item.duration,
   }));
 
+  // With tiers the grid is the price: the pass's price is its first tier's.
+  const grid = isTieredForm(formData) ? formData.price_tiers! : null;
   const baseRequest: Omit<CreatePassRequest, 'src_url' | 'videos'> = {
     title: formData.title,
     description: formData.description,
-    price_cents: formData.price_cents,
+    price_cents: grid ? grid[0].priceCents : formData.price_cents,
     currency: formData.currency,
     supply_cap: formData.supply_cap,
     max_per_buyer: formData.max_per_buyer,
+    ...(grid ? { price_tiers: grid } : {}),
   };
 
   if (validVideos.length === 1) {

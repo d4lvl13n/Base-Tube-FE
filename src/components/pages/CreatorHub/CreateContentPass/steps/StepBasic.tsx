@@ -21,6 +21,8 @@ import {
   wizardInput,
   wizardInputInvalid,
 } from '../wizardUi';
+import { MIN_TIERED_SUPPLY, GRID_FROZEN_AFTER_FIRST_SALE } from '../../../../../utils/passPricing';
+import PriceTiersField from './PriceTiersField';
 
 interface StepBasicProps {
   register: UseFormRegister<FormData>;
@@ -95,6 +97,9 @@ const StepBasic = ({ register, errors, watch, setValue, control, onOpenSimulator
   };
 
   const capValid = typeof cap === 'number' && Number.isInteger(cap) && cap >= 1;
+  // One price (the default) or a price that rises by tiers.
+  const tiered = watchedFields.pricing_mode === 'tiered';
+  const tiersAllowed = capValid && (cap as number) >= MIN_TIERED_SUPPLY;
 
   return (
     <div className="space-y-5">
@@ -124,11 +129,41 @@ const StepBasic = ({ register, errors, watch, setValue, control, onOpenSimulator
       <WizardCard
         id="basic-price"
         title="Price"
-        description="What one pass costs at the first sale. It never changes after someone buys."
+        description={
+          tiered
+            ? 'The first passes cost less, the next ones more. The grid never changes after someone buys.'
+            : 'What one pass costs at the first sale. It never changes after someone buys.'
+        }
       >
+        <div className="mb-5">
+          <div className={segmented.trough} role="radiogroup" aria-label="How the price works">
+            {([
+              ['single', 'One price'],
+              ['tiered', 'Price rises by tiers'],
+            ] as const).map(([mode, label]) => {
+              const active = (watchedFields.pricing_mode ?? 'single') === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  disabled={mode === 'tiered' && !tiersAllowed && !active}
+                  onClick={() => setValue('pricing_mode', mode, { shouldDirty: true, shouldValidate: true })}
+                  className={cx(segmented.chip, active ? segmented.chipActive : segmented.chipIdle, 'disabled:opacity-40')}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {!tiersAllowed && (
+            <FieldHelp>A price that rises by tiers needs at least {MIN_TIERED_SUPPLY} passes.</FieldHelp>
+          )}
+        </div>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_auto]">
           <div>
-            <FieldLabel htmlFor="price">Price per pass</FieldLabel>
+            <FieldLabel htmlFor="price">{tiered ? 'Start price' : 'Price per pass'}</FieldLabel>
             <Controller
               name="price_cents"
               control={control}
@@ -191,7 +226,7 @@ const StepBasic = ({ register, errors, watch, setValue, control, onOpenSimulator
                 }}
               />
             </div>
-            <FieldHelp id="price-help">At least 1.00.</FieldHelp>
+            <FieldHelp id="price-help">{tiered ? 'What the first passes cost. At least 1.00.' : 'At least 1.00.'}</FieldHelp>
           </div>
 
           {/* Currency */}
@@ -231,6 +266,11 @@ const StepBasic = ({ register, errors, watch, setValue, control, onOpenSimulator
             <FieldError>{errors.currency?.message}</FieldError>
           </div>
         </div>
+        {tiered && (
+          <div className="mt-6 border-t border-gray-800/50 pt-5">
+            <PriceTiersField control={control} errors={errors} watch={watch} setValue={setValue} />
+          </div>
+        )}
       </WizardCard>
 
       {/* ── How many passes exist, and how many one person may buy ─────── */}
@@ -324,8 +364,9 @@ const StepBasic = ({ register, errors, watch, setValue, control, onOpenSimulator
       <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="flex items-start gap-2 text-xs leading-relaxed text-gray-400">
           <Lock className="mt-px h-3.5 w-3.5 shrink-0 text-gray-500" aria-hidden="true" />
-          The price, the number of passes and the per-person limit are part of what you promise buyers. You check them before
-          saving; they cannot change after the first sale.
+          {tiered
+            ? `The price grid, the number of passes and the per-person limit are part of what you promise buyers. You check them before saving. ${GRID_FROZEN_AFTER_FIRST_SALE}`
+            : 'The price, the number of passes and the per-person limit are part of what you promise buyers. You check them before saving; they cannot change after the first sale.'}
         </p>
         <button type="button" onClick={onOpenSimulator} className={cx(text.link, 'inline-flex shrink-0 items-center gap-1.5 text-xs font-medium')}>
           <Calculator className="h-3.5 w-3.5" aria-hidden="true" />

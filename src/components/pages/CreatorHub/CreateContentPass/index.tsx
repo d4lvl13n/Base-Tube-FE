@@ -9,7 +9,8 @@ import { useCreatePass, usePublishPass, usePassDetails, useUpdateDraftPass } fro
 import { useWallet } from '../../../../hooks/useWallet';
 import { getPassErrorMessage } from '../../../../utils/passErrorMessages';
 import { cx, form, frame, skeleton, surface } from '../Business/businessStyles';
-import { FormData, transformFormToApiFormat, validVideoRows } from './types';
+import { FormData, isTieredForm, transformFormToApiFormat, validVideoRows } from './types';
+import { DEFAULT_TIER_COUNT, priceRangeText, type PriceTierDto } from '../../../../utils/passPricing';
 import {
   MAX_PER_BUYER_DEFAULT,
   SUPPLY_CAP_DEFAULT,
@@ -101,6 +102,10 @@ const CreateContentPass: React.FC = () => {
       currency: 'USD',
       supply_cap: SUPPLY_CAP_DEFAULT,
       max_per_buyer: MAX_PER_BUYER_DEFAULT,
+      pricing_mode: 'single',
+      tier_count: DEFAULT_TIER_COUNT,
+      final_price_cents: undefined,
+      price_tiers: [],
       src_urls: [{ value: '' }]
     },
     mode: 'onChange'
@@ -118,7 +123,22 @@ const CreateContentPass: React.FC = () => {
   } = formMethods;
 
   // The simulator panel reads the price and the number of passes as they are typed.
-  const [simulatorPrice, simulatorCap, simulatorCurrency] = watch(['price_cents', 'supply_cap', 'currency']);
+  const [simulatorPrice, simulatorCap, simulatorCurrency, simulatorMode, simulatorTiers] = watch([
+    'price_cents',
+    'supply_cap',
+    'currency',
+    'pricing_mode',
+    'price_tiers',
+  ]);
+  const simulatorGrid: PriceTierDto[] | undefined = isTieredForm({ pricing_mode: simulatorMode, price_tiers: simulatorTiers })
+    ? simulatorTiers
+    : undefined;
+
+  /** The price line of a summary: one price, or the grid's range ("EUR 5 – 25"). */
+  const priceSummary = (values: FormData): string =>
+    isTieredForm(values)
+      ? priceRangeText({ price_cents: values.price_tiers![0].priceCents, price_tiers: values.price_tiers, currency: values.currency })
+      : formatCurrency(values.price_cents, values.currency || 'USD');
 
   // Refetch YouTube status + creator videos when ?ytLinked=1 is present after OAuth callback
   useEffect(() => {
@@ -141,6 +161,15 @@ const CreateContentPass: React.FC = () => {
     const draftCap = supplyCapOf(resumeDraft);
     setValue('supply_cap', draftCap ?? undefined);
     setValue('max_per_buyer', maxPerBuyerOf(resumeDraft) ?? (draftCap ? defaultMaxPerBuyer(draftCap) : undefined));
+    // A draft that sells by a grid comes back with it (the price field holds its first price).
+    const draftGrid = Array.isArray(resumeDraft.price_tiers) && resumeDraft.price_tiers.length >= 2 ? resumeDraft.price_tiers : null;
+    setValue('pricing_mode', draftGrid ? 'tiered' : 'single');
+    setValue('price_tiers', draftGrid ?? []);
+    if (draftGrid) {
+      setValue('price_cents', draftGrid[0].priceCents);
+      setValue('final_price_cents', draftGrid[draftGrid.length - 1].priceCents);
+      setValue('tier_count', draftGrid.length);
+    }
     if (resumeDraft.creator_settlement_preference) {
       setSettlementPreference(resumeDraft.creator_settlement_preference);
     }
@@ -234,6 +263,7 @@ const CreateContentPass: React.FC = () => {
     switch (step) {
       case 1:
         fieldsToValidate = ['title', 'price_cents', 'currency', 'supply_cap', 'max_per_buyer'];
+        if (getValues('pricing_mode') === 'tiered') fieldsToValidate.push('final_price_cents', 'price_tiers');
         break;
       case 2:
         fieldsToValidate = ['description'];
@@ -354,7 +384,9 @@ const CreateContentPass: React.FC = () => {
             onBack={handlePrevStep}
             summary={{
               title: values.title,
-              priceLabel: formatCurrency(values.price_cents, values.currency || 'USD'),
+              priceLabel: priceSummary(values),
+              priceTiers: isTieredForm(values) ? values.price_tiers : undefined,
+              currency: values.currency,
               supplyCap: values.supply_cap,
               maxPerBuyer: values.max_per_buyer,
               videoCount,
@@ -375,7 +407,7 @@ const CreateContentPass: React.FC = () => {
     return (
       <SuccessScreen
         title={currentValues.title}
-        priceLabel={formatCurrency(currentValues.price_cents, currentValues.currency || 'USD')}
+        priceLabel={priceSummary(currentValues)}
         passUrl={passUrl}
         onViewPass={() => navigate(passUrl)}
         onCreateAnother={() => {
@@ -450,6 +482,7 @@ const CreateContentPass: React.FC = () => {
           price: Number.isFinite(simulatorPrice) ? (simulatorPrice as number) / 100 : undefined,
           cap: Number.isFinite(simulatorCap) ? (simulatorCap as number) : undefined,
           currency: simulatorCurrency,
+          tiers: simulatorGrid,
         }}
       />
       <div className={WIZARD_MEASURE}>

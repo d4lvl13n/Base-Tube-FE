@@ -13,10 +13,15 @@ import {
   validateSupplyCap,
 } from '../../../../../utils/passTerms';
 import { FieldError, FieldHelp, FieldLabel, WizardCard, describedBy, wizardInput, wizardInputInvalid } from '../wizardUi';
+import { GRID_FROZEN_AFTER_FIRST_SALE, type PriceTierDto } from '../../../../../utils/passPricing';
+import PriceGridTable from '../../ManagePasses/PriceGridTable';
 
 export interface PublishSummary {
   title: string;
   priceLabel: string;
+  /** The grid, when the price rises by tiers. */
+  priceTiers?: PriceTierDto[];
+  currency?: string;
   /** Missing on a draft created before every pass had a cap: it cannot be published until one is set. */
   supplyCap?: number | null;
   maxPerBuyer?: number | null;
@@ -209,9 +214,12 @@ const StepPublish: React.FC<StepPublishProps> = ({
             </div>
           ))}
         </dl>
+        {summary.priceTiers && summary.priceTiers.length >= 2 && (
+          <PriceGridTable rows={summary.priceTiers} currency={summary.currency} className="mt-5" />
+        )}
         <p className="mt-5 flex items-start gap-2 text-xs leading-relaxed text-gray-400">
           <Lock className="mt-px h-3.5 w-3.5 shrink-0 text-gray-500" aria-hidden="true" />
-          {FROZEN_AFTER_FIRST_SALE}
+          {summary.priceTiers && summary.priceTiers.length >= 2 ? GRID_FROZEN_AFTER_FIRST_SALE : FROZEN_AFTER_FIRST_SALE}
         </p>
       </WizardCard>
 

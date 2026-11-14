@@ -9,7 +9,7 @@ const RevenueSimulatorPage: React.FC = () => (
       <header>
         <h1 className={text.pageTitle}>Content Pass revenue simulator</h1>
         <p className={text.pageSubtitle}>
-          What a pass could earn you: one fixed price, a fixed number of passes, and a royalty each time one is resold.
+          What a pass could earn you: one price or a price that rises by tiers, a fixed number of passes, and a royalty each time one is resold.
         </p>
       </header>
       <RevenueSimulator layout="page" />

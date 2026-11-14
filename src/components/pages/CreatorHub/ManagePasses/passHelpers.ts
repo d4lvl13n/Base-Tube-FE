@@ -2,6 +2,7 @@
 import { toast } from 'react-toastify';
 import type { Pass } from '../../../../types/pass';
 import { formatMinor } from '../Business/businessFormat';
+import { isTieredPass, priceRangeText } from '../../../../utils/passPricing';
 
 /** Sold = minted + pending Stripe reservations; the backend folds both into `sold_count`. */
 export const soldCount = (pass: Pass): number => pass.sold_count ?? pass.minted_count ?? 0;
@@ -35,15 +36,18 @@ export const publicPassUrl = (pass: Pass): string => `${window.location.origin}$
 /**
  * A pass's price in the one money format ("EUR 49.00", never "€49.00"): the
  * business API's price when it is here (it carries its own decimals), else
- * the pass's `price_cents` in its currency (cents: 2 decimals).
+ * the pass's `price_cents` in its currency (cents: 2 decimals). A pass whose
+ * price rises by tiers shows its range, code first: "EUR 5 – 25".
  */
 export const passPriceText = (
-  pass: Pick<Pass, 'price_cents' | 'currency'>,
+  pass: Pick<Pass, 'price_cents' | 'currency' | 'price_tiers' | 'pricing'>,
   businessPrice?: { amount: number; currency: string; decimals: number } | null,
-): string =>
-  businessPrice
+): string => {
+  if (isTieredPass(pass)) return priceRangeText(pass);
+  return businessPrice
     ? formatMinor(businessPrice.amount, businessPrice.currency, businessPrice.decimals)
     : formatMinor(pass.price_cents ?? 0, pass.currency || 'EUR', 2);
+};
 
 /**
  * Sequelize sends `createdAt`; older serializers sent `created_at`. Neither is

@@ -3,7 +3,9 @@ import { UseFormWatch } from 'react-hook-form';
 import { X, ChevronRight, AlertTriangle, ExternalLink, Lock, Pencil } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { cx, form, heroGlow, list, sheet } from '../../Business/businessStyles';
-import { FormData, validVideoRows } from '../types';
+import { FormData, isTieredForm, validVideoRows } from '../types';
+import { GRID_FROZEN_AFTER_FIRST_SALE, priceRangeText } from '../../../../../utils/passPricing';
+import PriceGridTable from '../../ManagePasses/PriceGridTable';
 import ContentPassSuccessAnimation from '../../../../animations/ContentPassSuccessAnimation';
 import {
   FROZEN_AFTER_FIRST_SALE,
@@ -151,6 +153,11 @@ const StepReview: React.FC<StepReviewProps> = ({
 
   // Format the price for display
   const formattedPrice = formatCurrency(watchedFields.price_cents, watchedFields.currency || 'USD');
+  // With tiers the grid is the price: its range on the term, every row under the terms.
+  const grid = isTieredForm(watchedFields) ? watchedFields.price_tiers! : null;
+  const priceValue = grid
+    ? priceRangeText({ price_cents: grid[0].priceCents, price_tiers: grid, currency: watchedFields.currency })
+    : formattedPrice;
   const cap = watchedFields.supply_cap && watchedFields.supply_cap > 0 ? watchedFields.supply_cap : null;
   const perBuyer = watchedFields.max_per_buyer && watchedFields.max_per_buyer > 0 ? watchedFields.max_per_buyer : null;
   const videoCountText = `${validUrls.length} video${validUrls.length !== 1 ? 's' : ''}`;
@@ -186,14 +193,16 @@ const StepReview: React.FC<StepReviewProps> = ({
     },
     {
       key: 'price',
-      label: 'Price',
+      label: grid ? 'Price grid' : 'Price',
       value: (
         <>
-          {formattedPrice}
+          {priceValue}
           <span className="ml-1.5 text-sm font-normal text-gray-400">per pass</span>
         </>
       ),
-      detail: 'Paid once. There is no subscription.',
+      detail: grid
+        ? `${grid.length} tiers: the first passes cost less, the next ones more. Paid once, no subscription.`
+        : 'Paid once. There is no subscription.',
       editStep: 1,
     },
     {
@@ -253,9 +262,10 @@ const StepReview: React.FC<StepReviewProps> = ({
               <PromiseRow key={term.key} term={term} onEditStep={onEditStep} />
             ))}
           </dl>
+          {grid && <PriceGridTable rows={grid} currency={watchedFields.currency} className="mt-6" />}
           <p className="mt-6 flex items-start gap-2.5 rounded-lg border border-[#fa7517]/25 bg-[#fa7517]/[0.06] p-3 text-sm leading-relaxed text-gray-100">
             <Lock className="mt-0.5 h-4 w-4 shrink-0 text-[#fa7517]" aria-hidden="true" />
-            {FROZEN_AFTER_FIRST_SALE}
+            {grid ? GRID_FROZEN_AFTER_FIRST_SALE : FROZEN_AFTER_FIRST_SALE}
           </p>
         </WizardCard>
 
@@ -428,7 +438,7 @@ const StepReview: React.FC<StepReviewProps> = ({
 
               <p className="text-sm text-gray-300">
                 We will save <strong className="font-medium text-gray-100">"{watchedFields.title}"</strong> at{' '}
-                <strong className="font-medium tabular-nums text-gray-100">{formattedPrice}</strong>. You choose how you get paid and publish on the next screen.
+                <strong className="font-medium tabular-nums text-gray-100">{priceValue}</strong>. You choose how you get paid and publish on the next screen.
               </p>
 
               <dl className="grid grid-cols-[auto,1fr] gap-x-6 gap-y-2 border-t border-gray-800/50 pt-4">

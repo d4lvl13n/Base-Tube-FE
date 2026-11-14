@@ -48,3 +48,35 @@ describe('Content Pass revenue simulator', () => {
     expect(r.shareNeededToSellOutPct).toBeNull();
   });
 });
+
+describe('with a price grid (tiered pricing)', () => {
+  const tiers = [
+    { size: 200, priceCents: 500 },
+    { size: 200, priceCents: 1000 },
+  ];
+
+  it('counts the passes sold cheapest first; the grid sets the number of passes', () => {
+    // 10,000 followers, 3% buy = 300: 200 at 5 + 100 at 10 = 2,000 paid, 1,800 for the creator.
+    const r = simulate({ audience: 10_000, buyerSharePct: 3, price: 0, cap: 999, tiers, resoldPerYearPct: 0, resalePrice: 0 });
+    expect(r.sold).toBe(300);
+    expect(r.buyersPay).toBe(2000);
+    expect(r.creatorEarns).toBe(1800);
+    expect(r.creatorEarnsIfSoldOut).toBe(2700); // (200×5 + 200×10) × 90%
+    expect(r.shareNeededToSellOutPct).toBe(4); // 400 passes / 10,000
+  });
+
+  it('shows what the creator keeps at 25%, 50%, 75% and all sold, never the sell-out alone', () => {
+    const r = simulate({ audience: 0, buyerSharePct: 0, price: 0, cap: 0, tiers, resoldPerYearPct: 0, resalePrice: 0 });
+    expect(r.levels).toEqual([
+      { pct: 25, sold: 100, creatorEarns: 450 },
+      { pct: 50, sold: 200, creatorEarns: 900 },
+      { pct: 75, sold: 300, creatorEarns: 1800 },
+      { pct: 100, sold: 400, creatorEarns: 2700 },
+    ]);
+  });
+
+  it('one price: the same levels at that price; a one-row grid is ignored', () => {
+    const r = simulate({ audience: 0, buyerSharePct: 0, price: 10, cap: 100, tiers: [{ size: 100, priceCents: 500 }], resoldPerYearPct: 0, resalePrice: 0 });
+    expect(r.levels.map((l) => l.creatorEarns)).toEqual([225, 450, 675, 900]);
+  });
+});

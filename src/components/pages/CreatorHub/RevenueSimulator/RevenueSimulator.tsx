@@ -1,20 +1,31 @@
 // src/components/pages/CreatorHub/RevenueSimulator/RevenueSimulator.tsx
 //
 // The Content Pass revenue simulator: what a pass could earn its creator,
-// from the audience, one fixed price and the number of passes that exist.
+// from the audience, one fixed price or a price grid that rises by tiers,
+// and the number of passes that exist.
 // Used on its own page and in the side panel of the pass creation wizard
 // (where the price and the number of passes follow the form).
 import React, { useId, useMemo, useState } from 'react';
-import { cx, field, surface, text } from '../Business/businessStyles';
+import { cx, field, segmented, surface, text } from '../Business/businessStyles';
 import { formatCount, formatMinor } from '../Business/businessFormat';
 import { DECIDED_RESALE_TERMS, passesText, pctText } from '../../../../utils/passTerms';
 import { CREATOR_PRIMARY_PCT, simulate } from './revenueModel';
+import {
+  DEFAULT_TIER_COUNT,
+  MIN_PRICE_TIERS,
+  buildTiers,
+  maxTierCountFor,
+  priceRangeText,
+  type PriceTierDto,
+} from '../../../../utils/passPricing';
 
 export interface LinkedPass {
   /** Price in the currency's main unit, when the form has one. */
   price?: number;
   cap?: number;
   currency?: string;
+  /** The grid, when the pass's price rises by tiers (minor units). */
+  tiers?: PriceTierDto[];
 }
 
 interface RevenueSimulatorProps {
@@ -84,6 +95,9 @@ const RevenueSimulator: React.FC<RevenueSimulatorProps> = ({ linked, layout = 'p
   const [ownPrice, setOwnPrice] = useState('10');
   const [ownCap, setOwnCap] = useState('500');
   const [ownCurrency, setOwnCurrency] = useState<string>('EUR');
+  const [ownTiered, setOwnTiered] = useState(false);
+  const [ownFinalPrice, setOwnFinalPrice] = useState('25');
+  const [ownTierCount, setOwnTierCount] = useState(String(DEFAULT_TIER_COUNT));
   const [resold, setResold] = useState('10');
   const [resalePriceInput, setResalePriceInput] = useState('');
   const currencyId = useId();
@@ -91,6 +105,18 @@ const RevenueSimulator: React.FC<RevenueSimulatorProps> = ({ linked, layout = 'p
   const price = linked ? linked.price ?? 0 : toNumber(ownPrice);
   const cap = linked ? linked.cap ?? 0 : toNumber(ownCap);
   const currency = (linked ? linked.currency : ownCurrency) || 'EUR';
+  // A grid: the form's own, or one built here from a start and a final price.
+  const ownGrid = useMemo(() => {
+    if (linked || !ownTiered) return { tiers: null as PriceTierDto[] | null, error: null as string | null };
+    const out = buildTiers({
+      supplyCap: Math.floor(cap),
+      startPriceCents: Math.round(price * 100),
+      finalPriceCents: Math.round(toNumber(ownFinalPrice) * 100),
+      count: Math.floor(toNumber(ownTierCount)),
+    });
+    return 'tiers' in out ? { tiers: out.tiers, error: null } : { tiers: null, error: out.error };
+  }, [linked, ownTiered, cap, price, ownFinalPrice, ownTierCount]);
+  const tiers = linked ? linked.tiers ?? null : ownGrid.tiers;
   // Until the creator types one, a resale is counted at the pass's own price.
   const resalePrice = resalePriceInput === '' ? price : toNumber(resalePriceInput);
   const royaltyPct = DECIDED_RESALE_TERMS.creatorPct;
@@ -98,14 +124,14 @@ const RevenueSimulator: React.FC<RevenueSimulatorProps> = ({ linked, layout = 'p
   const result = useMemo(
     () =>
       simulate(
-        { audience: toNumber(audience), buyerSharePct: toNumber(buyerShare), price, cap, resoldPerYearPct: toNumber(resold), resalePrice },
+        { audience: toNumber(audience), buyerSharePct: toNumber(buyerShare), price, cap, tiers, resoldPerYearPct: toNumber(resold), resalePrice },
         royaltyPct,
       ),
-    [audience, buyerShare, price, cap, resold, resalePrice, royaltyPct],
+    [audience, buyerShare, price, cap, tiers, resold, resalePrice, royaltyPct],
   );
 
   const money = (amount: number): string => formatMinor(Math.round(amount * 100), currency, 2);
-  const ready = price > 0 && cap > 0;
+  const ready = (tiers ? true : price > 0) && cap > 0;
 
   const entries = (
     <div className="space-y-6">
@@ -131,7 +157,11 @@ const RevenueSimulator: React.FC<RevenueSimulatorProps> = ({ linked, layout = 'p
         {linked ? (
           <>
             <div className={cx('divide-y', surface.hairline)}>
-              <Line label="Price" value={price > 0 ? money(price) : 'Not set yet'} />
+              {tiers ? (
+                <Line label="Price grid" value={`${priceRangeText({ price_cents: tiers[0].priceCents, price_tiers: tiers, currency })} · ${tiers.length} tiers`} />
+              ) : (
+                <Line label="Price" value={price > 0 ? money(price) : 'Not set yet'} />
+              )}
               <Line label="Passes that exist" value={cap > 0 ? passesText(cap) : 'Not set yet'} />
             </div>
             <p className={text.note}>These follow the form on the left. Change them there and the figures update.</p>
@@ -164,6 +194,39 @@ const RevenueSimulator: React.FC<RevenueSimulatorProps> = ({ linked, layout = 'p
               onChange={setOwnCap}
               help="The price and this number are fixed after the first sale. No more passes are ever created."
             />
+            <div>
+              <div className={segmented.trough} role="radiogroup" aria-label="How the price works">
+                {([
+                  [false, 'One price'],
+                  [true, 'Price rises by tiers'],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    role="radio"
+                    aria-checked={ownTiered === value}
+                    onClick={() => setOwnTiered(value)}
+                    className={cx(segmented.chip, ownTiered === value ? segmented.chipActive : segmented.chipIdle)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {ownTiered && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <NumberField label="Final price" value={ownFinalPrice} onChange={setOwnFinalPrice} help="The price above is the start price." />
+                  <NumberField
+                    label="Number of tiers"
+                    value={ownTierCount}
+                    onChange={setOwnTierCount}
+                    help={`${MIN_PRICE_TIERS} to ${Math.max(MIN_PRICE_TIERS, maxTierCountFor(Math.floor(cap)))}, at least 10 passes each.`}
+                  />
+                </div>
+                {ownGrid.error && <p className={cx(text.note, 'text-red-300')}>{ownGrid.error}</p>}
+              </>
+            )}
           </>
         )}
       </section>
@@ -249,6 +312,27 @@ const RevenueSimulator: React.FC<RevenueSimulatorProps> = ({ linked, layout = 'p
               To sell every pass, {pctText(Math.round(result.shareNeededToSellOutPct * 10) / 10)} of your subscribers have to buy one.
               {result.shareNeededToSellOutPct > 100 && ' That is more passes than subscribers: consider fewer passes.'}
             </p>
+          )}
+        </section>
+      )}
+
+      {ready && (
+        <section className={cx(surface.card, 'p-5')}>
+          <h3 className={text.cardTitle}>What you keep at several sales levels</h3>
+          <table className="mt-3 w-full text-sm">
+            <tbody className={cx('divide-y', surface.hairline)}>
+              {result.levels.map((level) => (
+                <tr key={level.pct}>
+                  <td className="py-2 text-gray-300">
+                    {level.pct === 100 ? 'All sold' : `${level.pct}% sold`} · {formatCount(level.sold)} passes
+                  </td>
+                  <td className="whitespace-nowrap py-2 text-right font-semibold tabular-nums text-white">{money(level.creatorEarns)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {tiers && (
+            <p className={cx(text.note, 'mt-3')}>Passes are counted cheapest first: a partial sale earns the early prices.</p>
           )}
         </section>
       )}

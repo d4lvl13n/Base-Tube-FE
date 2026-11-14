@@ -15,6 +15,14 @@ describe('passPriceText', () => {
       'USDC 12.50',
     );
   });
+
+  it('a price that rises by tiers shows its range, code first', () => {
+    const grid = [{ size: 100, priceCents: 500 }, { size: 100, priceCents: 2500 }];
+    expect(passPriceText({ price_cents: 500, currency: 'EUR', price_tiers: grid })).toBe('EUR 5 – 25');
+    expect(
+      passPriceText({ price_cents: 500, currency: 'EUR', price_tiers: grid }, { amount: 500, currency: 'EUR', decimals: 2 }),
+    ).toBe('EUR 5 – 25');
+  });
 });
 
 describe('soldText', () => {

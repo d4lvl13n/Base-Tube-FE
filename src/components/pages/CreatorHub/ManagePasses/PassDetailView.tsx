@@ -34,6 +34,8 @@ import {
   resaleTermsOf,
   supplyCapOf,
 } from '../../../../utils/passTerms';
+import { GRID_FROZEN_AFTER_FIRST_SALE, gridOf } from '../../../../utils/passPricing';
+import PriceGridTable from './PriceGridTable';
 
 /** One line of the Details panel: a label, a value, and nothing else. */
 const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -310,12 +312,26 @@ const PassDetailView: React.FC = () => {
               </div>
             </section>
 
+            {gridOf(pass).length >= 2 && (
+              <section className={form.panel} aria-labelledby="pass-grid-heading">
+                <h2 id="pass-grid-heading" className={form.panelTitle}>
+                  Price grid
+                </h2>
+                <p className="mt-1 text-sm text-gray-400">Paid passes per tier. The tier on sale now is marked.</p>
+                <PriceGridTable
+                  className="mt-4"
+                  currency={pass.currency}
+                  rows={pass.tier_sales && pass.tier_sales.length >= 2 ? pass.tier_sales : gridOf(pass)}
+                />
+              </section>
+            )}
+
             <section className={form.panel} aria-labelledby="pass-details-heading">
               <h2 id="pass-details-heading" className={form.panelTitle}>
                 Details
               </h2>
               <dl className={cx(list.divider, 'mt-2')}>
-                <DetailRow label="Price">
+                <DetailRow label={gridOf(pass).length >= 2 ? 'Price grid' : 'Price'}>
                   <span className="tabular-nums">{passPriceText(pass, performance.query.data?.pass.price)}</span>
                 </DetailRow>
                 <DetailRow label="Tier">
@@ -371,7 +387,7 @@ const PassDetailView: React.FC = () => {
                 <p>{resaleCreatorSentence(resale)}</p>
                 <p className="flex items-start gap-1.5">
                   <Lock className="mt-px h-3.5 w-3.5 shrink-0 text-gray-500" aria-hidden="true" />
-                  {FROZEN_AFTER_FIRST_SALE}
+                  {gridOf(pass).length >= 2 ? GRID_FROZEN_AFTER_FIRST_SALE : FROZEN_AFTER_FIRST_SALE}
                 </p>
               </div>
             </section>
