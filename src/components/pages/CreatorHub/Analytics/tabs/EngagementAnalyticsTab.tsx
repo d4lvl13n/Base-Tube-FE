@@ -5,7 +5,8 @@ import {
   Share2, 
   Clock,
   Award,
-  Loader
+  Loader,
+  Reply
 } from 'lucide-react';
 import { useCreatorAnalytics } from '../../../../../hooks/useAnalyticsData';
 import StatsCard from '../../../CreatorHub/StatsCard';
@@ -13,7 +14,22 @@ import { Select } from '../../../../ui/Select';
 import { format, parseISO } from 'date-fns';
 import { LineChart } from '../charts/LineChart';
 import { getVideoById } from '../../../../../api/video';
-import { formatPercent, sumCounts, weightedPercentWatched } from '../metrics';
+import {
+  COUNTED_VIEWS_NOTE,
+  OWN_REPLIES_NOTE,
+  appliedPeriodLabel,
+  commentsAnsweredView,
+  engagementGranularity,
+  fillSeries,
+  formatDateKey,
+  formatPercent,
+  isVisibleComment,
+  joinNotes,
+  percentOf,
+  periodPhrase,
+  sumCounts,
+  weightedPercentWatched
+} from '../metrics';
 
 // Video card component
 const TopVideoCard: React.FC<{
@@ -131,35 +147,36 @@ const ChartLoading: React.FC = () => (
   </div>
 );
 
-// Function to safely format date, returning original string or index if invalid
-const safeFormatDate = (dateString: string | undefined | null, index: number): string => {
-  if (!dateString) return `Point ${index + 1}`; // Fallback if date string is null/undefined
-  try {
-    const dateObj = new Date(dateString);
-    // Check if dateObj is a valid date
-    if (!isNaN(dateObj.getTime())) {
-      return format(dateObj, 'MMM d');
-    }
-  } catch (e) {
-    // Catch potential errors during Date construction (though less likely)
-    console.error(`Error parsing date string: ${dateString}`, e);
-  }
-  return `Point ${index + 1}`; // Fallback for invalid dates
-};
+// Small label naming the period a list was computed over.
+const PeriodTag: React.FC<{ label: string }> = ({ label }) => (
+  <span className="ml-2 text-xs font-normal text-gray-400 border border-gray-700 rounded-full px-2 py-0.5">
+    {label}
+  </span>
+);
 
-export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channelId }) => {
+export const EngagementAnalyticsTab: React.FC<{ channelId: string; channelName?: string }> = ({
+  channelId,
+  channelName
+}) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
   
   const { 
     channelWatchPatterns, 
     engagementTrends,
     topLikedContent,
+    topLikedAppliedPeriod,
     topSharedContent,
+    topSharedAppliedPeriod,
     topComments,
+    socialMetrics,
     isLoading,
     loading,
     errors,
   } = useCreatorAnalytics(period, channelId);
+
+  // Reply-based, over the backend's fixed social window (30 days): the period
+  // selector does not change it, and the caption says so.
+  const answered = socialMetrics ? commentsAnsweredView(socialMetrics.interactions) : null;
   
   // Handle period change with cache invalidation
   // Just switch the period. Every period-sensitive query has the period in
@@ -185,8 +202,29 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
   // Weighted by the views in each duration bucket, not a flat average.
   const avgPercentWatched = weightedPercentWatched(channelWatchPatterns?.retentionByDuration);
 
-  // For display strings
-  const periodString = period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time';
+  const phrase = periodPhrase(period);
+  const inPeriod = period === 'all' ? 'All time' : `In ${phrase}`;
+
+  // Charts: date keys are UTC calendar days (Monday-keyed weeks on all time).
+  // They are formatted as calendar dates — parsing "2026-11-10" as an instant
+  // and printing it in local time showed it one day early west of UTC — and
+  // every missing bucket is drawn as 0 rather than skipped.
+  const granularity = engagementGranularity(engagementTrends?.granularity, period);
+  const chartDays = period === '7d' ? 7 : period === '30d' ? 30 : null;
+  const per = granularity === 'week' ? 'per week' : granularity === 'month' ? 'per month' : 'per day';
+  const bucketNote = granularity === 'week'
+    ? 'Weeks start on Monday, UTC.'
+    : granularity === 'month' ? 'Months are UTC calendar months.' : 'Days are UTC calendar days.';
+  const toChart = (series?: { date: string; count: number }[]) =>
+    fillSeries(series, granularity, chartDays).map((point) => ({
+      date: formatDateKey(point.date, granularity),
+      count: point.count
+    }));
+  const likeChart = toChart(engagementTrends?.likeGrowth);
+  const commentChart = toChart(engagementTrends?.commentGrowth);
+
+  // Never render a comment the API marks deleted or hidden.
+  const visibleTopComments = (topComments ?? []).filter(isVisibleComment);
 
   // Per card, not per group: three of these read engagementTrends but the
   // fourth reads channelWatchPatterns, so gating the whole block on
@@ -200,7 +238,9 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold">Engagement Analytics</h2>
-          <p className="text-gray-400">Track how viewers interact with your content</p>
+          <p className="text-gray-400">
+            How viewers interact with {channelName ? <span className="text-white">{channelName}</span> : 'this channel'} only
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {isLoading && (
@@ -221,13 +261,13 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
       </div>
 
       {/* Engagement Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         <StatsCard
           icon={ThumbsUp}
           title="Total Likes"
           value={totalLikes.toLocaleString()}
           loading={loading.engagementTrends}
-          subtitle={`For ${periodString}`}
+          subtitle={inPeriod}
           error={engagementError ? 'Error loading likes' : undefined}
         />
 
@@ -236,7 +276,8 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           title="Comments"
           value={totalComments.toLocaleString()}
           loading={loading.engagementTrends}
-          subtitle={`For ${periodString}`}
+          subtitle={inPeriod}
+          note={OWN_REPLIES_NOTE}
           error={engagementError ? 'Error loading comments' : undefined}
         />
 
@@ -245,7 +286,8 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           title="Shares"
           value={totalShares.toLocaleString()}
           loading={loading.engagementTrends}
-          subtitle={`For ${periodString}`}
+          subtitle={inPeriod}
+          note="Shares made from the website were not recorded before the share-tracking update, so earlier periods undercount them."
           error={engagementError ? 'Error loading shares' : undefined}
         />
 
@@ -254,8 +296,19 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           title="Avg. % watched"
           value={formatPercent(avgPercentWatched)}
           loading={loading.channelWatchPatterns}
-          subtitle="Share of each video watched, weighted by views"
+          subtitle={`Share of each video watched, ${phrase}`}
+          note={COUNTED_VIEWS_NOTE}
           error={watchPatternsError ? 'Error loading watch depth' : undefined}
+        />
+
+        <StatsCard
+          icon={Reply}
+          title="Comments answered"
+          value={answered?.valueText ?? '—'}
+          loading={loading.socialMetrics}
+          subtitle={answered?.caption}
+          note={joinNotes(answered?.note, 'Counts your replies to comments from others. The period selector does not change this card')}
+          error={errors.socialMetrics ? 'Error loading replies' : undefined}
         />
       </div>
 
@@ -264,21 +317,20 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
         <div className="bg-black/50 p-6 rounded-xl">
           <h3 className="text-lg font-medium mb-4 flex items-center">
             <ThumbsUp className="w-5 h-5 mr-2 text-[#fa7517]" />
-            Like Growth Trend
+            Likes {per}
           </h3>
+          <p className="text-xs text-gray-500 -mt-2 mb-3">{inPeriod}. {bucketNote}</p>
           {loading.engagementTrends ? (
             <ChartLoading />
           ) : engagementError ? (
              <div className="h-[300px] flex items-center justify-center text-red-500">Error loading trends.</div>
-          ): engagementTrends?.likeGrowth && engagementTrends.likeGrowth.length > 0 ? (
+          ): likeChart.length > 0 ? (
             <LineChart 
-              data={engagementTrends.likeGrowth.map((item, index) => ({
-                date: safeFormatDate(item.date, index),
-                count: item.count
-              }))}
+              data={likeChart}
               xKey="date"
               yKey="count"
               color="#fa7517"
+              seriesName={`Likes ${per}`}
             />
           ) : (
             <div className="flex justify-center items-center h-[300px]">
@@ -290,21 +342,20 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
         <div className="bg-black/50 p-6 rounded-xl">
           <h3 className="text-lg font-medium mb-4 flex items-center">
             <MessageCircle className="w-5 h-5 mr-2 text-blue-400" />
-            Comment Growth Trend
+            Comments {per}
           </h3>
+          <p className="text-xs text-gray-500 -mt-2 mb-3">{inPeriod}. {bucketNote} Includes your own replies.</p>
           {loading.engagementTrends ? (
             <ChartLoading />
           ) : engagementError ? (
              <div className="h-[300px] flex items-center justify-center text-red-500">Error loading trends.</div>
-          ): engagementTrends?.commentGrowth && engagementTrends.commentGrowth.length > 0 ? (
+          ): commentChart.length > 0 ? (
             <LineChart 
-              data={engagementTrends.commentGrowth.map((item, index) => ({
-                date: safeFormatDate(item.date, index),
-                count: item.count
-              }))}
+              data={commentChart}
               xKey="date"
               yKey="count"
               color="#60a5fa"
+              seriesName={`Comments ${per}`}
             />
           ) : (
             <div className="flex justify-center items-center h-[300px]">
@@ -320,6 +371,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           <h3 className="text-xl font-semibold flex items-center">
             <ThumbsUp className="w-5 h-5 mr-2 text-[#fa7517]" />
             Most Liked Videos
+            <PeriodTag label={appliedPeriodLabel(topLikedAppliedPeriod)} />
           </h3>
           {loading.topLikedContent ? (
             <div className="flex justify-center py-8">
@@ -341,8 +393,8 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
                     label: "likes"
                   }}
                   secondaryMetric={{
-                    value: `${video.likeRate.toFixed(1)}%`,
-                    label: "like rate"
+                    value: formatPercent(percentOf(video.likes, video.views)),
+                    label: `likes ÷ views (${Number(video.views || 0).toLocaleString()} views)`
                   }}
                 />
               ))}
@@ -356,6 +408,7 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
           <h3 className="text-xl font-semibold flex items-center">
             <Share2 className="w-5 h-5 mr-2 text-green-400" />
             Most Shared Videos
+            <PeriodTag label={appliedPeriodLabel(topSharedAppliedPeriod)} />
           </h3>
           {loading.topSharedContent ? (
             <div className="flex justify-center py-8">
@@ -377,8 +430,8 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
                     label: "shares"
                   }}
                   secondaryMetric={{
-                    value: `${video.shareRate.toFixed(1)}%`,
-                    label: "share rate"
+                    value: formatPercent(percentOf(video.shares, video.views)),
+                    label: `shares ÷ views (${Number(video.views || 0).toLocaleString()} views)`
                   }}
                 />
               ))}
@@ -394,16 +447,18 @@ export const EngagementAnalyticsTab: React.FC<{ channelId: string }> = ({ channe
         <h3 className="text-xl font-semibold flex items-center">
           <Award className="w-5 h-5 mr-2 text-yellow-400" />
           Top Comments
+          <PeriodTag label={appliedPeriodLabel(period)} />
         </h3>
+        <p className="text-xs text-gray-500">Most-liked comments on your videos. Includes your own replies; deleted and hidden comments are never shown.</p>
         {loading.topComments ? (
           <div className="flex justify-center py-8">
             <Loader className="w-8 h-8 animate-spin text-gray-500" />
           </div>
         ) : errors.topComments ? (
             <p role="alert">Unable to load top comments.</p>
-          ) : topComments && topComments.length > 0 ? (
+          ) : visibleTopComments.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {topComments.map((comment, index) => (
+            {visibleTopComments.map((comment, index) => (
               <CommentCard
                 key={index}
                 avatar={comment.avatar}

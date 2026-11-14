@@ -1,6 +1,6 @@
 // src/components/pages/CreatorHub/ManagePasses/PassesSkeleton.tsx
 import React from 'react';
-import { cx, list, skeleton } from '../shared/hubStyles';
+import { cx, list, skeleton } from '../Business/businessStyles';
 
 const ROWS = 5;
 

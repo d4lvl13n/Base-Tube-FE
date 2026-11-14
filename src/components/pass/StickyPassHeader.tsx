@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { PlayCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { publicSaleCopy } from '../../utils/passSaleCopy';
 
 interface StickyPassHeaderProps {
   isVisible: boolean;
@@ -10,6 +11,7 @@ interface StickyPassHeaderProps {
     title: string;
     formatted_price: string;
     can_purchase?: boolean;
+    purchase_block_reason_code?: string | null;
     publish_status?: string;
     videos?: Array<{ thumbnail_url?: string }>;
   };
@@ -57,7 +59,7 @@ const StickyPassHeader: React.FC<StickyPassHeaderProps> = ({
           (pass.publish_status === undefined || pass.publish_status === 'published') ? (
           <span className="text-xs text-[#a1a4a5]">Buy on this page</span>
         ) : (
-          <span className="text-xs text-[#a1a4a5]">Not for sale yet</span>
+          <span className="text-xs text-[#a1a4a5]">{publicSaleCopy(pass)?.short ?? 'Not for sale yet'}</span>
         )}
       </div>
     </motion.div>

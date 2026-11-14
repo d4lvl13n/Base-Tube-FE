@@ -1,59 +1,34 @@
 /**
- * Types for the Share feature
+ * Share recording: POST /api/v1/videos/:videoId/share (base-be
+ * controllers/ShareController.ts, services/shareService.ts).
  */
 
-// Database model representation
-export interface ShareModel {
-  id: number;
-  user_id: number | null;
-  video_id: number;
-  share_platform: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+/** Every platform the backend stores (SHARE_PLATFORMS). The web sends only these. */
+export const SHARE_PLATFORMS = [
+  'copy_link',
+  'x',
+  'facebook',
+  'whatsapp',
+  'telegram',
+  'linkedin',
+  'reddit',
+  'email',
+  'native',
+  'embed',
+  'other',
+] as const;
 
-// Share platform options
-export type SharePlatform = 'facebook' | 'twitter' | 'whatsapp' | 'telegram' | 
-                            'linkedin' | 'email' | 'copy_link' | 'embed' | 'unknown';
+export type SharePlatform = (typeof SHARE_PLATFORMS)[number];
 
-// Request/response types for API
-export interface ShareRequest {
-  platform: string;
-}
-
+/** 201 = written; 200 with `deduplicated: true` = same viewer, video and platform in the last 30 minutes. */
 export interface ShareResponse {
-  success: boolean;
+  success: true;
   message: string;
   data: {
-    id: number;
+    id: number | null;
     videoId: number;
-    platform: string;
-    createdAt: string;
+    platform: SharePlatform;
+    createdAt: string | null;
+    deduplicated: boolean;
   };
 }
-
-export interface ShareStatsRequest {
-  videoId: number;
-}
-
-export interface ShareStatsResponse {
-  success: boolean;
-  data: {
-    totalShares: number;
-    byPlatform: Record<string, number>;
-  };
-}
-
-// Analytics types
-export interface ShareAnalytics {
-  videoId: number;
-  totalShares: number;
-  shareRate: number; // shares per view
-  byPlatform: Record<SharePlatform, number>;
-  trend: ShareTrend[];
-}
-
-export interface ShareTrend {
-  date: string;
-  count: number;
-} 

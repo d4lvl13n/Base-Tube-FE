@@ -16,6 +16,13 @@ import {
 } from '../types/pass';
 import { getPassErrorMessage, PassErrorResult } from '../utils/passErrorMessages';
 import type { PassVideo } from '../types/pass';
+import type {
+  PassWatchEndBody,
+  PassWatchProgressBody,
+  PassWatchStartBody,
+  PassWatchStartResult,
+  PassWatchTransport,
+} from '../utils/passWatchTracker';
 
 export class PassApiError extends Error {
   readonly code: string | null;
@@ -128,46 +135,28 @@ export const passApi = {
     return response.data;
   },
 
-  getCreatorSales: async (): Promise<{
-    card: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
-    crypto: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
-    buyers: number;
-    pass_holders: number;
-    recent: Array<{
-      purchase_id: string;
-      pass_title: string;
-      buyer_email: string | null;
-      buyer_username: string | null;
-      payment_type: string;
-      settlement_status: string;
-      has_access: boolean;
-      first_played_at: string | null;
-      purchased_at: string;
-      proceeds_minor: number | null;
-      currency_or_asset: string | null;
-    }>;
-  }> => {
-    const response = await api.get('/api/v1/creator/sales');
-    const body = response.data as { data?: unknown };
-    return (body.data ?? body) as {
-      card: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
-      crypto: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
-      buyers: number;
-      pass_holders: number;
-      recent: Array<{
-        purchase_id: string;
-        pass_title: string;
-        buyer_email: string | null;
-        buyer_username: string | null;
-        payment_type: string;
-        settlement_status: string;
-        has_access: boolean;
-        first_played_at: string | null;
-        purchased_at: string;
-        proceeds_minor: number | null;
-        currency_or_asset: string | null;
-      }>;
-    };
+  /**
+   * Count one view of a pass's public sales page (public, no auth → 204).
+   * Fire-and-forget: `keepalive` so it survives a quick navigation away, no
+   * credentials, and every failure is swallowed — it must never affect the page.
+   */
+  recordPassVisit: (
+    passId: string,
+    body: { visitorKey: string; attribution?: import('../utils/attribution').AttributionPayload }
+  ): void => {
+    if (typeof fetch !== 'function') return;
+    try {
+      const base = (api.defaults.baseURL ?? '').replace(/\/$/, '');
+      void fetch(`${base}/api/v1/passes/${encodeURIComponent(passId)}/visit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'omit',
+        keepalive: true,
+      }).catch(() => undefined);
+    } catch {
+      // never break the page for a visit count
+    }
   },
 
   /**
@@ -334,7 +323,7 @@ export const passApi = {
     return response.data;
   },
 
-  getStripeConnectStatus: async (): Promise<{
+  getStripeConnectStatus: async (channelId?: number | null): Promise<{
     accountId: string | null;
     chargesEnabled: boolean;
     detailsSubmitted: boolean;
@@ -342,7 +331,10 @@ export const passApi = {
     country?: string | null;
     onboardingUrl?: string;
   }> => {
-    const response = await api.get('/api/v1/passes/creator/stripe-connect');
+    // No channelId = the account's first channel (the server default).
+    const response = await api.get('/api/v1/passes/creator/stripe-connect', {
+      params: channelId ? { channelId } : undefined,
+    });
     return response.data;
   },
 
@@ -351,6 +343,10 @@ export const passApi = {
     country?: string;
     /** Drop a not-yet-live account and start again (wrong country). */
     restart?: boolean;
+    /** Which of your channels (default: your first channel). */
+    channelId?: number;
+    /** Where Stripe sends you back (default: the pass list). */
+    returnTo?: 'passes' | 'business' | 'payouts';
   } = {}): Promise<{
     accountId: string | null;
     chargesEnabled: boolean;
@@ -431,4 +427,62 @@ export const createContentPass = async (
     }
     throw new PassApiError(getPassErrorMessage(error));
   }
+};
+
+const passVideoWatchPath = (passVideoId: string): string =>
+  `/api/v1/pass-videos/${encodeURIComponent(passVideoId)}/watch`;
+
+/**
+ * Opens a play session for a pass video (POST …/watch/start, signed in).
+ * `passVideoId` is the PassVideo id (`pass.videos[].id`). 401 / 403 / 404 /
+ * 429 reject with the axios error; src/utils/passWatchTracker.ts reads them.
+ */
+export const startPassVideoWatch = async (
+  passVideoId: string,
+  body: PassWatchStartBody
+): Promise<PassWatchStartResult> => {
+  const response = await api.post<{ success: boolean; data: PassWatchStartResult }>(
+    `${passVideoWatchPath(passVideoId)}/start`,
+    body
+  );
+  return response.data.data;
+};
+
+/**
+ * Heartbeat of a play session (POST …/watch/progress, signed in).
+ * `playedSeconds` is the cumulative time actually played in the session.
+ * 404 WATCH_SESSION_NOT_FOUND: the session is gone, start a new one.
+ */
+export const sendPassVideoWatchProgress = async (
+  passVideoId: string,
+  body: PassWatchProgressBody
+): Promise<void> => {
+  await api.post(`${passVideoWatchPath(passVideoId)}/progress`, body);
+};
+
+/**
+ * Closes a play session with `navigator.sendBeacon` (POST …/watch/end): a
+ * normal request does not survive the page going away, and a beacon cannot
+ * carry the Authorization header — the session id is the credential. The body
+ * is text/plain JSON (no CORS preflight). Returns false when the browser did
+ * not queue it.
+ */
+export const sendPassVideoWatchEndBeacon = (passVideoId: string, body: PassWatchEndBody): boolean => {
+  if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') {
+    return false;
+  }
+  try {
+    const base = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
+    const blob = new Blob([JSON.stringify(body)], { type: 'text/plain;charset=UTF-8' });
+    return navigator.sendBeacon(`${base}${passVideoWatchPath(passVideoId)}/end`, blob);
+  } catch {
+    return false;
+  }
+};
+
+/** The network side of the pass player's watch tracker. */
+export const passWatchTransport: PassWatchTransport = {
+  start: startPassVideoWatch,
+  progress: sendPassVideoWatchProgress,
+  endBeacon: sendPassVideoWatchEndBeacon,
 };

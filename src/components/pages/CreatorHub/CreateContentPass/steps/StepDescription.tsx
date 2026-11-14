@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Control, Controller, FieldErrors, UseFormSetValue, UseFormWatch } from 'react-hook-form';
 import { Sparkles } from 'lucide-react';
-import { cx, form, page } from '../../shared/hubStyles';
+import { form } from '../../Business/businessStyles';
+import { FieldError, FieldHelp, FieldLabel, WizardCard, describedBy } from '../wizardUi';
 import { FormData } from '../types';
 import RichTextEditor from '../../../../../components/common/RichTextEditor';
 import AIAssistantPanel from '../../../../../components/common/AIAssistantPanel';
@@ -43,16 +44,20 @@ const StepDescription: React.FC<StepDescriptionProps> = ({ control, errors, setV
   };
 
   return (
-    <div className={form.grid}>
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
       {/* ── Description ────────────────────────────────────────────────── */}
-      <section className={cx(form.panel, 'space-y-1.5')} aria-label="Description">
-        <div className="flex items-center justify-between gap-3">
-          <span id="description-label" className={form.fieldLabel}>Description</span>
+      <WizardCard
+        id="description-card"
+        title="Describe the pass"
+        description="The sales page shows this under the title. Say what fans get and who it is for."
+        aside={
           <button type="button" onClick={() => setIsAIPanelOpen(true)} className={form.inlineAction}>
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             Write with AI
           </button>
-        </div>
+        }
+      >
+        <FieldLabel id="description-label">Description</FieldLabel>
         <Controller
           name="description"
           control={control}
@@ -64,36 +69,42 @@ const StepDescription: React.FC<StepDescriptionProps> = ({ control, errors, setV
             }
           }}
           render={({ field }) => (
-            <div id="description" className={form.editorFrame} aria-labelledby="description-label">
+            <div
+              id="description"
+              className={form.editorFrame}
+              aria-labelledby="description-label"
+              aria-describedby={describedBy('description-help', errors.description && 'description-error')}
+            >
               <RichTextEditor
                 content={field.value || ''}
                 onChange={field.onChange}
-                placeholder="Describe your premium content in detail. What will subscribers get? Why is it valuable? Be compelling!"
+                placeholder="Describe your premium content in detail. What will fans get? Why is it worth it?"
                 minHeight="300px"
               />
             </div>
           )}
         />
-        <div className="flex justify-between">
-          <span className={form.counter}>At least 20 characters</span>
-          {generatedDescription && <span className={form.counter}>AI draft applied</span>}
+        <FieldError id="description-error">{errors.description?.message}</FieldError>
+        <div className="mt-1.5 flex justify-between gap-3">
+          <FieldHelp id="description-help" className="mt-0">At least 20 characters.</FieldHelp>
+          {generatedDescription && <span className="text-xs text-gray-400">AI draft applied</span>}
         </div>
-        {errors.description && (
-          <p className={form.errorText}>{errors.description.message}</p>
-        )}
-      </section>
+      </WizardCard>
 
       {/* ── Guidance + the AI drawer ───────────────────────────────────── */}
       <div className="space-y-4">
-        <section className={cx(form.panel, 'space-y-2')} aria-label="Writing tips">
-          <p className={page.eyebrow}>Write a compelling description</p>
-          <p className="text-sm text-gray-400">
-            A great description is key to selling your content pass. Be specific about what viewers get, why it is premium, and who this pass is for.
-          </p>
-          <p className="text-sm text-gray-400">
-            If you want a draft quickly, use the AI assistant and then refine the final version in the editor.
-          </p>
-        </section>
+        <WizardCard id="writing-tips" title="Write a description that sells">
+          <ul className="space-y-2.5 text-sm leading-relaxed text-gray-400">
+            <li className="flex gap-2.5">
+              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-gray-500" aria-hidden="true" />
+              Be specific about what viewers get, why it is premium, and who this pass is for.
+            </li>
+            <li className="flex gap-2.5">
+              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-gray-500" aria-hidden="true" />
+              If you want a draft quickly, use the AI assistant, then refine the final version in the editor.
+            </li>
+          </ul>
+        </WizardCard>
 
         <AIAssistantPanel
           isOpen={isAIPanelOpen}

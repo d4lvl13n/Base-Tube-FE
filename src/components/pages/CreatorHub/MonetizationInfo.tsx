@@ -5,18 +5,23 @@ import { Link, useNavigate } from 'react-router-dom';
 import CreatorHubShell from './CreatorHubShell';
 import { ChannelSelectionProvider } from '../../../contexts/ChannelSelectionContext';
 import ContentPassAnimation from '../../animations/ContentPassAnimation';
+import { DECIDED_RESALE_TERMS, pctText } from '../../../utils/passTerms';
 
 const PASSES_ENABLED = process.env.REACT_APP_SHOW_PASSES === 'true';
+
+/** The creator royalty on every resale (owner decision, 2026-11-13), and BaseTube's resale fee. */
+const ROYALTY = pctText(DECIDED_RESALE_TERMS.creatorPct);
+const RESALE_FEE = pctText(DECIDED_RESALE_TERMS.platformPct);
 
 // FAQ Items
 const faqItems = [
   {
     question: "What exactly is an NFT Content Pass?",
-    answer: "An NFT Content Pass is a digital asset that grants exclusive access to premium content. Unlike a subscription, it's an asset that can be kept, traded, or sold. Think of it as an exclusive membership card that has inherent value and can appreciate over time."
+    answer: "A Content Pass is a limited-edition key to your exclusive videos. You decide how many passes exist, and no more are ever minted. Each pass is an NFT on Base, owned by the fan who holds it, and it unlocks your premium content for as long as they hold it. Unlike a subscription, it is something your fan keeps, and can resell on the Base.Tube marketplace. Think of it as a collector's-edition membership card."
   },
   {
     question: "How does the Content Pass benefit me as a creator?",
-    answer: "As a creator, you receive 90% of the initial sale and continue earning from every subsequent transaction when your passes are traded. This creates a sustainable, ongoing revenue stream beyond the initial sale. It also lets you offer truly exclusive content to your most dedicated fans."
+    answer: `You receive 90% of each primary sale (Base.Tube keeps a 10% platform fee), and you receive a ${ROYALTY} royalty every time one of your passes is resold on the Base.Tube marketplace. Your earnings continue after the first sale, as new fans buy passes from existing holders. It also lets you offer truly exclusive content to your most dedicated fans.`
   },
   {
     question: "What kind of content can I put behind a Content Pass?",
@@ -28,7 +33,7 @@ const faqItems = [
   },
   {
     question: "How is this different from a subscription model?",
-    answer: "Unlike subscriptions that require ongoing payments and expire when cancelled, Content Passes are owned assets. Your fans buy them once and own them permanently. They can keep them for continued access, or sell them to others if they choose, potentially even at a profit."
+    answer: "Unlike subscriptions that renew every month and end when cancelled, a Content Pass is paid for once and owned by the fan. They keep it for as long as they want access, or resell it to another fan on the Base.Tube marketplace, at the price they choose."
   },
   {
     question: "How do fans purchase a Content Pass?",
@@ -36,7 +41,7 @@ const faqItems = [
   },
   {
     question: "What happens if someone buys my pass and then wants to sell it?",
-    answer: "That's the beauty of the system! If a fan wants to sell their pass, they can do so on our marketplace. You'll automatically receive a percentage of every resale, creating a continuous revenue stream. As your content becomes more valuable, the price of passes can increase, benefiting both you and your fans."
+    answer: `They list it on the Base.Tube marketplace at the price they choose. When it sells, the pass and its access move to the new holder, and you automatically receive ${ROYALTY} of the sale price (Base.Tube keeps a ${RESALE_FEE} resale fee). Because the number of passes is capped, fans who discover you later buy their passes from existing holders, and each of those resales pays you.`
   },
   {
     question: "Is there a limit to how many passes I can create?",
@@ -121,8 +126,8 @@ const MonetizationInfo: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4, duration: 0.6 }}
                   >
-                    Transform how you share exclusive content with your community. Create digital assets that 
-                    grant access to your premium content while generating continuous revenue.
+                    Transform how you share exclusive content with your community. Sell a limited edition of passes
+                    to your premium content: your fans own them, can resell them, and every resale pays you a {ROYALTY} royalty.
                   </motion.p>
                   
                   {/* Animation component */}
@@ -181,12 +186,12 @@ const MonetizationInfo: React.FC = () => {
                       is a <strong className="text-[#fa7517]">revolutionary new revenue stream</strong> designed specifically for creators like you.
                     </p>
                     <p>
-                      <span className="text-white font-medium">You earn <span className="text-[#fa7517] font-bold text-lg">90% of every sale</span> and get paid immediately.</span> No waiting for monthly payouts or reaching minimum thresholds. Create a pass today, sell it tomorrow, and the money is yours.
+                      <span className="text-white font-medium">You earn <span className="text-[#fa7517] font-bold text-lg">90% of every primary sale</span>, plus a {ROYALTY} royalty each time one of your passes is resold.</span> Card sales are paid out by Stripe on its usual schedule, and USDC sales are distributed to your wallet once a day.
                     </p>
                     <p>
-                      Think of it as an exclusive digital ticket that your fans purchase to access your premium content. 
-                      Unlike subscriptions that expire, these passes are actual digital assets that your audience owns. 
-                      They can keep, trade, or sell them — and you earn royalties from every resale transaction.
+                      Think of it as a collector's-edition ticket that your fans purchase to access your premium content.
+                      Unlike a subscription, they pay once and own the pass, as an NFT on Base. They can keep it, or resell it
+                      on the Base.Tube marketplace, and you earn a {ROYALTY} royalty on every resale.
                     </p>
                     <p>
                       <strong className="text-[#fa7517] font-semibold">The best part?</strong> You don't need to move your content or change your workflow. 
@@ -248,7 +253,7 @@ const MonetizationInfo: React.FC = () => {
                     </div>
                     <h3 className="text-xl font-semibold text-white mb-3">Trade & Earn</h3>
                     <p className="text-gray-300">
-                      Fans can keep, trade, or sell their passes on our marketplace. You earn royalties from every subsequent sale, creating an ongoing revenue stream.
+                      Fans can keep their passes or resell them on the Base.Tube marketplace. You earn a {ROYALTY} royalty on every resale, so your passes keep paying you after the first sale.
                     </p>
                   </motion.div>
                 </div>
@@ -264,22 +269,22 @@ const MonetizationInfo: React.FC = () => {
                 <BenefitCard
                   icon={Coins}
                   title="Earn More"
-                  description="Receive 90% of initial pass sales and ongoing royalties from every resale in the marketplace"
+                  description={`Receive 90% of each primary sale and a ${ROYALTY} royalty on every resale on the marketplace`}
                 />
                 <BenefitCard
                   icon={TrendingUp}
                   title="Sustainable Revenue"
-                  description="The NFT Content Pass creates lasting value as your community trades them"
+                  description="Each time a pass changes hands on the marketplace, you earn again"
                 />
                 <BenefitCard
                   icon={Repeat}
-                  title="Permanent Revenue"
-                  description="Unlike subscriptions that end, each Content Pass trade generates revenue - forever"
+                  title="Limited Supply"
+                  description="You set how many passes exist and never mint more. As your audience grows, newcomers buy from existing holders"
                 />
                 <BenefitCard
                   icon={Users}
                   title="Community Growth"
-                  description="Turn your biggest fans into stakeholders in your success"
+                  description="Reward your earliest fans with a limited pass they own"
                 />
               </div>
               </section>
@@ -294,12 +299,12 @@ const MonetizationInfo: React.FC = () => {
                 <BenefitCard
                   icon={Crown}
                   title="Own Their Access"
-                  description="Fans own their pass - they can keep, trade, or sell it"
+                  description="Fans own their pass on Base: they can keep it or resell it on the Base.Tube marketplace"
                 />
                 <BenefitCard
                   icon={TrendingUp}
-                  title="Potential Returns"
-                  description="As demand for your exclusive content grows, so can the value of their pass"
+                  title="Pay Once"
+                  description="One payment for the whole collection, no subscription"
                 />
                 <BenefitCard
                   icon={Lock}
@@ -324,19 +329,19 @@ const MonetizationInfo: React.FC = () => {
                   
                   <div className="prose prose-invert prose-orange max-w-none">
                     <p>
-                      Imagine you're a cooking instructor with 5,000 YouTube subscribers. You create a special NFT Content Pass 
-                      for $15 with a limit of 100 passes. Behind this pass, you place your advanced technique tutorials that are 
+                      Imagine you're a cooking instructor with 5,000 YouTube subscribers. You create a special Content Pass
+                      for €15 with a limit of 100 passes. Behind this pass, you place your advanced technique tutorials that are
                       too valuable to give away for free.
                     </p>
                     <p>
-                      Your dedicated followers purchase all 100 passes, earning you $1,500 immediately (minus our small platform fee). 
-                      But that's just the beginning. As your reputation grows, some early buyers sell their passes for $25 each to new fans 
-                      who missed out. You automatically receive a percentage of each of these resales.
+                      Your dedicated followers purchase all 100 passes: €1,500 in sales. After the 10% platform fee you receive €1,350
+                      (before card processing fees). That edition is now sold out, and no more passes are ever minted.
                     </p>
                     <p>
-                      Over time, as demand increases, some passes trade for $40 or more. With each trade, you earn royalties 
-                      without doing any additional work. Meanwhile, your exclusive content creates a premium community that values 
-                      your expertise, all while your public content continues to grow your audience on platforms like YouTube.
+                      As your channel grows, new fans who missed the first sale buy passes from early holders on the Base.Tube
+                      marketplace, at the price each holder chooses. Every one of those resales pays you a {ROYALTY} royalty, without any extra work.
+                      Meanwhile, your exclusive content creates a premium community that values your expertise, all while your public
+                      content continues to grow your audience on platforms like YouTube.
                     </p>
                   </div>
                 </div>

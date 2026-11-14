@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Users,
   Play,
@@ -6,7 +7,8 @@ import {
   MessageCircle,
   TrendingUp,
   ThumbsUp,
-  DollarSign
+  Ticket,
+  ArrowRight
 } from 'lucide-react';
 import { useCreatorAnalytics } from '../../../../../hooks/useAnalyticsData';
 import StatsCard from '../../../CreatorHub/StatsCard';
@@ -15,18 +17,28 @@ import { GrowthChart } from '../charts/GrowthChart';
 import { useChannelData } from '../../../../../hooks/useChannelData';
 import { WatchTimeChart } from '../charts/WatchTimeChart';
 import {
+  COUNTED_VIEWS_NOTE,
+  OWN_REPLIES_NOTE,
+  accurateSinceNote,
   formatPercent,
-  interactionRate,
+  interactionRateView,
+  joinNotes,
+  periodPhrase,
+  previousWindowText,
+  readCount,
   sumCounts,
-  trendBadgeValue,
-  weightedPercentWatched, formatWatchTime } from '../metrics';
+  weightedPercentWatched,
+  formatWatchTime
+} from '../metrics';
 
-export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
+export const OverviewTab: React.FC<{ channelId: string; channelName?: string }> = ({
+  channelId,
+  channelName
+}) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
-  
-  const { 
-    growthMetrics, 
-    detailedViewMetrics,
+
+  const {
+    growthMetrics,
     creatorWatchHours,
     channelWatchPatterns,
     engagementTrends,
@@ -38,14 +50,11 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const { channel, isLoading: channelLoading, error: channelError } = useChannelData(
     channelId ? parseInt(channelId) : undefined
   );
-  
+
   const isLoading = analyticsLoading || channelLoading;
 
-  // Handle period change with cache invalidation
   // Just switch the period. Every period-sensitive query has the period in
-  // its key, so React Query fetches the new key by itself. Invalidating the
-  // whole channel first (what this used to do) also refetched the OLD
-  // period's queries — ~19 requests for one click on the selector.
+  // its key, so React Query fetches the new key by itself.
   const handlePeriodChange = (newPeriod: '7d' | '30d' | 'all') => {
     if (newPeriod !== period) setPeriod(newPeriod);
   };
@@ -55,8 +64,8 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   // weight as one with 1,000).
   const averagePercentWatched = weightedPercentWatched(channelWatchPatterns?.retentionByDuration);
 
-  // Map hourly patterns for the watch time chart
-  const watchTimeData = channelWatchPatterns?.hourlyPatterns?.map(pattern => ({
+  // View counts per UTC hour of day.
+  const viewsByHour = channelWatchPatterns?.hourlyPatterns?.map(pattern => ({
     hour: pattern.hour,
     viewCount: pattern.viewCount
   })) ?? [];
@@ -66,54 +75,41 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
   const totalComments = sumCounts(engagementTrends?.commentGrowth);
   const totalLikes = sumCounts(engagementTrends?.likeGrowth);
 
-  // For display strings
-  const periodString = period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time';
+  const phrase = periodPhrase(period);
+  const inPeriod = period === 'all' ? 'All time' : `In ${phrase}`;
+  const days = period === '7d' ? 7 : 30;
 
-  // Get period-specific data for stats cards
-  const getPeriodViews = () => {
-    if (period === '7d' && detailedViewMetrics?.viewsByPeriod?.last7d !== undefined) {
-      return detailedViewMetrics.viewsByPeriod.last7d;
-    } else if (period === '30d' && detailedViewMetrics?.viewsByPeriod?.last30d !== undefined) {
-      return detailedViewMetrics.viewsByPeriod.last30d;
-    }
-    return detailedViewMetrics?.totalViews ?? 0;
-  };
+  const watchTimeValue = period === 'all'
+    ? formatWatchTime(creatorWatchHours?.totalSeconds, creatorWatchHours?.total ?? 0)
+    : formatWatchTime(creatorWatchHours?.periodSeconds, creatorWatchHours?.periodTotal ?? 0);
 
-  // Get period-specific watch hours
-  const getPeriodWatchHours = () => {
-    if (period === 'all') {
-      return {
-        value: formatWatchTime(creatorWatchHours?.totalSeconds, creatorWatchHours?.total ?? 0),
-        subtitle: 'For all time'
-      };
-    } else {
-      return {
-        value: formatWatchTime(creatorWatchHours?.periodSeconds, creatorWatchHours?.periodTotal ?? 0),
-        subtitle: `For ${periodString}`
-      };
-    }
-  };
+  // "N the week before" — only when the backend sends the raw earlier count.
+  // The old badge was a percentage that read "↑100%" whenever the earlier
+  // window was empty.
+  const previousNote = (series?: { total?: number; previousTotal?: number | null }) =>
+    period === 'all'
+      ? null
+      : previousWindowText({
+          current: readCount(series?.total),
+          previous: readCount(series?.previousTotal),
+          days
+        });
 
-  // (likes + comments) / views over the SAME window. The card used to print the
-  // raw interaction COUNT with a '%' sign appended.
-  const periodViews = getPeriodViews();
-  const interactionsThisPeriod = totalLikes + totalComments;
-  const periodInteractionRate = interactionRate(interactionsThisPeriod, periodViews);
+  // Views and the interaction rate both come from the growth response, so the
+  // Views card, the counts and the rate share ONE window — and the rate is the
+  // same definition as the dashboard card (which is this card on "Last 7 days").
+  const periodViews = readCount(growthMetrics?.metrics.views.total) ?? 0;
+  const interaction = interactionRateView(growthMetrics?.metrics.engagement.total, growthMetrics?.metrics.views.total);
 
-  // Each card names the queries it actually reads. Getting this wrong is how a
-  // rethrown backend error still renders as a confident number: the interaction
-  // card used to be gated on growthMetrics while its inputs are engagementTrends
-  // (likes + comments) and detailedViewMetrics (views).
+  // Each card names the queries it actually reads, so a failed request shows as
+  // an error on the card that depends on it, never as a confident number.
   const commentsError = errors.engagementTrends;
-  const interactionError = errors.engagementTrends || errors.detailedViewMetrics;
+  const interactionError = errors.growthMetrics;
   const completionRateError = errors.channelWatchPatterns;
   // 'all' reads the channel record for the subscriber total; every other period
   // reads growthMetrics for "new in <period>".
   const subscribersError = period === 'all' ? channelError : errors.growthMetrics;
-  // The Views card shows a detailedViewMetrics number with a growthMetrics
-  // trend badge, so either failing must show as an error rather than a number
-  // with a missing badge.
-  const viewsError = errors.detailedViewMetrics || errors.growthMetrics;
+  const viewsError = errors.growthMetrics;
   const watchHoursError = period === 'all' ? errors.allTimeWatchHours : errors.periodWatchHours;
 
   return (
@@ -121,7 +117,9 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold">Analytics Overview</h2>
-          <p className="text-gray-400">Key performance metrics for your channel</p>
+          <p className="text-gray-400">
+            Key performance metrics for {channelName ? <span className="text-white">{channelName}</span> : 'this channel'} only
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {isLoading && (
@@ -147,44 +145,53 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
         <StatsCard
           icon={Users}
           title="Subscribers"
-          value={period === 'all' 
+          value={period === 'all'
             ? (channel?.subscribers_count || 0).toLocaleString()
             : (growthMetrics?.metrics.subscribers.total || 0).toLocaleString()}
-          change={period === 'all' ? undefined : trendBadgeValue(growthMetrics?.metrics.subscribers.trend)}
           loading={period === 'all' ? channelLoading : loading.growthMetrics}
           subtitle={period === 'all'
-            ? "Total subscriber count"
-            : `New in ${periodString}`}
+            ? 'Total subscribers today'
+            : `New in ${phrase}`}
+          note={joinNotes(previousNote(growthMetrics?.metrics.subscribers))}
           error={subscribersError ? 'Error loading subscribers' : undefined}
         />
-        
+
         <StatsCard
           icon={Play}
           title="Views"
           value={periodViews.toLocaleString()}
-          change={trendBadgeValue(growthMetrics?.metrics.views.trend)}
-          loading={loading.detailedViewMetrics || loading.growthMetrics}
-          subtitle={`For ${periodString}`}
+          loading={loading.growthMetrics}
+          subtitle={inPeriod}
+          note={joinNotes(previousNote(growthMetrics?.metrics.views))}
           error={viewsError ? 'Error loading views' : undefined}
         />
-        
+
         <StatsCard
           icon={Clock}
           title="Watch Time"
-          value={getPeriodWatchHours().value}
+          value={watchTimeValue}
           loading={period === 'all' ? loading.allTimeWatchHours : loading.periodWatchHours}
-          subtitle={getPeriodWatchHours().subtitle}
+          subtitle={`Time played, ${period === 'all' ? 'all time' : phrase}`}
+          note={joinNotes(accurateSinceNote(creatorWatchHours?.accurateSince))}
           error={watchHoursError ? 'Error loading watch time' : undefined}
         />
-        
-        <StatsCard
-          icon={DollarSign}
-          title="Est. Revenue"
-          value="Coming Soon"
-          loading={false}
-          subtitle="Monetization features in development"
-          className="opacity-70"
-        />
+
+        {/* Pass revenue lives in Business, from the sales ledger. No number
+            here: a second copy of it would be a second source of truth. */}
+        <Link
+          to="/creator-hub/business"
+          className="group bg-black/50 rounded-xl p-6 border border-gray-800/30 hover:border-[#fa7517]/40 transition-colors block"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <Ticket className="text-[#fa7517]" size={24} />
+            <ArrowRight className="w-4 h-4 text-gray-500 group-hover:text-[#fa7517] transition-colors" />
+          </div>
+          <h3 className="text-gray-400 text-sm mb-1">Pass sales</h3>
+          <p className="text-sm text-gray-300">
+            Sales, buyers and earnings from your passes are in Business.
+          </p>
+          <p className="text-sm text-[#fa7517] mt-2">Open Business</p>
+        </Link>
       </div>
 
       {/* Secondary Metrics */}
@@ -192,9 +199,11 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
         <StatsCard
           icon={ThumbsUp}
           title="Interaction rate"
-          value={formatPercent(periodInteractionRate)}
-          loading={loading.engagementTrends || loading.detailedViewMetrics}
-          subtitle={`${interactionsThisPeriod.toLocaleString()} likes + comments / ${periodViews.toLocaleString()} views, ${periodString}`}
+          value={interaction.valueText}
+          valueMuted={interaction.rate === null}
+          loading={loading.growthMetrics}
+          subtitle={`${interaction.countsText}, ${phrase}`}
+          note={joinNotes(interaction.noRateNote, OWN_REPLIES_NOTE)}
           error={interactionError ? "Error loading interactions" : undefined}
         />
 
@@ -203,7 +212,8 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           title="Avg. % watched"
           value={formatPercent(averagePercentWatched)}
           loading={loading.channelWatchPatterns}
-          subtitle="Share of each video watched, weighted by views"
+          subtitle={`Share of each video watched, ${phrase}`}
+          note={COUNTED_VIEWS_NOTE}
           error={completionRateError ? "Error loading watch depth" : undefined}
         />
 
@@ -212,7 +222,8 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           title="Comments"
           value={totalComments.toLocaleString()}
           loading={loading.engagementTrends}
-          subtitle={`For ${periodString}`}
+          subtitle={inPeriod}
+          note={OWN_REPLIES_NOTE}
           error={commentsError ? "Error loading comments" : undefined}
         />
 
@@ -221,7 +232,7 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           title="Likes"
           value={totalLikes.toLocaleString()}
           loading={loading.engagementTrends}
-          subtitle={`For ${periodString}`}
+          subtitle={inPeriod}
           error={commentsError ? "Error loading likes" : undefined}
         />
       </div>
@@ -232,27 +243,30 @@ export const OverviewTab: React.FC<{ channelId: string }> = ({ channelId }) => {
           <h3 className="text-xl font-semibold">Growth Trends</h3>
           {loading.growthMetrics ? <p role="status">Loading growth…</p>
             : errors.growthMetrics ? <p role="alert">Unable to load growth trends.</p>
-            : <GrowthChart data={growthMetrics?.metrics} />}
+            : <GrowthChart data={growthMetrics?.metrics} period={period} />}
         </div>
-        
+
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Watch Time Distribution</h3>
-          {loading.channelWatchPatterns ? <p role="status">Loading watch patterns…</p>
-            : errors.channelWatchPatterns ? <p role="alert">Unable to load watch patterns.</p>
+          <h3 className="text-xl font-semibold">Views by hour of day (UTC)</h3>
+          <p className="text-sm text-gray-400">
+            Number of counted views in each hour of the day, {phrase}. Hours are UTC, not your local time.
+          </p>
+          {loading.channelWatchPatterns ? <p role="status">Loading views by hour…</p>
+            : errors.channelWatchPatterns ? <p role="alert">Unable to load views by hour.</p>
             : <WatchTimeChart
             data={
               // Ensure all 24 hours are represented
               Array.from({ length: 24 }, (_, hour) => {
-                const hourData = watchTimeData.find(d => d.hour === hour);
+                const hourData = viewsByHour.find(d => d.hour === hour);
                 return {
                   hour,
                   viewCount: hourData?.viewCount || 0
                 };
               })
-            } 
+            }
           />}
         </div>
       </div>
     </div>
   );
-}; 
+};

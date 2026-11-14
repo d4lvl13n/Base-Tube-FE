@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { VideoFilters, VideoSortOption, VideoVisibilityFilter } from '../types';
 import { SortMenu } from './SortMenu';
+import { cx, field, page, segmented } from '../../Business/businessStyles';
 
 /**
  * How long we let a creator keep typing before asking the server again.
@@ -65,18 +66,18 @@ export const VideosToolbar: React.FC<VideosToolbarProps> = ({
   }, [onSearchChange]);
 
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <h1 className="text-base font-semibold tracking-tight text-white whitespace-nowrap">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <h1 className={cx(page.title, 'whitespace-nowrap')}>
         Videos
         {total !== null && (
-          <span className="ml-1.5 font-normal tabular-nums text-gray-500">
+          <span className={page.titleCount}>
             · {total.toLocaleString()}
           </span>
         )}
       </h1>
 
-      <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:flex-nowrap">
-        <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+      <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
+        <div className="relative min-w-0 flex-1 sm:w-60 sm:flex-none">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500"
             aria-hidden="true"
@@ -87,19 +88,16 @@ export const VideosToolbar: React.FC<VideosToolbarProps> = ({
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Search…"
             aria-label="Search videos"
-            className="w-full rounded-lg border border-gray-800/60 bg-white/5 py-1.5 pl-9 pr-8
-                       text-sm text-gray-100 placeholder:text-gray-500 transition-colors
-                       hover:border-gray-700 focus-visible:border-[#fa7517]/40
-                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/40"
+            className={cx(field.input, 'pl-9 pr-8')}
           />
           {draft !== '' && (
             <button
               type="button"
               onClick={clearSearch}
               aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-500
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400
                          transition-colors hover:text-white focus-visible:outline-none
-                         focus-visible:ring-2 focus-visible:ring-[#fa7517]/40"
+                         focus-visible:ring-2 focus-visible:ring-[#fa7517]/50"
             >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
@@ -108,11 +106,7 @@ export const VideosToolbar: React.FC<VideosToolbarProps> = ({
 
         {/* A segmented control, not four buttons: exactly one of these is true
             at a time and the shared trough is what says so. */}
-        <div
-          className="flex shrink-0 items-center gap-0.5 rounded-lg border border-gray-800/60 bg-white/5 p-0.5"
-          role="group"
-          aria-label="Filter videos"
-        >
+        <div className={segmented.trough} role="group" aria-label="Filter videos">
           {CHIPS.map((chip) => {
             const active = filters.visibility === chip.value;
             return (
@@ -121,13 +115,7 @@ export const VideosToolbar: React.FC<VideosToolbarProps> = ({
                 type="button"
                 aria-pressed={active}
                 onClick={() => onVisibilityChange(chip.value)}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors
-                            focus-visible:outline-none focus-visible:ring-2
-                            focus-visible:ring-[#fa7517]/40 ${
-                              active
-                                ? 'bg-[#fa7517]/15 text-[#fa7517]'
-                                : 'text-gray-400 hover:text-white'
-                            }`}
+                className={cx(segmented.chip, 'px-2.5', active ? segmented.chipActive : segmented.chipIdle)}
               >
                 {chip.label}
               </button>

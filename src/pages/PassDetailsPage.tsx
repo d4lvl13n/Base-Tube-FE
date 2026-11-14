@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePassDetails, usePurchasedPasses } from '../hooks/usePass';
 import { useAccess } from '../hooks/useOnchainPass';
+import { usePassVisitBeacon } from '../hooks/usePassVisitBeacon';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'framer-motion';
 import { ChevronDown, Lock as LockIcon } from 'lucide-react';
 import PremiumHeader from '../components/pass/PremiumHeader';
@@ -10,6 +11,8 @@ import PassActionButton from '../components/pass/PassActionButton';
 import TestnetModeBadge from '../components/pass/TestnetModeBadge';
 import RichTextDisplay from '../components/common/RichTextDisplay';
 import type { PassVideo } from '../types/pass';
+import { publicSaleCopy } from '../utils/passSaleCopy';
+import { maxPerBuyerOf, resaleBuyerSentence, resaleTermsOf, type ResaleTerms } from '../utils/passTerms';
 
 /**
  * Pass detail page — curator-collection framing.
@@ -80,14 +83,15 @@ const formatDuration = (seconds?: number): string => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-const FAQ_ITEMS: Array<{ q: string; a: string }> = [
+/** The questions, with the resale split this pass recorded (the decided 5% / 2% / 93% when none is recorded yet). */
+const faqItems = (resale: ResaleTerms): Array<{ q: string; a: string }> => [
   {
     q: 'What do I get when I buy this pass?',
-    a: 'Lifetime streaming access to every video bundled in this pass, plus an NFT that represents your ownership. Stream as many times as you want — the pass never expires.',
+    a: 'Streaming access to every video in this pass, plus an NFT on Base that makes the pass yours. Watch as many times as you want, for as long as you hold the pass: it has no expiry date. Access ends only if the payment is refunded or disputed.',
   },
   {
     q: 'Can I resell it later?',
-    a: 'Yes. Your pass is a tradeable NFT on Base. List it on any marketplace that supports the contract. Access transfers with the token, so selling transfers the streaming access too.',
+    a: `Yes. Your pass is an NFT you own on Base. List it on the BaseTube marketplace at the price you choose. When it sells, the streaming access moves to the new holder. ${resaleBuyerSentence(resale)}`,
   },
   {
     q: 'Do I need a crypto wallet?',
@@ -117,6 +121,15 @@ const PassDetailsPage: React.FC = () => {
     isPublished &&
     (hasAccessFromApi || ownsViaList || Boolean(accessData?.data?.hasAccess));
   const isAccessLoading = isPurchasedLoading || isOnchainLoading;
+  usePassVisitBeacon(
+    pass
+      ? {
+          id: pass.id,
+          publish_status: pass.publish_status,
+          channel: pass.channel as { user_id?: string | null } | undefined,
+        }
+      : null
+  );
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 350);
@@ -190,6 +203,8 @@ const PassDetailsPage: React.FC = () => {
   const soldPct = hasSupplyCap ? Math.min(100, (soldCount / totalCount) * 100) : 0;
   const videoCount = pass.videos?.length || 0;
   const channelIdCandidate = (pass.channel as { id?: string } | undefined)?.id;
+  const perBuyerLimit = maxPerBuyerOf(pass);
+  const resaleTerms = resaleTermsOf(pass);
 
   return (
     <div className="min-h-screen bg-black text-[#f0f0f0]">
@@ -472,7 +487,7 @@ const PassDetailsPage: React.FC = () => {
                   {alreadyOwns
                     ? 'You have access to this collection.'
                     : pass.can_purchase === false
-                      ? 'This pass is not for sale yet.'
+                      ? publicSaleCopy(pass)?.headline
                       : 'Access the full collection.'}
                 </motion.h2>
                 <motion.p
@@ -480,10 +495,10 @@ const PassDetailsPage: React.FC = () => {
                   className={`text-base leading-relaxed ${TEXT_SECONDARY} max-w-lg`}
                 >
                   {alreadyOwns
-                    ? 'Stream every video any time. Your pass is an NFT you own on Base L2 — keep it, gift it, or resell it whenever you like.'
+                    ? 'Stream every video any time. Your pass is an NFT you own on Base: keep it or resell it on the BaseTube marketplace.'
                     : pass.can_purchase === false
-                      ? 'The creator is still setting it up. Card and crypto checkout stay off until it is published.'
-                      : 'One pass unlocks every video in the collection — forever. Pay with a card or crypto. Your ownership lives on-chain as a tradeable NFT.'}
+                      ? publicSaleCopy(pass)?.body
+                      : 'One pass unlocks every video in the collection for as long as you hold it. Pay once, by card in euros or in USDC on Base. Your pass is an NFT you own, resellable on the BaseTube marketplace.'}
                 </motion.p>
               </div>
 
@@ -498,6 +513,8 @@ const PassDetailsPage: React.FC = () => {
                     price_cents: pass.price_cents,
                     currency: pass.currency,
                     supply_cap: pass.supply_cap,
+                    max_per_buyer: pass.max_per_buyer,
+                    buyer_allowance: pass.buyer_allowance,
                     minted_count: pass.minted_count,
                     sold_count: pass.sold_count,
                     available_count: pass.available_count,
@@ -506,6 +523,7 @@ const PassDetailsPage: React.FC = () => {
                     purchase_block_reason_code: pass.purchase_block_reason_code,
                     purchase_block_reason: pass.purchase_block_reason,
                     sale_consent: pass.sale_consent,
+                    creator_name: pass.channel?.name,
                   }}
                   alreadyOwns={alreadyOwns}
                   isAccessLoading={isAccessLoading}
@@ -522,11 +540,17 @@ const PassDetailsPage: React.FC = () => {
                 className={`flex flex-wrap items-center gap-x-8 gap-y-4 text-xs uppercase ${TEXT_SECONDARY}`}
                 style={{ letterSpacing: '0.16em' }}
               >
-                <MetaItem label="Access" value="Lifetime" />
+                <MetaItem label="Access" value="While you hold it" />
                 <MetaSep />
                 <MetaItem label="Ownership" value="NFT on Base" />
                 <MetaSep />
-                <MetaItem label="Transferable" value="Yes" />
+                <MetaItem label="Resellable" value="On BaseTube" />
+                {perBuyerLimit && (
+                  <>
+                    <MetaSep />
+                    <MetaItem label="Per person" value={`Up to ${perBuyerLimit.toLocaleString('en-US')}`} />
+                  </>
+                )}
                 {hasSupplyCap && (
                   <>
                     <MetaSep />
@@ -574,7 +598,7 @@ const PassDetailsPage: React.FC = () => {
           Questions
         </motion.div>
         <motion.div variants={fadeUpSmall}>
-          <FaqList />
+          <FaqList items={faqItems(resaleTerms)} />
         </motion.div>
       </motion.section>
 
@@ -656,11 +680,11 @@ const VideoRosterRow: React.FC<{
   return <motion.li variants={fadeUpSmall}>{rowContent}</motion.li>;
 };
 
-const FaqList: React.FC = () => {
+const FaqList: React.FC<{ items: Array<{ q: string; a: string }> }> = ({ items }) => {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   return (
     <div className={`border-t ${FROST_BORDER_ALT}`}>
-      {FAQ_ITEMS.map((item, i) => (
+      {items.map((item, i) => (
         <FaqRow
           key={item.q}
           q={item.q}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { UseFormRegister, FieldErrors, Control, useFieldArray, UseFormWatch, useWatch } from 'react-hook-form';
 import { Plus, Trash, Lock, Loader, RefreshCw, ExternalLink, ChevronDown, Check, AlertTriangle, Youtube } from 'lucide-react';
-import { cx, form, list, page, selectable, skeleton } from '../../shared/hubStyles';
+import { cx, empty, form, list, note, selectable, skeleton } from '../../Business/businessStyles';
+import { FieldError, WizardCard } from '../wizardUi';
 import { FormData } from '../types';
 import { youtubeApi, getYouTubeID } from '../../../../../api/youtube';
 import { UseYouTubeAuthReturn } from '../../../../../hooks/useYouTubeAuth';
@@ -65,8 +66,8 @@ function getPickerErrorMessage(error: unknown): { code: string | null; message: 
   return { code: null, message: error instanceof Error ? error.message : 'Could not load your videos.' };
 }
 
-/** A quiet note: hairline border, faint fill. For anything that is not an error. */
-const neutralNote = 'flex items-start gap-2 rounded-md border border-gray-800/60 bg-white/5 p-2.5 text-xs text-gray-300';
+/** A quiet note: hairline border on black. For anything that is not an error. */
+const neutralNote = note.neutral;
 
 const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watch, youtubeAuth }) => {
   const { fields, append, remove, update } = useFieldArray({ control, name: 'src_urls' });
@@ -215,24 +216,30 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
 
       {/* ============= VIDEO PICKER (primary UX) ============= */}
       {isLinked && (
-        <section className={cx(form.panel, 'space-y-3')} aria-labelledby="picker-label">
-          <div className="flex items-center justify-between gap-3">
-            <p id="picker-label" className={cx(form.fieldLabel, 'flex items-center gap-2')}>
+        <WizardCard
+          id="picker"
+          title={
+            <span className="flex items-center gap-2">
               {channelTitle ? (
                 <>
-                  <Youtube className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
-                  Your unlisted videos on {channelTitle}
+                  <Youtube className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                  <span className="min-w-0 truncate">Your unlisted videos on {channelTitle}</span>
                 </>
               ) : (
                 'Your unlisted videos'
               )}
-            </p>
-            {validCount > 0 && (
-              <span className={cx(form.counter, 'text-[#fa7517]')}>
+            </span>
+          }
+          description="Pick the videos fans unlock with this pass. Only unlisted videos on your verified channel can be added."
+          aside={
+            validCount > 0 ? (
+              <span className="inline-flex items-center rounded-full border border-[#fa7517]/30 bg-[#fa7517]/10 px-2 py-0.5 text-xs font-medium tabular-nums text-[#fa7517]">
                 {validCount} selected
               </span>
-            )}
-          </div>
+            ) : undefined
+          }
+        >
+        <div className="space-y-4">
 
           {/* Loading */}
           {videosQuery.isLoading && (
@@ -276,7 +283,9 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
           {/* Empty */}
           {!videosQuery.isLoading && !pickerError && allPickerVideos.length === 0 && (
             <div className={list.emptyState.wrapper}>
-              <Youtube className="h-8 w-8 text-gray-600" aria-hidden="true" />
+              <span className={empty.icon}>
+                <Youtube className="h-5 w-5" aria-hidden="true" />
+              </span>
               <p className={cx('mt-4', list.emptyState.title)}>No unlisted videos found</p>
               <p className={list.emptyState.subtitle}>
                 Upload unlisted videos to YouTube, then come back and they'll appear here.
@@ -322,7 +331,7 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
                           {video.title}
                         </p>
                         {video.publishedAt && (
-                          <p className="mt-1.5 text-[11px] text-gray-500">
+                          <p className="mt-1.5 text-[11px] tabular-nums text-gray-400">
                             {new Date(video.publishedAt).toLocaleDateString(undefined, {
                               year: 'numeric',
                               month: 'short',
@@ -338,7 +347,7 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
 
               {/* Load more */}
               {videosQuery.hasNextPage && (
-                <div className="flex justify-center border-t border-gray-800/60 pt-3">
+                <div className="flex justify-center border-t border-gray-800/50 pt-3">
                   <button
                     type="button"
                     disabled={videosQuery.isFetchingNextPage}
@@ -356,7 +365,8 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
               )}
             </>
           )}
-        </section>
+        </div>
+        </WizardCard>
       )}
 
       {/* ============= MANUAL FALLBACK (collapsed) ============= */}
@@ -370,7 +380,7 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
             className={form.ghostButton}
           >
             <ChevronDown
-              className={cx('h-4 w-4 transition-transform', manualOpen && 'rotate-180')}
+              className={cx('h-4 w-4 transition-transform motion-reduce:transition-none', manualOpen && 'rotate-180')}
               aria-hidden="true"
             />
             Or paste a YouTube URL manually
@@ -378,7 +388,7 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
 
           {manualOpen && (
             <section id="manual-url-fallback" className={cx(form.panel, 'mt-3 space-y-3')} aria-label="Video URLs">
-              <p className={form.fieldLabel}>Video URLs</p>
+              <p className="text-sm font-medium text-gray-200">Video URLs</p>
               <div className="space-y-3">
                 {fields.map((field, index) => (
                   <div key={field.id} className="space-y-2">
@@ -432,7 +442,7 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
                     )}
 
                     {srcUrls?.[index]?.title && (
-                      <div className="space-y-1.5 border-l border-gray-800/60 pl-3">
+                      <div className="space-y-1.5 border-l border-gray-800/50 pl-3">
                         <div className="flex items-center justify-between gap-3">
                           <label htmlFor={`src_urls.${index}.title`} className={form.fieldLabel}>Title (editable)</label>
                           {srcUrls[index]?.duration && (
@@ -451,10 +461,8 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
                   </div>
                 ))}
               </div>
-              {errors.src_urls && (errors.src_urls as any)[0]?.value?.message && (
-                <p className={form.errorText}>{(errors.src_urls as any)[0].value.message}</p>
-              )}
-              {errors.src_urls?.root && <p className={form.errorText}>{errors.src_urls.root.message}</p>}
+              <FieldError>{(errors.src_urls as any)?.[0]?.value?.message}</FieldError>
+              <FieldError>{errors.src_urls?.root?.message}</FieldError>
 
               <button type="button" onClick={() => append({ value: '' })} className={form.secondaryButton}>
                 <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add another video
@@ -467,9 +475,9 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
       {/* ============= SELECTED (from form data) ============= */}
       {selectedPreviews.length > 0 && (
         <section className={list.panel} aria-label="Selected videos">
-          <div className="flex items-center justify-between gap-3 border-b border-gray-800/60 px-4 py-2.5">
-            <p className={form.fieldLabel}>Selected</p>
-            <span className={form.counter}>{selectedPreviews.length}</span>
+          <div className="flex items-center justify-between gap-3 border-b border-gray-800/50 px-4 py-3 md:px-5">
+            <p className="text-sm font-semibold text-white">In this pass</p>
+            <span className="text-sm tabular-nums text-gray-400">{selectedPreviews.length} {selectedPreviews.length === 1 ? 'video' : 'videos'}</span>
           </div>
           <ul className={list.divider}>
             {selectedPreviews.map(({ urlObj, idx }) => {
@@ -477,11 +485,11 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
               const label = urlObj.title || `Video ${idx + 1}`;
               return (
                 <li key={`preview-${idx}`} className={cx(list.table.row, 'flex items-center gap-3 px-4 py-3')}>
-                  <div className="aspect-video w-24 shrink-0 overflow-hidden rounded-md border border-gray-800/60 bg-black">
+                  <div className="aspect-video w-24 shrink-0 overflow-hidden rounded-md border border-gray-800/50 bg-black">
                     {thumb ? (
                       <img src={thumb} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-[10px] text-gray-600">No preview</div>
+                      <div className="flex h-full items-center justify-center text-[10px] text-gray-500">No preview</div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -520,14 +528,17 @@ const StepVideos: React.FC<StepVideosProps> = ({ register, errors, control, watc
       )}
 
       {/* ============= NOTES ============= */}
-      <div className="space-y-1.5 px-1">
-        <p className={page.eyebrow}>Important notes</p>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-gray-400">
+      <div className={neutralNote}>
+        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+        <div className="space-y-1.5">
+        <p className="font-medium text-gray-200">Important notes</p>
+        <ul className="list-disc space-y-1 pl-4 text-gray-400">
           <li>Only <strong className="font-medium text-gray-200">unlisted</strong> YouTube videos can be added</li>
           <li>Make sure your content follows YouTube's terms of service</li>
           <li>Don't share the direct YouTube link publicly</li>
           <li>Once purchased, your pass gates this content behind a paywall</li>
         </ul>
+        </div>
       </div>
     </div>
   );

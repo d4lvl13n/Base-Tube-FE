@@ -6,6 +6,7 @@ import { Film, Play, Calendar, ExternalLink, Lock, Shield, Search, Filter } from
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
 import { Pass } from '../../types/pass';
+import CreatorContactConsents from '../pass/CreatorContactConsents';
 
 interface PassCardProps {
   pass: Pass;
@@ -251,6 +252,8 @@ const MyPasses: React.FC = () => {
                 </button>
               </div>
             )}
+
+            <CreatorContactConsents />
           </motion.div>
         </main>
       </div>

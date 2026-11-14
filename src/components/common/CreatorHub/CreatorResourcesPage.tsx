@@ -1,63 +1,44 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { 
-  TrendingUp, 
-  Users, 
-  Play, 
-  Clock, 
-  MessageCircle, 
-  BarChart3 
-} from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { TrendingUp, Users, Play, type LucideIcon } from 'lucide-react';
+import { cx, frame, heroGlow, sheen, surface, text } from '../../pages/CreatorHub/Business/businessStyles';
 
-const AnalyticsSection = ({ 
-  icon: Icon, 
-  title, 
-  description, 
-  metrics 
-}: { 
-  icon: any, 
-  title: string, 
-  description: string,
-  metrics: string[] 
+/** One topic: a black card, an icon chip, a title, what it covers. No hover lift. */
+const AnalyticsSection = ({
+  icon: Icon,
+  title,
+  description,
+  metrics,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  metrics: string[];
 }) => (
-  <motion.div 
-    whileHover={{ 
-      scale: 1.02,
-      backgroundColor: 'rgba(250, 117, 23, 0.1)',
-    }}
-    whileTap={{ scale: 0.98 }}
-    className="p-6 rounded-xl bg-gray-900/50 border border-gray-800/30 backdrop-blur-sm
-               transition-all duration-300 hover:border-[#fa7517]/30 relative overflow-hidden"
-    style={{
-      boxShadow: '0 0 20px 5px rgba(250, 117, 23, 0.05)'
-    }}
-  >
-    <div className="relative z-10">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-gray-800/50 rounded-lg">
-          <Icon className="w-6 h-6 text-[#fa7517]" />
-        </div>
-        <h3 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300">
-          {title}
-        </h3>
+  <section className={cx(surface.card, 'p-5 md:p-6')}>
+    <div className={sheen} aria-hidden="true" />
+    <div className="relative">
+      <div className="mb-4 flex items-center gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-800/70 bg-black/60 text-[#fa7517]">
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <h2 className={text.cardTitle}>{title}</h2>
       </div>
-      <p className="text-gray-400 mb-4">{description}</p>
-      <ul className="space-y-3">
-        {metrics.map((metric, index) => (
-          <li key={index} className="flex items-center gap-3 text-gray-300 hover:text-white transition-colors">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#fa7517]" />
+      <p className="mb-4 text-sm leading-relaxed text-gray-400">{description}</p>
+      <ul className="space-y-2.5">
+        {metrics.map((metric) => (
+          <li key={metric} className="flex items-start gap-3 text-sm text-gray-300">
+            <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-gray-500" aria-hidden="true" />
             {metric}
           </li>
         ))}
       </ul>
     </div>
-    
-    {/* Gradient overlay */}
-    <div className="absolute inset-0 bg-gradient-to-br from-[#fa751708] to-transparent" />
-  </motion.div>
+  </section>
 );
 
 const CreatorResourcesPage: React.FC = () => {
+  const prefersReducedMotion = useReducedMotion();
   const analyticsCategories = [
     {
       icon: TrendingUp,
@@ -97,51 +78,37 @@ const CreatorResourcesPage: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4">
+    <div className={frame.page}>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="space-y-8"
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className={frame.wide}
       >
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r 
-                         from-white via-gray-200 to-[#fa7517]">
-            Understanding Your Analytics
-          </h1>
-          <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed">
-            Learn how to leverage your channel analytics to grow your audience, improve content performance, 
+        <header>
+          <h1 className={text.pageTitle}>Understanding Your Analytics</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-400">
+            Learn how to leverage your channel analytics to grow your audience, improve content performance,
             and build stronger engagement with your community.
           </p>
-        </div>
+        </header>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {analyticsCategories.map((category) => (
             <AnalyticsSection key={category.title} {...category} />
           ))}
         </div>
 
-        <motion.div 
-          className="mt-12 p-6 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm
-                     relative overflow-hidden"
-          whileHover={{ scale: 1.01 }}
-          style={{
-            boxShadow: `
-              0 0 20px 5px rgba(250, 117, 23, 0.1),
-              0 0 40px 10px rgba(250, 117, 23, 0.05),
-              inset 0 0 60px 15px rgba(250, 117, 23, 0.03)
-            `
-          }}
-        >
-          <div className="relative z-10">
-            <h2 className="text-2xl font-bold mb-6 bg-clip-text text-transparent 
-                          bg-gradient-to-r from-white to-gray-300">
+        <section className={cx(surface.card, 'p-5 md:p-6')} style={heroGlow} aria-labelledby="analytics-tips-title">
+          <div className={sheen} aria-hidden="true" />
+          <div className="relative">
+            <h2 id="analytics-tips-title" className="text-lg font-semibold tracking-tight text-white">
               Tips for Using Analytics
             </h2>
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="mt-5 grid gap-6 md:grid-cols-2">
               <div>
-                <h3 className="text-lg font-semibold mb-3 text-[#fa7517]">Best Practices</h3>
-                <ul className="space-y-2 text-gray-300">
+                <h3 className="mb-3 text-sm font-medium text-gray-200">Best Practices</h3>
+                <ul className="space-y-2 text-sm text-gray-400">
                   <li>• Check your analytics regularly (weekly recommended)</li>
                   <li>• Compare metrics across different time periods</li>
                   <li>• Use insights to plan content strategy</li>
@@ -149,8 +116,8 @@ const CreatorResourcesPage: React.FC = () => {
                 </ul>
               </div>
               <div>
-                <h3 className="text-lg font-semibold mb-3 text-[#fa7517]">Key Actions</h3>
-                <ul className="space-y-2 text-gray-300">
+                <h3 className="mb-3 text-sm font-medium text-gray-200">Key Actions</h3>
+                <ul className="space-y-2 text-sm text-gray-400">
                   <li>• Identify peak engagement times for posting</li>
                   <li>• Monitor which content types perform best</li>
                   <li>• Track community growth and interaction patterns</li>
@@ -159,10 +126,7 @@ const CreatorResourcesPage: React.FC = () => {
               </div>
             </div>
           </div>
-          
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#fa751708] to-transparent" />
-        </motion.div>
+        </section>
       </motion.div>
     </div>
   );

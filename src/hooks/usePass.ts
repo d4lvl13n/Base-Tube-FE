@@ -243,10 +243,11 @@ export const useCreatorPasses = () => {
   });
 };
 
-export const useStripeConnectStatus = () => {
+export const useStripeConnectStatus = (channelId?: number | null) => {
   return useQuery({
-    queryKey: ['stripe-connect-status'],
-    queryFn: () => passApi.getStripeConnectStatus(),
+    // The first channel keeps the old key, so every existing reader shares it.
+    queryKey: channelId ? ['stripe-connect-status', channelId] : ['stripe-connect-status'],
+    queryFn: () => passApi.getStripeConnectStatus(channelId),
     staleTime: 1000 * 30,
   });
 };
@@ -254,10 +255,11 @@ export const useStripeConnectStatus = () => {
 export const useStartStripeConnect = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { country?: string; restart?: boolean } = {}) =>
-      passApi.startStripeConnectOnboarding(body),
-    onSuccess: (data) => {
-      queryClient.setQueryData(['stripe-connect-status'], data);
+    mutationFn: (
+      body: { country?: string; restart?: boolean; channelId?: number; returnTo?: 'passes' | 'business' | 'payouts' } = {},
+    ) => passApi.startStripeConnectOnboarding(body),
+    onSuccess: (data, body) => {
+      queryClient.setQueryData(body?.channelId ? ['stripe-connect-status', body.channelId] : ['stripe-connect-status'], data);
       if (data.onboardingUrl) {
         window.location.href = data.onboardingUrl;
       }
@@ -265,32 +267,20 @@ export const useStartStripeConnect = () => {
   });
 };
 
-export const useCreatorSales = (options: { enabled?: boolean } = {}) => {
-  return useQuery({
-    queryKey: ['creator-sales'],
-    queryFn: () => passApi.getCreatorSales(),
-    enabled: options.enabled ?? true,
-    staleTime: 30_000,
-  });
-};
-
 /**
- * Hook to add a new video to an existing pass
+ * Hook to add a new video to an existing pass. The API answers the new VIDEO
+ * (not the pass): refresh the pass, the creator's lists and the business
+ * screens (whether the pass can be sold may have changed).
  */
 export const useAddVideoToPass = () => {
   const queryClient = useQueryClient();
-  
-  return useMutation<Pass, Error, { passId: string; data: AddVideoRequest }>({
+
+  return useMutation<unknown, Error, { passId: string; data: AddVideoRequest }>({
     mutationFn: ({ passId, data }) => passApi.addVideoToPass(passId, data),
-    onSuccess: (updatedPass) => {
-      // Invalidate specific pass data
-      queryClient.invalidateQueries({ queryKey: ['pass', updatedPass.id] });
-      
-      // Invalidate creator passes query to refetch the list
+    onSuccess: (_video, { passId }) => {
+      queryClient.invalidateQueries({ queryKey: ['pass', passId] });
       queryClient.invalidateQueries({ queryKey: ['creator-passes'] });
-      
-      // Update the specific pass cache with the new version
-      queryClient.setQueryData(['pass', updatedPass.id], updatedPass);
+      queryClient.invalidateQueries({ queryKey: ['creatorBusiness'] });
     },
   });
-}; 
+};

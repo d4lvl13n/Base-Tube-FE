@@ -2,6 +2,8 @@ import React from 'react';
 import { X, CornerDownLeft, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { usePlayback } from '../../../../contexts/PlaybackContext';
 import { useNavigate } from 'react-router-dom';
+import { useConfig } from '../../../../contexts/ConfigContext';
+import { viewSessions, type ViewSession } from '../../../../hooks/viewSession';
 
 const MiniPlayer: React.FC = () => {
   const { isMini, current, restore, close, miniStartAt, setMiniStartAt } = usePlayback();
@@ -90,6 +92,37 @@ const MiniPlayer: React.FC = () => {
 
   const videoEl = React.useRef<HTMLVideoElement | null>(null);
 
+  // View tracking. While the mini player shows a video it CARRIES that
+  // video's view session — the one the main player started — so the time
+  // played here is counted in the same view, and "Return to video" hands it
+  // back without a second view row. The main player was paused when we took
+  // over; only the player that is playing feeds the session.
+  const { viewConfig } = useConfig();
+  const sessionRef = React.useRef<ViewSession | null>(null);
+  const seekingRef = React.useRef(false);
+  const currentVideoId = current?.videoId;
+  const settings = {
+    duration: Number(current?.duration) || 0,
+    thresholds: viewConfig.thresholds,
+    updateInterval: viewConfig.updateInterval,
+  };
+  const settingsRef = React.useRef(settings);
+  settingsRef.current = settings;
+  React.useEffect(() => {
+    if (!isMini || !currentVideoId) return;
+    const session = viewSessions.carry(currentVideoId, settingsRef.current);
+    sessionRef.current = session;
+    return () => {
+      // The mini <video> is going away (restore, close, another video):
+      // stop counting and report what was played here.
+      session.pause('mini');
+      if (sessionRef.current === session) sessionRef.current = null;
+    };
+  }, [isMini, currentVideoId]);
+  React.useEffect(() => {
+    sessionRef.current?.configure(settingsRef.current);
+  }, [settings.duration, settings.thresholds, settings.updateInterval]);
+
   React.useEffect(() => {
     if (!isMini || !current || !videoEl.current) return;
     if (miniStartAt && Number.isFinite(miniStartAt)) {
@@ -115,6 +148,22 @@ const MiniPlayer: React.FC = () => {
         muted={isMuted}
         playsInline
         onMouseMove={bumpOverlay}
+        onLoadedMetadata={(e) => {
+          const duration = e.currentTarget.duration;
+          if (Number.isFinite(duration) && duration > 0) sessionRef.current?.configure({ duration });
+        }}
+        onPlaying={() => sessionRef.current?.start('mini')}
+        onPause={() => sessionRef.current?.pause('mini')}
+        onSeeking={() => { seekingRef.current = true; }}
+        onSeeked={(e) => {
+          sessionRef.current?.tick('mini', e.currentTarget.currentTime, true);
+          seekingRef.current = false;
+        }}
+        onTimeUpdate={(e) => sessionRef.current?.tick('mini', e.currentTarget.currentTime, seekingRef.current)}
+        onEnded={() => {
+          sessionRef.current?.pause('mini');
+          void sessionRef.current?.finalize();
+        }}
       >
         {current.src ? (
           <source src={current.src} type="video/mp4" />

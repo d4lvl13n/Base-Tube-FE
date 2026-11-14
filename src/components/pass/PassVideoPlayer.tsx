@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Volume2, VolumeX, Maximize, Settings, RefreshCw, RotateCcw, SkipForward } from 'lucide-react';
+import { PassWatchTracker, type PassPlayerKind } from '../../utils/passWatchTracker';
+import { passWatchTransport } from '../../api/pass';
 
 // Load YouTube IFrame API
 declare global {
@@ -26,6 +28,12 @@ interface PassVideoPlayerProps {
   className?: string;
   /** Optional callback function to trigger playing the next video */
   onNextVideo?: () => void;
+  /**
+   * Which pass video this is, for watch tracking (`pass.videos[].id`, the
+   * PassVideo id the /api/v1/pass-videos/:id/watch endpoints take). Without
+   * it nothing is tracked.
+   */
+  tracking?: { passVideoId: string };
 }
 
 // Utility to extract a YouTube videoId from various URL formats
@@ -79,8 +87,52 @@ const PassVideoPlayer: React.FC<PassVideoPlayerProps> = ({
   title = 'Premium video',
   className = '',
   onNextVideo,
+  tracking,
 }) => {
   const youTubeId = useMemo(() => getYouTubeId(signedUrl), [signedUrl]);
+
+  // ---- Watch tracking (see utils/passWatchTracker) -------------------------
+  // One tracker per pass video per page visit, kept across pause / play; a
+  // replay after the end starts a new one. YouTube's IFrame API has no time
+  // event, so its playhead is read by the once-a-second poll below; the HTML5
+  // path uses `timeupdate`. Every tracking call is fire-and-forget: it never
+  // throws into the player and never waits on the network.
+  const trackerRef = useRef<PassWatchTracker | null>(null);
+  /** Set by our own seek / replay controls, consumed by the next tick. */
+  const trackSeekRef = useRef(false);
+  const trackPassVideoId = tracking?.passVideoId;
+  const playerKind: PassPlayerKind = youTubeId ? 'youtube' : 'html5';
+  // The YouTube callbacks are bound once when the player is created: read the
+  // current id / player kind through a ref, never through a stale closure.
+  const trackingRef = useRef({ passVideoId: trackPassVideoId, playerKind });
+  trackingRef.current = { passVideoId: trackPassVideoId, playerKind };
+  const ensureTracker = (): PassWatchTracker | null => {
+    const { passVideoId, playerKind: player } = trackingRef.current;
+    if (!passVideoId) return null;
+    if (!trackerRef.current || trackerRef.current.isEnded()) {
+      trackerRef.current = new PassWatchTracker({ passVideoId, player, transport: passWatchTransport });
+    }
+    return trackerRef.current;
+  };
+  useEffect(() => {
+    if (!trackPassVideoId) return;
+    // pagehide closes the session (sendBeacon survives the unload); a tab
+    // going to the background reports what was played so far.
+    const onPageHide = () => trackerRef.current?.end('unload');
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') trackerRef.current?.flush();
+    };
+    window.addEventListener('pagehide', onPageHide);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      document.removeEventListener('visibilitychange', onVisibility);
+      trackerRef.current?.end('closed');
+      trackerRef.current = null;
+    };
+  }, [trackPassVideoId]);
+  // ---------------------------------------------------------------------------
+
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const youtubePlayerRef = useRef<any>(null);
@@ -224,7 +276,10 @@ const PassVideoPlayer: React.FC<PassVideoPlayerProps> = ({
 
       if (youtubePlayerRef.current) {
         try {
-          setCurrentTime(youtubePlayerRef.current.getCurrentTime() || 0);
+          const position = youtubePlayerRef.current.getCurrentTime() || 0;
+          setCurrentTime(position);
+          trackerRef.current?.tick(position, trackSeekRef.current);
+          trackSeekRef.current = false;
         } catch (e) {
           console.error("Error getting current time:", e);
         }
@@ -240,6 +295,7 @@ const PassVideoPlayer: React.FC<PassVideoPlayerProps> = ({
   const onPlayerReady = (event: any) => {
     setIsLoaded(true);
     setDuration(event.target.getDuration() || 0);
+    trackerRef.current?.setDuration(event.target.getDuration());
     if (autoPlay) {
       event.target.playVideo();
       setIsPlaying(true);
@@ -252,24 +308,36 @@ const PassVideoPlayer: React.FC<PassVideoPlayerProps> = ({
     
     // YouTube states: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (cued)
     switch (playerState) {
-      case 1: // playing
+      case 1: { // playing
         setIsPlaying(true);
         setBuffering(false);
         setShowEndScreen(false);
+        const tracker = ensureTracker();
+        tracker?.setDuration(event.target?.getDuration?.());
+        tracker?.play();
         break;
+      }
       case 2: // paused
         setIsPlaying(false);
         setBuffering(false);
+        trackerRef.current?.pause();
         break;
       case 3: // buffering
         setBuffering(true);
         break;
-      case 0: // ended
+      case 0: { // ended
         setIsPlaying(false);
         setBuffering(false);
         setCurrentTime(0);
         setShowEndScreen(true);
+        const tracker = trackerRef.current;
+        if (tracker) {
+          // The 1 s poll misses the last second; read the final playhead.
+          try { tracker.tick(event.target?.getCurrentTime?.() ?? 0); } catch { /* ignore */ }
+          tracker.end('ended');
+        }
         break;
+      }
     }
   };
   
@@ -282,6 +350,7 @@ const PassVideoPlayer: React.FC<PassVideoPlayerProps> = ({
     if (!youtubePlayerRef.current) return;
     
     if (showEndScreen) {
+      trackSeekRef.current = true;
       youtubePlayerRef.current.seekTo(0, true);
       youtubePlayerRef.current.playVideo();
       setIsPlaying(true);
@@ -297,6 +366,7 @@ const PassVideoPlayer: React.FC<PassVideoPlayerProps> = ({
   
   const replayVideo = () => {
     if (!youtubePlayerRef.current) return;
+    trackSeekRef.current = true;
     youtubePlayerRef.current.seekTo(0, true);
     youtubePlayerRef.current.playVideo();
     setIsPlaying(true);
@@ -319,6 +389,7 @@ const PassVideoPlayer: React.FC<PassVideoPlayerProps> = ({
     if (!youtubePlayerRef.current || !duration) return;
     
     const timeInSeconds = duration * (timePercent / 100);
+    trackSeekRef.current = true;
     youtubePlayerRef.current.seekTo(timeInSeconds, true);
     setCurrentTime(timeInSeconds);
   };
@@ -452,6 +523,23 @@ const PassVideoPlayer: React.FC<PassVideoPlayerProps> = ({
         autoPlay={autoPlay}
         poster={poster}
         className="w-full h-full"
+        onLoadedMetadata={(e) => trackerRef.current?.setDuration(e.currentTarget.duration)}
+        onPlaying={(e) => {
+          const tracker = ensureTracker();
+          tracker?.setDuration(e.currentTarget.duration);
+          tracker?.play();
+        }}
+        onPause={() => trackerRef.current?.pause()}
+        onSeeking={() => { trackSeekRef.current = true; }}
+        onSeeked={(e) => {
+          trackerRef.current?.tick(e.currentTarget.currentTime, true);
+          trackSeekRef.current = false;
+        }}
+        onTimeUpdate={(e) => trackerRef.current?.tick(e.currentTarget.currentTime, trackSeekRef.current)}
+        onEnded={(e) => {
+          trackerRef.current?.tick(e.currentTarget.currentTime);
+          trackerRef.current?.end('ended');
+        }}
       />
     );
   };

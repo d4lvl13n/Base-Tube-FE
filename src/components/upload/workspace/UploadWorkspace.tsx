@@ -35,23 +35,17 @@ import DraftTile from './DraftTile';
 import { isPublished, technicalState, type StatusContext, type TechnicalState } from './draftStatus';
 import { workspaceCopy } from './workspaceCopy';
 import { useWorkspaceLayout } from './useWorkspaceLayout';
+import { button, cx, surface, text } from '../../pages/CreatorHub/Business/businessStyles';
 
 const ACCEPTED = '.mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo';
 /** The Creator Hub header is `h-16`; the inspector starts under it (AA `top: 64px`). */
 const HEADER_HEIGHT = 64;
 const INSPECTOR_WIDTH = 'clamp(440px, 40vw, 760px)';
 
-const PRIMARY =
-  'inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md bg-[#fa7517] px-4 text-sm font-medium text-black ' +
-  'transition-colors hover:bg-[#ff8c3a] disabled:cursor-not-allowed disabled:bg-[#fa7517]/30 ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/60';
-const GHOST =
-  'inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border border-white/15 px-4 text-sm text-gray-200 ' +
-  'transition-colors hover:border-white/30 hover:text-white disabled:opacity-40 ' +
-  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
-const TEXT_ACTION =
-  'inline-flex min-h-[40px] items-center gap-1.5 rounded px-2 text-sm text-gray-300 transition-colors hover:text-white ' +
-  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-500';
+// The creator hub's buttons (Business / Analytics system), at a 40 px touch height.
+const PRIMARY = cx(button.primary, 'h-10 px-4');
+const GHOST = cx(button.secondary, 'h-10 px-4');
+const TEXT_ACTION = cx(button.ghost, 'h-10');
 
 function useOnline(): boolean {
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
@@ -402,7 +396,7 @@ const UploadWorkspace: React.FC = () => {
         style={{ minHeight: `calc(100vh - ${HEADER_HEIGHT}px)` }}
         aria-labelledby="upload-start-title"
       >
-        <h1 id="upload-start-title" className="text-xl font-semibold text-white">
+        <h1 id="upload-start-title" className={text.pageTitle}>
           {workspaceCopy.pageTitle}
         </h1>
         <div
@@ -412,14 +406,14 @@ const UploadWorkspace: React.FC = () => {
           className="mt-5 flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-12 text-center transition-colors"
           style={{
             minHeight: 420,
-            borderColor: dragActive ? '#fa7517' : 'rgba(255,255,255,0.14)',
+            borderColor: dragActive ? '#fa7517' : 'rgba(55,65,81,0.9)',
             background: dragActive
-              ? 'radial-gradient(ellipse at 50% 40%, rgba(250,117,23,0.16), transparent 60%), #0f0f0f'
-              : 'radial-gradient(ellipse at 50% 40%, rgba(250,117,23,0.06), transparent 55%), #0c0c0e',
+              ? 'radial-gradient(ellipse at 50% 40%, rgba(250,117,23,0.16), transparent 60%), rgba(0,0,0,0.5)'
+              : 'radial-gradient(ellipse at 50% 40%, rgba(250,117,23,0.06), transparent 55%), rgba(0,0,0,0.5)',
           }}
         >
           <span
-            className="grid h-16 w-16 place-items-center rounded-full border text-[28px] font-light text-[#fa7517] transition-transform"
+            className="grid h-16 w-16 place-items-center rounded-full border bg-black/60 text-[28px] font-light text-[#fa7517] transition-transform motion-reduce:transition-none"
             style={{
               borderColor: 'rgba(250,117,23,0.45)',
               transform: dragActive ? 'translateY(-4px)' : undefined,
@@ -440,13 +434,13 @@ const UploadWorkspace: React.FC = () => {
           >
             {workspaceCopy.chooseFiles}
           </button>
-          <small className="mt-3 text-xs text-gray-600">{workspaceCopy.formatNoteFull}</small>
+          <small className="mt-3 text-xs text-gray-400">{workspaceCopy.formatNoteFull}</small>
 
-          <div className="mt-8 border-t border-white/10 pt-5">
+          <div className="mt-8 border-t border-gray-800/60 pt-5">
             {channels.length > 0 ? (
               <ChannelPicker label={workspaceCopy.uploadingTo} />
             ) : null}
-            {!channelId && <p className="mt-2 text-sm text-gray-500">{workspaceCopy.selectChannelBody}</p>}
+            {!channelId && <p className="mt-2 text-sm text-gray-400">{workspaceCopy.selectChannelBody}</p>}
           </div>
         </div>
         {notice?.rejected.length ? <RejectedNotice notice={notice} onDismiss={() => setNotice(null)} /> : null}
@@ -474,9 +468,9 @@ const UploadWorkspace: React.FC = () => {
       </p>
 
       {/* 72 px like the inspector head: their bottom borders line up. */}
-      <header className="flex h-[72px] shrink-0 items-center justify-between gap-x-4 border-b border-white/10 px-4 sm:px-6">
+      <header className="flex h-[72px] shrink-0 items-center justify-between gap-x-4 border-b border-gray-800/50 px-4 sm:px-6">
         <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2">
-          <h1 id="upload-workspace-title" className="text-xl font-semibold text-white">
+          <h1 id="upload-workspace-title" className="text-xl font-bold tracking-tight text-white">
             {workspaceCopy.pageTitle}
           </h1>
           {/* Changes where NEW videos go; each draft keeps its own channel. */}
@@ -503,7 +497,7 @@ const UploadWorkspace: React.FC = () => {
         {queue.authRequired && (
           <Alert tone="warning">
             {workspaceCopy.sessionExpired}{' '}
-            <button type="button" onClick={() => void session.requestSignIn()} className="font-medium text-[#fa7517] hover:text-[#ff8c3a]">
+            <button type="button" onClick={() => void session.requestSignIn()} className={cx(text.link, 'font-medium')}>
               {workspaceCopy.signInAgain}
             </button>
           </Alert>
@@ -514,7 +508,7 @@ const UploadWorkspace: React.FC = () => {
         {missingDraft && (
           <Alert tone="info">
             {workspaceCopy.missingDraft}{' '}
-            <Link to="/creator-hub/uploads" className="font-medium text-[#fa7517] hover:text-[#ff8c3a]">
+            <Link to="/creator-hub/uploads" className={cx(text.link, 'font-medium')}>
               {workspaceCopy.seeVideos}
             </Link>
           </Alert>
@@ -562,14 +556,14 @@ const UploadWorkspace: React.FC = () => {
       {/* Uploads started before this workspace keep their rows until resolved. */}
       {legacyEntries.length > 0 && (
         <section className="mt-10" aria-label={workspaceCopy.earlierUploads}>
-          <h2 className="text-sm font-medium text-gray-300">{workspaceCopy.earlierUploads}</h2>
-          <p className="mt-0.5 text-xs text-gray-600">{workspaceCopy.earlierUploadsNote}</p>
+          <h2 className={text.cardTitle}>{workspaceCopy.earlierUploads}</h2>
+          <p className="mt-0.5 text-xs text-gray-400">{workspaceCopy.earlierUploadsNote}</p>
           {queue.actionError && (
-            <p className="mt-2 text-xs text-red-400" role="alert">
+            <p className="mt-2 text-xs text-red-300" role="alert">
               {describeUploadError(queue.actionError.code, queue.actionError.message)}
             </p>
           )}
-          <ul className="mt-3 divide-y divide-gray-800/60 overflow-hidden rounded-lg border border-gray-800/60 bg-[#0f0f0f]">
+          <ul className={cx(surface.card, surface.divider, 'mt-3')}>
             {legacyEntries.map((entry) => (
               <UploadRow
                 key={entry.localId}
@@ -608,7 +602,7 @@ const UploadWorkspace: React.FC = () => {
         <footer
           aria-label={workspaceCopy.commands}
           // 72 px like the inspector foot: their top borders line up.
-          className="flex h-[72px] shrink-0 items-center justify-between gap-x-5 border-t border-white/10 bg-[#09090B] px-4 sm:px-6"
+          className="flex h-[72px] shrink-0 items-center justify-between gap-x-5 border-t border-gray-800/50 bg-[#09090B] px-4 sm:px-6"
         >
           <div className="min-w-0" role="status">
             <strong className="block truncate text-[13px] font-semibold text-white">
@@ -634,13 +628,13 @@ const UploadWorkspace: React.FC = () => {
             )}
             {waiting > 0 &&
               (confirmRemoveWaiting ? (
-                <span className="inline-flex flex-wrap items-center gap-2 rounded-md border border-red-500/30 px-3 py-1.5 text-sm" role="alertdialog">
+                <span className="inline-flex flex-wrap items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/[0.05] px-3 py-1.5 text-sm" role="alertdialog">
                   <span className="text-gray-200">{workspaceCopy.removeWaitingConfirm(waiting)}</span>
                   <button
                     type="button"
                     disabled={removingWaiting}
                     onClick={() => void removeWaitingVideos()}
-                    className="inline-flex min-h-[32px] items-center rounded bg-red-500/90 px-2.5 font-medium text-white hover:bg-red-500 disabled:opacity-60"
+                    className={button.danger}
                   >
                     {removingWaiting ? workspaceCopy.removing : workspaceCopy.removeAction}
                   </button>
@@ -648,7 +642,7 @@ const UploadWorkspace: React.FC = () => {
                     type="button"
                     disabled={removingWaiting}
                     onClick={() => setConfirmRemoveWaiting(false)}
-                    className="inline-flex min-h-[32px] items-center rounded px-2 text-gray-300 hover:text-white"
+                    className={button.ghost}
                   >
                     {workspaceCopy.keep}
                   </button>
@@ -689,7 +683,7 @@ const UploadWorkspace: React.FC = () => {
           )}
           <aside
             aria-label={workspaceCopy.inspector}
-            className="fixed bottom-0 right-0 z-40 border-l border-white/10 bg-[#09090B] shadow-2xl"
+            className="fixed bottom-0 right-0 z-40 border-l border-gray-800/60 bg-black shadow-[0_32px_80px_rgba(0,0,0,0.8)]"
             style={{
               top: HEADER_HEIGHT,
               width: layout === 'wide' ? INSPECTOR_WIDTH : layout === 'medium' ? 'min(600px, 92vw)' : '100vw',
@@ -725,9 +719,10 @@ const UploadWorkspace: React.FC = () => {
 function Alert({ tone, children }: { tone: 'warning' | 'info'; children: React.ReactNode }) {
   return (
     <p
-      className={`rounded-md border px-3 py-2 text-sm ${
-        tone === 'warning' ? 'border-yellow-500/25 bg-yellow-500/[0.05] text-yellow-100' : 'border-white/10 bg-white/[0.03] text-gray-300'
-      }`}
+      className={cx(
+        'rounded-lg border px-3 py-2 text-sm',
+        tone === 'warning' ? 'border-amber-500/20 bg-amber-500/[0.06] text-amber-100' : 'border-gray-800/60 bg-black/40 text-gray-300',
+      )}
       role="status"
     >
       {children}
@@ -743,9 +738,9 @@ function RejectedNotice({
   onDismiss: () => void;
 }) {
   return (
-    <div className="mt-3 rounded-md border border-yellow-500/25 bg-yellow-500/[0.05] px-3 py-2 text-sm" role="status">
+    <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-sm" role="status">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-yellow-100">
+        <p className="text-amber-100">
           {notice.added > 0 ? `${workspaceCopy.added(notice.added)} · ` : ''}
           {workspaceCopy.skipped(notice.rejected.length)}
         </p>
@@ -753,7 +748,7 @@ function RejectedNotice({
           type="button"
           aria-label="Dismiss"
           onClick={onDismiss}
-          className="-m-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center text-gray-500 hover:text-white"
+          className={cx(button.icon, '-m-1.5 shrink-0')}
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
@@ -766,7 +761,7 @@ function RejectedNotice({
         ))}
       </ul>
       {notice.rejected.some((rejected) => rejected.code === 'QUEUE_FULL' || rejected.code === 'SESSION_FULL') && (
-        <p className="mt-1 text-xs text-gray-500">{workspaceCopy.limits}</p>
+        <p className="mt-1 text-xs text-gray-400">{workspaceCopy.limits}</p>
       )}
     </div>
   );

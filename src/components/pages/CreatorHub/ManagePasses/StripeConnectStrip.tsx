@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStartStripeConnect, useStripeConnectStatus } from '../../../../hooks/usePass';
-import { cx, form } from '../shared/hubStyles';
+import { cx, form } from '../Business/businessStyles';
 import HubSelect from '../shared/HubSelect';
 
 /**
@@ -58,9 +58,16 @@ function onboardingErrorText(error: unknown): string {
   return 'Stripe could not be opened. Try again in a moment.';
 }
 
-const StripeConnectStrip: React.FC = () => {
+interface StripeConnectStripProps {
+  /** Which of the creator's channels (default: their first channel). */
+  channelId?: number;
+  /** Page Stripe sends the creator back to (default: the pass list). */
+  returnTo?: 'passes' | 'business' | 'payouts';
+}
+
+const StripeConnectStrip: React.FC<StripeConnectStripProps> = ({ channelId, returnTo }) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: status, isError, refetch } = useStripeConnectStatus();
+  const { data: status, isError, refetch } = useStripeConnectStatus(channelId);
   const startConnect = useStartStripeConnect();
   const returned = searchParams.get('stripe');
   const handledReturn = useRef<string | null>(null);
@@ -93,15 +100,15 @@ const StripeConnectStrip: React.FC = () => {
 
   const submit = () => {
     if (pickingCountry) {
-      startConnect.mutate({ country, restart: hasAccount });
+      startConnect.mutate({ country, restart: hasAccount, channelId, returnTo });
     } else {
-      startConnect.mutate({});
+      startConnect.mutate({ channelId, returnTo });
     }
   };
 
   return (
     <div
-      className="flex flex-col gap-3 rounded-xl border border-gray-800/60 bg-white/[0.02] px-4 py-3 md:flex-row md:items-center md:justify-between"
+      className="flex flex-col gap-3 rounded-xl border border-gray-800/60 bg-black/40 px-4 py-3.5 md:flex-row md:items-center md:justify-between"
       role="status"
     >
       <div className="min-w-0">

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  Users, 
-  TrendingUp, 
+import {
+  Users,
+  TrendingUp,
   Play,
   Clock
 } from 'lucide-react';
@@ -10,57 +10,31 @@ import { useChannelData } from '../../../../../hooks/useChannelData';
 import StatsCard from '../../../CreatorHub/StatsCard';
 import { Select } from '../../../../ui/Select';
 import { GrowthChart } from '../charts/GrowthChart';
-import { formatPercent, interactionRate, trendBadgeValue, formatWatchTime } from '../metrics';
+import {
+  OWN_REPLIES_NOTE,
+  accurateSinceNote,
+  formatWatchTime,
+  interactionRateView,
+  joinNotes,
+  periodComparisonCaption,
+  periodPhrase,
+  readCount
+} from '../metrics';
 
-// Milestone component
-const MilestoneCard: React.FC<{ 
-  title: string; 
-  current: number; 
-  goal: number;
-  unit: string;
-  icon: React.ReactNode;
-}> = ({ title, current, goal, unit, icon }) => {
-  const percentage = Math.min((current / goal) * 100, 100);
-  
-  return (
-    <div className="bg-black/50 p-5 rounded-xl border border-gray-800/50">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="text-[#fa7517]">
-          {icon}
-        </div>
-        <h4 className="font-medium">{title}</h4>
-      </div>
-      
-      <div className="mb-2 flex justify-between text-sm">
-        <span className="text-gray-400">Current: {current.toLocaleString()} {unit}</span>
-        <span className="text-gray-400">Goal: {goal.toLocaleString()} {unit}</span>
-      </div>
-      
-      <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
-        <div 
-          className="h-full bg-gradient-to-r from-[#fa7517] to-yellow-500" 
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-      
-      <div className="mt-3 text-sm text-center">
-        {percentage < 100 ? (
-          <span className="text-gray-300">
-            {percentage.toFixed(1)}% Complete ({(goal - current).toLocaleString()} {unit} to go)
-          </span>
-        ) : (
-          <span className="text-green-400">Milestone achieved! 🎉</span>
-        )}
-      </div>
-    </div>
-  );
-};
+// "Growth Milestones" used to sit here: progress bars towards 1,000 / 4,000 /
+// 10,000 watch hours and 100 / 1,000 subscribers, copied from YouTube's partner
+// programme ladder. BaseTube has no such programme, so the bars promised
+// thresholds that unlock nothing. Removed rather than relabelled — the cards
+// above already show the same totals.
 
-export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
+export const GrowthTab: React.FC<{ channelId: string; channelName?: string }> = ({
+  channelId,
+  channelName
+}) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
-  
-  const { 
-    growthMetrics, 
+
+  const {
+    growthMetrics,
     detailedViewMetrics,
     creatorWatchHours,
     isLoading: analyticsLoading,
@@ -68,63 +42,64 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
     errors,
   } = useCreatorAnalytics(period, channelId);
 
-  const { 
+  const {
     channel,
-    isLoading: channelLoading 
+    isLoading: channelLoading
   } = useChannelData(channelId ? parseInt(channelId) : undefined);
-  
+
   const isLoading = analyticsLoading || channelLoading;
 
-  // Handle period change with cache invalidation
-  // Just switch the period. Every period-sensitive query has the period in
-  // its key, so React Query fetches the new key by itself. Invalidating the
-  // whole channel first (what this used to do) also refetched the OLD
-  // period's queries — ~19 requests for one click on the selector.
+  // Just switch the period; every period-sensitive query has it in its key.
   const handlePeriodChange = (newPeriod: '7d' | '30d' | 'all') => {
     if (newPeriod !== period) setPeriod(newPeriod);
   };
 
-  // Channel stats
+  // The three big numbers are ALL-TIME. A period comparison is only ever shown
+  // in words that name the period ("+2 in the last 7 days (0 the week
+  // before)") — never as a bare percentage badge on an all-time figure.
   const subscribers = channel?.subscribers_count ?? 0;
   const views = detailedViewMetrics?.totalViews ?? 0;
-  const watchHours = creatorWatchHours.total;
+  const growthData = growthMetrics?.metrics;
+  const days = period === '7d' ? 7 : 30;
+  const phrase = periodPhrase(period);
 
-  // (likes + comments) / views over the SAME window. `engagement.total` is a
-  // COUNT of interactions; the card used to print it with a '%' appended
-  // (docs/ANALYTICS_REVIEW_2026-08-29.md finding 2).
-  const interactionsThisPeriod = growthMetrics?.metrics.engagement.total ?? 0;
-  const viewsThisPeriod = period === 'all'
-    ? (detailedViewMetrics?.totalViews ?? 0)
-    : (detailedViewMetrics?.viewsByPeriod?.[period === '7d' ? 'last7d' : 'last30d'] ?? 0);
-  const periodInteractionRate = interactionRate(interactionsThisPeriod, viewsThisPeriod);
+  const comparison = (series?: { total?: number; previousTotal?: number | null }) =>
+    period === 'all'
+      ? null
+      : periodComparisonCaption({
+          current: readCount(series?.total),
+          previous: readCount(series?.previousTotal),
+          days
+        });
 
-  // Growth milestones (for platform features and visibility)
-  const growthMilestones = {
-    subscriberMilestones: [100, 1000, 5000, 10000],
-    viewMilestones: [1000, 10000, 50000, 100000],
-    watchHourMilestones: [1000, 4000, 10000, 30000]
-  };
-
-  // Find the next milestone
-  const getNextMilestone = (current: number, milestones: number[]) => {
-    return milestones.find(milestone => milestone > current) || milestones[milestones.length - 1];
-  };
-
-  // For display strings
-  const periodString = period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time';
+  // Same definition as the dashboard and the Overview card: likes + comments
+  // and counted views of ONE window (the growth response). Counts always, a
+  // rate only from 100 views; the window before is described the same way.
+  const interaction = interactionRateView(growthData?.engagement.total, growthData?.views.total);
+  const previousInteractions = readCount(growthData?.engagement.previousTotal);
+  const previousViews = readCount(growthData?.views.previousTotal);
+  const before = days === 7 ? 'The week before' : `The ${days} days before`;
+  const previous =
+    period === 'all' || previousInteractions === null || previousViews === null
+      ? null
+      : interactionRateView(previousInteractions, previousViews);
+  const previousRateNote = previous
+    ? `${before}: ${previous.rate === null ? 'too few views for a rate' : previous.valueText} (${previous.countsText})`
+    : null;
 
   // Specific error checks
   const growthError = errors.growthMetrics;
   const viewsError = errors.detailedViewMetrics;
   const watchHoursError = errors.allTimeWatchHours || (period !== 'all' && errors.periodWatchHours);
-  const growthData = growthMetrics?.metrics;
 
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold">Channel Growth</h2>
-          <p className="text-gray-400">Track growth metrics and milestone progress</p>
+          <p className="text-gray-400">
+            Subscribers, views and watch time for {channelName ? <span className="text-white">{channelName}</span> : 'this channel'} only
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {isLoading && (
@@ -148,91 +123,55 @@ export const GrowthTab: React.FC<{ channelId: string }> = ({ channelId }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
           icon={Users}
-          title="Subscribers"
+          title="Total subscribers"
           value={subscribers.toLocaleString()}
-          change={period === 'all' ? undefined : trendBadgeValue(growthData?.subscribers.trend)}
           loading={channelLoading || (period !== 'all' && loading.growthMetrics)}
-          subtitle={period === 'all' 
-            ? 'Total Subscribers' // Show total when 'all' is selected
-            : `${(growthData?.subscribers.total ?? 0).toLocaleString()} new in ${periodString}`}
+          subtitle={comparison(growthData?.subscribers) ?? 'Subscribed today'}
           error={(period !== 'all' && growthError) || !channel ? "Error loading subs/trend" : undefined}
         />
-        
+
         <StatsCard
           icon={Play}
-          title="Video Views"
+          title="Total views"
           value={views.toLocaleString()}
-          change={period === 'all' ? undefined : trendBadgeValue(growthData?.views.trend)}
           loading={loading.detailedViewMetrics || (period !== 'all' && loading.growthMetrics)}
-          subtitle={period === 'all'
-            ? 'Total Views' // Show total when 'all' is selected
-            : `${detailedViewMetrics?.viewsByPeriod?.[period === '7d' ? 'last7d' : 'last30d']?.toLocaleString() ?? 'N/A'} in ${periodString}`
-          }
+          subtitle={comparison(growthData?.views) ?? 'All time'}
           error={(period !== 'all' && growthError) || viewsError ? "Error loading views/trend" : undefined}
         />
-        
+
         <StatsCard
           icon={Clock}
-          title="Watch Hours"
+          title="Total watch time"
           value={formatWatchTime(creatorWatchHours.totalSeconds, creatorWatchHours.total)}
           loading={loading.allTimeWatchHours || (period !== 'all' && loading.periodWatchHours)}
-          subtitle={period === 'all' 
-            ? 'Watched, all time'
-            : `${formatWatchTime(creatorWatchHours.periodSeconds, creatorWatchHours.periodTotal)} in ${periodString}`}
+          subtitle={period === 'all'
+            ? 'Time played, all time'
+            : `${formatWatchTime(creatorWatchHours.periodSeconds, creatorWatchHours.periodTotal)} in ${phrase}`}
+          note={joinNotes(accurateSinceNote(creatorWatchHours.accurateSince))}
           error={watchHoursError ? "Error loading watch hours" : undefined}
         />
-        
+
         <StatsCard
           icon={TrendingUp}
           title="Interaction rate"
-          value={formatPercent(periodInteractionRate)}
-          change={period === 'all' ? undefined : trendBadgeValue(growthData?.engagement.trend)}
-          loading={loading.growthMetrics || loading.detailedViewMetrics}
-          subtitle={`${interactionsThisPeriod.toLocaleString()} likes + comments / ${viewsThisPeriod.toLocaleString()} views, ${periodString}`}
-          error={growthError || viewsError ? "Error loading engagement" : undefined}
+          value={interaction.valueText}
+          valueMuted={interaction.rate === null}
+          loading={loading.growthMetrics}
+          subtitle={`${interaction.countsText}, ${phrase}`}
+          note={joinNotes(interaction.noRateNote, previousRateNote, OWN_REPLIES_NOTE)}
+          error={growthError ? "Error loading engagement" : undefined}
         />
       </div>
 
-      {/* Growth Chart & Growth Milestones */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Growth Trends</h3>
-          <div className="p-4 bg-black/50 rounded-xl border border-gray-800/50">
-            {loading.growthMetrics ? <p role="status">Loading growth…</p>
-              : errors.growthMetrics ? <p role="alert">Unable to load growth trends.</p>
-              : <GrowthChart data={growthMetrics?.metrics} />}
-          </div>
-        </div>
-        
-        <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Growth Milestones</h3>
-          <div className="space-y-4">
-            <MilestoneCard
-              title="Subscriber Growth"
-              current={subscribers}
-              goal={getNextMilestone(subscribers, growthMilestones.subscriberMilestones)}
-              unit="subscribers"
-              icon={<Users className="w-5 h-5" />}
-            />
-            
-            <MilestoneCard
-              title="View Count"
-              current={views}
-              goal={getNextMilestone(views, growthMilestones.viewMilestones)}
-              unit="views"
-              icon={<Play className="w-5 h-5" />}
-            />
-            
-            <MilestoneCard
-              title="Watch Time"
-              current={watchHours}
-              goal={getNextMilestone(watchHours, growthMilestones.watchHourMilestones)}
-              unit="watch hours"
-              icon={<Clock className="w-5 h-5" />}
-            />
-          </div>
+      {/* Growth Chart */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-semibold">Growth Trends</h3>
+        <div className="p-4 bg-black/50 rounded-xl border border-gray-800/50">
+          {loading.growthMetrics ? <p role="status">Loading growth…</p>
+            : errors.growthMetrics ? <p role="alert">Unable to load growth trends.</p>
+            : <GrowthChart data={growthMetrics?.metrics} period={period} />}
         </div>
       </div>
     </div>
   );
-}; 
+};

@@ -56,9 +56,10 @@ const CreatorHubShell: React.FC<CreatorHubShellProps> = ({ children }) => {
         onClick={() => setSidebarMobileOpen(true)}
         data-testid="creator-hub-menu-button"
         className="fixed bottom-4 left-4 z-40 flex h-11 items-center gap-2 rounded-full
-                   border border-gray-800/60 bg-[#0f0f0f] px-4 text-[14px] text-gray-200
-                   shadow-xl focus-visible:outline-none focus-visible:ring-2
-                   focus-visible:ring-[#fa7517]/40"
+                   border border-gray-800/70 bg-black/90 px-4 text-[14px] text-gray-200
+                   shadow-[0_16px_40px_rgba(0,0,0,0.7)] backdrop-blur-md transition-colors
+                   hover:border-gray-700 hover:text-white focus-visible:outline-none
+                   focus-visible:ring-2 focus-visible:ring-[#fa7517]/50"
       >
         <PanelLeft className="h-[18px] w-[18px] text-[#fa7517]" aria-hidden="true" />
         Menu

@@ -1,6 +1,10 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { OverviewTab } from '../tabs/OverviewTab';
+
+// The tab links to Business ("Pass sales"), so it needs a router.
+const render = (ui: React.ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 const noErrors = {
   viewMetrics: null,
@@ -20,9 +24,9 @@ const noErrors = {
 const mockAnalytics: any = {
   growthMetrics: {
     metrics: {
-      subscribers: { total: 4, trend: 0, data: [] },
-      views: { total: 0, trend: 0, data: [] },
-      engagement: { total: 0, trend: 0, data: [] }
+      subscribers: { total: 4, trend: null, previousTotal: 0, windowDays: 7, data: [] },
+      views: { total: 19, trend: null, previousTotal: 0, windowDays: 7, data: [] },
+      engagement: { total: 25, trend: null, previousTotal: 0, windowDays: 7, data: [] }
     }
   },
   detailedViewMetrics: {
@@ -109,35 +113,43 @@ beforeEach(() => {
 describe('OverviewTab', () => {
   it('sums the engagement series over the window instead of reading the last day', () => {
     const { container } = render(<OverviewTab channelId="1" />);
-    // likes 3 + 5 = 8, comments 1 + 1 = 2 => 10 interactions over 40 views.
-    // Reading the last data point (the old getLatestCount) would give 5 and 1.
+    // likes 3 + 5 = 8, comments 1 + 1 = 2. Reading the last data point (the
+    // old getLatestCount) would give 5 and 1.
     expect(container.textContent).toContain('Likes8');
     expect(container.textContent).toContain('Comments2');
-    expect(container.textContent).toContain('10 likes + comments / 40 views');
-    // (8 + 2) / 40 = 25%, a real ratio rather than the raw count with a '%'.
-    expect(container.textContent).toContain('25.0%');
   });
 
-  it('shows an interaction-rate error when its OWN inputs fail, not growthMetrics', () => {
-    // The card reads engagementTrends + detailedViewMetrics. It used to be
-    // gated on growthMetrics, so a failure of either input rendered as a number.
-    mockAnalytics.errors = { ...noErrors, engagementTrends: new Error('boom') };
+  it('shows the two counts and no rate below 100 views (25 on 19 is not "131.6%")', () => {
     const { container } = render(<OverviewTab channelId="1" />);
-    expect(container.textContent).toContain('Error loading interactions');
+    expect(container.textContent).toContain('Too few views for a rate');
+    expect(container.textContent).toContain('25 likes + comments · 19 views, the last 7 days');
+    expect(container.textContent).not.toContain('131.6%');
   });
 
-  it('shows an interaction-rate error when the views query fails', () => {
-    mockAnalytics.errors = { ...noErrors, detailedViewMetrics: new Error('boom') };
-    const { container } = render(<OverviewTab channelId="1" />);
-    expect(container.textContent).toContain('Error loading interactions');
-    expect(container.textContent).toContain('Error loading views');
+  it('shows the real rate from 100 views, from the same growth window as the Views card', () => {
+    mockAnalytics.growthMetrics.metrics.views.total = 400;
+    mockAnalytics.growthMetrics.metrics.engagement.total = 100;
+    try {
+      const { container } = render(<OverviewTab channelId="1" />);
+      expect(container.textContent).toContain('25.0%');
+      expect(container.textContent).toContain('Views400');
+    } finally {
+      mockAnalytics.growthMetrics.metrics.views.total = 19;
+      mockAnalytics.growthMetrics.metrics.engagement.total = 25;
+    }
   });
 
-  it('does not blame the interaction card for a growth-metrics failure', () => {
+  it('blames the growth response for the interaction and views cards, and nothing else', () => {
     mockAnalytics.errors = { ...noErrors, growthMetrics: new Error('boom') };
-    const { container } = render(<OverviewTab channelId="1" />);
-    expect(container.textContent).toContain('Error loading subscribers');
-    expect(container.textContent).not.toContain('Error loading interactions');
+    const view = render(<OverviewTab channelId="1" />);
+    expect(view.container.textContent).toContain('Error loading interactions');
+    expect(view.container.textContent).toContain('Error loading views');
+    view.unmount();
+
+    mockAnalytics.errors = { ...noErrors, engagementTrends: new Error('boom'), detailedViewMetrics: new Error('boom') };
+    const utils = render(<OverviewTab channelId="1" />);
+    expect(utils.container.textContent).not.toContain('Error loading interactions');
+    expect(utils.container.textContent).not.toContain('Error loading views');
   });
 
   it('never renders Infinity% or NaN%', () => {
@@ -162,18 +174,6 @@ describe('OverviewTab', () => {
     // All time: the value comes from the channel record, so now it must show.
     selectPeriod('all');
     expect(utils.container.textContent).toContain('Error loading subscribers');
-  });
-
-  it('shows a views error when either the value or its trend badge fails', () => {
-    // The card renders a detailedViewMetrics number with a growthMetrics badge.
-    mockAnalytics.errors = { ...noErrors, growthMetrics: new Error('boom') };
-    const view = render(<OverviewTab channelId="1" />);
-    expect(view.container.textContent).toContain('Error loading views');
-    view.unmount();
-
-    mockAnalytics.errors = { ...noErrors, detailedViewMetrics: new Error('boom') };
-    const utils = render(<OverviewTab channelId="1" />);
-    expect(utils.container.textContent).toContain('Error loading views');
   });
 });
 

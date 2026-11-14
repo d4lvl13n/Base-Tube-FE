@@ -38,10 +38,11 @@ export const Checkbox: React.FC<CheckboxProps> = ({
       onClick={handleClick}
       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border
                   transition-colors duration-150 focus-visible:outline-none
-                  focus-visible:ring-2 focus-visible:ring-[#fa7517]/40 ${
+                  focus-visible:ring-2 focus-visible:ring-[#fa7517]/50 focus-visible:ring-offset-2
+                  focus-visible:ring-offset-black ${
                     filled
                       ? 'border-[#fa7517] bg-[#fa7517]'
-                      : 'border-gray-600 bg-transparent hover:border-gray-400'
+                      : 'border-gray-500 bg-black/40 hover:border-gray-300'
                   } ${className ?? ''}`}
     >
       {checked && !indeterminate && (

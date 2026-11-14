@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useYouTubeAuth } from '../../../../../hooks/useYouTubeAuth';
 import { toast } from 'react-toastify';
 import { Trash, Youtube, AlertCircle, CheckCircle } from 'lucide-react';
+import { button, cx, sheen, skeleton, surface } from '../../Business/businessStyles';
 
 interface YouTubeIntegrationProps {
   className?: string;
@@ -31,101 +32,99 @@ const YouTubeIntegration: React.FC<YouTubeIntegrationProps> = ({ className }) =>
   };
 
   return (
-    <div className={`bg-zinc-900 rounded-lg p-4 sm:p-6 ${className}`}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg sm:text-xl font-semibold flex items-center">
-          <Youtube className="mr-2 text-red-500" size={20} /> 
+    <section className={cx(surface.card, 'p-5 md:p-6', className)}>
+      <div className={sheen} aria-hidden="true" />
+      <div className="relative">
+        <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-white">
+          <Youtube className="text-red-500" size={20} aria-hidden="true" />
           YouTube Integration
         </h3>
-      </div>
 
-      {status === 'loading' && (
-        <div className="text-zinc-400 animate-pulse text-sm sm:text-base">
-          Checking YouTube connection status...
-        </div>
-      )}
-
-      {status === 'linked' && (
-        <div>
-          <div className="flex items-center mb-4 text-green-500 text-sm sm:text-base">
-            <CheckCircle size={18} className="mr-2 flex-shrink-0" />
-            <span>Channel Connected</span>
+        {status === 'loading' && (
+          <div className="space-y-3" aria-busy="true">
+            <p className="text-sm text-gray-400">Checking YouTube connection status...</p>
+            <div className={cx(skeleton.block, 'h-12 w-full')} aria-hidden="true" />
           </div>
-          
-          {channel?.title && (
-            <div className="mb-4 p-2 sm:p-3 bg-zinc-800 rounded-md">
-              <div className="text-xs sm:text-sm text-zinc-400">Connected Channel:</div>
-              <div className="font-medium text-sm sm:text-base">{channel.title}</div>
-            </div>
-          )}
+        )}
 
-          {!showConfirm ? (
-            <button
-              onClick={() => setShowConfirm(true)}
-              className="flex items-center px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-red-900/30 text-red-400 border border-red-900 rounded-md hover:bg-red-900/50 transition-colors w-full sm:w-auto justify-center sm:justify-start"
-            >
-              <Trash size={16} className="mr-2" />
-              Unlink YouTube Channel
-            </button>
-          ) : (
-            <div className="border border-red-800 rounded-md p-3 bg-red-950/20">
-              <p className="text-xs sm:text-sm text-red-400 mb-3">
-                Are you sure you want to unlink your YouTube channel? You'll need to reconnect to create content passes.
-              </p>
-              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-                <button
-                  onClick={handleUnlink}
-                  disabled={unlinking}
-                  className="px-4 py-2 text-xs sm:text-sm bg-red-700 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed w-full"
-                >
-                  {unlinking ? 'Unlinking...' : 'Confirm Unlink'}
-                </button>
-                <button
-                  onClick={() => setShowConfirm(false)}
-                  disabled={unlinking}
-                  className="px-4 py-2 text-xs sm:text-sm bg-zinc-800 text-white rounded-md hover:bg-zinc-700 w-full"
-                >
-                  Cancel
-                </button>
+        {status === 'linked' && (
+          <div>
+            <div className="mb-4 flex items-center gap-2 text-sm text-emerald-300">
+              <CheckCircle size={18} className="shrink-0" aria-hidden="true" />
+              <span>Channel Connected</span>
+            </div>
+
+            {channel?.title && (
+              <div className="mb-4 rounded-lg border border-gray-800/50 bg-black/40 p-3">
+                <div className="text-xs text-gray-400">Connected Channel:</div>
+                <div className="mt-0.5 text-sm font-medium text-white">{channel.title}</div>
+              </div>
+            )}
+
+            {!showConfirm ? (
+              <button
+                onClick={() => setShowConfirm(true)}
+                className={cx(
+                  button.secondary,
+                  'w-full border-red-500/30 text-red-300 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-200 focus-visible:ring-red-400/50 sm:w-auto',
+                )}
+              >
+                <Trash size={16} aria-hidden="true" />
+                Unlink YouTube Channel
+              </button>
+            ) : (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/[0.05] p-3">
+                <p className="mb-3 text-sm text-red-200">
+                  Are you sure you want to unlink your YouTube channel? You'll need to reconnect to create content passes.
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button onClick={handleUnlink} disabled={unlinking} className={cx(button.danger, 'w-full sm:w-auto')}>
+                    {unlinking ? 'Unlinking...' : 'Confirm Unlink'}
+                  </button>
+                  <button
+                    onClick={() => setShowConfirm(false)}
+                    disabled={unlinking}
+                    className={cx(button.ghost, 'w-full justify-center sm:w-auto')}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {status === 'unlinked' && (
+          <div>
+            <div className="mb-4 flex items-start gap-2">
+              <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-300" aria-hidden="true" />
+              <div>
+                <h4 className="text-sm font-medium text-amber-200">No YouTube channel yet</h4>
+                <p className="mt-1 text-sm text-gray-300">
+                  Hook up your channel once, and you can start selling unlisted videos in a snap.
+                </p>
               </div>
             </div>
-          )}
-        </div>
-      )}
 
-      {status === 'unlinked' && (
-        <div>
-          <div className="flex items-start mb-4">
-            <AlertCircle size={18} className="mr-2 mt-0.5 flex-shrink-0 text-amber-500" />
-            <div>
-              <h4 className="font-medium text-amber-500 text-sm sm:text-base">No YouTube channel yet</h4>
-              <p className="text-zinc-300 mt-1 text-xs sm:text-sm">
-                Hook up your channel once, and you can start selling unlisted videos in a snap.
-              </p>
+            <div className="mb-4 rounded-lg border border-gray-800/50 bg-black/40 p-3">
+              <h5 className="mb-2 text-xs font-medium text-gray-300">Why connect?</h5>
+              <ul className="list-disc space-y-1 pl-4 text-sm text-gray-400">
+                <li>Start earning from your best videos</li>
+                <li>You stay in control — we just check ownership</li>
+              </ul>
             </div>
+
+            <button onClick={() => startOAuth()} className={cx(button.primary, 'w-full sm:w-auto')}>
+              <Youtube size={18} aria-hidden="true" />
+              Verify YouTube Channel
+            </button>
+            <p className="mt-2 text-xs text-gray-400">
+              P.S. We can't post or edit anything on your channel.
+            </p>
           </div>
-          
-          <div className="mb-4 p-2 sm:p-3 border border-zinc-700 rounded-md bg-zinc-800/50">
-            <h5 className="font-medium mb-2 text-xs sm:text-sm">Why connect?</h5>
-            <ul className="text-xs sm:text-sm text-zinc-400 list-disc pl-4 space-y-1">
-              <li>Start earning from your best videos</li>
-              <li>You stay in control — we just check ownership</li>
-            </ul>
-          </div>
-          
-          <button
-            onClick={() => startOAuth()}
-            className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-500 transition-colors flex items-center justify-center text-xs sm:text-sm"
-          >
-            <Youtube size={18} className="mr-2" />
-            Verify YouTube Channel
-          </button>
-          <p className="text-xs text-zinc-500 mt-2">
-            P.S. We can't post or edit anything on your channel.
-          </p>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </section>
   );
 };
 

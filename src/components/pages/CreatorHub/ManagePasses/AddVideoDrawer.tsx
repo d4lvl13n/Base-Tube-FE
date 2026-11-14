@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Check, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { getYouTubeID, youtubeApi } from '../../../../api/youtube';
-import { cx, form, list } from '../shared/hubStyles';
+import { cx, form, list } from '../Business/businessStyles';
 
 interface VideoRow {
   value: string;
@@ -18,11 +18,13 @@ interface AddVideoDrawerProps {
   onSubmit: (videos: { url: string; title?: string }[]) => void;
   isLoading: boolean; // overall loading while submitting
   passTitle?: string;
+  /** Replace mode: one video, put in the place of this one. */
+  replacing?: { title: string } | null;
 }
 
 /**
  * The right-hand drawer that adds videos to a pass, in the hub's register:
- * a `#0f0f0f` sheet behind a hairline, a 56 px header bar, the form fields
+ * a black sheet behind a hairline, a 56 px header bar, the form fields
  * from the edit page, and orange on the one button that commits.
  */
 const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
@@ -31,6 +33,7 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
   onSubmit,
   isLoading,
   passTitle = 'Content Pass',
+  replacing = null,
 }) => {
   const [rows, setRows] = useState<VideoRow[]>([{ value: '' }]);
   const processedUrls = useRef<Set<string>>(new Set());
@@ -116,7 +119,7 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
       {isOpen && (
         <>
           <motion.div
-            className="fixed inset-0 z-50 bg-black/60"
+            className="fixed inset-0 z-50 bg-black/80"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -125,7 +128,7 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
             aria-hidden="true"
           />
           <motion.div
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-gray-800/60 bg-[#0f0f0f] text-white"
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-gray-800/70 bg-black text-white shadow-[-32px_0_80px_rgba(0,0,0,0.8)]"
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-video-drawer-title"
@@ -133,12 +136,14 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             {/* header */}
-            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-gray-800/60 px-4 md:px-5">
+            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-gray-800/50 px-4 md:px-6">
               <div className="min-w-0 flex-1">
                 <h2 id="add-video-drawer-title" className={form.panelTitle}>
-                  Add videos
+                  {replacing ? 'Replace a video' : 'Add videos'}
                 </h2>
-                <p className={list.preview}>to {passTitle}</p>
+                <p className={list.preview}>
+                  {replacing ? `in place of “${replacing.title}” in ${passTitle}` : `to ${passTitle}`}
+                </p>
               </div>
               <button
                 type="button"
@@ -151,7 +156,7 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
             </div>
 
             {/* body - scrollable area */}
-            <div className="flex-1 space-y-5 overflow-y-auto p-4 md:p-5">
+            <div className="flex-1 space-y-5 overflow-y-auto p-4 md:p-6">
               {rows.map((row, idx) => (
                 <div key={idx} className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
@@ -179,7 +184,7 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
                     spellCheck={false}
                   />
                   {row.loading && (
-                    <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <p className="flex items-center gap-1.5 text-xs text-gray-400">
                       <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                       Fetching details…
                     </p>
@@ -209,14 +214,21 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
                   )}
                 </div>
               ))}
-              <button type="button" onClick={addRow} className={form.inlineAction}>
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                Add another video
-              </button>
+              {replacing ? (
+                <p className="text-xs leading-relaxed text-gray-400">
+                  Paste the link of an Unlisted video on your YouTube channel. It takes the same place in the pass; people who
+                  hold the pass can watch it straight away.
+                </p>
+              ) : (
+                <button type="button" onClick={addRow} className={form.inlineAction}>
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  Add another video
+                </button>
+              )}
             </div>
 
             {/* footer - fixed at bottom */}
-            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-800/60 px-4 py-3 md:px-5">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-800/50 px-4 py-3 md:px-6">
               <button type="button" onClick={onClose} className={form.ghostButton}>
                 Cancel
               </button>
@@ -229,8 +241,10 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                    Adding…
+                    {replacing ? 'Replacing…' : 'Adding…'}
                   </>
+                ) : replacing ? (
+                  'Replace video'
                 ) : (
                   `Add ${pendingCount > 1 ? `${pendingCount} videos` : 'video'}`
                 )}
@@ -253,7 +267,9 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
                     aria-labelledby="add-video-confirm-title"
                   >
                     <h3 id="add-video-confirm-title" className={form.panelTitle}>
-                      Add {pendingCount} {pendingCount === 1 ? 'video' : 'videos'} to this pass?
+                      {replacing
+                        ? `Put this video in place of “${replacing.title}”?`
+                        : `Add ${pendingCount} ${pendingCount === 1 ? 'video' : 'videos'} to this pass?`}
                     </h3>
                     <ul className={cx(list.divider, 'mt-3 max-h-40 overflow-y-auto')}>
                       {rows
@@ -286,7 +302,7 @@ const AddVideoDrawer: React.FC<AddVideoDrawerProps> = ({
                   exit={{ opacity: 0, y: prefersReducedMotion ? 0 : 8 }}
                   transition={{ duration: 0.15 }}
                   role="status"
-                  className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-md border border-emerald-500/25 bg-[#0f0f0f] px-3 py-1.5 text-xs text-emerald-400"
+                  className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-black px-3 py-1.5 text-xs text-emerald-300"
                 >
                   <Check className="h-3.5 w-3.5" aria-hidden="true" />
                   Videos added

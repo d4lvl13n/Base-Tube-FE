@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PlayCircle, Wallet, Clock3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import UnlockButton from './UnlockButton';
@@ -7,11 +7,20 @@ import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useCryptoDirectBuy } from '../../hooks/useOnchainPass';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import CryptoPurchaseModal from './CryptoPurchaseModal';
-import PassConsentBoxes from './PassConsentBoxes';
+import PassConsentBoxes, { PassBuyerDisclosure } from './PassConsentBoxes';
 import type { CryptoPurchasePhase } from '../../types/onchainPass';
 import { readCryptoCheckoutContext } from '../../utils/checkoutStorage';
 import { getPassErrorMessage } from '../../utils/passErrorMessages';
-import { saleConsentPayload, type SaleConsentPublic } from '../../constants/passConsent';
+import { passCheckoutPayload, type SaleConsentPublic } from '../../constants/passConsent';
+import { getStoredAttribution } from '../../utils/attribution';
+import {
+  MAX_CHECKOUT_QUANTITY,
+  allowanceSentence,
+  buyerAllowanceOf,
+  checkoutQuantityCeiling,
+  perPersonText,
+  type BuyerAllowanceDto,
+} from '../../utils/passTerms';
 
 interface PassActionButtonProps {
   pass: {
@@ -21,7 +30,10 @@ interface PassActionButtonProps {
     formatted_price: string;
     price_cents?: number;
     currency?: string;
-    supply_cap?: number;
+    supply_cap?: number | null;
+    /** Per-buyer limit and the signed-in buyer's allowance (see utils/passTerms). */
+    max_per_buyer?: number | null;
+    buyer_allowance?: BuyerAllowanceDto | null;
     minted_count?: number;
     sold_count?: number;
     available_count?: number | null;
@@ -30,6 +42,8 @@ interface PassActionButtonProps {
     purchase_block_reason_code?: string | null;
     purchase_block_reason?: string | null;
     sale_consent?: SaleConsentPublic;
+    /** Shown in the optional "let this creator email me" box. */
+    creator_name?: string | null;
   };
   alreadyOwns: boolean;
   isAccessLoading: boolean;
@@ -38,7 +52,7 @@ interface PassActionButtonProps {
 const BLOCK_REASON_FALLBACKS: Record<string, string> = {
   PASS_NOT_PUBLISHED: 'This pass is not for sale yet.',
   PASS_NOT_ONCHAIN: 'This pass is not for sale yet.',
-  PASS_SALE_INACTIVE: 'This pass is not currently on sale.',
+  PASS_SALE_INACTIVE: 'Sales of this pass are paused.',
   PASS_SOLD_OUT: 'This pass is sold out.',
 };
 
@@ -51,8 +65,7 @@ function getBlockMessage(pass: PassActionButtonProps['pass']): string | null {
   return 'This pass cannot be purchased right now.';
 }
 
-// Mirrors base-be passQuantity.ts: one grantKeys batch until batching is resumable.
-const MAX_CHECKOUT_QUANTITY = 20;
+// The technical ceiling (one grantKeys batch) lives with the other pass terms in utils/passTerms.
 
 function remainingForPass(pass: PassActionButtonProps['pass']): number | null {
   if (pass.available_count != null) return Math.max(0, pass.available_count);
@@ -83,6 +96,7 @@ function QuantityStepper({
   disabled,
   onChange,
   totalLabel,
+  limitNote,
 }: {
   quantity: number;
   max: number;
@@ -90,6 +104,8 @@ function QuantityStepper({
   disabled?: boolean;
   onChange: (next: number) => void;
   totalLabel?: string | null;
+  /** "Up to 10 per person", or what this buyer already has and may still buy. */
+  limitNote?: string | null;
 }) {
   const clamp = (n: number) => Math.min(max, Math.max(1, n));
   const remainingLabel =
@@ -119,6 +135,7 @@ function QuantityStepper({
             type="number"
             min={1}
             max={max}
+            aria-label="Quantity"
             value={quantity}
             disabled={disabled}
             onChange={(e) => {
@@ -144,6 +161,11 @@ function QuantityStepper({
       {totalLabel ? (
         <p className="text-sm text-[#f0f0f0]">
           Total {totalLabel}
+        </p>
+      ) : null}
+      {limitNote ? (
+        <p className="text-xs leading-relaxed text-[#a1a4a5]" aria-live="polite">
+          {limitNote}
         </p>
       ) : null}
     </div>
@@ -197,14 +219,26 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
   const [cryptoReservationExpiresAt, setCryptoReservationExpiresAt] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const remaining = remainingForPass(pass);
-  const maxQty = Math.max(1, Math.min(remaining ?? MAX_CHECKOUT_QUANTITY, MAX_CHECKOUT_QUANTITY));
+  // The buyer's allowance (signed in only): the selector never offers more than they may still buy.
+  const allowance = buyerAllowanceOf(pass);
+  const quantityCeiling = checkoutQuantityCeiling(remaining, allowance, MAX_CHECKOUT_QUANTITY);
+  const maxQty = Math.max(1, quantityCeiling);
+  const buyerLimitReached = allowance !== null && allowance.remaining <= 0;
+  const perBuyerLimit = allowance?.maxPerBuyer ?? (pass.max_per_buyer && pass.max_per_buyer > 0 ? pass.max_per_buyer : null);
+  const limitNote = allowanceSentence(allowance) ?? (perBuyerLimit ? `${perPersonText(perBuyerLimit)}.` : null);
   const [quantity, setQuantity] = useState(1);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutIntent, setCheckoutIntent] = useState<'card' | 'crypto' | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedWithdrawal, setAcceptedWithdrawal] = useState(false);
+  const [creatorContact, setCreatorContact] = useState(false);
   const consentReady = acceptedTerms && acceptedWithdrawal;
-  const consentPayload = saleConsentPayload(pass.sale_consent, acceptedTerms, acceptedWithdrawal);
+  // Read once per page view; undefined when nothing is recorded or the browser asks not to be tracked.
+  const attribution = useMemo(() => getStoredAttribution(), []);
+  const consentPayload = passCheckoutPayload(pass.sale_consent, acceptedTerms, acceptedWithdrawal, {
+    creatorContactConsent: creatorContact,
+    attribution,
+  });
   const canPurchase =
     pass.can_purchase === true &&
     (pass.publish_status === undefined || pass.publish_status === 'published');
@@ -396,7 +430,12 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
           </button>
         ) : null}
 
-        {canPurchase ? (
+        {canPurchase && buyerLimitReached ? (
+          // This buyer already has the most one person may buy: say so instead of offering a checkout.
+          <p className="text-sm text-[#a1a4a5] leading-relaxed" role="status">
+            {limitNote}
+          </p>
+        ) : canPurchase ? (
           checkoutIntent ? (
             <>
               <QuantityStepper
@@ -410,6 +449,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
                     ? formatCheckoutTotal(pass.price_cents, quantity, pass.currency)
                     : null
                 }
+                limitNote={limitNote}
               />
               <PassConsentBoxes
                 consent={pass.sale_consent}
@@ -417,9 +457,13 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
                 acceptedWithdrawal={acceptedWithdrawal}
                 onAcceptedTerms={setAcceptedTerms}
                 onAcceptedWithdrawal={setAcceptedWithdrawal}
+                creatorContact={creatorContact}
+                onCreatorContact={setCreatorContact}
+                creatorName={pass.creator_name}
                 disabled={cryptoInFlight}
                 autoFocus
               />
+              <PassBuyerDisclosure />
 
               {checkoutIntent === 'card' ? (
                 <UnlockButton
@@ -492,6 +536,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
                     ? formatCheckoutTotal(pass.price_cents, quantity, pass.currency)
                     : null
                 }
+                limitNote={limitNote}
               />
               <button
                 type="button"
@@ -508,6 +553,7 @@ const PassActionButton: React.FC<PassActionButtonProps> = ({
                 <Wallet className="w-4 h-4" />
                 {alreadyOwns ? 'Buy more with crypto' : 'Buy with crypto'}
               </button>
+              <PassBuyerDisclosure />
               {checkoutFinePrint}
             </>
           )

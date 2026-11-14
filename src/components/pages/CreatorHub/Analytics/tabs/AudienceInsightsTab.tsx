@@ -2,10 +2,7 @@ import React, { useState } from 'react';
 import { 
   Users, 
   Globe, 
-  Clock, 
-  CalendarClock,
-  TrendingUp, 
-  BarChart,
+  Clock,
   Smartphone,
   Monitor,
   Tablet
@@ -14,6 +11,8 @@ import { useCreatorAnalytics } from '../../../../../hooks/useAnalyticsData';
 import StatsCard from '../../../CreatorHub/StatsCard';
 import { Select } from '../../../../ui/Select';
 import { WatchTimeChart } from '../charts/WatchTimeChart';
+import { audienceReliableSince } from '../../../../../hooks/useAnalyticsData';
+import { countryLabel, formatCalendarDate, formatDuration, weekdayLabel } from '../metrics';
 
 // Bar chart component for demographic data visualization
 const DemographicBarChart: React.FC<{ 
@@ -55,7 +54,7 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
     isLoading,
     loading,
     errors,
-  } = useCreatorAnalytics(period, channelId);
+  } = useCreatorAnalytics(period, channelId, { includeDemographics: true });
 
   // Handle period change with cache invalidation
   // Just switch the period. Every period-sensitive query has the period in
@@ -66,18 +65,19 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
     if (newPeriod !== period) setPeriod(newPeriod);
   };
 
-  // Map weekday patterns for a weekly view chart
-  const watchTimeByDay = channelWatchPatterns?.weekdayPatterns?.map(pattern => ({
-    day: getDayName(pattern.dayOfWeek),
-    views: pattern.viewCount
-  })) ?? [];
+  // Monday to Sunday, every day present. The backend sends MySQL DAYOFWEEK
+  // (1 = Sunday); reading it as 0 = Sunday shifted every bar by one day.
+  const watchTimeByDay = [2, 3, 4, 5, 6, 7, 1].map((dayOfWeek) => ({
+    day: weekdayLabel(dayOfWeek),
+    views: channelWatchPatterns?.weekdayPatterns?.find((p) => p.dayOfWeek === dayOfWeek)?.viewCount ?? 0
+  }));
 
-  // Get the top location from real data
-  const topLocation = demographics?.geoDistribution?.[0] || { country: 'Unknown', percentage: 0, viewCount: 0 };
+  const measuredSince = formatCalendarDate(audienceReliableSince(demographics));
+  const topCountry = demographics?.geoDistribution?.[0];
 
-  // Organizing data for demographic charts from real API data
+  // Shares of all counted views with a recorded country; 'ZZ' is "Unknown".
   const countryData = demographics?.geoDistribution?.map(country => ({
-    name: country.country,
+    name: countryLabel(country),
     value: country.percentage
   })) ?? [];
 
@@ -117,6 +117,11 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
         <div>
           <h2 className="text-2xl font-bold">Audience Insights</h2>
           <p className="text-gray-400">Understand who is watching your content</p>
+          {measuredSince && (
+            <p className="text-sm text-gray-500 mt-1">
+              Audience numbers are counted since {measuredSince}. Nothing before that date is included.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {isLoading && (
@@ -141,18 +146,18 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
         <StatsCard
           icon={Globe}
           title="Top Location"
-          value={topLocation.country}
-          change={0}
+          value={topCountry ? countryLabel(topCountry) : 'No views yet'}
           loading={loading.demographics}
-          subtitle={`${topLocation.percentage}% of viewers`}
+          subtitle={topCountry
+            ? `${topCountry.percentage}% of ${(demographics?.totalViews ?? 0).toLocaleString()} counted views`
+            : 'No counted view in this period'}
           error={errors.demographics ? "Error loading location" : undefined}
         />
         
         <StatsCard
           icon={Clock}
           title="Avg Watch Duration"
-          value={`${((channelWatchPatterns?.durationStats?.averageWatchDuration ?? 0) / 60).toFixed(1)}m`}
-          change={0}
+          value={formatDuration(channelWatchPatterns?.durationStats?.averageWatchDuration)}
           loading={loading.channelWatchPatterns || loading.detailedViewMetrics}
           subtitle={`${(detailedViewMetrics?.completedViews ?? 0).toLocaleString()} completed views`}
           error={errors.channelWatchPatterns || errors.detailedViewMetrics ? "Error loading duration/views" : undefined}
@@ -162,9 +167,8 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
           icon={getDeviceIcon(primaryDevice.type)}
           title="Primary Device"
           value={primaryDevice.type}
-          change={0}
           loading={loading.demographics}
-          subtitle={`${primaryDevice.percentage}% of viewers`}
+          subtitle={`${primaryDevice.percentage}% of counted views`}
           error={errors.demographics ? "Error loading device" : undefined}
         />
       </div>
@@ -192,7 +196,7 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
         <h3 className="text-xl font-semibold">Viewing Patterns</h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="p-6 bg-black/50 rounded-xl">
-            <h4 className="text-base font-medium text-gray-300 mb-4">Watch Time by Hour</h4>
+            <h4 className="text-base font-medium text-gray-300 mb-4">Views by hour of day (UTC)</h4>
             {loading.channelWatchPatterns ? <p role="status">Loading watch patterns…</p>
               : errors.channelWatchPatterns ? <p role="alert">Unable to load watch patterns.</p>
               : <WatchTimeChart
@@ -207,7 +211,7 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
           </div>
           
           <div className="p-6 bg-black/50 rounded-xl">
-            <h4 className="text-base font-medium text-gray-300 mb-4">Watch Time by Day of Week</h4>
+            <h4 className="text-base font-medium text-gray-300 mb-4">Views by day of week (UTC)</h4>
             {loading.channelWatchPatterns ? <p role="status">Loading watch patterns…</p>
               : errors.channelWatchPatterns ? <p role="alert">Unable to load watch patterns.</p>
               : <div className="h-64 flex items-end justify-between px-4">
@@ -232,9 +236,3 @@ export const AudienceInsightsTab: React.FC<{ channelId: string }> = ({ channelId
     </div>
   );
 };
-
-// Helper functions
-function getDayName(dayIndex: number): string {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return days[dayIndex % 7];
-}

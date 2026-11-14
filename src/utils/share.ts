@@ -1,5 +1,6 @@
 import { toast } from 'react-toastify';
 import { ShareToast } from '../components/common/Toast/ShareToast';
+import { recordShareAction } from '../api/shareApi';
 
 interface ShareVideoProps {
   videoId: string;
@@ -33,6 +34,8 @@ export const shareVideo = async ({ videoId, title, onOpenSharePopup }: ShareVide
           text: shareText,
           url: videoUrl,
         });
+        // Resolved = the viewer picked a target; a cancel rejects (AbortError).
+        void recordShareAction(videoId, 'native');
       } catch (error) {
         console.error('Share error:', error); // Debug log
         if ((error as Error).name !== 'AbortError') {

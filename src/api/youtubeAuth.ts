@@ -7,7 +7,7 @@ import api from './index';
  * `audit` → /ai-thumbnails/channel-audit). Sending anything else silently
  * collapses to `dashboard`.
  */
-export type YouTubeOAuthReturnTo = 'create' | 'dashboard' | 'audit';
+export type YouTubeOAuthReturnTo = 'create' | 'dashboard' | 'audit' | 'business';
 
 /**
  * Response shape for GET /api/integrations/youtube/status

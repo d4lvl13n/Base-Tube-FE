@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { formatNumber } from '../../../../utils/format';
+import { recordShareAction } from '../../../../api/shareApi';
 
 interface VideoActionWheelProps {
   videoId: string;
@@ -113,6 +114,8 @@ const VideoActionWheel: React.FC<VideoActionWheelProps> = ({
           text: `Watch ${videoTitle} on Base.Tube`,
           url: shareUrl,
         });
+        // Resolved = the viewer picked a target; a cancel rejects (AbortError).
+        void recordShareAction(videoId, 'native');
         return;
       } catch (error) {
         if ((error as Error).name === 'AbortError') return;

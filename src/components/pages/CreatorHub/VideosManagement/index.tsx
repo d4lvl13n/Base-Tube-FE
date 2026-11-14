@@ -32,7 +32,9 @@ import {
 import { WriteQueue, createWriteQueue } from './writeQueue';
 import { styles } from './components/VideoList/styles';
 import EditVideoModal from './EditVideoModal';
-import DeleteConfirmationDialog from '../../../common/DeleteConfirmationDialog';
+import DeleteConfirmationDialog from './components/DeleteVideosDialog';
+import { AlertCircle, RefreshCw } from 'lucide-react';
+import { button, cx, empty, surface } from '../Business/businessStyles';
 import { Video, VideoStatus } from '../../../../types/video';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
 import { useUploadQueueContext } from '../../../../contexts/UploadQueueContext';
@@ -852,7 +854,24 @@ const VideosManagement: React.FC = () => {
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   if (error) {
-    return <div className="p-6 text-red-500">Failed to load videos</div>;
+    return (
+      <div className="relative pt-24 pb-16">
+        <div className="mx-auto max-w-[1600px] px-4 md:px-6">
+          <div className={surface.card} role="alert">
+            <div className={empty.wrapper}>
+              <span className={cx(empty.icon, 'text-red-300')} aria-hidden="true">
+                <AlertCircle className="h-5 w-5" />
+              </span>
+              <p className={empty.title}>Failed to load videos</p>
+              <button type="button" onClick={() => void refetch()} className={cx(button.secondary, 'mt-5')}>
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                Try again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const deleteCount = pendingDelete?.length ?? 0;
@@ -878,7 +897,7 @@ const VideosManagement: React.FC = () => {
 
   if (editingVideo) {
     return (
-      <div className="relative pt-24">
+      <div className="relative pt-24 pb-16 text-white">
         <div className="mx-auto max-w-[1600px] px-4 md:px-6">
           <EditVideoModal
             video={editingVideo}
@@ -894,8 +913,8 @@ const VideosManagement: React.FC = () => {
   }
 
   return (
-    <div className="relative pt-24 pb-8">
-      <div className="mx-auto max-w-[1600px] space-y-4 px-4 md:px-6">
+    <div className="relative pt-24 pb-16 text-white">
+      <div className="mx-auto max-w-[1600px] space-y-5 px-4 md:px-6">
         <DraftsInPreparation />
 
         <VideosToolbar

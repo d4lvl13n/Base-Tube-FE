@@ -18,7 +18,9 @@ const CreatorHubLandingPage: React.FC = () => {
   return (
     <div className="bg-black text-white min-h-screen pt-16">
       {hasChannel && selectedChannel && (
-        <ChannelPreviewCard channel={selectedChannel} />
+        <div className="mx-auto max-w-7xl px-4 pt-8 md:px-8">
+          <ChannelPreviewCard channel={selectedChannel} />
+        </div>
       )}
 
       <div className="flex-1">

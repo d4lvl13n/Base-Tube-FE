@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import TabNav from '../../../common/TabNav';
-import { useCreatorAnalytics } from '../../../../hooks/useAnalyticsData';
+import { useAudienceAvailability, useCreatorAnalytics } from '../../../../hooks/useAnalyticsData';
 import { ContentPerformanceTab } from './tabs/ContentPerformanceTab';
 import { AlertCircle } from 'lucide-react';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
@@ -13,10 +14,34 @@ import { EngagementAnalyticsTab } from './tabs/EngagementAnalyticsTab';
 import { DetailedVideoPerformanceTab } from './tabs/DetailedVideoPerformanceTab';
 import { AIInsightsTab } from './tabs/AIInsightsTab';
 import NoChannelView from '../NoChannelView';
+import HowViewsAreCounted from './HowViewsAreCounted';
+
+const BASE_TABS = [
+  'Overview',
+  'Content',
+  'Growth',
+  'Engagement',
+  'Video Performance',
+  'AI Insights'
+];
+
+/** `?tab=growth` (any case, "video-performance" for spaces) opens that tab. */
+const tabFromQuery = (value: string | null): string | null => {
+  if (!value) return null;
+  const wanted = value.trim().toLowerCase().replace(/[-_]+/g, ' ');
+  return BASE_TABS.find((tab) => tab.toLowerCase() === wanted) ?? null;
+};
 
 const AnalyticsDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => tabFromQuery(searchParams.get('tab')) ?? 'Overview');
   const { selectedChannelId, selectedChannel, channels } = useChannelSelection();
+  const channelName = selectedChannel?.name;
+
+  // The Audience tab comes back only when the API says since when its numbers
+  // are reliable (see useAudienceAvailability). Without that date it stays
+  // hidden: the old numbers multiplied each country by the days in the window.
+  const { measuredSince: audienceReliableSince } = useAudienceAvailability(selectedChannelId);
   
   const analyticsData = useCreatorAnalytics('7d', selectedChannelId);
   const isError = analyticsData.viewMetrics === undefined && 
@@ -32,42 +57,36 @@ const AnalyticsDashboard: React.FC = () => {
     );
   }
 
+  // 'Audience' is listed ONLY when the API returns `measuredSince`:
+  // AudienceDemographicsService used to sum cumulative per-country counters
+  // across days, so the geographic split was multiplied by the number of days
+  // in the window (docs/ANALYTICS_REVIEW_2026-08-29.md (base-be) finding 4).
+  const tabs = audienceReliableSince
+    ? [...BASE_TABS.slice(0, 2), 'Audience', ...BASE_TABS.slice(2)]
+    : BASE_TABS;
+  // A tab that is not offered (Audience without its flag) falls back to Overview.
+  const shownTab = tabs.includes(activeTab) ? activeTab : 'Overview';
+
   const renderActiveTab = () => {
-    switch (activeTab) {
+    switch (shownTab) {
       case 'Overview':
-        return <OverviewTab channelId={selectedChannelId} />;
+        return <OverviewTab channelId={selectedChannelId} channelName={channelName} />;
       case 'Content':
-        return <ContentPerformanceTab channelId={selectedChannelId} />;
+        return <ContentPerformanceTab channelId={selectedChannelId} channelName={channelName} />;
       case 'Audience':
         return <AudienceInsightsTab channelId={selectedChannelId} />;
       case 'Growth':
-        return <GrowthTab channelId={selectedChannelId} />;
+        return <GrowthTab channelId={selectedChannelId} channelName={channelName} />;
       case 'Engagement':
-        return <EngagementAnalyticsTab channelId={selectedChannelId} />;
+        return <EngagementAnalyticsTab channelId={selectedChannelId} channelName={channelName} />;
       case 'Video Performance':
-        return <DetailedVideoPerformanceTab channelId={selectedChannelId} />;
+        return <DetailedVideoPerformanceTab channelId={selectedChannelId} channelName={channelName} />;
       case 'AI Insights':
         return <AIInsightsTab channelId={selectedChannelId} />;
       default:
         return null;
     }
   };
-
-  // 'Audience' is intentionally NOT listed: AudienceDemographicsService sums
-  // cumulative per-country counters across days, so the geographic split is
-  // multiplied by the number of days in the window — those numbers are wrong, not
-  // merely sparse. The component is still in the tree and the case is still routed on
-  // the backend; re-add it here once the underlying data is fixed. See
-  // docs/ANALYTICS_REVIEW_2026-08-29.md (base-be) finding 4.
-  //
-  const tabs = [
-    'Overview',
-    'Content',
-    'Growth',
-    'Engagement',
-    'Video Performance',
-    'AI Insights'
-  ];
 
   return (
     <motion.div
@@ -103,13 +122,18 @@ const AnalyticsDashboard: React.FC = () => {
         <div className="relative z-10">
           <TabNav
             tabs={tabs}
-            activeTab={activeTab}
+            activeTab={shownTab}
             setActiveTab={setActiveTab}
           />
+          <p className="mt-4 text-sm text-gray-400">
+            Every number below is for the channel{' '}
+            <span className="text-white font-medium">{channelName ?? 'selected above'}</span> only.
+          </p>
+          <HowViewsAreCounted className="mt-3" />
           
           <AnimatePresence mode="wait">
             <motion.div
-              key={activeTab}
+              key={shownTab}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}

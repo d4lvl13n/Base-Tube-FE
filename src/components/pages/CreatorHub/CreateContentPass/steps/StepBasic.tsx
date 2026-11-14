@@ -1,8 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { UseFormRegister, FieldErrors, Control, UseFormSetValue, UseFormWatch, Controller } from 'react-hook-form';
-import { DollarSign, Euro, PoundSterling, Users, Calculator } from 'lucide-react';
-import { cx, form, page, segmented } from '../../shared/hubStyles';
+import { DollarSign, Euro, PoundSterling, Users, UserRound, Calculator, Lock } from 'lucide-react';
+import { cx, segmented, text } from '../../Business/businessStyles';
 import { FormData } from '../types';
+import {
+  MAX_PER_BUYER_HELP,
+  SUPPLY_CAP_BOUNDS,
+  SUPPLY_CAP_HELP,
+  SUPPLY_CAP_PRESETS,
+  validateMaxPerBuyer,
+  validateSupplyCap,
+} from '../../../../../utils/passTerms';
+import {
+  FieldError,
+  FieldHelp,
+  FieldLabel,
+  PresetChips,
+  WizardCard,
+  describedBy,
+  wizardInput,
+  wizardInputInvalid,
+} from '../wizardUi';
 
 interface StepBasicProps {
   register: UseFormRegister<FormData>;
@@ -18,7 +36,7 @@ const currencies = [
   { code: 'GBP', name: 'British Pound', symbol: PoundSterling },
 ];
 
-const suggestedPrices = [5, 10, 25, 50];
+const suggestedPrices = [5, 10, 25, 50] as const;
 
 const getCurrencySymbol = (currency: string | undefined) => {
   const currencyData = currencies.find(c => c.code === currency) || currencies[0];
@@ -30,17 +48,20 @@ const centsToDisplayValue = (value?: number) => {
   return `${value / 100}`.replace(/\.0$/, '');
 };
 
-/** `form.input` with room for a leading icon. */
-const prefixedInput = cx(form.input, 'pl-9');
+const intToDisplayValue = (value?: number) =>
+  value === undefined || value === null || Number.isNaN(value) ? '' : String(value);
+
+/** `wizardInput` with room for a leading icon. */
+const prefixedInput = cx(wizardInput, 'pl-9');
+const leadingIcon = 'pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500';
 
 const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProps): JSX.Element => {
   const watchedFields = watch();
   const [priceInput, setPriceInput] = useState(() => centsToDisplayValue(watchedFields.price_cents));
-  const [supplyCapInput, setSupplyCapInput] = useState(() =>
-    watchedFields.supply_cap === undefined || watchedFields.supply_cap === null || Number.isNaN(watchedFields.supply_cap)
-      ? ''
-      : String(watchedFields.supply_cap)
-  );
+  const [supplyCapInput, setSupplyCapInput] = useState(() => intToDisplayValue(watchedFields.supply_cap));
+  const [perBuyerInput, setPerBuyerInput] = useState(() => intToDisplayValue(watchedFields.max_per_buyer));
+  const titleLength = (watchedFields.title || '').length;
+  const cap = watchedFields.supply_cap;
   const activeSuggestedPrice = watchedFields.price_cents !== undefined
     ? suggestedPrices.find(price => price * 100 === watchedFields.price_cents)
     : undefined;
@@ -51,43 +72,61 @@ const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProp
     }
   }, [watchedFields.price_cents]);
 
+  // Keep the two number boxes in step with values set from elsewhere (presets, a resumed draft, a reset).
   useEffect(() => {
-    if (watchedFields.supply_cap === undefined || watchedFields.supply_cap === null || Number.isNaN(watchedFields.supply_cap)) {
-      setSupplyCapInput('');
-    }
+    setSupplyCapInput(intToDisplayValue(watchedFields.supply_cap));
   }, [watchedFields.supply_cap]);
 
+  useEffect(() => {
+    setPerBuyerInput(intToDisplayValue(watchedFields.max_per_buyer));
+  }, [watchedFields.max_per_buyer]);
+
+  /** A new number of passes: the per-person limit can never be above it. */
+  const applyCap = (next: number | undefined) => {
+    setValue('supply_cap', next, { shouldValidate: true, shouldDirty: true });
+    const perBuyer = watchedFields.max_per_buyer;
+    if (next !== undefined && Number.isInteger(next) && next >= 1 && perBuyer !== undefined && perBuyer > next) {
+      setValue('max_per_buyer', next, { shouldValidate: true, shouldDirty: true });
+    } else if (perBuyer !== undefined) {
+      setValue('max_per_buyer', perBuyer, { shouldValidate: true });
+    }
+  };
+
+  const capValid = typeof cap === 'number' && Number.isInteger(cap) && cap >= 1;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* ── Title ──────────────────────────────────────────────────────── */}
-      <section className={cx(form.panel, 'space-y-1.5')} aria-labelledby="basic-title-label">
-        <label id="basic-title-label" htmlFor="title" className={form.fieldLabel}>Pass title</label>
+      <WizardCard id="basic-name" title="Name your pass" description="Buyers see this name on the sales page and in their passes.">
+        <FieldLabel htmlFor="title" hint={`${titleLength}/120`}>
+          Pass title
+        </FieldLabel>
         <input
           id="title"
           type="text"
           placeholder="E.g., Premium Video Masterclass"
           aria-invalid={errors.title ? true : undefined}
-          className={cx(form.input, errors.title && 'border-red-500/60')}
+          aria-describedby={describedBy('title-help', errors.title && 'title-error')}
+          className={cx(wizardInput, errors.title && wizardInputInvalid)}
           maxLength={120}
           {...register('title', {
             required: 'Title is required',
             maxLength: { value: 120, message: 'Title must be 120 characters or fewer' },
           })}
         />
-        {errors.title && (
-          <p className={form.errorText}>{errors.title.message}</p>
-        )}
-        <p className={form.counter}>Choose a catchy title that describes your exclusive content.</p>
-      </section>
+        <FieldError id="title-error">{errors.title?.message}</FieldError>
+        <FieldHelp id="title-help">Choose a clear title that says what the videos are about. You can fix a typo later.</FieldHelp>
+      </WizardCard>
 
-      {/* ── Pricing & supply ───────────────────────────────────────────── */}
-      <section className={cx(form.panel, 'space-y-5')} aria-label="Pricing and supply">
-        <h2 className={form.panelTitle}>Pricing &amp; supply</h2>
-
+      {/* ── Price ──────────────────────────────────────────────────────── */}
+      <WizardCard
+        id="basic-price"
+        title="Price"
+        description="What one pass costs at the first sale. It never changes after someone buys."
+      >
         <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_auto]">
-          {/* Price */}
-          <div className="space-y-1.5">
-            <label htmlFor="price" className={form.fieldLabel}>Price</label>
+          <div>
+            <FieldLabel htmlFor="price">Price per pass</FieldLabel>
             <Controller
               name="price_cents"
               control={control}
@@ -109,7 +148,8 @@ const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProp
                     ref={ref}
                     value={priceInput}
                     aria-invalid={errors.price_cents ? true : undefined}
-                    className={cx(prefixedInput, errors.price_cents && 'border-red-500/60')}
+                    aria-describedby={describedBy('price-help', errors.price_cents && 'price-error')}
+                    className={cx(prefixedInput, 'tabular-nums', errors.price_cents && wizardInputInvalid)}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       const nextValue = e.target.value.replace(',', '.');
 
@@ -136,36 +176,25 @@ const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProp
                 </div>
               )}
             />
-            <div className="flex items-center gap-3 pt-1">
-              <span className={page.eyebrow}>Suggested</span>
-              <div className={segmented.trough} role="group" aria-label="Suggested prices">
-                {suggestedPrices.map(price => {
-                  const active = activeSuggestedPrice === price;
-                  return (
-                    <button
-                      key={price}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => {
-                        setPriceInput(price.toFixed(2));
-                        setValue('price_cents', price * 100, { shouldValidate: true, shouldDirty: true });
-                      }}
-                      className={cx(segmented.chip, 'tabular-nums', active ? segmented.chipActive : segmented.chipIdle)}
-                    >
-                      {price.toFixed(0)}
-                    </button>
-                  );
-                })}
-              </div>
+            <FieldError id="price-error">{errors.price_cents?.message}</FieldError>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="text-xs text-gray-400">Suggested</span>
+              <PresetChips
+                label="Suggested prices"
+                options={suggestedPrices}
+                value={activeSuggestedPrice}
+                onSelect={(price) => {
+                  setPriceInput(price.toFixed(2));
+                  setValue('price_cents', price * 100, { shouldValidate: true, shouldDirty: true });
+                }}
+              />
             </div>
-            {errors.price_cents && (
-              <p className={form.errorText}>{errors.price_cents.message}</p>
-            )}
+            <FieldHelp id="price-help">At least 1.00.</FieldHelp>
           </div>
 
           {/* Currency */}
-          <div className="space-y-1.5">
-            <span id="currency-label" className={form.fieldLabel}>Currency</span>
+          <div>
+            <FieldLabel id="currency-label">Currency</FieldLabel>
             <Controller
               name="currency"
               control={control}
@@ -173,7 +202,7 @@ const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProp
               render={({ field: { onChange, value, ref } }) => (
                 <div
                   id="currency"
-                  className={cx(segmented.trough, 'h-9')}
+                  className={cx(segmented.trough, 'h-10')}
                   role="radiogroup"
                   aria-labelledby="currency-label"
                 >
@@ -197,81 +226,115 @@ const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProp
                 </div>
               )}
             />
-            {errors.currency && (
-              <p className={form.errorText}>{errors.currency.message}</p>
-            )}
+            <FieldError>{errors.currency?.message}</FieldError>
           </div>
         </div>
+      </WizardCard>
 
-        {/* Supply cap */}
-        <div className="space-y-1.5 md:max-w-xs">
-          <label htmlFor="supply_cap" className={form.fieldLabel}>Supply cap</label>
-          <Controller
-            name="supply_cap"
-            control={control}
-            rules={{
-              required: 'Supply cap is required',
-              validate: value => (Number.isInteger(value) && (value ?? 0) >= 1) || 'Supply cap must be a whole number greater than 0'
-            }}
-            render={({ field: { onChange, ref } }) => (
-              <div className="relative">
-                <Users className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" aria-hidden="true" />
-                <input
-                  id="supply_cap"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="100"
-                  ref={ref}
-                  value={supplyCapInput}
-                  aria-invalid={errors.supply_cap ? true : undefined}
-                  className={cx(prefixedInput, 'tabular-nums', errors.supply_cap && 'border-red-500/60')}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    const digitsOnly = e.target.value.replace(/\D/g, '');
-                    setSupplyCapInput(digitsOnly);
-                    if (digitsOnly === '') {
-                      onChange(undefined);
-                      return;
-                    }
+      {/* ── How many passes exist, and how many one person may buy ─────── */}
+      <WizardCard
+        id="basic-limits"
+        title="How many passes exist"
+        description={SUPPLY_CAP_HELP}
+      >
+        <div className="space-y-6">
+          <div>
+            <FieldLabel htmlFor="supply_cap">Number of passes</FieldLabel>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <PresetChips
+                label="Common numbers of passes"
+                options={SUPPLY_CAP_PRESETS}
+                value={cap}
+                onSelect={(n) => applyCap(n)}
+                format={(n) => n.toLocaleString('en-US')}
+              />
+              <span className="hidden text-xs text-gray-500 sm:inline" aria-hidden="true">or</span>
+              <Controller
+                name="supply_cap"
+                control={control}
+                rules={{ validate: (value) => validateSupplyCap(value) }}
+                render={({ field: { ref } }) => (
+                  <div className="relative sm:w-44">
+                    <Users className={leadingIcon} aria-hidden="true" />
+                    <input
+                      id="supply_cap"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Custom"
+                      ref={ref}
+                      value={supplyCapInput}
+                      aria-invalid={errors.supply_cap ? true : undefined}
+                      aria-describedby={describedBy('supply-cap-help', errors.supply_cap && 'supply-cap-error')}
+                      className={cx(prefixedInput, 'tabular-nums', errors.supply_cap && wizardInputInvalid)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 7);
+                        setSupplyCapInput(digitsOnly);
+                        applyCap(digitsOnly === '' ? undefined : Number.parseInt(digitsOnly, 10));
+                      }}
+                    />
+                  </div>
+                )}
+              />
+            </div>
+            <FieldError id="supply-cap-error">{errors.supply_cap?.message}</FieldError>
+            <FieldHelp id="supply-cap-help">
+              A whole number from {SUPPLY_CAP_BOUNDS.min.toLocaleString('en-US')} to {SUPPLY_CAP_BOUNDS.max.toLocaleString('en-US')}.
+              It is fixed once the pass is published.
+            </FieldHelp>
+          </div>
 
-                    onChange(Number.parseInt(digitsOnly, 10));
-                  }}
-                  onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-                    const digitsOnly = e.target.value.replace(/\D/g, '');
-                    if (!digitsOnly) {
-                      setSupplyCapInput('');
-                      onChange(undefined);
-                      return;
-                    }
-
-                    const normalized = Math.max(1, Number.parseInt(digitsOnly, 10));
-                    setSupplyCapInput(String(normalized));
-                    onChange(normalized);
-                  }}
-                />
-              </div>
-            )}
-          />
-          {errors.supply_cap && (
-            <p className={form.errorText}>{errors.supply_cap.message}</p>
-          )}
-          <p className={form.counter}>Whole numbers only. This controls how many passes can ever be sold.</p>
+          <div className="border-t border-gray-800/50 pt-5">
+            <FieldLabel htmlFor="max_per_buyer" hint={capValid ? `1 to ${cap!.toLocaleString('en-US')}` : undefined}>
+              Most passes one person can buy
+            </FieldLabel>
+            <Controller
+              name="max_per_buyer"
+              control={control}
+              rules={{ validate: (value) => validateMaxPerBuyer(value, watchedFields.supply_cap) }}
+              render={({ field: { ref, onChange } }) => (
+                <div className="relative sm:w-44">
+                  <UserRound className={leadingIcon} aria-hidden="true" />
+                  <input
+                    id="max_per_buyer"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="10"
+                    ref={ref}
+                    value={perBuyerInput}
+                    aria-invalid={errors.max_per_buyer ? true : undefined}
+                    aria-describedby={describedBy('max-per-buyer-help', errors.max_per_buyer && 'max-per-buyer-error')}
+                    className={cx(prefixedInput, 'tabular-nums', errors.max_per_buyer && wizardInputInvalid)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 7);
+                      setPerBuyerInput(digitsOnly);
+                      onChange(digitsOnly === '' ? undefined : Number.parseInt(digitsOnly, 10));
+                    }}
+                  />
+                </div>
+              )}
+            />
+            <FieldError id="max-per-buyer-error">{errors.max_per_buyer?.message}</FieldError>
+            <FieldHelp id="max-per-buyer-help">{MAX_PER_BUYER_HELP}</FieldHelp>
+          </div>
         </div>
+      </WizardCard>
 
-        <div className="flex flex-col gap-2 border-t border-gray-800/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-gray-500">
-            Set a competitive price and a realistic supply cap to maximize your earnings. Limited availability creates scarcity and can increase purchase urgency.
-          </p>
-          <a
-            href="/creator-hub/nft-simulator"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cx(form.inlineAction, 'shrink-0')}
-          >
-            <Calculator className="h-3.5 w-3.5" aria-hidden="true" />
-            Open revenue simulator
-          </a>
-        </div>
-      </section>
+      <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
+        <p className="flex items-start gap-2 text-xs leading-relaxed text-gray-400">
+          <Lock className="mt-px h-3.5 w-3.5 shrink-0 text-gray-500" aria-hidden="true" />
+          The price, the number of passes and the per-person limit are part of what you promise buyers. You check them before
+          saving; they cannot change after the first sale.
+        </p>
+        <a
+          href="/creator-hub/nft-simulator"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cx(text.link, 'inline-flex shrink-0 items-center gap-1.5 text-xs font-medium')}
+        >
+          <Calculator className="h-3.5 w-3.5" aria-hidden="true" />
+          Open revenue simulator
+        </a>
+      </div>
     </div>
   );
 };

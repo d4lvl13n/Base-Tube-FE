@@ -3,6 +3,7 @@ import { Trash, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { deleteChannel } from '../../../../../api/channel';
+import { button, cx, field } from '../../Business/businessStyles';
 
 interface DeleteChannelProps {
   channelId: string;
@@ -11,11 +12,11 @@ interface DeleteChannelProps {
   onDeleted?: () => void;
 }
 
-const DeleteChannel: React.FC<DeleteChannelProps> = ({ 
-  channelId, 
+const DeleteChannel: React.FC<DeleteChannelProps> = ({
+  channelId,
   channelName,
   className,
-  onDeleted 
+  onDeleted
 }) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleteText, setDeleteText] = useState('');
@@ -27,12 +28,12 @@ const DeleteChannel: React.FC<DeleteChannelProps> = ({
 
   const handleDeleteChannel = async () => {
     if (!isConfirmationValid) return;
-    
+
     try {
       setIsDeleting(true);
       await deleteChannel(channelId);
       toast.success(`Channel ${channelName} has been deleted successfully`);
-      
+
       if (onDeleted) {
         onDeleted();
       } else {
@@ -50,62 +51,66 @@ const DeleteChannel: React.FC<DeleteChannelProps> = ({
   };
 
   return (
-    <div className={`border-t border-zinc-800 pt-4 sm:pt-6 mt-4 sm:mt-6 ${className}`}>
-      <h3 className="text-lg sm:text-xl font-semibold text-red-400 mb-3 sm:mb-4">Danger Zone</h3>
-      
+    <div className={cx('mt-6 border-t border-gray-800/50 pt-6', className)}>
+      <h3 className="mb-3 text-base font-semibold text-red-300">Danger Zone</h3>
+
       {!showConfirm ? (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-zinc-900 p-3 sm:p-4 rounded-lg">
-          <div className="mb-3 sm:mb-0">
-            <h4 className="font-medium text-sm sm:text-base">Delete this channel</h4>
-            <p className="text-xs sm:text-sm text-zinc-400">
+        <div className="flex flex-col gap-3 rounded-xl border border-red-500/20 bg-black/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h4 className="text-sm font-medium text-white">Delete this channel</h4>
+            <p className="mt-0.5 text-sm text-gray-400">
               Once deleted, all channel data will be permanently removed.
               This action cannot be undone.
             </p>
           </div>
           <button
             onClick={() => setShowConfirm(true)}
-            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-900/30 text-red-400 border border-red-900 rounded-md hover:bg-red-900/50 transition-colors whitespace-nowrap sm:ml-4 text-sm"
+            className={cx(
+              button.secondary,
+              'border-red-500/30 text-red-300 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-200 focus-visible:ring-red-400/50 sm:ml-4',
+            )}
           >
             Delete Channel
           </button>
         </div>
       ) : (
-        <div className="border border-red-800 rounded-lg p-3 sm:p-4 bg-red-950/20">
-          <div className="flex items-center mb-3 text-red-400">
-            <AlertTriangle size={18} className="mr-2 flex-shrink-0" />
-            <h4 className="font-medium text-sm sm:text-base">Delete {channelName}</h4>
+        <div className="rounded-xl border border-red-500/30 bg-red-500/[0.05] p-4">
+          <div className="mb-3 flex items-center gap-2 text-red-300">
+            <AlertTriangle size={18} className="shrink-0" aria-hidden="true" />
+            <h4 className="text-sm font-medium">Delete {channelName}</h4>
           </div>
-          
-          <p className="text-xs sm:text-sm text-zinc-300 mb-4">
-            This action <strong>cannot be undone</strong>. All videos, analytics, and channel data will be permanently deleted.
+
+          <p className="mb-4 text-sm text-gray-300">
+            This action <strong className="font-semibold text-white">cannot be undone</strong>. All videos, analytics, and channel data will be permanently deleted.
           </p>
-          
-          <div className="mb-4">
-            <label className="block text-xs sm:text-sm text-zinc-400 mb-1">
-              Type <span className="font-mono bg-zinc-800 px-1 py-0.5 rounded text-red-400">{confirmationText}</span> to confirm deletion:
+
+          <div className="mb-4 space-y-1.5">
+            <label htmlFor={`delete-channel-${channelId}`} className={field.label}>
+              Type <span className="rounded border border-gray-800 bg-black px-1 py-0.5 font-mono text-red-300">{confirmationText}</span> to confirm deletion:
             </label>
             <input
+              id={`delete-channel-${channelId}`}
               type="text"
               value={deleteText}
               onChange={(e) => setDeleteText(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-white text-sm"
+              className={cx(field.input, 'focus-visible:border-red-400/50 focus-visible:ring-red-400/30')}
               placeholder={`Type "${confirmationText}" to confirm`}
             />
           </div>
-          
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+
+          <div className="flex flex-col gap-2 sm:flex-row">
             <button
               onClick={handleDeleteChannel}
               disabled={!isConfirmationValid || isDeleting}
-              className="px-4 py-2 bg-red-700 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-xs sm:text-sm"
+              className={button.danger}
             >
-              <Trash size={16} className="mr-2" />
+              <Trash size={16} aria-hidden="true" />
               {isDeleting ? 'Deleting...' : 'Permanently Delete Channel'}
             </button>
             <button
               onClick={() => setShowConfirm(false)}
               disabled={isDeleting}
-              className="px-4 py-2 bg-zinc-800 text-white rounded-md hover:bg-zinc-700 text-xs sm:text-sm"
+              className={button.ghost}
             >
               Cancel
             </button>
@@ -116,4 +121,4 @@ const DeleteChannel: React.FC<DeleteChannelProps> = ({
   );
 };
 
-export default DeleteChannel; 
+export default DeleteChannel;

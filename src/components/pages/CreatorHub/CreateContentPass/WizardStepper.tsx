@@ -1,5 +1,6 @@
 import React from 'react';
-import { cx, stepper } from '../shared/hubStyles';
+import { Check } from 'lucide-react';
+import { cx, stepper } from '../Business/businessStyles';
 
 export interface WizardStep {
   id: number;
@@ -15,61 +16,69 @@ interface WizardStepperProps {
 }
 
 /**
- * The wizard's own stepper: a hairline rail, five index bubbles, the active
- * step in white with an orange index. Done steps are buttons; todo steps are
- * inert text, so the tab order only ever contains places you can actually go.
+ * Where you are, what is done, what is left. The active step is the one orange
+ * disc; done steps carry a check and are buttons; steps still ahead are plain
+ * text, so the tab order only holds places you can actually go. On a phone only
+ * the current step keeps its label and a line above says "Step 2 of 5".
  */
-const WizardStepper: React.FC<WizardStepperProps> = ({ steps, activeStep, isStepNavigable, onStepClick }) => (
-  <nav aria-label="Create pass steps">
-    <ol className={cx(stepper.rail, 'overflow-x-auto')}>
-      {steps.map((step, index) => {
-        const isActive = step.id === activeStep;
-        const isDone = step.id < activeStep;
-        const navigable = !isActive && isStepNavigable(step.id);
-        const tone = isActive ? 'active' : isDone || navigable ? 'done' : 'todo';
+const WizardStepper: React.FC<WizardStepperProps> = ({ steps, activeStep, isStepNavigable, onStepClick }) => {
+  const current = steps.find((step) => step.id === activeStep);
 
-        const indexClass = cx(
-          stepper.index,
-          tone === 'active' && stepper.indexActive,
-          tone === 'done' && stepper.indexDone,
-          tone === 'todo' && stepper.indexTodo,
-        );
-        const stepClass = cx(
-          stepper.step,
-          'shrink-0 whitespace-nowrap',
-          tone === 'active' && stepper.stepActive,
-          tone === 'done' && stepper.stepDone,
-          tone === 'todo' && stepper.stepTodo,
-        );
+  return (
+    <nav aria-label="Create pass steps" className="space-y-2">
+      <p className="text-xs text-gray-400 sm:hidden" aria-hidden="true">
+        Step <span className="tabular-nums">{activeStep}</span> of <span className="tabular-nums">{steps.length}</span>
+        {current ? ` · ${current.label}` : ''}
+      </p>
+      <ol className={stepper.rail}>
+        {steps.map((step, index) => {
+          const isActive = step.id === activeStep;
+          const isDone = step.id < activeStep;
+          const navigable = !isActive && isStepNavigable(step.id);
+          const tone = isActive ? 'active' : isDone || navigable ? 'done' : 'todo';
 
-        return (
-          <React.Fragment key={step.id}>
-            {index > 0 && <li aria-hidden="true" className={cx(stepper.separator, 'shrink-0')} />}
-            <li className="shrink-0" aria-current={isActive ? 'step' : undefined}>
-              {navigable ? (
-                <button
-                  type="button"
-                  onClick={() => onStepClick(step.id)}
-                  className={cx(
-                    stepClass,
-                    'rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/40',
-                  )}
-                >
-                  <span className={indexClass}>{step.id}</span>
-                  {step.label}
-                </button>
-              ) : (
-                <span className={stepClass}>
-                  <span className={indexClass}>{step.id}</span>
-                  {step.label}
-                </span>
+          const indexClass = cx(
+            stepper.index,
+            tone === 'active' && stepper.indexActive,
+            tone === 'done' && stepper.indexDone,
+            tone === 'todo' && stepper.indexTodo,
+          );
+          const stepClass = cx(
+            stepper.step,
+            tone === 'active' && stepper.stepActive,
+            tone === 'done' && stepper.stepDone,
+            tone === 'todo' && stepper.stepTodo,
+          );
+          const content = (
+            <>
+              <span className={indexClass} aria-hidden="true">
+                {isDone ? <Check className="h-3.5 w-3.5" /> : step.id}
+              </span>
+              <span className={cx(!isActive && 'sr-only sm:not-sr-only')}>{step.label}</span>
+              {isDone && <span className="sr-only"> (done)</span>}
+            </>
+          );
+
+          return (
+            <React.Fragment key={step.id}>
+              {index > 0 && (
+                <li aria-hidden="true" className={step.id <= activeStep ? stepper.separatorDone : stepper.separator} />
               )}
-            </li>
-          </React.Fragment>
-        );
-      })}
-    </ol>
-  </nav>
-);
+              <li className="shrink-0" aria-current={isActive ? 'step' : undefined}>
+                {navigable ? (
+                  <button type="button" onClick={() => onStepClick(step.id)} className={stepClass}>
+                    {content}
+                  </button>
+                ) : (
+                  <span className={stepClass}>{content}</span>
+                )}
+              </li>
+            </React.Fragment>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+};
 
 export default WizardStepper;

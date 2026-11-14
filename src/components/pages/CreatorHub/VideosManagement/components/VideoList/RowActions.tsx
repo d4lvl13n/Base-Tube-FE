@@ -32,7 +32,7 @@ const IconAction: React.FC<{
     <Tooltip.Portal>
       <Tooltip.Content className={styles.tooltip} sideOffset={6}>
         {label}
-        <Tooltip.Arrow className="fill-[#0f0f0f]" />
+        <Tooltip.Arrow className={styles.tooltipArrow} />
       </Tooltip.Content>
     </Tooltip.Portal>
   </Tooltip.Root>
@@ -77,7 +77,7 @@ export const RowActions: React.FC<RowActionsProps> = ({
           <Tooltip.Portal>
             <Tooltip.Content className={styles.tooltip} sideOffset={6}>
               Watch
-              <Tooltip.Arrow className="fill-[#0f0f0f]" />
+              <Tooltip.Arrow className={styles.tooltipArrow} />
             </Tooltip.Content>
           </Tooltip.Portal>
         </Tooltip.Root>
@@ -98,7 +98,7 @@ export const RowActions: React.FC<RowActionsProps> = ({
           <Tooltip.Portal>
             <Tooltip.Content className={styles.tooltip} sideOffset={6}>
               Still processing — nothing to watch yet
-              <Tooltip.Arrow className="fill-[#0f0f0f]" />
+              <Tooltip.Arrow className={styles.tooltipArrow} />
             </Tooltip.Content>
           </Tooltip.Portal>
         </Tooltip.Root>

@@ -41,22 +41,22 @@ export const VisibilitySwitch: React.FC<VisibilitySwitchProps> = ({
       disabled={disabled}
       onClick={handleClick}
       className={`inline-flex items-center gap-2 rounded-md py-1 text-xs transition-colors
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/40
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50
                   ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
     >
-      <span className={isPublic ? 'text-gray-300' : 'text-gray-500'}>
+      <span className={isPublic ? 'text-gray-200' : 'text-gray-400'}>
         {isPublic ? 'Public' : 'Private'}
       </span>
       {/* 34 × 18 — a switch, not a button pretending to be one. */}
       <span
         aria-hidden="true"
-        className={`relative h-[18px] w-[34px] shrink-0 rounded-full transition-colors duration-200 ${
-          isPublic ? 'bg-[#fa7517]' : 'bg-gray-700'
+        className={`relative h-[18px] w-[34px] shrink-0 rounded-full transition-colors duration-200 motion-reduce:transition-none ${
+          isPublic ? 'bg-[#fa7517]' : 'bg-black/60 ring-1 ring-inset ring-gray-600'
         }`}
       >
         <span
-          className={`absolute top-[3px] h-3 w-3 rounded-full bg-white transition-all duration-200 ${
-            isPublic ? 'left-[19px]' : 'left-[3px]'
+          className={`absolute top-[3px] h-3 w-3 rounded-full transition-all duration-200 motion-reduce:transition-none ${
+            isPublic ? 'left-[19px] bg-white' : 'left-[3px] bg-gray-400'
           }`}
         />
       </span>
@@ -75,7 +75,7 @@ export const VisibilitySwitch: React.FC<VisibilitySwitchProps> = ({
       <Tooltip.Portal>
         <Tooltip.Content className={styles.tooltip} sideOffset={6}>
           Still processing — it can go public once it is ready
-          <Tooltip.Arrow className="fill-[#0f0f0f]" />
+          <Tooltip.Arrow className={styles.tooltipArrow} />
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>

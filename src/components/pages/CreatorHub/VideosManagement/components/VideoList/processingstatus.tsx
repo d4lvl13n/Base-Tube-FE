@@ -121,56 +121,55 @@ export const ProcessingStatus: React.FC<ProcessingStatusProps> = ({
     >
       <div className="flex items-center gap-1.5">
         {phase === 'ready' && (
-          <Check className="h-3.5 w-3.5 shrink-0 text-green-500" aria-hidden="true" />
+          <Check className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />
         )}
         {phase === 'failed' && (
-          <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-400" aria-hidden="true" />
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-300" aria-hidden="true" />
         )}
         <span
           className={`truncate text-xs ${
             phase === 'ready'
-              ? 'text-green-500'
+              ? 'text-emerald-300'
               : phase === 'failed'
-                ? 'text-red-400'
-                : 'text-gray-500'
+                ? 'text-red-300'
+                : 'text-gray-400'
           }`}
           title={text}
         >
           {text}
         </span>
         {phase === 'failed' && onRetry && (
-          <motion.button
+          <button
             type="button"
-            className={`rounded px-1.5 py-0.5 text-xs transition-colors ${
+            className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors focus-visible:outline-none
+                        focus-visible:ring-2 focus-visible:ring-[#fa7517]/50 ${
               isRetrying
-                ? 'cursor-not-allowed text-gray-500'
+                ? 'cursor-not-allowed text-gray-400'
                 : 'text-[#fa7517] hover:text-[#ff8c3a]'
             }`}
-            whileHover={!isRetrying ? { scale: 1.05 } : undefined}
-            whileTap={!isRetrying ? { scale: 0.95 } : undefined}
             onClick={handleRetry}
             disabled={isRetrying}
             aria-label="Retry processing"
           >
             {isRetrying ? (
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              <RefreshCw className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
             ) : (
               'Retry'
             )}
-          </motion.button>
+          </button>
         )}
       </div>
 
-      {/* Processing has no honest percentage, so the hairline pulses instead of
+      {/* Processing has no honest percentage, so the bar pulses instead of
           claiming one. */}
       {phase === 'processing' && (
         <div
-          className="h-[2px] w-full max-w-[16rem] overflow-hidden bg-white/5"
+          className="h-1 w-full max-w-[16rem] overflow-hidden rounded-full bg-white/[0.06]"
           role="progressbar"
           aria-label="Processing"
           aria-valuetext="Processing"
         >
-          <div className="h-full w-full animate-pulse bg-gray-500/60 motion-reduce:animate-none" />
+          <div className="h-full w-full animate-pulse rounded-full bg-[#fa7517]/60 motion-reduce:animate-none" />
         </div>
       )}
     </motion.div>

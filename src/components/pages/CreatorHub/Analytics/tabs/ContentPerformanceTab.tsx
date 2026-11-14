@@ -15,13 +15,21 @@ import StatsCard from '../../../CreatorHub/StatsCard';
 import { Select } from '../../../../ui/Select';
 import { getVideoById } from '../../../../../api/video';
 import {
+  COUNTED_VIEWS_NOTE,
   DURATION_BUCKET_LABELS,
   DURATION_BUCKET_ORDER,
+  accurateSinceNote,
+  formatDuration,
   formatPercent,
+  joinNotes,
+  periodPhrase,
   weightedPercentWatched
 } from '../metrics';
 
-export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channelId }) => {
+export const ContentPerformanceTab: React.FC<{ channelId: string; channelName?: string }> = ({
+  channelId,
+  channelName
+}) => {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d');
   const [videoThumbnails, setVideoThumbnails] = useState<Record<string, string>>({});
   
@@ -46,28 +54,25 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
     if (newPeriod !== period) setPeriod(newPeriod);
   };
 
-  // For display strings
-  const periodString = period === '7d' ? '7 days' : period === '30d' ? '30 days' : 'all time';
+  const phrase = periodPhrase(period);
 
   // There used to be a `viewTrend` here: last-vs-first point of the LIKE series,
   // falling back to 7d/30d views, a ratio of a window to a window that contains
   // it and is therefore always <= 0. It rendered as a permanent red "down"
   // badge on Total Views. Deleted — no trend source exists for this card
   // (docs/ANALYTICS_REVIEW_2026-08-29.md finding 8).
+  // A "watchTimeHours" used to be computed here by adding up the per-hour
+  // AVERAGE watch seconds — a sum of averages, which measures nothing. It was
+  // never rendered. Deleted.
+  const countedViews = channelWatchPatterns?.durationStats?.totalViews ?? 0;
   const performanceData = {
     watchTime: {
-      // Use channel-specific watch hours data from durationStats
-      total: channelWatchPatterns?.durationStats?.averageWatchDuration ?? 0,
-      timeFrames: {
-        // Calculate watch time in hours from avgWatchSeconds in hourlyPatterns
-        watchTimeHours: 
-          channelWatchPatterns?.hourlyPatterns?.reduce(
-            (total, pattern) => total + (pattern.avgWatchSeconds / 3600), 
-            0
-          ) ?? 0,
-        videosWatched: channelWatchPatterns?.durationStats?.totalViews ?? 0,
-        completionRate: weightedPercentWatched(channelWatchPatterns?.retentionByDuration)
-      }
+      // Average played time per counted view in the period; no average
+      // without views.
+      average: countedViews > 0
+        ? channelWatchPatterns?.durationStats?.averageWatchDuration ?? null
+        : null,
+      videosWatched: countedViews
     },
     completion: {
       // Weighted by the views in each bucket.
@@ -124,7 +129,12 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Content Overview</h2>
+        <div>
+          <h2 className="text-2xl font-bold">Content Overview</h2>
+          <p className="text-gray-400">
+            How the videos of {channelName ? <span className="text-white">{channelName}</span> : 'this channel'} are watched
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           {isLoading && (
             <div className="animate-spin">
@@ -146,10 +156,11 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatsCard
           icon={Clock}
-          title="Avg Watch Duration"
-          value={`${(performanceData.watchTime.total / 60).toFixed(1)}m`}
+          title="Avg. watch time per view"
+          value={formatDuration(performanceData.watchTime.average)}
           loading={isLoading}
-          subtitle={`${performanceData.watchTime.timeFrames.videosWatched.toLocaleString()} views in ${periodString}`}
+          subtitle={`Over ${performanceData.watchTime.videosWatched.toLocaleString()} counted views, ${phrase}`}
+          note={joinNotes(accurateSinceNote(channelWatchPatterns?.watchTimeAccurateFrom))}
           error={watchPatternsError ? 'Error loading watch patterns' : undefined}
         />
         <StatsCard
@@ -157,7 +168,10 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
           title="Total Views"
           value={performanceData.views.total.toLocaleString()}
           loading={isLoading}
-          subtitle="All time"
+          subtitle={detailedViewMetrics
+            ? `All time, from ${detailedViewMetrics.uniqueViewers.toLocaleString()} unique viewers (${detailedViewMetrics.signedInViewers.toLocaleString()} signed in + ${detailedViewMetrics.signedOutNetworks.toLocaleString()} signed-out networks)`
+            : 'All time'}
+          note={joinNotes(detailedViewMetrics?.uniqueViewersRule, 'The period selector does not change this card')}
           error={viewsError ? 'Error loading views' : undefined}
         />
         <StatsCard
@@ -165,21 +179,23 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
           title="Avg. % watched"
           value={formatPercent(performanceData.completion.overall)}
           loading={isLoading}
-          subtitle="Weighted by views, all video lengths"
+          subtitle={`Share of each video watched, all video lengths, ${phrase}`}
+          note={COUNTED_VIEWS_NOTE}
           error={watchPatternsError ? 'Error loading watch depth' : undefined}
         />
       </div>
 
-      {/* Watch Time Distribution - Now Full Width */}
+      {/* Views by hour of day (UTC). It plots view COUNTS; it used to be
+          titled "Watch Time Distribution". */}
       <div className="space-y-4 bg-black/30 rounded-xl p-5 border border-[#fa7517]/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <Clock className="w-5 h-5 mr-2 text-[#fa7517]" />
-            <h3 className="text-xl font-semibold">Watch Time Distribution</h3>
+            <h3 className="text-xl font-semibold">Views by hour of day (UTC)</h3>
           </div>
           <div className="flex items-center text-gray-400 text-sm">
             <Info className="w-4 h-4 mr-1" />
-            <span>When your audience is most active</span>
+            <span>Counted views per hour, {phrase}</span>
           </div>
         </div>
         <div className="h-80">
@@ -205,9 +221,8 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <strong>Watch Time Distribution</strong> shows when your audience is most active throughout the day.
-              Consider scheduling your new content releases to align with peak viewing hours to maximize initial visibility.
-              Hours are bucketed server-side in UTC.
+              <strong>Views by hour of day</strong> counts the views in each hour of the day, {phrase}.
+              Hours are UTC, not your local time: convert before planning a release around a peak.
             </div>
           </div>
         </div>
@@ -217,15 +232,16 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
       <div className="space-y-4 bg-black/30 rounded-xl p-5 border border-[#fa7517]/20">
         <div className="flex items-center">
           <Star className="w-5 h-5 mr-2 text-[#fa7517]" />
-          <h3 className="text-xl font-semibold">Videos with Highest Retention</h3>
+          <h3 className="text-xl font-semibold">Videos with the highest Avg. % watched</h3>
+          <span className="ml-2 text-sm text-gray-400">({phrase})</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="text-gray-400 text-sm">
                 <th className="text-left py-2 pl-2">Video</th>
-                <th className="text-right py-2">Retention Rate</th>
-                <th className="text-right py-2">Avg Watch Time</th>
+                <th className="text-right py-2">Avg. % watched</th>
+                <th className="text-right py-2">Avg. watch time</th>
                 <th className="text-right py-2">Video Length</th>
                 <th className="text-right py-2">Views</th>
               </tr>
@@ -303,10 +319,10 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
                       {video.retentionRate.toFixed(1)}%
                     </td>
                     <td className="text-right text-blue-400 whitespace-nowrap">
-                      {(video.avgWatchDuration / 60).toFixed(2)}m
+                      {formatDuration(video.avgWatchDuration)}
                     </td>
                     <td className="text-right whitespace-nowrap">
-                      {(video.videoLength / 60).toFixed(2)}m
+                      {formatDuration(video.videoLength)}
                     </td>
                     <td className="text-right whitespace-nowrap">
                       {video.viewCount.toLocaleString()}
@@ -323,10 +339,8 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
               <Star className="w-4 h-4" />
             </div>
             <div>
-              <strong>Retention Rate</strong> shows the percentage of the video that viewers watch on average. 
-              Higher retention rates indicate more engaging content that keeps viewers watching longer.
-              Focus on understanding what makes your high-retention videos successful and apply those 
-              techniques to future content. For detailed metrics of all videos, check the "Video Performance" tab.
+              <strong>Avg. % watched</strong> is the average share of the video played per counted view
+              (a view that passed the view threshold), {phrase}. For every video, see the "Video Performance" tab.
             </div>
           </div>
         </div>
@@ -376,8 +390,8 @@ export const ContentPerformanceTab: React.FC<{ channelId: string }> = ({ channel
               <Info className="w-4 h-4" />
             </div>
             <div>
-              <strong>Avg. % watched by video length</strong> shows how much of a video your audience gets through, for each video length.
-              Use this data to optimize your future content strategy by focusing on durations that achieve the highest retention rates.
+              <strong>Avg. % watched by video length</strong> shows how much of a video your audience gets through, for each video length,
+              {' '}{phrase}, averaged over counted views.
             </div>
           </div>
         </div>

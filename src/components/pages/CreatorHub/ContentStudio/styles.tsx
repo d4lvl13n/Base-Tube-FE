@@ -14,5 +14,5 @@ export const Container = styled.div`
   max-width: 56rem;
   margin: 0 auto;
   padding: 1.5rem;
-  padding-top: 4rem;
+  padding-top: 6rem;
 `;

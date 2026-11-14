@@ -9,7 +9,6 @@ import {
   Link as LinkIcon,
   Unlink,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 interface EditorMenuBarProps {
   editor: Editor;
@@ -37,24 +36,24 @@ const EditorMenuBar: React.FC<EditorMenuBarProps> = ({ editor }) => {
     children: React.ReactNode;
     title: string;
   }> = ({ onClick, isActive, children, title }) => (
-    <motion.button
+    <button
       type="button"
       onClick={onClick}
-      className={`p-2 rounded-lg transition-colors ${
+      className={`p-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50 ${
         isActive 
-          ? 'bg-[#fa7517]/20 text-[#fa7517]' 
-          : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
+          ? 'bg-[#fa7517]/15 text-[#fa7517]' 
+          : 'text-gray-400 hover:bg-white/[0.05] hover:text-white'
       }`}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
       title={title}
+      aria-label={title}
+      aria-pressed={isActive ? true : undefined}
     >
       {children}
-    </motion.button>
+    </button>
   );
 
   return (
-    <div className="border-b border-gray-800/30 p-2 flex flex-wrap gap-1">
+    <div className="border-b border-gray-800/60 p-2 flex flex-wrap gap-1">
       <MenuButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         isActive={editor.isActive('bold')}
@@ -114,13 +113,13 @@ const EditorMenuBar: React.FC<EditorMenuBarProps> = ({ editor }) => {
         )}
 
         {isLinkModalOpen && (
-          <div className="absolute top-full left-0 mt-2 p-2 bg-gray-900 rounded-lg shadow-lg border border-gray-800 z-50">
+          <div className="absolute top-full left-0 mt-2 p-2 bg-black rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.7)] border border-gray-800 z-50">
             <input
               type="url"
               placeholder="Enter URL"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
-              className="px-2 py-1 bg-gray-800 rounded border border-gray-700 text-white text-sm"
+              className="h-8 rounded-md border border-gray-800 bg-black/40 px-2 text-sm text-white placeholder:text-gray-500 focus-visible:border-[#fa7517]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/30"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   setLink();

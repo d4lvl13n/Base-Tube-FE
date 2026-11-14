@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ArrowDown, ArrowUp, ArrowUpDown, FileVideo, RefreshCw, SearchX } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { SortField, VideoSortOption } from '../../types';
 import { Video } from '../../../../../../types/video';
 import { styles } from './styles';
+import { button, cx, skeleton } from '../../../Business/businessStyles';
 import { formatDuration, formatRowDate, getThumbnailUrl, isPlayable } from './utils';
 import { ProcessingVideo } from '../../../../../../hooks/useVideoProcessing';
 import { ProcessingStatus } from './processingstatus';
@@ -115,17 +116,17 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({ field, label, sort, onS
     <button
       type="button"
       onClick={() => onSort(sortForField(field, sort))}
-      className="group flex w-full items-center justify-end gap-1.5 uppercase tracking-wider
-                 transition-colors hover:text-gray-300 focus-visible:outline-none
-                 focus-visible:text-gray-300"
+      className={`group flex w-full items-center justify-end gap-1.5 rounded-sm
+                 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2
+                 focus-visible:ring-[#fa7517]/50 ${active ? 'text-gray-200' : ''}`}
       aria-label={`Sort by ${label}`}
     >
       {label}
-      <span className="text-gray-600">
+      <span className={active ? 'text-[#fa7517]' : 'text-gray-500'}>
         {active ? (
           ascending ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
         ) : (
-          <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+          <ArrowUpDown className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
         )}
       </span>
     </button>
@@ -226,6 +227,7 @@ const VideoRow: React.FC<VideoRowProps> = ({
   onToggleVisibility,
   onRetryProcessing,
 }) => {
+  const reduceMotion = useReducedMotion();
   const row = processingRow ?? fallbackProcessingRow(video);
   const preview = descriptionToPreview(video.description);
   const playable = isPlayable(video.status);
@@ -258,10 +260,10 @@ const VideoRow: React.FC<VideoRowProps> = ({
       ref={rowRef as React.Ref<HTMLTableRowElement>}
       // A poll tick is not an arrival: only a row that has never been on screen
       // plays the enter animation, or the whole list re-animates every 5 s.
-      initial={animateIn ? { opacity: 0, y: 12 } : false}
+      initial={animateIn && !reduceMotion ? { opacity: 0, y: 12 } : false}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.18, ease: 'easeOut' }}
+      transition={{ duration: reduceMotion ? 0 : 0.18, ease: 'easeOut' }}
       data-highlighted={isHighlighted && highlightLit ? 'true' : undefined}
       className={`${cell.row} ${
         isHighlighted && highlightLit ? 'bg-[#fa7517]/[0.06]' : ''
@@ -284,7 +286,7 @@ const VideoRow: React.FC<VideoRowProps> = ({
             <img
               src={getThumbnailUrl(video)}
               alt=""
-              className="aspect-video w-full rounded-lg bg-black/40 object-cover"
+              className="aspect-video w-full rounded-lg border border-gray-800/60 bg-black object-cover"
               loading="lazy"
               onError={(event) => {
                 const target = event.target as HTMLImageElement;
@@ -293,7 +295,7 @@ const VideoRow: React.FC<VideoRowProps> = ({
             />
             <span
               className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-px text-[10px]
-                         tabular-nums text-gray-200"
+                         font-medium tabular-nums text-gray-100"
             >
               {formatDuration(video.duration)}
             </span>
@@ -322,14 +324,14 @@ const VideoRow: React.FC<VideoRowProps> = ({
                 {preview}
               </p>
             ) : (
-              <p className="truncate text-xs text-gray-600">
+              <p className="truncate text-xs text-gray-400">
                 No description ·{' '}
                 <button
                   type="button"
                   onClick={handleEdit}
-                  className="underline decoration-dotted underline-offset-2 transition-colors
-                             hover:text-[#fa7517] focus-visible:outline-none
-                             focus-visible:text-[#fa7517]"
+                  className="rounded-sm underline decoration-dotted underline-offset-2 transition-colors
+                             hover:text-[#fa7517] focus-visible:outline-none focus-visible:ring-2
+                             focus-visible:ring-[#fa7517]/50 focus-visible:text-[#fa7517]"
                 >
                   add one
                 </button>
@@ -471,15 +473,26 @@ export const VideoList: React.FC<VideoListProps> = ({
 
   if (isLoading && !videos.length) {
     return (
-      <div className={styles.divider} data-testid="video-list-skeleton">
+      <div className={styles.divider} data-testid="video-list-skeleton" aria-busy="true">
+        {/* Same columns as a real row: tick box, thumbnail, title + line, then
+            (on a wide screen) visibility, date, views, likes. */}
         {Array.from({ length: SKELETON_ROWS }).map((_, index) => (
-          <div key={index} className="flex items-center gap-3 px-4 py-3">
-            <div className="h-4 w-4 shrink-0 rounded bg-white/5" />
-            <div className="aspect-video w-32 shrink-0 animate-pulse rounded-lg bg-white/5" />
+          <div key={index} className="flex items-center gap-3 px-4 py-3.5" aria-hidden="true">
+            <div className="h-4 w-4 shrink-0 rounded-[4px] border border-gray-800/70" />
+            <div className={cx(skeleton.thumb, 'w-32 shrink-0')} />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <div className="h-3.5 w-2/5 animate-pulse rounded bg-white/5" />
-              <div className="h-3 w-3/5 animate-pulse rounded bg-white/[0.03]" />
+              <div className={cx(skeleton.line, 'w-2/5')} />
+              <div className={cx(skeleton.line, 'h-3 w-3/5')} />
             </div>
+            {!compact && (
+              <>
+                <div className={cx(skeleton.block, 'h-[18px] w-[6.5rem] shrink-0 rounded-full')} />
+                <div className={cx(skeleton.line, 'w-16 shrink-0')} />
+                <div className={cx(skeleton.line, 'w-10 shrink-0')} />
+                <div className={cx(skeleton.line, 'w-10 shrink-0')} />
+                <div className="w-[9.5rem] shrink-0" />
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -489,32 +502,25 @@ export const VideoList: React.FC<VideoListProps> = ({
   if (!videos.length) {
     return filtered ? (
       <div className={styles.emptyState.wrapper}>
-        <SearchX className="h-8 w-8 text-gray-600" aria-hidden="true" />
-        <p className={`mt-4 ${styles.emptyState.title}`}>Nothing matches</p>
+        <span className={cx(styles.emptyState.icon, 'text-gray-400')} aria-hidden="true">
+          <SearchX className="h-5 w-5" />
+        </span>
+        <p className={styles.emptyState.title}>Nothing matches</p>
         <p className={styles.emptyState.subtitle}>No video here fits the current filters.</p>
-        <button
-          type="button"
-          onClick={onClearFilters}
-          className="mt-4 rounded-md border border-gray-800/60 px-3 py-1.5 text-sm text-gray-300
-                     transition-colors hover:border-gray-700 hover:text-white
-                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/40"
-        >
+        <button type="button" onClick={onClearFilters} className={cx(button.secondary, 'mt-5')}>
           Clear filters
         </button>
       </div>
     ) : (
       <div className={styles.emptyState.wrapper}>
-        <FileVideo className="h-8 w-8 text-gray-600" aria-hidden="true" />
-        <p className={`mt-4 ${styles.emptyState.title}`}>No videos yet</p>
+        <span className={styles.emptyState.icon} aria-hidden="true">
+          <FileVideo className="h-5 w-5" />
+        </span>
+        <p className={styles.emptyState.title}>No videos yet</p>
         <p className={styles.emptyState.subtitle}>
           Everything you upload shows up here, ready to edit and publish.
         </p>
-        <Link
-          to="/creator-hub/uploads"
-          className="mt-4 rounded-md bg-[#fa7517] px-3.5 py-2 text-sm font-medium text-black
-                     transition-colors hover:bg-[#ff8c3a] focus-visible:outline-none
-                     focus-visible:ring-2 focus-visible:ring-[#fa7517]/60"
-        >
+        <Link to="/creator-hub/uploads" className={cx(button.primary, 'mt-5')}>
           Upload your first video
         </Link>
       </div>
@@ -569,7 +575,7 @@ export const VideoList: React.FC<VideoListProps> = ({
                   <Tooltip.Portal>
                     <Tooltip.Content className={styles.tooltip} sideOffset={6}>
                       Select all {videos.length} loaded
-                      <Tooltip.Arrow className="fill-[#0f0f0f]" />
+                      <Tooltip.Arrow className={styles.tooltipArrow} />
                     </Tooltip.Content>
                   </Tooltip.Portal>
                 </Tooltip.Root>
@@ -596,9 +602,9 @@ export const VideoList: React.FC<VideoListProps> = ({
         </table>
       ) : (
         <>
-          <div className="flex items-center gap-3 border-b border-gray-800/60 px-3 py-2.5">
+          <div className="flex items-center gap-3 border-b border-gray-800/70 px-3 py-2.5">
             {selectAll}
-            <span className="text-[11px] uppercase tracking-wider text-gray-500">
+            <span className="text-sm tabular-nums text-gray-400">
               {videos.length} loaded
             </span>
           </div>
@@ -618,7 +624,7 @@ export const VideoList: React.FC<VideoListProps> = ({
           >
             {isFetchingMore ? (
               <>
-                <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                 Loading…
               </>
             ) : (

@@ -4,33 +4,53 @@
 // operative policies describing what the product actually does, and include the
 // YouTube API Services disclosures required for Google OAuth verification.
 // NOTE (for the team, not the public page): have counsel review before scaling.
+//
+// LEGAL DRAFT — NOT REVIEWED BY COUNSEL — must be validated by the owner before pass sales are switched on
+// (applies to the "Passes and creators" section of the Privacy Policy below; the pass Terms of Sale and
+// Creator Pass Terms live in ./PassLegalPages.tsx).
 
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 const UPDATED = '28 October 2026';
-const CONTACT = 'support@base.tube';
+export const CONTACT = 'support@base.tube';
 
-const Shell: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="min-h-screen bg-[#09090B] text-gray-300">
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <Link to="/" className="text-sm text-gray-500 hover:text-white transition-colors">
-        ← Back to BaseTube
-      </Link>
-      <h1 className="text-3xl font-bold text-white mt-6 mb-2">{title}</h1>
-      <p className="text-xs text-gray-500 mb-8">Last updated: {UPDATED}</p>
-      <div className="space-y-6 leading-relaxed">{children}</div>
-      <div className="mt-12 pt-6 border-t border-gray-800 text-xs text-gray-600 flex gap-4">
-        <Link to="/privacy" className="hover:text-white">Privacy</Link>
-        <Link to="/terms" className="hover:text-white">Terms</Link>
-        <Link to="/refund" className="hover:text-white">Refunds</Link>
+export const Shell: React.FC<{ title: string; updated?: string; children: React.ReactNode }> = ({
+  title,
+  updated = UPDATED,
+  children,
+}) => {
+  const { hash } = useLocation();
+  // Pages load lazily, so the browser cannot jump to "#section" by itself.
+  useEffect(() => {
+    if (!hash) return;
+    const target = document.getElementById(decodeURIComponent(hash.slice(1)));
+    target?.scrollIntoView();
+  }, [hash]);
+
+  return (
+    <div className="min-h-screen bg-[#09090B] text-gray-300">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <Link to="/" className="text-sm text-gray-500 hover:text-white transition-colors">
+          ← Back to BaseTube
+        </Link>
+        <h1 className="text-3xl font-bold text-white mt-6 mb-2">{title}</h1>
+        <p className="text-xs text-gray-500 mb-8">Last updated: {updated}</p>
+        <div className="space-y-6 leading-relaxed">{children}</div>
+        <div className="mt-12 pt-6 border-t border-gray-800 text-xs text-gray-600 flex flex-wrap gap-4">
+          <Link to="/privacy" className="hover:text-white">Privacy</Link>
+          <Link to="/terms" className="hover:text-white">Terms</Link>
+          <Link to="/refund" className="hover:text-white">Refunds</Link>
+          <Link to="/terms/content-passes" className="hover:text-white">Content Pass Terms of Sale</Link>
+          <Link to="/terms/creator-passes" className="hover:text-white">Creator Pass Terms</Link>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
-const Section: React.FC<{ heading: string; children: React.ReactNode }> = ({ heading, children }) => (
-  <section>
+export const Section: React.FC<{ heading: string; id?: string; children: React.ReactNode }> = ({ heading, id, children }) => (
+  <section id={id} className={id ? 'scroll-mt-8' : undefined}>
     <h2 className="text-lg font-semibold text-white mb-2">{heading}</h2>
     <div className="text-sm text-gray-400 space-y-2">{children}</div>
   </section>
@@ -46,7 +66,7 @@ const A: React.FC<{ href: string; children: React.ReactNode }> = ({ href, childr
 // PRIVACY
 // ─────────────────────────────────────────────────────────────────────────────
 export const PrivacyPage: React.FC = () => (
-  <Shell title="Privacy Policy">
+  <Shell title="Privacy Policy" updated="13 November 2026">
     <p className="text-sm text-gray-400">
       This Privacy Policy explains how BaseTube (“BaseTube”, “we”, “us”) collects, uses, and
       protects your information when you use our website and tools at beta.base.tube, including the
@@ -132,7 +152,27 @@ export const PrivacyPage: React.FC = () => (
       <p>We may update this policy from time to time. Material changes will be reflected by the “Last updated” date above and, where appropriate, additional notice.</p>
     </Section>
 
-    <Section heading="11. Contact">
+    <Section heading="11. Passes and creators" id="passes-and-creators">
+      <p>
+        This section applies when you look at or buy a Content Pass (one of a limited number of passes, owned by its holder, that gives access to a creator’s videos). The
+        creator who sells the pass is a separate party from BaseTube. The rules below are enforced by BaseTube’s
+        servers, not only by what the screens show.
+      </p>
+      <p><strong>What the creator sees when you buy one of their passes:</strong></p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>That you bought the pass, which pass, when, and how much they received from it.</li>
+        <li>Whether your access is active, refunded or disputed, and whether you are a new or returning buyer.</li>
+        <li>For each of their passes you own, whether you have opened each video (for example “opened 3 of 5 videos” or “not opened yet”). “Opened” means BaseTube gave you a link to play it; it does not say how long you watched.</li>
+        <li>Your display name.</li>
+        <li>Your email address, only for purchases made after you were shown this at checkout, and only if your account has a real email address (wallet-only accounts do not).</li>
+        <li>A general label for where you came from before buying (for example YouTube, Instagram, Google search, a newsletter, or “Direct”) and the campaign name in the link, if there was one.</li>
+      </ul>
+      <p><strong>What the creator never sees:</strong> your card or bank details, the exact dates and times you played videos, your IP address, your device or browser details, the full address of the page you came from, or anything about you if you looked at a pass page without buying. Page visits and abandoned checkouts are shown to creators only as totals.</p>
+      <p><strong>Emails from the creator.</strong> A creator may email you about new releases only if you ticked the optional box at checkout allowing that creator to do so. It is unticked unless you tick it, and buying never depends on it. You can withdraw it at any time in <Link className="text-[#fa7517] hover:underline" to="/my-passes">My Passes</Link>, under “Creators who can email you”, or by writing to {CONTACT}. Once withdrawn, the creator no longer sees you as someone they can contact, and their customer export no longer includes your email address. A creator who already copied your address outside BaseTube is responsible for honouring your withdrawal.</p>
+      <p><strong>How we know where buyers came from.</strong> When you arrive on BaseTube, your browser keeps a small record of how you arrived (the campaign tags in the link, the website you came from, the page you landed on and when) for 30 days, plus a random visitor number that is not linked to your name, email or account. This is stored in your browser only, not in a cookie, and nothing is sent until you open a pass page or start a pass checkout. When you open a pass page we count the visit; we keep only daily totals per pass and per source, not a record of each visitor. If your browser sends a “Do Not Track” or “Global Privacy Control” signal, none of this is recorded or sent.</p>
+    </Section>
+
+    <Section heading="12. Contact">
       <p>Questions or requests: <a className="text-[#fa7517] hover:underline" href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
     </Section>
   </Shell>

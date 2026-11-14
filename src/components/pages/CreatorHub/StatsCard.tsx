@@ -1,7 +1,7 @@
 // src/components/common/CreatorHub/StatsCard.tsx
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 interface StatsCardProps {
   icon: LucideIcon;
@@ -18,6 +18,15 @@ interface StatsCardProps {
   subtitle?: string;
   className?: string;
   error?: string;
+  /**
+   * Optional second caption in small print: what the number includes or
+   * leaves out ("Includes your own replies", "Measured accurately since …").
+   */
+  note?: string;
+  /** The value is a short sentence ("Too few views for a rate"), not a number: smaller and grey. */
+  valueMuted?: boolean;
+  /** Optional last line under the note: a link to the people behind the number ("See who"). */
+  footer?: React.ReactNode;
 }
 
 const StatsCard: React.FC<StatsCardProps> = ({ 
@@ -28,8 +37,12 @@ const StatsCard: React.FC<StatsCardProps> = ({
   loading = false, 
   subtitle, 
   className = '', 
-  error
+  error,
+  note,
+  valueMuted = false,
+  footer
 }) => {
+  const reduceMotion = useReducedMotion();
   const changeValue =
     typeof change === 'number' && Number.isFinite(change) && change !== 0 ? change : null;
   const isPositive = (changeValue ?? 0) >= 0;
@@ -47,7 +60,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
   return (
     <motion.div 
       className={`bg-black/50 rounded-xl p-6 border border-gray-800/30 ${className}`}
-      whileHover={{ scale: 1.02 }}
+      whileHover={reduceMotion ? undefined : { scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 10 }}
     >
       <div className="flex items-center justify-between mb-4">
@@ -65,7 +78,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
         <p className="text-red-400 text-sm">{error}</p>
       ) : (
         <>
-          <p className={`text-2xl font-bold ${isComingSoon ? 'text-gray-400' : 'text-white'}`}>{value}</p>
+          <p className={valueMuted ? 'text-base font-medium text-gray-300' : `text-2xl font-bold ${isComingSoon ? 'text-gray-400' : 'text-white'}`}>{value}</p>
           {subtitle && (
             <p className="text-sm mt-1">
               {hasGrowthIndicator ? (
@@ -78,6 +91,8 @@ const StatsCard: React.FC<StatsCardProps> = ({
               )}
             </p>
           )}
+          {note && <p className="text-xs text-gray-500/80 mt-1">{note}</p>}
+          {footer && <div className="text-sm mt-2">{footer}</div>}
         </>
       )}
     </motion.div>

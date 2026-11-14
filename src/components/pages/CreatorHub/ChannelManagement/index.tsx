@@ -1,138 +1,144 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Edit3, Trash2, ArrowLeft, Hexagon, Plus, BarChart3 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Hexagon, Plus, BarChart3 } from 'lucide-react';
 import { useChannelData } from '../../../../hooks/useChannelData';
 import EditChannelModal from './components/EditChannelModal';
 import ChannelPreviewCard from '../../../common/CreatorHub/ChannelPreviewCard';
 import YouTubeIntegration from './components/YouTubeIntegration';
 import DeleteChannel from './components/DeleteChannel';
 import ChannelList from './ChannelList';
+import { EmptyState } from '../Business/BusinessUi';
+import { button, cx, frame, sheen, skeleton, surface, text } from '../Business/businessStyles';
+
+/** One channel reads in a narrower column than the Analytics measure. */
+const NARROW = 'mx-auto max-w-4xl space-y-6 px-4 md:px-6';
 
 const ChannelManagement: React.FC = () => {
   const navigate = useNavigate();
   // The URL param is named 'channelId' but could be either an ID or handle
   const { channelId } = useParams();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [showDeleteSection, setShowDeleteSection] = useState(false);
 
   // Use the custom hook instead of direct API call - it handles both IDs and handles
-  const { 
-    channel, 
-    isLoading, 
+  const {
+    channel,
+    isLoading,
     error
   } = useChannelData(channelId);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-[#fa7517]" />
+      <div className={frame.page} aria-busy="true">
+        <div className={NARROW}>
+          <div className={cx(skeleton.line, 'w-32')} />
+          <div className={surface.card} aria-hidden="true">
+            <div className={cx(skeleton.block, 'h-44 rounded-none sm:h-48')} />
+            <div className="flex gap-6 border-t border-gray-800/50 px-4 py-3 sm:px-5">
+              <div className={cx(skeleton.line, 'w-28')} />
+              <div className={cx(skeleton.line, 'w-24')} />
+            </div>
+          </div>
+          <div className={cx(surface.card, 'space-y-3 p-5 md:p-6')} aria-hidden="true">
+            <div className={cx(skeleton.line, 'w-40')} />
+            <div className={cx(skeleton.block, 'h-12 w-full')} />
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error || !channel) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-white">
-        <p className="text-xl mb-4">Failed to load channel</p>
-        <button
-          onClick={() => navigate('/creator-hub/channels')}
-          className="px-4 py-2 bg-[#fa7517] rounded-lg hover:bg-[#ff8c3a] transition-colors"
-        >
-          Go Back
-        </button>
+      <div className={frame.page}>
+        <div className={NARROW}>
+          <EmptyState
+            icon={AlertCircle}
+            tone="error"
+            role="alert"
+            title="Failed to load channel"
+            action={
+              <button onClick={() => navigate('/creator-hub/channels')} className={button.secondary}>
+                Go Back
+              </button>
+            }
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white pt-16">
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:py-10">
+    <div className={frame.page}>
+      <div className={channelId ? NARROW : frame.wide}>
         {channelId ? (
           // Single channel view
-          <div className="relative">
-            {/* Back button */}
-            <button
-              onClick={() => navigate('/creator-hub/channels')}
-              className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors"
-            >
-              <ArrowLeft size={16} className="mr-2" />
+          <div className="relative space-y-6">
+            <button onClick={() => navigate('/creator-hub/channels')} className={cx(button.ghost, '-ml-2.5')}>
+              <ArrowLeft size={16} aria-hidden="true" />
               Back to Channels
             </button>
 
-            {/* Channel Preview */}
-            <div className="mb-6">
-              <ChannelPreviewCard 
-                channel={channel} 
-                onUpdate={() => {
-                  setIsEditModalOpen(false);
-                }} 
-                onDeleted={() => navigate('/creator-hub/channels')}
-              />
-            </div>
+            <ChannelPreviewCard
+              channel={channel}
+              onUpdate={() => {
+                setIsEditModalOpen(false);
+              }}
+              onDeleted={() => navigate('/creator-hub/channels')}
+            />
 
-            {/* YouTube Integration Section */}
-            <YouTubeIntegration className="mb-6" />
+            <YouTubeIntegration />
 
-            {/* Delete Channel Section */}
-            <DeleteChannel 
-              channelId={channelId} 
-              channelName={channel?.name || 'this channel'} 
+            <DeleteChannel
+              channelId={channelId}
+              channelName={channel?.name || 'this channel'}
               onDeleted={() => navigate('/creator-hub/channels')}
             />
           </div>
         ) : (
           // Channel list view
           <>
-            {/* Header */}
-            <div className="mb-6 sm:mb-10">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Channel Management</h1>
-              <p className="text-sm sm:text-base text-gray-400">
+            <header>
+              <h1 className={text.pageTitle}>Channel Management</h1>
+              <p className={text.pageSubtitle}>
                 Manage your channels and connectivity with other platforms
               </p>
-            </div>
+            </header>
 
-            {/* Main content */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               {/* Left column (1/3 width on large screens, full width on mobile) */}
-              <div className="order-2 lg:order-1 lg:col-span-1">
-                <YouTubeIntegration className="mb-6" />
-                
+              <div className="order-2 space-y-6 lg:order-1 lg:col-span-1">
+                <YouTubeIntegration />
+
                 {/* Additional integrations can be added here */}
-                <div className="bg-zinc-900 rounded-lg p-4 sm:p-6">
-                  <h3 className="text-lg sm:text-xl font-semibold mb-4 flex items-center">
-                    <Hexagon className="mr-2 text-blue-400" size={20} />
+                <section className={cx(surface.card, 'p-5 md:p-6')}>
+                  <h3 className="mb-2 flex items-center gap-2 text-base font-semibold text-white">
+                    <Hexagon className="text-gray-400" size={20} aria-hidden="true" />
                     Channel Analytics
                   </h3>
-                  <p className="text-zinc-400 text-sm sm:text-base mb-4">
+                  <p className="mb-4 text-sm text-gray-400">
                     View detailed analytics and performance metrics for your channel.
                   </p>
-                  <Link 
-                    to="/creator-hub/analytics"
-                    className="inline-flex items-center px-4 py-2 bg-zinc-800 text-white rounded-md hover:bg-zinc-700 text-xs sm:text-sm transition-colors"
-                  >
-                    <BarChart3 size={16} className="mr-2" />
+                  <Link to="/creator-hub/analytics" className={button.secondary}>
+                    <BarChart3 size={16} aria-hidden="true" />
                     View Analytics
                   </Link>
-                </div>
+                </section>
               </div>
-              
+
               {/* Right column (2/3 width on large screens, full width on mobile) */}
               <div className="order-1 lg:order-2 lg:col-span-2">
-                <div className="bg-zinc-900 rounded-lg p-4 sm:p-6 mb-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                    <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-0">Your Channels</h3>
-                    
-                    <Link
-                      to="/creator-hub/channels/new"
-                      className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 bg-[#fa7517] text-black text-xs sm:text-sm rounded-md hover:bg-[#ff8c3a] transition-colors"
-                    >
-                      <Plus size={16} className="mr-2" />
+                <section className={cx(surface.card, 'p-5 md:p-6')}>
+                  <div className={sheen} aria-hidden="true" />
+                  <div className="relative mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="text-base font-semibold text-white">Your Channels</h3>
+                    <Link to="/creator-hub/channels/new" className={button.primary}>
+                      <Plus size={16} aria-hidden="true" />
                       Create New Channel
                     </Link>
                   </div>
-                  
+
                   <ChannelList />
-                </div>
+                </section>
               </div>
             </div>
           </>
@@ -155,4 +161,4 @@ const ChannelManagement: React.FC = () => {
   );
 };
 
-export default ChannelManagement; 
+export default ChannelManagement;

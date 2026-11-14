@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
 import { UseFormWatch } from 'react-hook-form';
-import { cx, form, list, page } from '../../shared/hubStyles';
-import { FormData } from '../types';
-import { X, ChevronRight, AlertTriangle, ExternalLink } from 'lucide-react';
+import { X, ChevronRight, AlertTriangle, ExternalLink, Lock, Pencil } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { cx, form, heroGlow, list, sheet } from '../../Business/businessStyles';
+import { FormData, validVideoRows } from '../types';
 import ContentPassSuccessAnimation from '../../../../animations/ContentPassSuccessAnimation';
+import {
+  FROZEN_AFTER_FIRST_SALE,
+  passesText,
+  pctText,
+  perPersonText,
+  resaleTermsOf,
+  type ResaleTerms,
+} from '../../../../../utils/passTerms';
+import { WizardCard } from '../wizardUi';
 
 interface StepReviewProps {
   watch: UseFormWatch<FormData>;
@@ -16,6 +25,10 @@ interface StepReviewProps {
   submitErrorAction?: 'link-youtube' | 'verify-channel' | 'link-wallet' | null;
   onStartOAuth?: () => void;
   onBackToVideos?: () => void;
+  /** Jump back to a step to change a term (1 = Basics, 3 = Content). */
+  onEditStep?: (step: number) => void;
+  /** The resale split to state; the decided rates when the server sent none. */
+  resaleTerms?: ResaleTerms;
 }
 
 // Helper to format currency (can be moved to utils)
@@ -83,6 +96,40 @@ const richText = `
   [&_a]:text-[#fa7517] [&_strong]:text-gray-100
 `;
 
+interface PromiseTerm {
+  key: string;
+  label: string;
+  value: React.ReactNode;
+  detail: string;
+  /** The value is missing and blocks saving. */
+  missing?: boolean;
+  editStep?: number;
+}
+
+/** One term of the promise: what it is, the number large, one sentence on what it means. */
+const PromiseRow: React.FC<{ term: PromiseTerm; onEditStep?: (step: number) => void }> = ({ term, onEditStep }) => (
+  <div className="min-w-0 py-4 first:pt-0 sm:py-0">
+    <dt className="flex items-center justify-between gap-3 text-sm text-gray-400">
+      <span>{term.label}</span>
+      {term.editStep && onEditStep && (
+        <button
+          type="button"
+          onClick={() => onEditStep(term.editStep!)}
+          className={cx(form.inlineAction, 'shrink-0')}
+          aria-label={`Change ${term.label.toLowerCase()}`}
+        >
+          <Pencil className="h-3 w-3" aria-hidden="true" />
+          Change
+        </button>
+      )}
+    </dt>
+    <dd className={cx('mt-1 text-xl font-semibold tracking-tight tabular-nums', term.missing ? 'text-red-300' : 'text-white')}>
+      {term.value}
+    </dd>
+    <dd className="mt-1 text-xs leading-relaxed text-gray-400">{term.detail}</dd>
+  </div>
+);
+
 const StepReview: React.FC<StepReviewProps> = ({
   watch,
   onConfirm,
@@ -92,23 +139,27 @@ const StepReview: React.FC<StepReviewProps> = ({
   submitError,
   submitErrorAction,
   onStartOAuth,
-  onBackToVideos
+  onBackToVideos,
+  onEditStep,
+  resaleTerms = resaleTermsOf(null),
 }) => {
   const prefersReducedMotion = useReducedMotion();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const watchedFields = watch();
-  const validUrls = watchedFields.src_urls?.filter(u => u?.value?.trim()?.length > 0 && /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/.test(u.value)) || [];
+  const validUrls = validVideoRows(watchedFields.src_urls);
 
   // Format the price for display
   const formattedPrice = formatCurrency(watchedFields.price_cents, watchedFields.currency || 'USD');
+  const cap = watchedFields.supply_cap && watchedFields.supply_cap > 0 ? watchedFields.supply_cap : null;
+  const perBuyer = watchedFields.max_per_buyer && watchedFields.max_per_buyer > 0 ? watchedFields.max_per_buyer : null;
+  const videoCountText = `${validUrls.length} video${validUrls.length !== 1 ? 's' : ''}`;
+  const termsComplete = Boolean(cap && perBuyer && validUrls.length > 0);
 
   // Handle the confirm button click
   const handleConfirm = () => {
     setShowConfirmModal(false);
     if (onConfirm) onConfirm();
-    // After successful creation (controlled by parent via isSuccess prop)
-    // the animation will be shown
   };
 
   // Show success animation when isSuccess changes to true
@@ -124,9 +175,52 @@ const StepReview: React.FC<StepReviewProps> = ({
     if (onContinue) onContinue();
   };
 
-  const supplyLabel = watchedFields.supply_cap
-    ? `${watchedFields.supply_cap} ${Number(watchedFields.supply_cap) === 1 ? 'pass' : 'passes'}`
-    : 'Unlimited';
+  const terms: PromiseTerm[] = [
+    {
+      key: 'supply',
+      label: 'Number of passes',
+      value: cap ? passesText(cap) : 'Not set',
+      detail: cap ? 'No more are ever created. When they are gone, fans buy from holders.' : 'Set it on the Basics step.',
+      missing: !cap,
+      editStep: 1,
+    },
+    {
+      key: 'price',
+      label: 'Price',
+      value: (
+        <>
+          {formattedPrice}
+          <span className="ml-1.5 text-sm font-normal text-gray-400">per pass</span>
+        </>
+      ),
+      detail: 'Paid once. There is no subscription.',
+      editStep: 1,
+    },
+    {
+      key: 'per-buyer',
+      label: 'Per person',
+      value: perBuyer ? perPersonText(perBuyer) : 'Not set',
+      detail: perBuyer ? 'The most one fan can buy from you at the first sale.' : 'Set it on the Basics step.',
+      missing: !perBuyer,
+      editStep: 1,
+    },
+    {
+      key: 'videos',
+      label: 'Videos',
+      value: validUrls.length > 0 ? videoCountText : 'None yet',
+      detail: 'A video that works stays in the pass for everyone who holds it.',
+      missing: validUrls.length === 0,
+      editStep: 3,
+    },
+    {
+      key: 'resale',
+      label: 'Resale',
+      value: 'Resellable on BaseTube',
+      detail: `Each resale pays you ${pctText(resaleTerms.creatorPct)}. BaseTube takes ${pctText(
+        resaleTerms.platformPct,
+      )}; the seller keeps ${pctText(resaleTerms.sellerPct)}.`,
+    },
+  ];
 
   return (
     <>
@@ -139,51 +233,43 @@ const StepReview: React.FC<StepReviewProps> = ({
         />
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
-          <h2 className="text-base font-medium text-white">Review your draft</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            This saves the pass. It is not for sale until you publish on the next step.
+          <h2 className="text-lg font-semibold tracking-tight text-white">Review your pass</h2>
+          <p className="mt-1 text-sm text-gray-400">
+            This saves a draft. Nothing is for sale until you publish on the next step.
           </p>
         </div>
 
-        <div className={form.grid}>
-          {/* ── Summary ──────────────────────────────────────────────────── */}
-          <div className="space-y-4">
-            <section className={cx(form.panel, 'space-y-4')} aria-label="Pass details">
-              <h3 className={form.panelTitle}>Pass details</h3>
-              <dl className="grid grid-cols-[auto,1fr] gap-x-6 gap-y-2">
-                <dt className={page.eyebrow}>Title</dt>
-                <dd className="text-sm text-gray-100">{watchedFields.title || 'Untitled Pass'}</dd>
-                <dt className={page.eyebrow}>Price</dt>
-                <dd className="text-sm tabular-nums text-gray-100">{formattedPrice}</dd>
-                <dt className={page.eyebrow}>Supply cap</dt>
-                <dd className="text-sm tabular-nums text-gray-100">{supplyLabel}</dd>
-                <dt className={page.eyebrow}>Content</dt>
-                <dd className="text-sm tabular-nums text-gray-100">
-                  {validUrls.length} video{validUrls.length !== 1 ? 's' : ''} included
-                </dd>
-              </dl>
-            </section>
+        {/* ── The promise: the one card that glows on this screen ─────────── */}
+        <WizardCard
+          id="promise"
+          title="What you promise buyers"
+          description="These terms appear on your sales page. Buyers rely on them."
+          style={heroGlow}
+        >
+          <dl className="grid grid-cols-1 divide-y divide-gray-800/50 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-6 sm:divide-y-0 lg:grid-cols-3">
+            {terms.map((term) => (
+              <PromiseRow key={term.key} term={term} onEditStep={onEditStep} />
+            ))}
+          </dl>
+          <p className="mt-6 flex items-start gap-2.5 rounded-lg border border-[#fa7517]/25 bg-[#fa7517]/[0.06] p-3 text-sm leading-relaxed text-gray-100">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-[#fa7517]" aria-hidden="true" />
+            {FROZEN_AFTER_FIRST_SALE}
+          </p>
+        </WizardCard>
 
-            {watchedFields.description && (
-              <section className={cx(form.panel, 'space-y-3')} aria-label="Description">
-                <h3 className={form.panelTitle}>Description</h3>
-                <div
-                  className={richText}
-                  dangerouslySetInnerHTML={{ __html: watchedFields.description }}
-                />
-              </section>
-            )}
-          </div>
-
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
           {/* ── Videos ───────────────────────────────────────────────────── */}
-          <section className={list.panel} aria-label="Premium content">
-            <div className="border-b border-gray-800/60 px-4 py-3">
-              <h3 className={form.panelTitle}>Premium content</h3>
-              <p className="mt-1 text-xs text-gray-500">
-                Final review uses lightweight source cards. Ownership and unlisted checks still happen when you launch.
-              </p>
+          <section className={list.panel} aria-labelledby="review-videos-title">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-800/50 px-5 py-4 md:px-6">
+              <div className="min-w-0">
+                <h3 id="review-videos-title" className="text-base font-semibold text-white">Videos in this pass</h3>
+                <p className="mt-1 text-xs leading-relaxed text-gray-400">
+                  Ownership and the unlisted setting are checked again when you save.
+                </p>
+              </div>
+              <span className="shrink-0 text-sm tabular-nums text-gray-400">{videoCountText}</span>
             </div>
             {validUrls.length > 0 ? (
               <ul className={list.divider}>
@@ -191,12 +277,15 @@ const StepReview: React.FC<StepReviewProps> = ({
                   const thumb = getThumbnailUrl(urlObj.value, urlObj.thumbnail_url);
                   const label = urlObj.title || `Video ${idx + 1}`;
                   return (
-                    <li key={`preview-${idx}`} className={cx(list.table.row, 'flex items-center gap-3 px-4 py-3')}>
-                      <div className="aspect-video w-24 shrink-0 overflow-hidden rounded-md border border-gray-800/60 bg-black">
+                    <li key={`preview-${idx}`} className={cx(list.table.row, 'flex items-center gap-3 px-5 py-3 md:px-6')}>
+                      <span className="w-5 shrink-0 text-xs tabular-nums text-gray-500" aria-hidden="true">
+                        {String(idx + 1).padStart(2, '0')}
+                      </span>
+                      <div className="aspect-video w-24 shrink-0 overflow-hidden rounded-md border border-gray-800/50 bg-black">
                         {thumb ? (
                           <img src={thumb} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-[10px] text-gray-600">No preview</div>
+                          <div className="flex h-full items-center justify-center text-[10px] text-gray-500">No preview</div>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -222,9 +311,25 @@ const StepReview: React.FC<StepReviewProps> = ({
             ) : (
               <div className={list.emptyState.wrapper}>
                 <p className={list.emptyState.title}>No valid video URLs provided.</p>
+                {onEditStep && (
+                  <button type="button" onClick={() => onEditStep(3)} className={cx(form.secondaryButton, 'mt-4')}>
+                    Add videos
+                  </button>
+                )}
               </div>
             )}
           </section>
+
+          {/* ── Title and description ─────────────────────────────────────── */}
+          <WizardCard id="review-details" title="Title and description">
+            <p className="text-base font-medium text-gray-100">{watchedFields.title || 'Untitled Pass'}</p>
+            {watchedFields.description ? (
+              <div className={cx(richText, 'mt-3 border-t border-gray-800/50 pt-3')} dangerouslySetInnerHTML={{ __html: watchedFields.description }} />
+            ) : (
+              <p className="mt-3 text-sm text-gray-400">No description.</p>
+            )}
+            <p className="mt-4 text-xs text-gray-400">You can fix typos in the title and description after publishing.</p>
+          </WizardCard>
         </div>
 
         {submitError && (
@@ -263,10 +368,10 @@ const StepReview: React.FC<StepReviewProps> = ({
         )}
 
         {/* ── Commit ───────────────────────────────────────────────────── */}
-        <section className={cx(form.panel, 'flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between')} aria-label="Save draft">
-          <div className="space-y-1.5">
-            <p className={page.eyebrow}>What happens next</p>
-            <ol className="list-decimal space-y-0.5 pl-5 text-sm text-gray-400">
+        <WizardCard id="review-commit" bodyClassName="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-white">What happens next</p>
+            <ol className="list-decimal space-y-1 pl-5 text-sm text-gray-400 marker:text-gray-500">
               <li>We save a draft and attach the videos you selected.</li>
               <li>We check that every video belongs to your linked channel and is unlisted.</li>
               <li>Next you choose how you get paid and publish. Fans cannot buy a draft.</li>
@@ -275,13 +380,13 @@ const StepReview: React.FC<StepReviewProps> = ({
           <button
             type="button"
             onClick={() => setShowConfirmModal(true)}
-            disabled={isLoading}
-            className={cx(form.primaryButton, 'shrink-0')}
+            disabled={isLoading || !termsComplete}
+            className={cx(form.primaryButton, 'h-10 shrink-0 px-4')}
           >
             {isLoading ? 'Saving draft…' : 'Save draft'}
             {!isLoading && <ChevronRight className="h-4 w-4" aria-hidden="true" />}
           </button>
-        </section>
+        </WizardCard>
       </div>
 
       {/* Confirmation Modal */}
@@ -292,7 +397,7 @@ const StepReview: React.FC<StepReviewProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
             onClick={() => setShowConfirmModal(false)}
           >
             <motion.div
@@ -304,12 +409,12 @@ const StepReview: React.FC<StepReviewProps> = ({
               exit={prefersReducedMotion ? undefined : { opacity: 0, y: 8 }}
               transition={{ duration: 0.18 }}
               onClick={(e) => e.stopPropagation()}
-              className={cx(form.panel, 'w-full max-w-md space-y-4 shadow-2xl')}
+              className="w-full max-w-md space-y-4 rounded-2xl border border-gray-800/70 bg-black p-6 text-white shadow-[0_32px_80px_rgba(0,0,0,0.8)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 id="confirm-draft-title" className="text-base font-medium text-white">Save this as a draft?</h3>
-                  <p className="mt-1 text-sm text-gray-500">This will not go on sale yet.</p>
+                  <h3 id="confirm-draft-title" className={sheet.title}>Save this as a draft?</h3>
+                  <p className="mt-1 text-sm text-gray-400">This will not go on sale yet.</p>
                 </div>
                 <button
                   type="button"
@@ -326,18 +431,18 @@ const StepReview: React.FC<StepReviewProps> = ({
                 <strong className="font-medium tabular-nums text-gray-100">{formattedPrice}</strong>. You choose how you get paid and publish on the next screen.
               </p>
 
-              <dl className="grid grid-cols-[auto,1fr] gap-x-6 gap-y-1.5 border-t border-gray-800/60 pt-4">
-                <dt className={page.eyebrow}>Supply</dt>
-                <dd className="text-sm tabular-nums text-gray-100">
-                  Limited to {watchedFields.supply_cap || 'unlimited'} passes
-                </dd>
-                <dt className={page.eyebrow}>Content</dt>
+              <dl className="grid grid-cols-[auto,1fr] gap-x-6 gap-y-2 border-t border-gray-800/50 pt-4">
+                <dt className="text-sm text-gray-400">Passes</dt>
+                <dd className="text-sm tabular-nums text-gray-100">{cap ? `Limited to ${passesText(cap)}` : 'Not set'}</dd>
+                <dt className="text-sm text-gray-400">Per person</dt>
+                <dd className="text-sm tabular-nums text-gray-100">{perBuyer ? perPersonText(perBuyer) : 'Not set'}</dd>
+                <dt className="text-sm text-gray-400">Content</dt>
                 <dd className="text-sm tabular-nums text-gray-100">
                   {validUrls.length} premium video{validUrls.length !== 1 ? 's' : ''}
                 </dd>
               </dl>
 
-              <div className="flex items-center justify-end gap-2 border-t border-gray-800/60 pt-4">
+              <div className="flex items-center justify-end gap-2 border-t border-gray-800/50 pt-4">
                 <button type="button" onClick={() => setShowConfirmModal(false)} className={form.ghostButton}>
                   Not yet
                 </button>

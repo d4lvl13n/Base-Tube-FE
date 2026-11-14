@@ -160,6 +160,9 @@ const SingleVideo: React.FC = () => {
     if (isInfoPanelOpen) {
       const currentTime = playback.getPrimaryTime();
       playback.setMiniStartAt(Number.isFinite(currentTime) ? currentTime : 0);
+      // One player at a time: the mini player takes over playback AND the
+      // view session, so the main player must stop.
+      playback.pausePrimary();
       playback.minimize();
     } else {
       playback.restore();

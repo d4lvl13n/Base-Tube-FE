@@ -118,6 +118,23 @@ export const queryKeys = {
     byChannel: (channelId: string) => [...queryKeys.passes.all, 'channel', channelId] as const,
   },
 
+  // The creator's business view (/creator/business). Every key carries the
+  // full parameter object, so a period / channel / filter change is a new key.
+  creatorBusiness: {
+    all: ['creatorBusiness'] as const,
+    overview: (params: object) => [...queryKeys.creatorBusiness.all, 'overview', params] as const,
+    passes: (params: object) => [...queryKeys.creatorBusiness.all, 'passes', params] as const,
+    allPasses: (params: object) => [...queryKeys.creatorBusiness.all, 'allPasses', params] as const,
+    pass: (passId: string, params: object) => [...queryKeys.creatorBusiness.all, 'pass', passId, params] as const,
+    customers: (params: object) => [...queryKeys.creatorBusiness.all, 'customers', params] as const,
+    customer: (customerId: string, params: object) =>
+      [...queryKeys.creatorBusiness.all, 'customer', customerId, params] as const,
+    sources: (params: object) => [...queryKeys.creatorBusiness.all, 'sources', params] as const,
+    payouts: (params: object) => [...queryKeys.creatorBusiness.all, 'payouts', params] as const,
+    passVideoWatch: (channelId: number, params: object) =>
+      [...queryKeys.creatorBusiness.all, 'passVideoWatch', channelId, params] as const,
+  },
+
   // Onchain pass (access + purchase status)
   onchainPass: {
     all: ['onchainPass'] as const,

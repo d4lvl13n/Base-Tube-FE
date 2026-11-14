@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { VideoPlayerRef } from '../components/common/Video/VideoPlayer';
+import { viewSessions } from '../hooks/viewSession';
 
 export interface PlaybackSource {
   videoId: string;
@@ -41,8 +42,18 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const minimize = useCallback(() => setIsMini(true), []);
-  const restore = useCallback(() => setIsMini(false), []);
+  // View tracking follows the player: "Return to video" hands the session the
+  // mini player was carrying back to the main player (see hooks/viewSession).
+  const restore = useCallback(() => {
+    const videoId = sourceRef.current?.videoId;
+    if (videoId) viewSessions.returnToPrimary(videoId);
+    setIsMini(false);
+  }, []);
+  // Closing the mini player ends its view session (unless the main player
+  // still holds it).
   const close = useCallback(() => {
+    const videoId = sourceRef.current?.videoId;
+    if (videoId) viewSessions.dropCarried(videoId);
     sourceRef.current = null;
     setIsMini(false);
     setTick(t => t + 1);
@@ -63,18 +74,10 @@ export const PlaybackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   /**
    * Pauses the full-size player. This is a PAUSE, not a teardown: the primary
    * player's `pause` event flushes the played time so far and leaves the view
-   * row open, so restoring picks the same session back up.
-   *
-   * TODO(analytics): mini-player playback is still not counted. `MiniPlayer`
-   * renders its own raw `<video>` with no `useViewTracking` session, and the
-   * primary player (which owns the session) unmounts as soon as the viewer
-   * navigates off the watch page — so every second watched in the mini player
-   * is invisible to watch-time and completion. Fixing it honestly means moving
-   * the tracking session up here, keyed by `videoId` and surviving the page
-   * unmount, rather than living inside `VideoPlayer`. That is a real refactor
-   * of playback ownership, not a patch, and it is deliberately out of scope of
-   * the tracking-tier fixes. Same for gated `PassVideoPlayer` playback, which
-   * runs in a different id space entirely.
+   * row open. The mini player then carries the SAME view session
+   * (hooks/viewSession.ts), and "Return to video" hands it back — one view row
+   * per watch visit, whichever player the time was played in. Gated
+   * `PassVideoPlayer` playback is tracked separately (utils/passWatchTracker).
    */
   const pausePrimary = useCallback(() => {
     try {

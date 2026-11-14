@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { validateChannelData, ChannelApiError } from '../../../../../api/channel';
@@ -17,6 +17,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
   onClose,
   onUpdate,
 }) => {
+  const reduceMotion = useReducedMotion();
   // -------------------------------------------------------
   // 1. State
   // -------------------------------------------------------
@@ -190,9 +191,10 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
 
           {/* Container */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2 }}
             className={styles.container}
           >
             <div className={styles.content}>
@@ -202,9 +204,10 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                 <button
                   type="button"
                   className={styles.closeButton}
+                  aria-label="Close"
                   onClick={onClose}
                 >
-                  <X className="w-5 h-5 text-gray-300" />
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
 
@@ -224,8 +227,8 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                     }
                     className={`${styles.input} ${
                       errors.name
-                        ? 'border-red-500 focus:outline-none'
-                        : 'border-gray-700 focus:border-[#fa7517]'
+                        ? styles.inputError
+                        : ''
                     }`}
                   />
                   {errors.name && (
@@ -248,12 +251,12 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                       }
                       className={`${styles.input} ${
                         errors.handle
-                          ? 'border-red-500 focus:outline-none'
-                          : 'border-gray-700 focus:border-[#fa7517]'
+                          ? styles.inputError
+                          : ''
                       }`}
                       placeholder="your-channel-handle"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
                       .base
                     </span>
                   </div>
@@ -294,7 +297,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                         />
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full">
-                          <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
+                          <ImageIcon className="mb-2 h-7 w-7 text-gray-500" aria-hidden="true" />
                           <p className="text-sm text-gray-400">Click to upload banner image</p>
                         </div>
                       )}
@@ -302,7 +305,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
 
                     {/* File Input and Requirements */}
                     <div className="space-y-2">
-                      <div className="flex items-center space-x-4">
+                      <div className="flex flex-wrap items-center gap-3">
                         <input
                           id="channelImageInput"
                           type="file"
@@ -312,12 +315,12 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                         />
                         <label
                           htmlFor="channelImageInput"
-                          className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg cursor-pointer transition-colors"
+                          className={styles.fileButton}
                         >
                           Choose File
                         </label>
                         {errors.channel_image && (
-                          <p className="text-sm text-red-500">
+                          <p className={styles.errorText}>
                             {errors.channel_image}
                           </p>
                         )}
@@ -340,7 +343,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                   <div>
                     <label
                       htmlFor="facebook"
-                      className={`${styles.label} mb-1 block`}
+                      className={styles.label}
                     >
                       Facebook
                     </label>
@@ -357,8 +360,8 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                       }
                       className={`${styles.input} ${
                         errors.facebook_link
-                          ? 'border-red-500 focus:outline-none'
-                          : 'border-gray-700 focus:border-[#fa7517]'
+                          ? styles.inputError
+                          : ''
                       }`}
                     />
                     {errors.facebook_link && (
@@ -372,7 +375,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                   <div>
                     <label
                       htmlFor="instagram"
-                      className={`${styles.label} mb-1 block`}
+                      className={styles.label}
                     >
                       Instagram
                     </label>
@@ -389,8 +392,8 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                       }
                       className={`${styles.input} ${
                         errors.instagram_link
-                          ? 'border-red-500 focus:outline-none'
-                          : 'border-gray-700 focus:border-[#fa7517]'
+                          ? styles.inputError
+                          : ''
                       }`}
                     />
                     {errors.instagram_link && (
@@ -404,7 +407,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                   <div>
                     <label
                       htmlFor="twitter"
-                      className={`${styles.label} mb-1 block`}
+                      className={styles.label}
                     >
                       Twitter
                     </label>
@@ -421,8 +424,8 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                       }
                       className={`${styles.input} ${
                         errors.twitter_link
-                          ? 'border-red-500 focus:outline-none'
-                          : 'border-gray-700 focus:border-[#fa7517]'
+                          ? styles.inputError
+                          : ''
                       }`}
                     />
                     {errors.twitter_link && (

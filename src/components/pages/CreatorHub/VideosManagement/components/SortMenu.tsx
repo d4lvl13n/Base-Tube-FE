@@ -2,6 +2,7 @@ import React from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Check, ChevronDown } from 'lucide-react';
 import { VideoSortOption } from '../types';
+import { button, cx, popover } from '../../Business/businessStyles';
 
 const OPTIONS: { value: VideoSortOption; label: string }[] = [
   { value: 'newest', label: 'Newest' },
@@ -30,18 +31,11 @@ interface SortMenuProps {
 export const SortMenu: React.FC<SortMenuProps> = ({ value, onChange }) => (
   <DropdownMenu.Root>
     <DropdownMenu.Trigger asChild>
-      <button
-        type="button"
-        aria-label="Sort"
-        className="group inline-flex items-center gap-1.5 rounded-lg border border-gray-800/60
-                   bg-white/5 px-3 py-1.5 text-sm text-gray-300 transition-colors
-                   hover:border-gray-700 hover:text-white focus-visible:outline-none
-                   focus-visible:ring-2 focus-visible:ring-[#fa7517]/40"
-      >
-        <span className="text-gray-500">Sort</span>
+      <button type="button" aria-label="Sort" className={cx(button.secondary, 'group')}>
+        <span className="text-gray-400">Sort</span>
         {sortLabel(value)}
         <ChevronDown
-          className="h-3.5 w-3.5 text-gray-500 transition-transform duration-200
+          className="h-3.5 w-3.5 text-gray-400 transition-transform duration-200 motion-reduce:transition-none
                      group-data-[state=open]:rotate-180"
           aria-hidden="true"
         />
@@ -49,23 +43,18 @@ export const SortMenu: React.FC<SortMenuProps> = ({ value, onChange }) => (
     </DropdownMenu.Trigger>
 
     <DropdownMenu.Portal>
-      <DropdownMenu.Content
-        align="end"
-        sideOffset={6}
-        className="z-50 min-w-[10rem] overflow-hidden rounded-lg border border-gray-800/60
-                   bg-[#0f0f0f] p-1 shadow-2xl"
-      >
+      <DropdownMenu.Content align="end" sideOffset={6} className={cx(popover.menu, 'min-w-[10rem]')}>
         {OPTIONS.map((option) => {
           const active = option.value === value;
           return (
             <DropdownMenu.Item
               key={option.value}
               onSelect={() => onChange(option.value)}
-              className={`flex cursor-pointer items-center justify-between gap-6 rounded-md px-2.5
-                          py-2 text-sm outline-none transition-colors
-                          data-[highlighted]:bg-white/5 ${
-                            active ? 'text-[#fa7517]' : 'text-gray-300 data-[highlighted]:text-white'
-                          }`}
+              className={cx(
+                popover.item,
+                'justify-between gap-6',
+                active && 'text-[#fa7517] data-[highlighted]:text-[#fa7517]',
+              )}
             >
               {option.label}
               {active && <Check className="h-3.5 w-3.5" aria-hidden="true" />}

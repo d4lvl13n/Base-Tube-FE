@@ -349,7 +349,7 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
           </button>
 
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <h1 className="truncate text-sm font-medium text-gray-100">
+            <h1 className="truncate text-base font-semibold tracking-tight text-white">
               {formData.title || 'Untitled video'}
             </h1>
             <span
@@ -364,7 +364,7 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
               {phase}
             </span>
             {updatedOn && (
-              <span className="hidden shrink-0 text-xs text-gray-500 sm:inline">
+              <span className="hidden shrink-0 text-xs text-gray-400 sm:inline">
                 Updated {updatedOn}
               </span>
             )}
@@ -372,7 +372,7 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
 
           <div className="flex shrink-0 items-center gap-2">
             {hasChanges && (
-              <span className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="flex items-center gap-1.5 text-xs text-gray-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#fa7517]" aria-hidden="true" />
                 <span className="hidden md:inline">Unsaved changes</span>
               </span>
@@ -388,7 +388,7 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
               </button>
             )}
             <button type="submit" className={styles.primaryButton} disabled={isSubmitting || !hasChanges}>
-              {isSubmitting && <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              {isSubmitting && <RefreshCw className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
               {isSubmitting ? 'Saving' : 'Save'}
             </button>
           </div>
@@ -445,15 +445,15 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
 
             <div className="space-y-1.5">
               <label htmlFor="video-tags" className={styles.fieldLabel}>Tags</label>
-              <div className="flex h-9 items-center gap-2 rounded-md border border-gray-800/60 bg-white/5 px-3
-                              transition-colors hover:border-gray-700 focus-within:border-[#fa7517]/40">
-                <Tag className="h-3.5 w-3.5 shrink-0 text-gray-600" aria-hidden="true" />
+              <div className="flex h-9 items-center gap-2 rounded-lg border border-gray-800 bg-black/40 px-3 transition-colors
+                              hover:border-gray-700 focus-within:border-[#fa7517]/50 focus-within:ring-2 focus-within:ring-[#fa7517]/30">
+                <Tag className="h-3.5 w-3.5 shrink-0 text-gray-500" aria-hidden="true" />
                 <input
                   id="video-tags"
                   type="text"
                   value={formData.tags}
                   onChange={(event) => setFormData(prev => ({ ...prev, tags: event.target.value }))}
-                  className="w-full bg-transparent text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none"
+                  className="w-full bg-transparent text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none"
                   placeholder="gaming, tutorial, launch"
                 />
               </div>
@@ -461,9 +461,9 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
 
             <div className="space-y-1.5">
               <label className={styles.fieldLabel}>Visibility</label>
-              <div className="flex items-center justify-between gap-3 rounded-md border border-gray-800/60
-                              bg-white/5 px-3 py-2">
-                <p className="text-xs text-gray-500">
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-800/60
+                              bg-black/40 px-3 py-2.5">
+                <p className="text-xs leading-relaxed text-gray-400">
                   {canPublish
                     ? 'Public videos appear on your channel and in search.'
                     : 'A video can go public once it has finished processing.'}
@@ -509,7 +509,8 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
                     onClick={() => setIsPreviewPlaying(true)}
                     disabled={!previewVideoUrl}
                     aria-label={previewVideoUrl ? 'Play video' : 'Preview unavailable'}
-                    className="group relative h-full w-full disabled:cursor-not-allowed"
+                    className="group relative h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset
+                               focus-visible:ring-[#fa7517]/60 disabled:cursor-not-allowed"
                   >
                     {thumbnailPreview ? (
                       <img
@@ -519,7 +520,7 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
                       />
                     ) : (
                       <span className="flex h-full w-full items-center justify-center bg-black">
-                        <ImageIcon className="h-6 w-6 text-gray-700" aria-hidden="true" />
+                        <ImageIcon className="h-6 w-6 text-gray-500" aria-hidden="true" />
                       </span>
                     )}
                     {previewVideoUrl && (
@@ -527,7 +528,7 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
                                        transition-colors group-hover:bg-black/45">
                         <span className="flex h-12 w-12 items-center justify-center rounded-full
                                          bg-black/70 ring-1 ring-white/20 transition-transform
-                                         group-hover:scale-105">
+                                         group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none">
                           <Play className="ml-0.5 h-5 w-5 text-white" aria-hidden="true" />
                         </span>
                       </span>
@@ -537,7 +538,7 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
 
                 {isLoadingDetails && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                    <RefreshCw className="h-4 w-4 animate-spin text-[#fa7517]" aria-hidden="true" />
+                    <RefreshCw className="h-4 w-4 animate-spin text-[#fa7517] motion-reduce:animate-none" aria-hidden="true" />
                   </div>
                 )}
               </div>
@@ -569,7 +570,7 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
                   <img src={thumbnailPreview} alt="Video thumbnail" className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full items-center justify-center">
-                    <ImageIcon className="h-6 w-6 text-gray-700" aria-hidden="true" />
+                    <ImageIcon className="h-6 w-6 text-gray-500" aria-hidden="true" />
                   </div>
                 )}
               </div>
@@ -603,9 +604,9 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({
             </section>
 
             {onDelete && (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-800/60
-                              px-4 py-2.5">
-                <p className="text-xs text-gray-600">This cannot be undone.</p>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-800/50
+                              bg-black/50 px-4 py-2.5">
+                <p className="text-xs text-gray-400">This cannot be undone.</p>
                 <button
                   type="button"
                   onClick={() => onDelete(video.id)}

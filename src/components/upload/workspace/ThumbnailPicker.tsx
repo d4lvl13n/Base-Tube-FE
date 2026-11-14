@@ -18,7 +18,7 @@ interface ThumbnailPickerProps {
 
 const SEGMENT =
   'inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-2.5 text-sm transition-colors ' +
-  'focus-visible:relative focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
+  'focus-visible:relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#fa7517]/60';
 
 /**
  * Three choices (UP-UX §8): the automatic poster, an image from disk, or the
@@ -71,14 +71,14 @@ const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
         style={{ flexDirection: stacked ? 'column' : 'row', alignItems: stacked ? 'stretch' : 'flex-start' }}
       >
         <div
-          className="relative aspect-video shrink-0 overflow-hidden rounded-md bg-black ring-1 ring-gray-800"
+          className="relative aspect-video shrink-0 overflow-hidden rounded-lg border border-gray-800/60 bg-black"
           style={{ width: stacked ? '100%' : '7.5rem' }}
         >
           {previewUrl ? (
             <img src={previewUrl} alt="Selected thumbnail" className="h-full w-full object-cover" />
           ) : (
             <span className="flex h-full w-full items-center justify-center">
-              <ImageIcon className="h-5 w-5 text-gray-700" aria-hidden="true" />
+              <ImageIcon className="h-5 w-5 text-gray-600" aria-hidden="true" />
             </span>
           )}
           {saving && (
@@ -92,7 +92,7 @@ const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
           <div
             role="group"
             aria-labelledby={`thumbnail-${draft.key}`}
-            className="flex divide-x divide-gray-800 overflow-hidden rounded-md border border-gray-800"
+            className="flex divide-x divide-gray-800/60 overflow-hidden rounded-lg border border-gray-800/60 bg-black/40"
           >
             {segments.map((segment) => {
               const active = current === segment.id;
@@ -104,10 +104,8 @@ const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
                   onClick={segment.onClick}
                   className={`${SEGMENT} ${
                     active
-                      ? 'bg-white/[0.08] text-white'
-                      : segment.id === 'ai'
-                        ? 'text-[#fa7517] hover:bg-[#fa7517]/[0.08]'
-                        : 'text-gray-400 hover:bg-white/[0.04] hover:text-white'
+                      ? 'bg-[#fa7517]/15 font-medium text-[#fa7517]'
+                      : 'text-gray-400 hover:bg-white/[0.04] hover:text-white'
                   }`}
                 >
                   {segment.icon}
@@ -124,25 +122,25 @@ const ThumbnailPicker: React.FC<ThumbnailPickerProps> = ({
               </p>
             )}
             {choice?.status === 'failed' && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 text-xs text-yellow-300" role="alert">
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 text-xs text-amber-300" role="alert">
                 <span className="inline-flex items-center gap-1">
                   <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
                   {workspaceCopy.thumbnailFailed} {choice.errorMessage}
                 </span>
                 {choice.errorCode !== 'THUMBNAIL_FILE_MISSING' && (
-                  <button type="button" onClick={onRetry} className="min-h-[44px] text-[#fa7517] hover:text-[#ff8c3a]">
+                  <button type="button" onClick={onRetry} className="min-h-[44px] rounded-sm text-[#fa7517] hover:text-[#ff8c3a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50">
                     {workspaceCopy.retry}
                   </button>
                 )}
-                <button type="button" onClick={onAutomatic} className="min-h-[44px] text-gray-300 hover:text-white">
+                <button type="button" onClick={onAutomatic} className="min-h-[44px] rounded-sm text-gray-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50">
                   {workspaceCopy.thumbnailUseAutomatic}
                 </button>
               </div>
             )}
             {choice && !choice.blobPersisted && choice.status !== 'selected' && (
-              <p className="mt-2 text-xs text-yellow-500/80">{workspaceCopy.thumbnailNotKept}</p>
+              <p className="mt-2 text-xs text-amber-300">{workspaceCopy.thumbnailNotKept}</p>
             )}
-            {notice && <p className="mt-2 text-xs text-yellow-500/80">{notice}</p>}
+            {notice && <p className="mt-2 text-xs text-amber-300">{notice}</p>}
           </div>
         </div>
       </div>

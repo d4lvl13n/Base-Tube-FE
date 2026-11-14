@@ -1,3 +1,5 @@
+import type { BuyerAllowanceDto, PassResaleDto } from '../utils/passTerms';
+
 export interface PassVideo {
   id: string;
   thumbnail_url: string;
@@ -27,8 +29,11 @@ export interface CreatePassRequest {
   price_cents: number;         // required, minimum 100 (= $1.00)
   currency?: string;           // optional, defaults to EUR
   tier?: string;               // optional, defaults to bronze
-  supply_cap?: number;         // optional, max number of purchases
-  
+  /** How many passes exist. Every new pass has one; no more are ever created. */
+  supply_cap?: number;
+  /** The most passes one person may buy at the primary sale (1 … supply_cap). */
+  max_per_buyer?: number;
+
   /**
    * Single video URL for the pass. Required if videos is not provided.
    * Accepts full URL from supported platforms (YouTube, Twitch, Instagram, TikTok, etc.)
@@ -79,6 +84,7 @@ export interface UpdateDraftPassRequest {
   price_cents?: number;
   currency?: string;
   supply_cap?: number | null;
+  max_per_buyer?: number;
   creator_settlement_preference?: CreatorSettlementPreference | null;
 }
 
@@ -100,7 +106,17 @@ export interface Pass {
   currency: string;
   formatted_price: string;
   tier: string;
-  supply_cap?: number;  // Optional number for max supply, null/undefined means unlimited
+  /**
+   * How many passes exist. Every pass has one; a pass created before caps were
+   * required may still have none (null) and cannot be published until one is set.
+   */
+  supply_cap?: number | null;
+  /** The most passes one person may buy at the primary sale (never above the cap). Read through `utils/passTerms`. */
+  max_per_buyer?: number | null;
+  /** Resale split recorded on the pass, in basis points; null on a legacy pass. Read through `utils/passTerms`. */
+  resale?: PassResaleDto | null;
+  /** GET /passes/:id, signed-in viewer only: how many they have and may still buy. */
+  buyer_allowance?: BuyerAllowanceDto | null;
   minted_count?: number; // Number of passes minted on-chain
   /** Aggregate sold count (minted + pending reservations) — the backend never exposes raw reserved_count */
   sold_count?: number;

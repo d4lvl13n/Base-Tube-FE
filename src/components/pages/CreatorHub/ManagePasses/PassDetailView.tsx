@@ -1,35 +1,45 @@
 // src/components/pages/CreatorHub/ManagePasses/PassDetailView.tsx
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Copy, ExternalLink, Film, Link2, Plus, RefreshCw } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Copy, ExternalLink, Link2, Lock, Pencil, RefreshCw } from 'lucide-react';
 import { useAddVideoToPass, usePassDetails } from '../../../../hooks/usePass';
-import type { PassVideo } from '../../../../types/pass';
 import RichTextDisplay from '../../../common/RichTextDisplay';
-import { cx, form, hairlineBar, list, page, skeleton, tierPill } from '../shared/hubStyles';
-import AddVideoDrawer from './AddVideoDrawer';
+import { cx, form, frame, hairlineBar, list, page, skeleton, tierPill } from '../Business/businessStyles';
+import PassPerformanceSection, { usePassPerformance } from '../Business/PassPerformanceSection';
+import EditPassDetailsDialog from './EditPassDetailsDialog';
+import PassVideosSection from './PassVideosSection';
+import { SaleControlButton } from './SaleControls';
 import PassStatusPill from './PassStatusPill';
+import { formatMomentDate, saleState } from '../Business/businessFormat';
+import { EmptyState, SalePill } from '../Business/BusinessUi';
 import {
   copyPassLink,
   copyToClipboard,
   draftHref,
-  formatDate,
-  formatDuration,
-  formatMoney,
   isPublished,
   passCreatedAt,
   publicPassPath,
   publicPassUrl,
   shortAddress,
+  passPriceText,
   soldCount,
 } from './passHelpers';
-
-const FALLBACK_THUMBNAIL = '/assets/Content-pass.webp';
+import {
+  FROZEN_AFTER_FIRST_SALE,
+  NO_CAP_SET,
+  maxPerBuyerOf,
+  pctText,
+  perPersonText,
+  resaleCreatorSentence,
+  resaleTermsOf,
+  supplyCapOf,
+} from '../../../../utils/passTerms';
 
 /** One line of the Details panel: a label, a value, and nothing else. */
 const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <div className="flex items-center justify-between gap-4 py-2.5">
-    <dt className="shrink-0 text-xs text-gray-500">{label}</dt>
-    <dd className="flex min-w-0 items-center justify-end gap-1.5 text-right text-sm text-gray-200">
+  <div className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+    <dt className="shrink-0 text-sm text-gray-400">{label}</dt>
+    <dd className="flex min-w-0 items-center justify-end gap-1.5 text-right text-sm text-gray-100">
       {children}
     </dd>
   </div>
@@ -46,38 +56,9 @@ const CopyIconButton: React.FC<{ label: string; onClick: () => void }> = ({ labe
   </button>
 );
 
-const VideoRow: React.FC<{ video: PassVideo; index: number }> = ({ video, index }) => {
-  const duration = formatDuration(video.duration);
-  const title = video.title || `Video ${index + 1}`;
-  return (
-    <li className={cx(list.table.row, 'flex items-center gap-3 px-4 py-3 md:px-5')}>
-      <img
-        src={video.thumbnail_url || FALLBACK_THUMBNAIL}
-        alt=""
-        loading="lazy"
-        className="aspect-video w-24 shrink-0 rounded-md border border-gray-800/60 bg-black object-cover"
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-gray-100" title={title}>
-          {title}
-        </p>
-        <p className={cx(list.preview, 'mt-0.5')}>
-          {video.platform}
-          {duration && (
-            <>
-              <span aria-hidden="true"> · </span>
-              <span className="tabular-nums">{duration}</span>
-            </>
-          )}
-        </p>
-      </div>
-    </li>
-  );
-};
-
 const DetailSkeleton: React.FC = () => (
   <div className={page.frame} aria-busy="true">
-    <div className={page.wide}>
+    <div className={frame.business}>
       <div className={form.header}>
         <div className={cx(skeleton.block, 'h-8 w-8')} />
         <div className={cx(skeleton.line, 'w-56')} />
@@ -135,30 +116,24 @@ const DetailSkeleton: React.FC = () => (
 const PassDetailView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
 
   const { data: pass, isLoading, error, refetch } = usePassDetails(id);
   const addVideoMutation = useAddVideoToPass();
+  // Real money, sales over time, funnel, sources and "opened by" per video.
+  const performance = usePassPerformance(id);
 
+  // One by one; the first refusal stops and is shown by the Videos section (its server sentence).
   const handleAddVideo = async (videos: { url: string; title?: string }[]) => {
     if (!id || videos.length === 0) return;
-
-    try {
-      // Process videos one by one
-      for (const video of videos) {
-        await addVideoMutation.mutateAsync({
-          passId: id,
-          data: {
-            src_url: video.url,
-            ...(video.title ? { title: video.title } : {}),
-          },
-        });
-      }
-
-      // Close drawer after all videos are added
-      setIsDrawerOpen(false);
-    } catch (caught) {
-      console.error('Error adding videos:', caught);
+    for (const video of videos) {
+      await addVideoMutation.mutateAsync({
+        passId: id,
+        data: {
+          src_url: video.url,
+          ...(video.title ? { title: video.title } : {}),
+        },
+      });
     }
   };
 
@@ -169,7 +144,7 @@ const PassDetailView: React.FC = () => {
   if (error || !pass) {
     return (
       <div className={page.frame}>
-        <div className={page.wide}>
+        <div className={frame.business}>
           <div className={form.header}>
             <button
               type="button"
@@ -180,25 +155,24 @@ const PassDetailView: React.FC = () => {
               Passes
             </button>
           </div>
-          <div className={list.panel}>
-            <div className={list.emptyState.wrapper} role="alert">
-              <p className={list.emptyState.title}>Couldn&apos;t load this pass</p>
-              <p className={list.emptyState.subtitle}>It may have been removed, or something went wrong on our side.</p>
-              <div className="mt-4 flex items-center gap-2">
+          <EmptyState
+            icon={AlertCircle}
+            tone="error"
+            role="alert"
+            title="Couldn't load this pass"
+            body="It may have been removed, or something went wrong on our side."
+            action={
+              <>
                 <button type="button" onClick={() => void refetch()} className={form.secondaryButton}>
                   <RefreshCw className="h-4 w-4" aria-hidden="true" />
                   Try again
                 </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/creator-hub/passes')}
-                  className={form.ghostButton}
-                >
+                <button type="button" onClick={() => navigate('/creator-hub/passes')} className={form.ghostButton}>
                   Back to passes
                 </button>
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
         </div>
       </div>
     );
@@ -206,7 +180,11 @@ const PassDetailView: React.FC = () => {
 
   const published = isPublished(pass);
   const sold = soldCount(pass);
-  const cap = pass.supply_cap;
+  const cap = supplyCapOf(pass);
+  const perBuyer = maxPerBuyerOf(pass);
+  const resale = resaleTermsOf(pass);
+  // A draft from before caps were required must get one before it can be published.
+  const noCapText = published ? 'No cap set' : NO_CAP_SET;
   const soldPct = cap ? Math.min(100, Math.round((sold / cap) * 100)) : 0;
   const videos = pass.videos ?? [];
   const createdAt = passCreatedAt(pass);
@@ -216,7 +194,7 @@ const PassDetailView: React.FC = () => {
 
   return (
     <div className={page.frame}>
-      <div className={page.wide}>
+      <div className={frame.business}>
         <div className={form.header}>
           <button
             type="button"
@@ -229,9 +207,20 @@ const PassDetailView: React.FC = () => {
           <h1 className="min-w-0 truncate text-base font-semibold tracking-tight text-white" title={pass.title}>
             {pass.title}
           </h1>
-          <PassStatusPill pass={pass} />
+          {performance.query.data ? (
+            <SalePill state={saleState(performance.query.data.pass, { videoCount: videos.length })} />
+          ) : (
+            <PassStatusPill pass={pass} />
+          )}
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            {published && <SaleControlButton pass={performance.query.data?.pass} />}
+            {published && (
+              <button type="button" onClick={() => setEditingDetails(true)} className={form.secondaryButton}>
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Edit details</span>
+              </button>
+            )}
             <button type="button" onClick={() => void copyPassLink(pass)} className={form.secondaryButton}>
               <Link2 className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Copy link</span>
@@ -254,43 +243,24 @@ const PassDetailView: React.FC = () => {
           </div>
         </div>
 
+        {published && (
+          <div className="mb-10">
+            <PassPerformanceSection passId={pass.id} perf={performance} videoCount={videos.length} />
+          </div>
+        )}
+
+        {published && <h2 className="mb-4 text-xl font-semibold text-white">Content and details</h2>}
         <div className={form.grid}>
           {/* Left column: the content */}
-          <div className="space-y-5">
-            <section className={cx(form.panel, 'pb-0')} aria-labelledby="pass-videos-heading">
-              <div className="flex items-center justify-between gap-3">
-                <h2 id="pass-videos-heading" className={form.panelTitle}>
-                  Videos
-                  <span className="ml-1.5 font-normal tabular-nums text-gray-500">· {videos.length}</span>
-                </h2>
-                <button type="button" onClick={() => setIsDrawerOpen(true)} className={form.secondaryButton}>
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  Add video
-                </button>
-              </div>
-
-              {videos.length > 0 ? (
-                <ul className={cx(list.divider, '-mx-4 mt-3 border-t border-gray-800/60 md:-mx-5')}>
-                  {videos.map((video, index) => (
-                    <VideoRow key={video.id} video={video} index={index} />
-                  ))}
-                </ul>
-              ) : (
-                <div className={cx(list.emptyState.wrapper, 'py-12')}>
-                  <Film className="h-8 w-8 text-gray-600" aria-hidden="true" />
-                  <p className={cx('mt-4', list.emptyState.title)}>No videos yet</p>
-                  <p className={list.emptyState.subtitle}>Add the videos this pass unlocks.</p>
-                  <button
-                    type="button"
-                    onClick={() => setIsDrawerOpen(true)}
-                    className={cx(form.secondaryButton, 'mt-4')}
-                  >
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                    Add video
-                  </button>
-                </div>
-              )}
-            </section>
+          <div className="space-y-6">
+            <PassVideosSection
+              passId={pass.id}
+              passTitle={pass.title}
+              fallbackVideos={videos}
+              videoStats={performance.videoStats}
+              onAddVideos={handleAddVideo}
+              addPending={addVideoMutation.status === 'pending'}
+            />
 
             <section className={form.panel} aria-labelledby="pass-description-heading">
               <h2 id="pass-description-heading" className={form.panelTitle}>
@@ -299,50 +269,26 @@ const PassDetailView: React.FC = () => {
               {description ? (
                 <RichTextDisplay content={description} className="prose-sm mt-3 text-gray-300" />
               ) : (
-                <p className="mt-3 text-sm text-gray-500">No description yet.</p>
+                <p className="mt-3 text-sm text-gray-400">No description yet.</p>
               )}
             </section>
           </div>
 
           {/* Right column: the numbers and the facts */}
-          <div className="space-y-5">
-            <section className={form.panel} aria-labelledby="pass-performance-heading">
-              <h2 id="pass-performance-heading" className={form.panelTitle}>
-                Performance
+          <div className="space-y-6">
+            {/* Earnings, buyers and the funnel live in the Performance section above
+                (real amounts per currency). This panel is only the supply. */}
+            <section className={form.panel} aria-labelledby="pass-supply-heading">
+              <h2 id="pass-supply-heading" className={form.panelTitle}>
+                Supply
               </h2>
-              <dl className="mt-4 grid grid-cols-2 gap-4">
-                <div>
-                  <dt className={page.eyebrow}>Purchases</dt>
-                  <dd className="mt-1 text-xl font-semibold tabular-nums text-white">{sold.toLocaleString()}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className={page.eyebrow}>Revenue</dt>
-                  <dd
-                    className="mt-1 truncate text-xl font-semibold tabular-nums text-white"
-                    title={formatMoney(sold * pass.price_cents, pass.currency)}
-                  >
-                    {formatMoney(sold * pass.price_cents, pass.currency)}
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="mt-5">
-                <div className="flex items-center justify-between gap-3">
-                  <p className={page.eyebrow}>Supply</p>
-                  <p className="text-xs tabular-nums text-gray-400">
-                    {cap ? (
-                      <>
-                        <span className="text-gray-200">{sold.toLocaleString()}</span> / {cap.toLocaleString()}
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-gray-200">{sold.toLocaleString()}</span> sold · unlimited
-                      </>
-                    )}
-                  </p>
-                </div>
+              <div className="mt-4">
+                <p className="flex items-baseline gap-2 tabular-nums">
+                  <span className="text-3xl font-bold tracking-tight text-white">{sold.toLocaleString()}</span>
+                  <span className="text-sm text-gray-400">{cap ? `of ${cap.toLocaleString()} sold` : 'sold'}</span>
+                </p>
                 <div
-                  className={cx(hairlineBar.track, 'mt-2')}
+                  className={cx(hairlineBar.track, 'mt-3')}
                   role={cap ? 'progressbar' : undefined}
                   aria-label={cap ? 'Supply sold' : undefined}
                   aria-valuemin={cap ? 0 : undefined}
@@ -352,10 +298,15 @@ const PassDetailView: React.FC = () => {
                   {cap ? <div className={hairlineBar.fill} style={{ width: `${soldPct}%` }} /> : null}
                 </div>
                 {cap ? (
-                  <p className="mt-2 text-xs tabular-nums text-gray-500">
+                  <p className="mt-2 text-xs tabular-nums text-gray-400">
                     {Math.max(0, cap - sold).toLocaleString()} remaining
                   </p>
-                ) : null}
+                ) : (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-300">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    {noCapText}
+                  </p>
+                )}
               </div>
             </section>
 
@@ -365,18 +316,30 @@ const PassDetailView: React.FC = () => {
               </h2>
               <dl className={cx(list.divider, 'mt-2')}>
                 <DetailRow label="Price">
-                  <span className="tabular-nums">{pass.formatted_price}</span>
+                  <span className="tabular-nums">{passPriceText(pass, performance.query.data?.pass.price)}</span>
                 </DetailRow>
                 <DetailRow label="Tier">
                   <span className={tierPill}>{pass.tier}</span>
                 </DetailRow>
-                <DetailRow label="Supply">
-                  <span className="tabular-nums">{cap ? cap.toLocaleString() : 'Unlimited'}</span>
+                <DetailRow label="Number of passes">
+                  {cap ? (
+                    <span className="tabular-nums">{cap.toLocaleString()}</span>
+                  ) : (
+                    <span className="text-amber-300">{noCapText}</span>
+                  )}
+                </DetailRow>
+                {perBuyer && (
+                  <DetailRow label="Per person">
+                    <span className="tabular-nums">{perPersonText(perBuyer)}</span>
+                  </DetailRow>
+                )}
+                <DetailRow label="Resale royalty">
+                  <span className="tabular-nums">{pctText(resale.creatorPct)} of every resale</span>
                 </DetailRow>
                 {createdAt && (
                   <DetailRow label="Created">
                     <time dateTime={createdAt} className="tabular-nums">
-                      {formatDate(createdAt)}
+                      {formatMomentDate(createdAt)}
                     </time>
                   </DetailRow>
                 )}
@@ -404,17 +367,24 @@ const PassDetailView: React.FC = () => {
                   </DetailRow>
                 )}
               </dl>
+              <div className="mt-4 space-y-2 border-t border-gray-800/50 pt-4 text-xs leading-relaxed text-gray-400">
+                <p>{resaleCreatorSentence(resale)}</p>
+                <p className="flex items-start gap-1.5">
+                  <Lock className="mt-px h-3.5 w-3.5 shrink-0 text-gray-500" aria-hidden="true" />
+                  {FROZEN_AFTER_FIRST_SALE}
+                </p>
+              </div>
             </section>
           </div>
         </div>
       </div>
 
-      <AddVideoDrawer
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        onSubmit={handleAddVideo}
-        isLoading={addVideoMutation.status === 'pending'}
-        passTitle={pass.title}
+      <EditPassDetailsDialog
+        open={editingDetails}
+        onOpenChange={setEditingDetails}
+        passId={pass.id}
+        title={pass.title}
+        description={pass.description || ''}
       />
     </div>
   );

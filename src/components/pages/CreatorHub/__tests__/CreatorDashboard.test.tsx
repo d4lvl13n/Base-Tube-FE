@@ -1,16 +1,20 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render as rtlRender } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import CreatorDashboard from '../CreatorDashboard';
+
+// "How views are counted" links to the passes.
+const render = (ui: React.ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 const mockAnalytics: any = {
   growthMetrics: {
     metrics: {
-      subscribers: { total: 0, trend: 0, data: [] },
-      views: { total: 0, trend: 0, data: [] },
-      engagement: { total: 0, trend: 0, data: [] }
+      subscribers: { total: 0, trend: null, previousTotal: 0, windowDays: 7, data: [] },
+      views: { total: 0, trend: null, previousTotal: 0, windowDays: 7, data: [] },
+      engagement: { total: 42, trend: null, previousTotal: 0, windowDays: 7, data: [] }
     }
   },
-  creatorWatchHours: { total: 0, formattedHours: '0 hours', periodTotal: 12, trend: 0 },
+  creatorWatchHours: { total: 0, formattedHours: '0 hours', periodTotal: 12 },
   viewMetrics: { totalViews: 0, uniqueViewers: 0, completedViews: 0, averageWatchDuration: 0 },
   detailedViewMetrics: undefined,
   socialMetrics: {
@@ -55,18 +59,9 @@ jest.mock('../../../../hooks/useChannelData', () => ({
   useChannelData: () => mockChannel
 }));
 
-jest.mock('../../../../hooks/usePass', () => ({
-  useCreatorSales: () => ({
-    data: {
-      card: { currency: 'EUR', proceeds_minor: 0, gross_minor: 0, fee_minor: 0, purchase_count: 0 },
-      crypto: { currency: 'USDC', proceeds_minor: 0, gross_minor: 0, fee_minor: 0, purchase_count: 0 },
-      buyers: 0,
-      pass_holders: 0,
-      recent: [],
-    },
-    isLoading: false,
-  }),
-}));
+// The "Pass sales" block is its own component on the business API; these
+// tests are about the four stat cards.
+jest.mock('../PassSalesSummary', () => () => null);
 
 beforeEach(() => {
   mockAnalytics.errors = { ...noErrors };
@@ -100,7 +95,8 @@ describe('CreatorDashboard', () => {
 
     expect(container.textContent).not.toContain('Infinity');
     expect(container.textContent).not.toContain('NaN');
-    expect(container.textContent).toContain('—');
+    expect(container.textContent).toContain('Too few views for a rate');
+    expect(container.textContent).toContain('42 likes + comments · 0 views, last 7 days');
   });
 
   it('does not render the watch-time hours count as a percentage badge', () => {
@@ -146,7 +142,7 @@ describe('CreatorDashboard error states', () => {
 
     // The failing cards must not still be showing their fallback values.
     expect(container.textContent).not.toContain('0 hours');
-    expect(container.textContent).not.toContain('—');
+    expect(container.textContent).not.toContain('Too few views for a rate');
   });
 
   it('leaves healthy cards alone when one query fails', () => {

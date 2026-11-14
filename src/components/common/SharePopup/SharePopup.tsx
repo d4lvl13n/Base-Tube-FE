@@ -17,6 +17,7 @@ import {
 import { generateEmbedCode, EMBED_SIZES } from '../../../utils/embed';
 import { toast } from 'react-toastify';
 import { ShareToast } from '../Toast/ShareToast';
+import { recordShareAction, type ShareActionPlatform } from '../../../api/shareApi';
 
 interface SharePopupProps {
   isOpen: boolean;
@@ -29,14 +30,31 @@ interface SharePopupProps {
 export const SharePopup: React.FC<SharePopupProps> = ({ isOpen, onClose, videoUrl, title, videoId }) => {
   const [showEmbedOptions, setShowEmbedOptions] = useState(false);
 
+  // One share is recorded per COMPLETED action: after the copy succeeded, or
+  // once the social window actually opened. Fire-and-forget.
+  const track = (platform: ShareActionPlatform) => {
+    void recordShareAction(videoId, platform);
+  };
+  const openShareWindow = (url: string, platform: ShareActionPlatform) => {
+    const opened = window.open(url, '_blank');
+    // A blocked pop-up returns null: nothing was shared.
+    if (opened) track(platform);
+  };
+
   const shareOptions = [
     {
       name: 'Copy Link',
       icon: Copy,
       color: '#fa7517',
       onClick: async () => {
-        await navigator.clipboard.writeText(videoUrl);
+        try {
+          await navigator.clipboard.writeText(videoUrl);
+        } catch {
+          toast.error(ShareToast({ type: 'error' }));
+          return;
+        }
         toast.success(ShareToast({ type: 'success' }));
+        track('copy_link');
         onClose();
       }
     },
@@ -51,7 +69,7 @@ export const SharePopup: React.FC<SharePopupProps> = ({ isOpen, onClose, videoUr
       icon: Twitter,
       color: '#1DA1F2',
       onClick: () => {
-        window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(videoUrl)}&text=${encodeURIComponent(title)}`, '_blank');
+        openShareWindow(`https://twitter.com/intent/tweet?url=${encodeURIComponent(videoUrl)}&text=${encodeURIComponent(title)}`, 'x');
       }
     },
     {
@@ -59,7 +77,7 @@ export const SharePopup: React.FC<SharePopupProps> = ({ isOpen, onClose, videoUr
       icon: Facebook,
       color: '#1877F2',
       onClick: () => {
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(videoUrl)}`, '_blank');
+        openShareWindow(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(videoUrl)}`, 'facebook');
       }
     },
     {
@@ -67,7 +85,7 @@ export const SharePopup: React.FC<SharePopupProps> = ({ isOpen, onClose, videoUr
       icon: MessageCircle,
       color: '#25D366',
       onClick: () => {
-        window.open(`https://wa.me/?text=${encodeURIComponent(`${title} ${videoUrl}`)}`, '_blank');
+        openShareWindow(`https://wa.me/?text=${encodeURIComponent(`${title} ${videoUrl}`)}`, 'whatsapp');
       }
     },
     {
@@ -75,7 +93,10 @@ export const SharePopup: React.FC<SharePopupProps> = ({ isOpen, onClose, videoUr
       icon: Mail,
       color: '#EA4335',
       onClick: () => {
+        // A mailto: hand-off gives no signal back (most browsers return null
+        // here even when the mail app opens), so the click is the action.
         window.open(`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(videoUrl)}`, '_blank');
+        track('email');
       }
     },
   ];
@@ -107,11 +128,17 @@ export const SharePopup: React.FC<SharePopupProps> = ({ isOpen, onClose, videoUr
     }
   ];
 
-  const handleCopyEmbed = (option: typeof embedSizeOptions[number]) => {
+  const handleCopyEmbed = async (option: typeof embedSizeOptions[number]) => {
     if (videoId) {
       const embedCode = generateEmbedCode(videoId, title, option);
-      navigator.clipboard.writeText(embedCode);
+      try {
+        await navigator.clipboard.writeText(embedCode);
+      } catch {
+        toast.error(ShareToast({ type: 'error' }));
+        return;
+      }
       toast.success(ShareToast({ type: 'embed-success' }));
+      track('embed');
       onClose();
     }
   };
@@ -206,7 +233,7 @@ export const SharePopup: React.FC<SharePopupProps> = ({ isOpen, onClose, videoUr
                     key={option.name}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => handleCopyEmbed(option)}
+                    onClick={() => void handleCopyEmbed(option)}
                     className="flex items-center gap-4 p-4 rounded-xl
                              bg-white/5 hover:bg-white/10 transition-colors
                              border border-white/5 hover:border-white/10

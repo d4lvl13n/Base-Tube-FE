@@ -1,18 +1,19 @@
 import api from './index';
-import { 
-  SocialMetrics, 
+import type {
+  SocialMetrics,
   GrowthMetrics,
   BasicViewMetrics,
+  CreatorWatchHours,
   DetailedViewMetrics,
-  LikeGrowthTrends,
-  TopLikedVideos,
   ChannelWatchPatterns,
   ChannelDemographics,
-  EngagementTrends, 
-  TopContentItem, 
-  TopSharedItem, 
+  DemographicsPeriod,
+  EngagementTrends,
+  TopContentItem,
+  TopSharedItem,
   TopComment,
-  VideoPerformanceResponse
+  VideoPerformanceResponse,
+  RankedList
 } from '../types/analytics';
 import {
   INSIGHTS_SCHEMA_VERSION,
@@ -21,17 +22,6 @@ import {
   type InsightsPeriod
 } from '../types/insights';
 import { handleApiError as handleError, retryWithBackoff } from '../utils/errorHandler';
-import { ErrorCode } from '../types/error';
-
-// Matches GET /analytics/channels/:id/watch-hours
-interface WatchTimeData {
-  channelId: string;
-  totalWatchHours: number;
-  /** Exact seconds (additive); lets the UI say "1m 19s" instead of "0.0 hours". */
-  totalWatchSeconds?: number;
-  period: string;
-  formattedHours: string;
-}
 
 // ===========================================
 // CREATOR-FOCUSED ANALYTICS ENDPOINTS
@@ -111,18 +101,15 @@ export const getSocialMetrics = async (channelId: string): Promise<SocialMetrics
  */
 export const getGrowthMetrics = async (period: '7d' | '30d' | 'all', channelId: string): Promise<GrowthMetrics> => {
   const fetchGrowthMetrics = async () => {
-    // Add cache-busting timestamp to prevent 304 responses
+    // Cache-busting timestamp to prevent 304 responses.
     const timestamp = new Date().getTime();
-    // Construct endpoint with the correct period ('7d', '30d', or 'all')
-    const response = await api.get<{ success: boolean; data: GrowthMetrics }>( 
+    const response = await api.get<{ success: boolean; data: GrowthMetrics }>(
       `/api/v1/analytics/channels/${channelId}/growth?period=${period}&_t=${timestamp}`
     );
     if (!response.data.success) {
       throw new Error(`Failed to fetch growth metrics for channel ${channelId}`);
     }
-    // Assuming the backend response now includes a `period` field in `data` 
-    // reflecting what was used ('7d', '30d', or potentially 'all' indicating totals)
-    // No change needed here if the GrowthMetrics type already accommodates this.
+    // `data` = { period, granularity, timezone, metrics: { granularity, subscribers, views, engagement }, timestamp }.
     return response.data.data;
   };
 
@@ -195,40 +182,18 @@ export const isDetailedViewMetrics = (
 };
 
 /**
- * Get like growth trends for a specific channel
- * @param channelId The ID of the channel to get like growth trends for
- */
-export const getLikeGrowthTrends = async (channelId: string): Promise<LikeGrowthTrends> => {
-  const response = await api.get<{ success: boolean; data: LikeGrowthTrends }>(
-    `/api/v1/analytics/channels/${channelId}/likes/trends`
-  );
-  return response.data.data;
-};
-
-/**
- * Get the most liked videos for a specific channel
- * @param channelId The ID of the channel to get top liked videos for
- */
-export const getTopLikedVideos = async (channelId: string): Promise<TopLikedVideos> => {
-  const response = await api.get<{ success: boolean; data: TopLikedVideos }>(
-    `/api/v1/analytics/channels/${channelId}/likes/top-videos`
-  );
-  return response.data.data;
-};
-
-/**
  * Get watch hours for a specific channel, optionally filtered by time period
  * @param channelId The ID of the channel to get watch hours for
  * @param period Optional time period to filter by ('7d' or '30d')
  */
 export const getChannelWatchHours = async (
   channelId: string,
-  // Backend accepts only 7d|30d; omit for all-time (no default — '30d' here
-  // silently turned the dashboard's "all-time" stat into 30-day data).
+  // 7d | 30d; omit for all time (no default — '30d' here silently turned
+  // the dashboard's "all-time" stat into 30-day data).
   period?: '7d' | '30d'
-): Promise<WatchTimeData> => {
+): Promise<CreatorWatchHours> => {
   const fetchWatchTime = async () => {
-    const response = await api.get<{ success: boolean; data: WatchTimeData }>(
+    const response = await api.get<{ success: boolean; data: CreatorWatchHours }>(
       `/api/v1/analytics/channels/${channelId}/watch-hours`,
       { params: period ? { period } : {} }
     );
@@ -238,7 +203,7 @@ export const getChannelWatchHours = async (
     }
 
     return response.data.data;
-    };
+  };
 
   try {
     return await retryWithBackoff(fetchWatchTime, 2, 1000);
@@ -296,18 +261,40 @@ export const getEngagementTrends = async (
 };
 
 /**
+ * Top-liked / top-shared responses: `data` is the list, `period` the window
+ * the backend applied (`?period=7d|30d|90d|all`, default all).
+ */
+interface RankedEnvelope<T> {
+  success: boolean;
+  data: T[];
+  period: RankedList<T>['appliedPeriod'];
+}
+
+const APPLIED_PERIODS = new Set(['7d', '30d', '90d', 'all']);
+
+export const toRankedList = <T,>(envelope: RankedEnvelope<T>): RankedList<T> => {
+  if (!Array.isArray(envelope.data) || !APPLIED_PERIODS.has(envelope.period)) {
+    throw new Error('Unexpected ranked list response');
+  }
+  return { items: envelope.data, appliedPeriod: envelope.period };
+};
+
+/**
  * Gets the most liked videos for a channel
  * @param channelId The channel ID
  * @param limit Optional limit of videos to return
  */
 export const getTopLikedContent = async (
   channelId: string,
-  limit?: number
-): Promise<TopContentItem[]> => {
+  limit?: number,
+  period?: '7d' | '30d' | '90d' | 'all'
+): Promise<RankedList<TopContentItem>> => {
   const fetchTopContent = async () => {
-    const params = limit ? { limit } : {};
-    
-    const response = await api.get<{ success: boolean; data: TopContentItem[] }>(
+    const params: Record<string, string | number> = {};
+    if (limit) params.limit = limit;
+    if (period) params.period = period;
+
+    const response = await api.get<RankedEnvelope<TopContentItem>>(
       `/api/v1/creators/channels/${channelId}/content/top-liked`,
       { params }
     );
@@ -316,7 +303,7 @@ export const getTopLikedContent = async (
       throw new Error(`Failed to fetch top liked content for channel ${channelId}`);
     }
     
-    return response.data.data;
+    return toRankedList(response.data);
   };
 
   try {
@@ -328,12 +315,7 @@ export const getTopLikedContent = async (
       additionalData: { channelId, limit }
     });
 
-    // Return empty array for content lists on analytics errors
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Top liked content unavailable, returning empty data:', userError.message);
-      return [];
-    }
+    // Never substitute an empty result for a failure (ANALYTICS_REVIEW P-F9).
 
     throw userError;
   }
@@ -346,12 +328,15 @@ export const getTopLikedContent = async (
  */
 export const getTopSharedContent = async (
   channelId: string,
-  limit?: number
-): Promise<TopSharedItem[]> => {
+  limit?: number,
+  period?: '7d' | '30d' | '90d' | 'all'
+): Promise<RankedList<TopSharedItem>> => {
   const fetchTopShared = async () => {
-    const params = limit ? { limit } : {};
-    
-    const response = await api.get<{ success: boolean; data: TopSharedItem[] }>(
+    const params: Record<string, string | number> = {};
+    if (limit) params.limit = limit;
+    if (period) params.period = period;
+
+    const response = await api.get<RankedEnvelope<TopSharedItem>>(
       `/api/v1/creators/channels/${channelId}/content/top-shared`,
       { params }
     );
@@ -360,7 +345,7 @@ export const getTopSharedContent = async (
       throw new Error(`Failed to fetch top shared content for channel ${channelId}`);
     }
     
-    return response.data.data;
+    return toRankedList(response.data);
   };
 
   try {
@@ -372,12 +357,7 @@ export const getTopSharedContent = async (
       additionalData: { channelId, limit }
     });
 
-    // Return empty array for content lists on analytics errors
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Top shared content unavailable, returning empty data:', userError.message);
-      return [];
-    }
+    // Never substitute an empty result for a failure (ANALYTICS_REVIEW P-F9).
 
     throw userError;
   }
@@ -420,12 +400,7 @@ export const getTopComments = async (
       additionalData: { channelId, period, limit }
     });
 
-    // For top comments, return empty array on analytics errors
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Top comments unavailable, returning empty data:', userError.message);
-      return [];
-    }
+    // Never substitute an empty result for a failure (ANALYTICS_REVIEW P-F9).
 
     throw userError;
   }
@@ -496,20 +471,7 @@ export const getChannelVideosPerformance = async (
       additionalData: { channelId, options }
     });
 
-    // For video performance, return empty structure on analytics errors
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Video performance unavailable, returning empty data:', userError.message);
-      return {
-        videos: [],
-        pagination: {
-          page: options?.page || 1,
-          limit: options?.limit || 20,
-          total: 0,
-          totalPages: 0
-        }
-      };
-    }
+    // Never substitute an empty result for a failure (ANALYTICS_REVIEW P-F9).
 
     throw userError;
   }
@@ -521,8 +483,8 @@ export const getChannelVideosPerformance = async (
  * @param period Optional time period ('last7', 'last30', 'last90', 'allTime')
  */
 export const getChannelDemographics = async (
-  channelId: string, 
-  period?: 'last7' | 'last30' | 'last90' | 'allTime'
+  channelId: string,
+  period?: DemographicsPeriod
 ): Promise<ChannelDemographics> => {
   const fetchDemographics = async () => {
     const params = period ? { period } : {};
@@ -548,15 +510,7 @@ export const getChannelDemographics = async (
       additionalData: { channelId, period }
     });
 
-    // For demographics, return empty structure on analytics errors
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE ||
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR) {
-      console.warn('Channel demographics unavailable, returning empty data:', userError.message);
-      return {
-        geoDistribution: [],
-        deviceUsage: []
-      };
-    }
+    // Never substitute an empty result for a failure (ANALYTICS_REVIEW P-F9).
 
     throw userError;
   }

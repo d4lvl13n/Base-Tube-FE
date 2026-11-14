@@ -3,6 +3,7 @@ import { AlertCircle, Check, Film, Loader2 } from 'lucide-react';
 import type { WorkspaceDraft } from '../../../hooks/useDraftWorkspace';
 import { displayTitle, type TechnicalState } from './draftStatus';
 import { workspaceCopy } from './workspaceCopy';
+import { button, cx } from '../../pages/CreatorHub/Business/businessStyles';
 
 export interface MediaAction {
   label: string;
@@ -27,16 +28,13 @@ interface MediaCardProps {
   message: string | null;
 }
 
-const PRIMARY =
-  'inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#fa7517] px-4 text-sm font-medium text-black ' +
-  'transition-colors hover:bg-[#ff8c3a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/60';
-const QUIET =
-  'inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-gray-300 transition-colors ' +
-  'hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-500';
+// The creator hub's buttons (Business / Analytics system), at a 44 px touch height.
+const PRIMARY = cx(button.primary, 'h-11 px-4');
+const QUIET = cx(button.ghost, 'h-11 px-3');
 
 function ToneIcon({ tone, className }: { tone: TechnicalState['tone']; className: string }) {
-  if (tone === 'ready') return <Check className={`${className} text-green-400`} aria-hidden="true" />;
-  if (tone === 'attention') return <AlertCircle className={`${className} text-yellow-400`} aria-hidden="true" />;
+  if (tone === 'ready') return <Check className={`${className} text-emerald-300`} aria-hidden="true" />;
+  if (tone === 'attention') return <AlertCircle className={`${className} text-amber-300`} aria-hidden="true" />;
   return <Loader2 className={`${className} animate-spin text-gray-400 motion-reduce:animate-none`} aria-hidden="true" />;
 }
 
@@ -77,20 +75,20 @@ const MediaCard: React.FC<MediaCardProps> = ({
   const title = displayTitle(draft);
   const toneText =
     technical.tone === 'attention'
-      ? 'text-yellow-100'
+      ? 'text-amber-100'
       : technical.tone === 'ready'
-        ? 'text-green-200'
+        ? 'text-emerald-200'
         : 'text-gray-100';
 
   if (presentation) {
     return (
       <figure className="min-w-0" aria-label={`${title}, as viewers see it`}>
-        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black ring-1 ring-gray-800">
+        <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gray-800/60 bg-black">
           {thumbnailUrl ? (
             <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-900 to-black">
-              <span className="text-xs text-gray-500">{workspaceCopy.automaticThumbnailPlaceholder}</span>
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#fa751708] to-black">
+              <span className="text-xs text-gray-400">{workspaceCopy.automaticThumbnailPlaceholder}</span>
             </div>
           )}
         </div>
@@ -98,11 +96,11 @@ const MediaCard: React.FC<MediaCardProps> = ({
           {channelImageUrl ? (
             <img src={channelImageUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
           ) : (
-            <span className="h-9 w-9 shrink-0 rounded-full bg-gray-800" aria-hidden="true" />
+            <span className="h-9 w-9 shrink-0 rounded-full border border-gray-800 bg-black" aria-hidden="true" />
           )}
           <span className="min-w-0">
             <span className="line-clamp-2 block text-sm font-medium text-white">{title}</span>
-            {channelName && <span className="mt-0.5 block truncate text-xs text-gray-500">{channelName}</span>}
+            {channelName && <span className="mt-0.5 block truncate text-xs text-gray-400">{channelName}</span>}
           </span>
         </figcaption>
       </figure>
@@ -126,7 +124,7 @@ const MediaCard: React.FC<MediaCardProps> = ({
 
   return (
     <div className="min-w-0">
-      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black ring-1 ring-gray-800">
+      <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-gray-800/60 bg-black">
         {mediaUrl ? (
           <video
             src={mediaUrl}
@@ -142,8 +140,8 @@ const MediaCard: React.FC<MediaCardProps> = ({
             {thumbnailUrl ? (
               <img src={thumbnailUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" />
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-[#0f0f0f] to-black" aria-hidden="true">
-                <Film className="absolute right-4 top-4 h-5 w-5 text-gray-800" />
+              <div className="absolute inset-0 bg-gradient-to-br from-[#fa751708] via-black to-black" aria-hidden="true">
+                <Film className="absolute right-4 top-4 h-5 w-5 text-gray-700" />
               </div>
             )}
             {/* Nothing to play: the state is the content of the frame. */}
@@ -158,14 +156,14 @@ const MediaCard: React.FC<MediaCardProps> = ({
 
         {technical.percent !== null && (
           <div
-            className="absolute inset-x-0 bottom-0 h-1 bg-white/10"
+            className="absolute inset-x-0 bottom-0 h-1 bg-white/[0.06]"
             role="progressbar"
             aria-label={`Sending ${title}`}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={technical.percent}
           >
-            <div className="h-full bg-[#fa7517] transition-[width] duration-300 ease-out" style={{ width: `${technical.percent}%` }} />
+            <div className="h-full bg-[#fa7517] transition-[width] duration-300 ease-out motion-reduce:transition-none" style={{ width: `${technical.percent}%` }} />
           </div>
         )}
       </div>
@@ -176,14 +174,14 @@ const MediaCard: React.FC<MediaCardProps> = ({
           <ToneIcon tone={technical.tone} className="h-4 w-4 shrink-0" />
           <p className={`min-w-0 flex-1 text-sm ${toneText}`}>
             {technical.label}
-            {localUrl && <span className="text-gray-500"> — {workspaceCopy.previewLocalShort}</span>}
+            {localUrl && <span className="text-gray-400"> — {workspaceCopy.previewLocalShort}</span>}
           </p>
           {actions}
         </div>
       )}
 
       {message && (
-        <p className="mt-2 text-sm text-yellow-300" role="alert">
+        <p className="mt-2 text-sm text-amber-300" role="alert">
           {message}
         </p>
       )}

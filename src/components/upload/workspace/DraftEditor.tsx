@@ -33,28 +33,28 @@ import { fieldProblemCopy, localBlockerCopy, serverBlockerCopy, workspaceCopy } 
 type PreviewMode = 'video' | 'presentation';
 
 const FIELD =
-  'w-full rounded-md border border-gray-800 bg-black/40 px-3 py-2 text-sm text-white ' +
-  'placeholder:text-gray-600 transition-colors focus:border-[#fa7517]/60 focus:outline-none ' +
-  'focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
+  'w-full rounded-lg border border-gray-800 bg-black/40 px-3 py-2 text-sm text-white ' +
+  'placeholder:text-gray-500 transition-colors hover:border-gray-700 focus:border-[#fa7517]/50 focus:outline-none ' +
+  'focus-visible:ring-2 focus-visible:ring-[#fa7517]/30';
 const LABEL = 'block text-xs font-medium text-gray-400';
 const LINK_BUTTON =
   'inline-flex min-h-[44px] items-center gap-1.5 rounded text-xs text-[#fa7517] transition-colors ' +
-  'hover:text-[#ff8c3a] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
+  'hover:text-[#ff8c3a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50';
 const ICON_BUTTON =
-  'inline-flex h-10 w-10 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-white/5 hover:text-white ' +
-  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600';
+  'inline-flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white/[0.05] hover:text-white ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50';
 const QUIET_BUTTON =
-  'inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 text-sm text-gray-300 transition-colors ' +
-  'hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600';
+  'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm text-gray-300 transition-colors ' +
+  'hover:bg-white/[0.04] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50';
 /** The AI tools are offered as real buttons, in view, never as a small link. */
 const AI_BUTTON =
-  'inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-[#fa7517]/40 bg-[#fa7517]/[0.08] px-3 text-sm ' +
-  'font-medium text-[#fa7517] transition-colors hover:border-[#fa7517]/70 hover:bg-[#fa7517]/[0.14] ' +
-  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60';
+  'inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-gray-800 bg-black/40 px-3 text-sm ' +
+  'font-medium text-gray-200 transition-colors hover:border-gray-700 hover:bg-white/[0.03] hover:text-white ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50 [&>svg]:text-[#fa7517]';
 const PRIMARY_BUTTON =
-  'inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[#fa7517] px-4 text-sm font-medium text-black ' +
+  'inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-[#fa7517] px-4 text-sm font-medium text-black ' +
   'transition-colors hover:bg-[#ff8c3a] disabled:cursor-not-allowed disabled:bg-[#fa7517]/30 disabled:text-black/60 ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/60';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black';
 
 function tagsToText(tags: string[] | null): string {
   return (tags ?? []).join(', ');
@@ -277,7 +277,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
   // ── save status line ─────────────────────────────────────────────────────
   let saveLine: React.ReactNode;
   if (!record.draftId) {
-    saveLine = <span className="text-gray-500">{workspaceCopy.creating}</span>;
+    saveLine = <span className="text-gray-400">{workspaceCopy.creating}</span>;
   } else {
     switch (runtime.save) {
       case 'saving':
@@ -291,7 +291,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
         break;
       case 'failed':
         saveLine = (
-          <span className="inline-flex flex-wrap items-center gap-x-2 text-yellow-400">
+          <span className="inline-flex flex-wrap items-center gap-x-2 text-amber-300">
             <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
             {workspaceCopy.notSaved}
             {runtime.saveError ? ` — ${runtime.saveError}` : ''}
@@ -303,14 +303,14 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
         break;
       case 'offline':
         saveLine = (
-          <span className="text-yellow-400">
+          <span className="text-amber-300">
             {workspace.durable && !runtime.persistFailed ? workspaceCopy.offlineKept : workspaceCopy.offlineAtRisk}
           </span>
         );
         break;
       case 'auth_required':
         saveLine = (
-          <span className="inline-flex flex-wrap items-center gap-x-2 text-yellow-400">
+          <span className="inline-flex flex-wrap items-center gap-x-2 text-amber-300">
             {workspace.durable && !runtime.persistFailed ? workspaceCopy.saveSignIn : workspaceCopy.sessionExpired}
             <button type="button" onClick={() => void session.requestSignIn()} className={LINK_BUTTON}>
               {workspaceCopy.signInAgain}
@@ -319,17 +319,17 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
         );
         break;
       case 'conflict':
-        saveLine = <span className="text-yellow-400">{workspaceCopy.conflictTitle}</span>;
+        saveLine = <span className="text-amber-300">{workspaceCopy.conflictTitle}</span>;
         break;
       case 'invalid':
-        saveLine = <span className="text-yellow-400">{workspaceCopy.invalid}</span>;
+        saveLine = <span className="text-amber-300">{workspaceCopy.invalid}</span>;
         break;
       default:
         saveLine = hasPendingEdits(record.pending) ? (
           <span className="text-gray-400">{workspaceCopy.saving}</span>
         ) : (
           <span className="inline-flex items-center gap-1 text-gray-400">
-            <Check className="h-3 w-3 text-green-500" aria-hidden="true" />
+            <Check className="h-3 w-3 text-emerald-300" aria-hidden="true" />
             {workspaceCopy.saved}
           </span>
         );
@@ -430,17 +430,17 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
       {/* The inspector head: 72 px, the height of the workspace header, so both
           bottom borders line up. The title, then where the video stands as
           content: saved or not, private or published, and its channel. */}
-      <header className="flex h-[72px] shrink-0 items-center justify-between gap-3 border-b border-white/10 px-5">
+      <header className="flex h-[72px] shrink-0 items-center justify-between gap-3 border-b border-gray-800/50 px-5">
         <div className="min-w-0">
           <strong className="block truncate text-[15px] font-semibold text-white" title={title}>
             {title}
           </strong>
-          <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-gray-500">
+          <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-gray-400">
             <span className="shrink-0" aria-live="polite">
               {saveLine}
             </span>
             <span aria-hidden="true">·</span>
-            <span className={`inline-flex shrink-0 items-center gap-1 ${published ? 'text-green-400' : 'text-gray-400'}`}>
+            <span className={`inline-flex shrink-0 items-center gap-1 ${published ? 'text-emerald-300' : 'text-gray-400'}`}>
               {published ? <Check className="h-3 w-3" aria-hidden="true" /> : <Lock className="h-3 w-3" aria-hidden="true" />}
               {editorialLabel(draft)}
             </span>
@@ -456,8 +456,8 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
           type="button"
           onClick={onClose}
           aria-label={workspaceCopy.closeInspector}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-gray-400
-                     transition-colors hover:border-white/25 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-800 text-gray-400
+                     transition-colors hover:border-gray-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -466,15 +466,15 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
 
       {published && !runtime.publishedJustNow && (
-        <p className="mt-3 rounded-md border border-gray-800/60 bg-white/[0.03] px-3 py-2 text-xs text-gray-300">
+        <p className="mt-3 rounded-lg border border-gray-800/60 bg-black/40 px-3 py-2 text-xs text-gray-300">
           {workspaceCopy.publishedEditing}
         </p>
       )}
 
       {runtime.publishedJustNow && server?.videoId && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-green-500/30 bg-green-500/[0.06] px-3 py-2" role="status">
-          <Check className="h-4 w-4 text-green-500" aria-hidden="true" />
-          <span className="text-sm text-green-300">{workspaceCopy.publishedTitle}</span>
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] px-3 py-2" role="status">
+          <Check className="h-4 w-4 text-emerald-300" aria-hidden="true" />
+          <span className="text-sm text-emerald-200">{workspaceCopy.publishedTitle}</span>
           <Link to={`/video/${server.videoId}`} className={LINK_BUTTON}>
             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
             {workspaceCopy.viewVideo}
@@ -489,9 +489,9 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
       {runtime.save === 'conflict' && (
         <section
           aria-label={workspaceCopy.conflictTitle}
-          className="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/[0.05] p-4"
+          className="mt-4 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-4"
         >
-          <h3 className="text-sm font-medium text-yellow-200">{workspaceCopy.conflictTitle}</h3>
+          <h3 className="text-sm font-medium text-amber-200">{workspaceCopy.conflictTitle}</h3>
           <p className="mt-1 text-xs text-gray-400">{conflict ? workspaceCopy.conflictBody : workspaceCopy.conflictUnknown}</p>
           {conflict && (
             <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
@@ -510,13 +510,13 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
                 .map(([label, mine, saved]) => (
                   <React.Fragment key={label}>
                     <div>
-                      <dt className="text-gray-500">
+                      <dt className="text-gray-400">
                         {label} — {workspaceCopy.conflictYours}
                       </dt>
                       <dd className="mt-1 line-clamp-4 whitespace-pre-line text-gray-200">{mine || '—'}</dd>
                     </div>
                     <div>
-                      <dt className="text-gray-500">
+                      <dt className="text-gray-400">
                         {label} — {workspaceCopy.conflictSaved}
                       </dt>
                       <dd className="mt-1 line-clamp-4 whitespace-pre-line text-gray-200">{saved || '—'}</dd>
@@ -548,15 +548,15 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
             with its action. */}
         {(mediaAction || technical.tone === 'attention' || fileMessage || actionMessage) && (
           <div
-            className={`rounded-md border px-3 py-2.5 ${
-              technical.tone === 'attention' ? 'border-yellow-500/25 bg-yellow-500/[0.05]' : 'border-white/10 bg-white/[0.03]'
+            className={`rounded-lg border px-3 py-2.5 ${
+              technical.tone === 'attention' ? 'border-amber-500/25 bg-amber-500/[0.06]' : 'border-gray-800/60 bg-black/40'
             }`}
             aria-live="polite"
           >
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <p className={`min-w-0 flex-1 text-sm ${technical.tone === 'attention' ? 'text-yellow-100' : 'text-gray-200'}`}>
+              <p className={`min-w-0 flex-1 text-sm ${technical.tone === 'attention' ? 'text-amber-100' : 'text-gray-200'}`}>
                 {technical.tone === 'attention' && (
-                  <AlertCircle className="mr-1.5 inline h-4 w-4 align-[-3px] text-yellow-400" aria-hidden="true" />
+                  <AlertCircle className="mr-1.5 inline h-4 w-4 align-[-3px] text-amber-300" aria-hidden="true" />
                 )}
                 {technical.label}
               </p>
@@ -577,7 +577,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
             </div>
             {technical.detail && <p className="mt-1 text-xs text-gray-400">{technical.detail}</p>}
             {(fileMessage || actionMessage) && (
-              <p className="mt-1 text-xs text-yellow-300" role="alert">
+              <p className="mt-1 text-xs text-amber-300" role="alert">
                 {fileMessage ?? actionMessage}
               </p>
             )}
@@ -616,15 +616,15 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
               onBlur={() => workspace.commit(key)}
               aria-invalid={titleProblems.length > 0 ? true : undefined}
               aria-describedby={titleProblems.length > 0 ? `draft-title-problem-${key}` : undefined}
-              className={`mt-1.5 w-full rounded-md border bg-transparent px-3 py-2.5 text-base font-semibold text-white
-                          placeholder:text-gray-600 transition-colors focus:outline-none focus-visible:ring-1 ${
+              className={`mt-1.5 w-full rounded-lg border bg-black/40 px-3 py-2.5 text-base font-semibold text-white
+                          placeholder:text-gray-500 transition-colors focus:outline-none focus-visible:ring-2 ${
                             titleProblems.length > 0
                               ? 'border-red-500/70 focus-visible:ring-red-500/60'
-                              : 'border-gray-800 hover:border-gray-700 focus:border-[#fa7517]/60 focus-visible:ring-[#fa7517]/60'
+                              : 'border-gray-800 hover:border-gray-700 focus:border-[#fa7517]/50 focus-visible:ring-[#fa7517]/30'
                           }`}
             />
             {titleProblems.length > 0 && (
-              <p id={`draft-title-problem-${key}`} className="mt-1.5 text-xs text-red-400">
+              <p id={`draft-title-problem-${key}`} className="mt-1.5 text-xs text-red-300">
                 {titleProblems.map(fieldProblemCopy).join(' ')}
               </p>
             )}
@@ -667,7 +667,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
             <div
               // One frame only: the shared editor draws its own; restyle it to the
               // panel's fields instead of nesting a second border inside.
-              className="mt-2 [&>div]:rounded-md [&>div]:border-gray-800 [&>div]:bg-black/20 [&>div:focus-within]:border-[#fa7517]/60"
+              className="mt-2 [&>div]:rounded-lg [&>div]:border-gray-800 [&>div]:bg-black/40 [&>div:focus-within]:border-[#fa7517]/60"
               aria-labelledby={`draft-description-label-${key}`}
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget as Node | null)) workspace.commit(key);
@@ -682,13 +682,13 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
               />
             </div>
             {otherProblems.includes('DESCRIPTION_TOO_LONG') && (
-              <p className="mt-1.5 text-xs text-red-400">{fieldProblemCopy('DESCRIPTION_TOO_LONG')}</p>
+              <p className="mt-1.5 text-xs text-red-300">{fieldProblemCopy('DESCRIPTION_TOO_LONG')}</p>
             )}
           </div>
 
           {aiConflict && (
-            <div className="rounded-md border border-yellow-500/30 bg-yellow-500/[0.05] p-3 text-xs" role="alertdialog" aria-label={workspaceCopy.aiOverwrite}>
-              <p className="text-yellow-200">{workspaceCopy.aiOverwrite}</p>
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-3 text-xs" role="alertdialog" aria-label={workspaceCopy.aiOverwrite}>
+              <p className="text-amber-200">{workspaceCopy.aiOverwrite}</p>
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
@@ -709,7 +709,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
             </div>
           )}
 
-          <div className="border-t border-white/10 pt-4">
+          <div className="border-t border-gray-800/50 pt-4">
             <button
               type="button"
               aria-expanded={moreOpen}
@@ -747,7 +747,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
                   {otherProblems
                     .filter((problem) => problem === 'TOO_MANY_TAGS' || problem === 'TAG_TOO_LONG')
                     .map((problem) => (
-                      <p key={problem} className="mt-1.5 text-xs text-red-400">
+                      <p key={problem} className="mt-1.5 text-xs text-red-300">
                         {fieldProblemCopy(problem)}
                       </p>
                     ))}
@@ -756,7 +756,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
                 {published && (
                   <div>
                     {confirmUnpublish ? (
-                      <div className="rounded-md border border-gray-800 p-3 text-xs" role="alertdialog" aria-label={workspaceCopy.unpublish}>
+                      <div className="rounded-lg border border-gray-800 bg-black/40 p-3 text-xs" role="alertdialog" aria-label={workspaceCopy.unpublish}>
                         <p className="text-gray-300">{workspaceCopy.unpublishConfirm}</p>
                         <div className="mt-2 flex gap-2">
                           <button
@@ -786,7 +786,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
 
                 <div>
                   {confirmDelete ? (
-                    <div className="rounded-md border border-red-500/30 p-3 text-xs" role="alertdialog" aria-label={workspaceCopy.deleteDraft}>
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/[0.05] p-3 text-xs" role="alertdialog" aria-label={workspaceCopy.deleteDraft}>
                       <p className="text-gray-300">{workspaceCopy.deleteConfirm}</p>
                       <div className="mt-2 flex gap-2">
                         <button
@@ -797,7 +797,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
                               if (deleted) onAnnounce(`${title}: deleted`);
                             });
                           }}
-                          className={`${QUIET_BUTTON} text-red-400 hover:text-red-300`}
+                          className={`${QUIET_BUTTON} text-red-300 hover:text-red-200`}
                         >
                           {runtime.deleting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                           {workspaceCopy.deleteAction}
@@ -808,12 +808,12 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <button type="button" onClick={() => setConfirmDelete(true)} className={`${QUIET_BUTTON} -ml-3 text-red-400 hover:text-red-300`}>
+                    <button type="button" onClick={() => setConfirmDelete(true)} className={`${QUIET_BUTTON} -ml-3 text-red-300 hover:text-red-200`}>
                       {workspaceCopy.deleteDraft}
                     </button>
                   )}
                   {runtime.deleteError && (
-                    <p className="mt-1.5 text-xs text-yellow-400" role="alert">
+                    <p className="mt-1.5 text-xs text-amber-300" role="alert">
                       {runtime.deleteError}
                     </p>
                   )}
@@ -838,7 +838,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
           for THIS video. Right padding keeps Publish clear of the site's
           floating help button. */}
       <footer
-        className="flex h-[72px] shrink-0 items-center gap-3 border-t border-white/10 bg-[#09090B] pl-3 pr-20"
+        className="flex h-[72px] shrink-0 items-center gap-3 border-t border-gray-800/50 bg-black pl-3 pr-20"
         aria-label="Publication"
       >
         <div className="flex shrink-0 items-center">
@@ -875,7 +875,7 @@ const DraftEditor: React.FC<DraftEditorProps> = ({
 
         <p
           id={`draft-blockers-${key}`}
-          className={`min-w-0 flex-1 truncate text-xs ${runtime.publishError ? 'text-yellow-400' : 'text-gray-500'}`}
+          className={`min-w-0 flex-1 truncate text-xs ${runtime.publishError ? 'text-amber-300' : 'text-gray-400'}`}
           title={blockers.map((blocker) => blocker.text).join(' ')}
           role={runtime.publishError ? 'alert' : undefined}
         >

@@ -50,9 +50,9 @@ const DraftTile: React.FC<DraftTileProps> = ({
 
   return (
     <article
-      className="relative min-w-0 overflow-hidden rounded-lg bg-[#0f0f0f] transition-shadow"
+      className="relative min-w-0 overflow-hidden rounded-xl bg-black/50 transition-shadow"
       style={{
-        boxShadow: selected ? '0 0 0 2px #fa7517' : 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+        boxShadow: selected ? '0 0 0 2px #fa7517' : 'inset 0 0 0 1px rgba(31,41,55,0.7)',
       }}
     >
       <button
@@ -63,12 +63,12 @@ const DraftTile: React.FC<DraftTileProps> = ({
         aria-label={`${title}${chip ? `, ${chip}` : `, ${workspaceCopy.playbackReady}`}`}
         className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#fa7517]"
       >
-        <span className="relative block aspect-video overflow-hidden bg-[#080809]">
+        <span className="relative block aspect-video overflow-hidden bg-black">
           {image ? (
             <img src={image} alt="" className="h-full w-full object-cover" decoding="async" />
           ) : (
             <span className="flex h-full w-full items-center justify-center">
-              <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 motion-safe:animate-pulse">
+              <span className="rounded border border-gray-800 bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 motion-safe:animate-pulse">
                 Video
               </span>
             </span>
@@ -79,7 +79,7 @@ const DraftTile: React.FC<DraftTileProps> = ({
               role="status"
               className={`absolute left-2 top-2 rounded px-1.5 py-0.5 text-[11px] font-medium ${
                 technical.tone === 'attention'
-                  ? 'bg-yellow-400 text-black'
+                  ? 'bg-amber-300 text-black'
                   : technical.tone === 'active'
                     ? 'bg-black/75 text-white'
                     : 'bg-black/75 text-gray-200'
@@ -91,7 +91,7 @@ const DraftTile: React.FC<DraftTileProps> = ({
             <span
               role="status"
               title={workspaceCopy.playbackReady}
-              className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-green-400 text-black"
+              className="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-black"
             >
               <Check className="h-3 w-3" aria-hidden="true" />
               <span className="sr-only">{workspaceCopy.playbackReady}</span>
@@ -112,7 +112,7 @@ const DraftTile: React.FC<DraftTileProps> = ({
           <span className="block truncate text-[13px] font-medium text-gray-100" title={title}>
             {title}
           </span>
-          <span className="mt-0.5 block truncate text-[11px] text-gray-500">
+          <span className="mt-0.5 block truncate text-[11px] tabular-nums text-gray-400">
             {[size, editorial].filter(Boolean).join(' · ') || ' '}
           </span>
         </span>
@@ -126,7 +126,7 @@ const DraftTile: React.FC<DraftTileProps> = ({
           aria-label={`${workspaceCopy.removeVideo}: ${title}`}
           title={workspaceCopy.removeVideo}
           className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-gray-300
-                     transition-colors hover:bg-black hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]"
+                     transition-colors hover:bg-black hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/70"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
@@ -151,7 +151,7 @@ const DraftTile: React.FC<DraftTileProps> = ({
                   }
                 });
               }}
-              className="inline-flex min-h-[36px] items-center rounded-md bg-red-500/90 px-3 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-60"
+              className="inline-flex min-h-[36px] items-center rounded-lg bg-red-500/90 px-3 text-sm font-medium text-white transition-colors hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60 disabled:opacity-60"
             >
               {removing ? workspaceCopy.removing : workspaceCopy.removeAction}
             </button>
@@ -159,7 +159,7 @@ const DraftTile: React.FC<DraftTileProps> = ({
               type="button"
               disabled={removing}
               onClick={() => setConfirming(false)}
-              className="inline-flex min-h-[36px] items-center rounded-md px-3 text-sm text-gray-300 hover:bg-white/10 hover:text-white"
+              className="inline-flex min-h-[36px] items-center rounded-lg px-3 text-sm text-gray-300 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50"
             >
               {workspaceCopy.keep}
             </button>
@@ -172,7 +172,7 @@ const DraftTile: React.FC<DraftTileProps> = ({
           type="button"
           onClick={inlineAction.onClick}
           className="mx-2.5 mb-2.5 -mt-1 min-h-[32px] text-[12px] font-medium text-[#fa7517] hover:text-[#ff8c3a]
-                     focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#fa7517]/60"
+                     rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50"
         >
           {inlineAction.label}
         </button>

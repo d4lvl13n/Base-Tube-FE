@@ -1,21 +1,32 @@
 import React, { useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useChannelSelection } from '../../../../contexts/ChannelSelectionContext';
 import ChannelPreviewCard from '../../../common/CreatorHub/ChannelPreviewCard';
 import { toast } from 'react-toastify';
 import NoChannelView from '../NoChannelView';
+import { cx, frame, skeleton, surface, text } from '../Business/businessStyles';
+
+/** The card's shape while the channels load: cover, then the stats line. */
+const ChannelCardSkeleton: React.FC = () => (
+  <div className={surface.card} aria-hidden="true">
+    <div className={cx(skeleton.block, 'h-44 rounded-none sm:h-48')} />
+    <div className="flex gap-6 border-t border-gray-800/50 px-4 py-3 sm:px-5">
+      <div className={cx(skeleton.line, 'w-28')} />
+      <div className={cx(skeleton.line, 'w-24')} />
+    </div>
+  </div>
+);
 
 const ChannelList: React.FC = () => {
-  const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const { channels: initialChannels, isLoading } = useChannelSelection();
   const [channels, setChannels] = useState(initialChannels);
-  
+
   // Update local state when context changes
   React.useEffect(() => {
     setChannels(initialChannels);
   }, [initialChannels]);
-  
+
   // Handle channel deletion from the UI
   const handleChannelDeleted = useCallback((deletedId: string) => {
     // Remove the deleted channel from local state
@@ -25,8 +36,15 @@ const ChannelList: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-[#fa7517]" />
+      <div className={frame.page} aria-busy="true">
+        <div className={frame.wide}>
+          <div className="space-y-2">
+            <div className={cx(skeleton.line, 'h-7 w-56')} />
+            <div className={cx(skeleton.line, 'w-72')} />
+          </div>
+          <ChannelCardSkeleton />
+          <ChannelCardSkeleton />
+        </div>
       </div>
     );
   }
@@ -34,7 +52,7 @@ const ChannelList: React.FC = () => {
   // Show NoChannelView if there are no channels
   if (channels.length === 0) {
     return (
-      <NoChannelView 
+      <NoChannelView
         title="Manage Your Channels"
         description="Create a channel to start managing your content, collaborators, and settings."
         buttonText="Create Your First Channel"
@@ -43,45 +61,38 @@ const ChannelList: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white pt-16">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold mb-2">Channel Management</h1>
-          <p className="text-gray-400">
+    <div className={frame.page}>
+      <div className={frame.wide}>
+        <header>
+          <h1 className={text.pageTitle}>
+            Channel Management
+            <span className="ml-2 font-normal tabular-nums text-gray-500">{channels.length}</span>
+          </h1>
+          <p className={text.pageSubtitle}>
             Manage your channels and their settings
           </p>
-        </div>
+        </header>
 
-        {/* Channel Grid */}
-        <div className="grid grid-cols-1 gap-6">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-6"
-          >
-            {channels.map((channel) => (
-              <motion.div
-                key={channel.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="relative"
-              >
-                <div className="group">
-                  <ChannelPreviewCard 
-                    channel={channel} 
-                    onDeleted={() => handleChannelDeleted(channel.id.toString())}
-                  />
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+        <div className="space-y-4">
+          {channels.map((channel) => (
+            <motion.div
+              key={channel.id}
+              layout={!reduceMotion}
+              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="relative"
+            >
+              <ChannelPreviewCard
+                channel={channel}
+                onDeleted={() => handleChannelDeleted(channel.id.toString())}
+              />
+            </motion.div>
+          ))}
         </div>
       </div>
     </div>
   );
 };
 
-export default ChannelList; 
+export default ChannelList;

@@ -1,20 +1,19 @@
 import React from 'react';
 import { act, render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthQueryProvider, AuthCacheBoundary } from '../AuthQueryContext';
-import { useCreatorSales } from '../../hooks/usePass';
 let mockClerk: any = { userId: null, sessionId: null };
 let mockWeb3: any = { user: null, isAuthenticated: false };
 const mockGetSales = jest.fn();
 jest.mock('@clerk/clerk-react', () => ({ useAuth: () => mockClerk }));
 jest.mock('../AuthContext', () => ({ useAuth: () => mockWeb3 }));
-jest.mock('../../api/pass', () => ({ passApi: { getCreatorSales: (...args: unknown[]) => mockGetSales(...args) } }));
 let activeClient: QueryClient;
 function Sales() {
   activeClient = useQueryClient();
   activeClient.setDefaultOptions({ ...activeClient.getDefaultOptions(), queries: { ...activeClient.getDefaultOptions().queries, gcTime: Infinity } });
   const enabled = Boolean(mockClerk.userId || mockWeb3.user);
-  const sales = useCreatorSales({ enabled });
+  // Any private, per-account query will do: a creator's sales stand in for it.
+  const sales = useQuery({ queryKey: ['creator-sales'], queryFn: () => mockGetSales(), enabled });
   return <div data-testid="sales">{JSON.stringify(sales.data) || 'empty'}</div>;
 }
 function App() { return <AuthQueryProvider><AuthCacheBoundary><Sales /></AuthCacheBoundary></AuthQueryProvider>; }

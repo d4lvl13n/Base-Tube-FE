@@ -3,10 +3,12 @@ import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { ArrowUpRight, ExternalLink, Link2, MoreHorizontal, Send } from 'lucide-react';
+import { ArrowUpRight, ExternalLink, Link2, MoreHorizontal, Pause, Play, Send } from 'lucide-react';
 import type { Pass } from '../../../../types/pass';
-import { list } from '../shared/hubStyles';
+import { list } from '../Business/businessStyles';
 import { copyPassLink, draftHref, isPublished, passHref, publicPassPath } from './passHelpers';
+import type { SaleSubject } from '../Business/passActions';
+import { useSaleActionFlow } from './SaleControls';
 
 /** An icon button with the tooltip that says what it is. */
 const IconAction: React.FC<{
@@ -23,7 +25,7 @@ const IconAction: React.FC<{
     <Tooltip.Portal>
       <Tooltip.Content className={list.tooltip} sideOffset={6}>
         {label}
-        <Tooltip.Arrow className="fill-[#0f0f0f]" />
+        <Tooltip.Arrow className="fill-black" />
       </Tooltip.Content>
     </Tooltip.Portal>
   </Tooltip.Root>
@@ -34,8 +36,12 @@ const IconAction: React.FC<{
  * RowActions: always in the DOM, faded back until the row is hovered or
  * something inside it has focus (`list.revealed` on the caller's `group`).
  */
-export const PassRowActions: React.FC<{ pass: Pass }> = ({ pass }) => {
+export const PassRowActions: React.FC<{ pass: Pass; /** The business API's row for it: enables Pause / Resume sales. */ sale?: SaleSubject }> = ({
+  pass,
+  sale,
+}) => {
   const navigate = useNavigate();
+  const saleFlow = useSaleActionFlow(sale);
   const stop = useCallback((event: React.MouseEvent) => event.stopPropagation(), []);
   const published = isPublished(pass);
   const publicPath = publicPassPath(pass);
@@ -61,7 +67,7 @@ export const PassRowActions: React.FC<{ pass: Pass }> = ({ pass }) => {
         <Tooltip.Portal>
           <Tooltip.Content className={list.tooltip} sideOffset={6}>
             {published ? 'View public page' : 'Preview public page'}
-            <Tooltip.Arrow className="fill-[#0f0f0f]" />
+            <Tooltip.Arrow className="fill-black" />
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>
@@ -84,6 +90,18 @@ export const PassRowActions: React.FC<{ pass: Pass }> = ({ pass }) => {
                 Finish publishing
               </DropdownMenu.Item>
             )}
+            {saleFlow.control.kind === 'pause' && (
+              <DropdownMenu.Item className={list.dropdownMenu.item} disabled={saleFlow.pending} onSelect={saleFlow.requestPause}>
+                <Pause className="h-4 w-4" aria-hidden="true" />
+                Pause sales
+              </DropdownMenu.Item>
+            )}
+            {saleFlow.control.kind === 'resume' && (
+              <DropdownMenu.Item className={list.dropdownMenu.item} disabled={saleFlow.pending} onSelect={saleFlow.resume}>
+                <Play className="h-4 w-4" aria-hidden="true" />
+                Resume sales
+              </DropdownMenu.Item>
+            )}
             <DropdownMenu.Item className={list.dropdownMenu.item} onSelect={() => void copyPassLink(pass)}>
               <Link2 className="h-4 w-4" aria-hidden="true" />
               Copy link
@@ -98,6 +116,7 @@ export const PassRowActions: React.FC<{ pass: Pass }> = ({ pass }) => {
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
+      {saleFlow.dialog}
     </div>
   );
 };

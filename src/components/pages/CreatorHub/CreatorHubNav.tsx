@@ -1,19 +1,25 @@
 // src/components/pages/CreatorHub/CreatorHubNav.tsx
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   BarChart2,
+  Briefcase,
   DollarSign,
   ImageIcon,
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Share2,
   Ticket,
   Tv,
   Upload,
+  Users,
+  Wallet,
 } from 'lucide-react';
 import { useChannelSelection } from '../../../contexts/ChannelSelectionContext';
 import {
+  isSidebarPathActive,
   SidebarItem,
   SidebarPrimaryAction,
   SidebarSection,
@@ -58,9 +64,12 @@ const CollapseToggle: React.FC = () => {
  * One filled button (Add videos), then flat sections — Content Studio is always
  * open (a collapsible group hid four rows behind a click for nothing), and
  * Monetization is itself the clickable row, with the pass rows under it.
+ * With passes on, a Business group holds Overview, Customers, Passes,
+ * Sources and Payouts (Business → Passes is the pass list).
  */
 const CreatorHubNav: React.FC = () => {
   const { channels, selectedChannelId, setSelectedChannelId, isLoading } = useChannelSelection();
+  const { pathname } = useLocation();
 
   const options = channels.map((channel) => ({
     id: channel.id.toString(),
@@ -110,13 +119,16 @@ const CreatorHubNav: React.FC = () => {
           to="/creator-hub/monetization"
           badge="Beta"
         />
-        <SidebarItem
-          icon={Ticket}
-          label="Content passes"
-          to="/creator-hub/passes"
-          disabled={!PASSES_ENABLED}
-          indent
-        />
+        {/* With passes on, the pass list lives under Business → Passes. */}
+        {!PASSES_ENABLED && (
+          <SidebarItem
+            icon={Ticket}
+            label="Content passes"
+            to="/creator-hub/passes"
+            disabled
+            indent
+          />
+        )}
         <SidebarItem
           icon={Plus}
           label="Create pass"
@@ -125,6 +137,25 @@ const CreatorHubNav: React.FC = () => {
           indent
         />
       </SidebarSection>
+
+      {PASSES_ENABLED && (
+        <SidebarSection label="Business">
+          <SidebarItem icon={Briefcase} label="Overview" to="/creator-hub/business" end />
+          <SidebarItem icon={Users} label="Customers" to="/creator-hub/business/customers" />
+          <SidebarItem
+            icon={Ticket}
+            label="Passes"
+            to="/creator-hub/business/passes"
+            // The pass pages keep their old address (/creator-hub/passes/:id).
+            active={
+              isSidebarPathActive(pathname, '/creator-hub/business/passes') ||
+              isSidebarPathActive(pathname, '/creator-hub/passes')
+            }
+          />
+          <SidebarItem icon={Share2} label="Sources" to="/creator-hub/business/sources" />
+          <SidebarItem icon={Wallet} label="Payouts" to="/creator-hub/business/payouts" />
+        </SidebarSection>
+      )}
     </SidebarShell>
   );
 };

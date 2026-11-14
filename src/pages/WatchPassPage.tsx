@@ -167,6 +167,7 @@ const WatchPassPage: React.FC = () => {
               autoPlay
               title={(pass.videos.find(v => v.id === selectedVideoId) as PassVideo)?.title || pass.title}
               onNextVideo={hasNextVideo ? handleNextVideo : undefined}
+              tracking={{ passVideoId: selectedVideoId }}
             />
           ) : (
             <div className="aspect-video w-full bg-gray-800 flex items-center justify-center text-gray-400">

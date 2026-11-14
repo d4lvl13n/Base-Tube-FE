@@ -1,90 +1,44 @@
 import api from './index';
-import { 
-  ShareRequest, 
-  ShareResponse, 
-  ShareStatsResponse, 
-  SharePlatform 
-} from '../types/share';
-import { handleApiError, retryWithBackoff } from '../utils/errorHandler';
-import { ErrorCode } from '../types/error';
+import { SHARE_PLATFORMS, type SharePlatform, type ShareResponse } from '../types/share';
+
+/** Where a share actually went: one of the platforms the backend stores. */
+export type ShareActionPlatform = SharePlatform;
 
 /**
- * Records a video share event
- * @param videoId The ID of the video being shared
- * @param platform The platform where the video was shared
- * @returns Promise that resolves when the share is recorded
+ * What happened to one share action:
+ * - 'recorded'     201, a share was written;
+ * - 'deduplicated' 200, the same viewer already shared this video on this
+ *                  platform in the last 30 minutes (not counted again);
+ * - 'rate_limited' 429 SHARE_RATE_LIMIT_EXCEEDED (20 per 10 minutes per viewer);
+ * - 'failed'       anything else (network, 400 for a bad video id, 5xx).
  */
-export const recordVideoShare = async (
-  videoId: string, 
-  platform: SharePlatform = 'unknown'
-): Promise<ShareResponse> => {
-  const executeShare = async () => {
-    const payload: ShareRequest = { platform };
-    const response = await api.post<ShareResponse>(`/api/v1/videos/${videoId}/share`, payload);
-    console.log(`Share recorded for video ${videoId} on ${platform}`);
-    return response.data;
-  };
+export type ShareOutcome = 'recorded' | 'deduplicated' | 'rate_limited' | 'failed';
 
+const isSharePlatform = (value: unknown): value is SharePlatform =>
+  (SHARE_PLATFORMS as readonly string[]).includes(value as string);
+
+/**
+ * Records ONE completed share action — call it after the copy succeeded, the
+ * social window was opened, or the native share sheet resolved; never on a
+ * mere click of "Share".
+ *
+ * Fire-and-forget: never awaited by the UI, never throws, never shows an
+ * error. Never retried: a replayed POST is either deduplicated or spends the
+ * viewer's rate-limit budget, and tracking must not affect the share itself.
+ */
+export const recordShareAction = async (
+  videoId: string | number | null | undefined,
+  platform: ShareActionPlatform
+): Promise<ShareOutcome | null> => {
+  const id = String(videoId ?? '').trim();
+  if (!id) return null;
   try {
-    return await retryWithBackoff(executeShare, 2, 1000);
-  } catch (error) {
-    const userError = handleApiError(error, {
-      action: 'record video share',
-      component: 'shareAPI',
-      additionalData: { videoId, platform }
+    const response = await api.post<ShareResponse>(`/api/v1/videos/${encodeURIComponent(id)}/share`, {
+      platform: isSharePlatform(platform) ? platform : 'other',
     });
-
-    // For analytics tracking, log error but don't interrupt user experience
-    console.warn('Failed to record share event (non-critical):', userError.message);
-    
-    // Return a fallback response instead of throwing
-    return {
-      success: false,
-      message: 'Share tracking failed',
-      data: {
-        id: 0,
-        videoId: parseInt(videoId) || 0,
-        platform: platform,
-        createdAt: new Date().toISOString()
-      }
-    };
+    return response.data?.data?.deduplicated ? 'deduplicated' : 'recorded';
+  } catch (error: unknown) {
+    const status = (error as { response?: { status?: number } })?.response?.status;
+    return status === 429 ? 'rate_limited' : 'failed';
   }
 };
-
-/**
- * Gets share statistics for a video (for creator analytics)
- * @param videoId The ID of the video
- * @returns Promise that resolves to share statistics
- */
-export const getVideoShareStats = async (videoId: string): Promise<{
-  totalShares: number;
-  byPlatform: Record<string, number>;
-}> => {
-  const fetchStats = async () => {
-    const response = await api.get<ShareStatsResponse>(`/api/v1/videos/${videoId}/share/stats`);
-    return response.data.data;
-  };
-
-  try {
-    return await retryWithBackoff(fetchStats, 2, 1000);
-  } catch (error) {
-    const userError = handleApiError(error, {
-      action: 'fetch share statistics',
-      component: 'shareAPI',
-      additionalData: { videoId }
-    });
-
-    // For analytics errors, return empty data structure instead of throwing
-    if (userError.code === ErrorCode.ANALYTICS_UNAVAILABLE || 
-        userError.code === ErrorCode.DATA_PROCESSING_ERROR ||
-        userError.code === ErrorCode.NOT_FOUND) {
-      console.warn('Share statistics unavailable, returning empty data:', userError.message);
-    return {
-      totalShares: 0,
-      byPlatform: {}
-    };
-    }
-
-    throw userError;
-  }
-}; 

@@ -22,14 +22,20 @@ import MiniPlayer from './components/common/Video/MiniPlayer/MiniPlayer';
 import DescriptionDock from './components/common/Video/DescriptionDock/DescriptionDock';
 import { ChannelSelectionProvider } from './contexts/ChannelSelectionContext';
 import { TermsPage, PrivacyPage, RefundPage } from './pages/legal/LegalStubs';
+import { PassTermsOfSalePage, CreatorPassTermsPage } from './pages/legal/PassLegalPages';
 import LandingMoved from './components/pages/ThumbnailLanding/LandingMoved';
 import { UploadQueueProvider } from './contexts/UploadQueueContext';
 
 const CreatorHubShell = lazy(() => import('./components/pages/CreatorHub/CreatorHubShell'));
 const SystemHealth = lazy(() => import('./health/SystemHealth').then(module => ({ default: module.SystemHealth })));
-const GrowthTab = lazy(() => import('./components/pages/CreatorHub/Analytics/tabs/GrowthMonetizationTab').then(module => ({ default: module.GrowthTab })));
 const ManagePassesPage = lazy(() => import('./components/pages/CreatorHub/ManagePasses/ManagePassesPage'));
 const PassDetailView = lazy(() => import('./components/pages/CreatorHub/ManagePasses/PassDetailView'));
+const BusinessOverviewPage = lazy(() => import('./components/pages/CreatorHub/Business/BusinessOverviewPage'));
+const BusinessCustomersPage = lazy(() => import('./components/pages/CreatorHub/Business/CustomersPage'));
+const BusinessCustomerDetailPage = lazy(() => import('./components/pages/CreatorHub/Business/CustomerDetailPage'));
+const BusinessSourcesPage = lazy(() => import('./components/pages/CreatorHub/Business/SourcesPage'));
+const BusinessPayoutsPage = lazy(() => import('./components/pages/CreatorHub/Business/PayoutsPage'));
+const BusinessHelpPage = lazy(() => import('./components/pages/CreatorHub/Business/BusinessHelpPage'));
 const AIThumbnailsSignInPage = lazy(() => import('./components/pages/CTREngine/auth/AIThumbnailsAuthPage').then(module => ({ default: module.AIThumbnailsSignInPage })));
 const AIThumbnailsSignUpPage = lazy(() => import('./components/pages/CTREngine/auth/AIThumbnailsAuthPage').then(module => ({ default: module.AIThumbnailsSignUpPage })));
 const AIThumbnailsAuthContinue = lazy(() => import('./components/pages/CTREngine/auth/AIThumbnailsAuthContinue'));
@@ -153,6 +159,8 @@ function App() {
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
                   <Route path="/refund" element={<RefundPage />} />
+                  <Route path="/terms/content-passes" element={<PassTermsOfSalePage />} />
+                  <Route path="/terms/creator-passes" element={<CreatorPassTermsPage />} />
                   <Route path="/v2" element={<V2HomePage />} />
                   <Route path="/signup" element={<AuthRouteAliasRedirect to="/sign-up" />} />
                   <Route path="/signin" element={<AuthRouteAliasRedirect to="/sign-in" />} />
@@ -253,13 +261,12 @@ function App() {
                       />
                     }
                   />
+                  {/* Old address: it rendered the Growth tab with no channel at
+                      all. It now opens the analytics page on Growth, for the
+                      selected channel. */}
                   <Route
                     path="/creator-hub/analytics/growth"
-                    element={
-                      <CreatorHubRoute
-                        element={<GrowthTab channelId={''} />}
-                      />
-                    }
+                    element={<Navigate to="/creator-hub/analytics?tab=growth" replace />}
                   />
                   <Route
                     path="/creator-hub/resources"
@@ -336,6 +343,37 @@ function App() {
                         element={<PassDetailView />}
                       />
                     }
+                  />
+                  {/* Business: the creator's sales, customers, sources and payouts.
+                      /creator-hub/passes stays the same page as Business → Passes
+                      (old links and Stripe's return address use it). */}
+                  <Route
+                    path="/creator-hub/business"
+                    element={<CreatorHubRoute element={<BusinessOverviewPage />} />}
+                  />
+                  <Route
+                    path="/creator-hub/business/customers"
+                    element={<CreatorHubRoute element={<BusinessCustomersPage />} />}
+                  />
+                  <Route
+                    path="/creator-hub/business/customers/:customerId"
+                    element={<CreatorHubRoute element={<BusinessCustomerDetailPage />} />}
+                  />
+                  <Route
+                    path="/creator-hub/business/passes"
+                    element={<CreatorHubRoute element={<ManagePassesPage />} />}
+                  />
+                  <Route
+                    path="/creator-hub/business/sources"
+                    element={<CreatorHubRoute element={<BusinessSourcesPage />} />}
+                  />
+                  <Route
+                    path="/creator-hub/business/payouts"
+                    element={<CreatorHubRoute element={<BusinessPayoutsPage />} />}
+                  />
+                  <Route
+                    path="/creator-hub/business/help"
+                    element={<CreatorHubRoute element={<BusinessHelpPage />} />}
                   />
 
                   {/* Protected routes */}

@@ -1,99 +1,95 @@
 // src/components/pages/CreatorHub/ManagePasses/PassesOverview.tsx
-import React, { useMemo } from 'react';
+import React from 'react';
+import { Wallet } from 'lucide-react';
 import type { Pass } from '../../../../types/pass';
-import { cx, list, page, skeleton } from '../shared/hubStyles';
-import { formatMoney, soldCount } from './passHelpers';
+import type { MoneyLine, PassRow } from '../../../../types/creatorBusiness';
+import { cx, sheen, skeleton, surface } from '../Business/businessStyles';
+import { EARNINGS_LABEL, formatCount, saleState, splitMoney } from '../Business/businessFormat';
+import { passLifecycle } from './PassStatusPill';
+import { soldCount } from './passHelpers';
 
 interface PassesOverviewProps {
   passes: Pass[] | undefined;
-  sales?: {
-    card: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
-    crypto: { currency: string; purchase_count: number; gross_minor: number; fee_minor: number; proceeds_minor: number };
-    buyers: number;
-    pass_holders: number;
-  } | null;
+  /** Each pass's business row (all time), to know which ones can be bought right now. */
+  stats?: Map<string, PassRow>;
+  /** Earnings since the first sale, one line per currency; undefined while loading. */
+  money: MoneyLine[] | undefined;
   isLoading: boolean;
+  /** The pass list failed. */
   error: unknown;
+  /** The earnings could not be loaded (failed, or passes are off). The two counts still show. */
+  moneyError: boolean;
 }
 
-interface Tile {
-  label: string;
-  value: string;
-  hint?: string;
-}
+/** Can someone buy it right now: the business API's answer when it is here, else the pass's own fields. */
+const isOnSale = (pass: Pass, stat: PassRow | undefined): boolean =>
+  stat ? saleState(stat, { videoCount: pass.videos?.length ?? 0 }).onSale : passLifecycle(pass) === 'live';
 
 /**
- * Four numbers above the list, in one panel divided by hairlines — no cards,
- * no icons, no change arrows. Revenue carries its currency; a creator selling
- * in two currencies sees one total per currency rather than a meaningless sum.
+ * Above the list, in one line: what the passes earned since they went on sale
+ * (one amount per currency, never added together, all the same size), how many
+ * passes can be bought right now, and how many passes were sold.
  */
-const PassesOverview: React.FC<PassesOverviewProps> = ({ passes, sales, isLoading, error }) => {
-  const tiles = useMemo<Tile[]>(() => {
-    const rows = passes ?? [];
-    let sold = 0;
-    let cappedSold = 0;
-    let supplyCap = 0;
-    rows.forEach((pass) => {
-      const passSold = soldCount(pass);
-      sold += passSold;
-      if (pass.supply_cap) {
-        supplyCap += pass.supply_cap;
-        cappedSold += passSold;
-      }
-    });
+const PassesOverview: React.FC<PassesOverviewProps> = ({ passes, stats, money, isLoading, error, moneyError }) => {
+  const rows = passes ?? [];
+  const onSale = rows.filter((pass) => isOnSale(pass, stats?.get(pass.id))).length;
+  const sold = rows.reduce((sum, pass) => sum + soldCount(pass), 0);
+  const listUnavailable = Boolean(error);
+  const listLoading = !listUnavailable && isLoading;
+  const moneyUnavailable = listUnavailable || moneyError;
+  const moneyLoading = !moneyUnavailable && (isLoading || !money);
 
-    const revenue = sales
-      ? [
-          `${formatMoney(sales.card.proceeds_minor, sales.card.currency)} card`,
-          `${formatMoney(sales.crypto.proceeds_minor, sales.crypto.currency)} crypto`,
-        ].join(' · ')
-      : '—';
-
-    const hasUnlimited = rows.some((pass) => !pass.supply_cap);
-
-    return [
-      { label: 'Passes', value: rows.length.toLocaleString() },
-      { label: 'Sold', value: (sales ? sales.card.purchase_count + sales.crypto.purchase_count : sold).toLocaleString() },
-      {
-        label: 'Available supply',
-        value: supplyCap > 0 ? Math.max(0, supplyCap - cappedSold).toLocaleString() : hasUnlimited ? '∞' : '0',
-        hint: supplyCap > 0 && hasUnlimited ? 'capped passes only' : undefined,
-      },
-      { label: 'Your proceeds', value: revenue, hint: sales ? 'after the platform fee; refunds excluded' : 'loading sales' },
-    ];
-  }, [passes, sales]);
+  const facts: Array<{ label: string; value: string; hint?: string }> = [
+    { label: 'On sale now', value: formatCount(onSale), hint: `of ${formatCount(rows.length)} ${rows.length === 1 ? 'pass' : 'passes'}` },
+    { label: 'Passes sold', value: formatCount(sold) },
+  ];
 
   return (
-    <div
-      className={cx(
-        list.panel,
-        'grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-800/60',
-        '[&>*:nth-child(3)]:border-l-0 md:[&>*:nth-child(3)]:border-l',
-        '[&>*:nth-child(n+3)]:border-t md:[&>*:nth-child(n+3)]:border-t-0',
-      )}
-      role="group"
-      aria-label="Pass totals"
-    >
-      {tiles.map((tile) => (
-        <div key={tile.label} className="min-w-0 border-gray-800/60 px-4 py-3 md:px-5">
-          <p className={page.eyebrow}>{tile.label}</p>
-          {isLoading ? (
-            <div className={cx(skeleton.line, 'mt-2 h-5 w-16')} aria-hidden="true" />
-          ) : (
-            <p
-              className={cx(
-                'mt-1 truncate text-xl font-semibold tabular-nums',
-                error ? 'text-gray-600' : 'text-white',
-              )}
-              title={error ? undefined : tile.value}
-            >
-              {error ? '—' : tile.value}
-            </p>
-          )}
-          {tile.hint && !isLoading && !error && <p className="mt-0.5 text-xs text-gray-600">{tile.hint}</p>}
-        </div>
-      ))}
-    </div>
+    <section className={cx(surface.card, 'flex flex-col gap-5 p-5 md:p-6 lg:flex-row lg:items-center lg:gap-10')} aria-label="Pass totals">
+      <div className={sheen} aria-hidden="true" />
+      <div className="relative min-w-0 flex-1">
+        <p className="flex items-center gap-2 text-sm text-gray-400">
+          <Wallet className="h-4 w-4 text-[#fa7517]" aria-hidden="true" />
+          {EARNINGS_LABEL}
+        </p>
+        {moneyUnavailable ? (
+          <p className="mt-1.5 text-sm text-gray-400">Not available</p>
+        ) : moneyLoading ? (
+          <div className={cx(skeleton.block, 'mt-2 h-7 w-64')} aria-hidden="true" />
+        ) : money && money.length ? (
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-2xl font-bold tabular-nums tracking-tight text-white">
+            {money.map((m) => {
+              const parts = splitMoney(m.proceeds, m.currency, m.decimals);
+              return (
+                <span key={m.currency} className="whitespace-nowrap">
+                  <span className="mr-1.5 text-base font-semibold tracking-normal text-gray-400">{parts.code}</span>
+                  {parts.amount}
+                </span>
+              );
+            })}
+          </p>
+        ) : (
+          <p className="mt-1 text-2xl font-bold tracking-tight text-gray-400">Nothing yet</p>
+        )}
+      </div>
+      <dl className="relative flex shrink-0 gap-10 border-t border-gray-800/50 pt-4 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
+        {facts.map((fact) => (
+          <div key={fact.label} className="min-w-0">
+            <dt className="text-sm text-gray-400">{fact.label}</dt>
+            {listUnavailable ? (
+              <dd className="mt-1.5 text-sm text-gray-400">Not available</dd>
+            ) : listLoading ? (
+              <dd className={cx(skeleton.block, 'mt-2 h-7 w-14')} aria-hidden="true" />
+            ) : (
+              <dd className="mt-1 flex items-baseline gap-1.5 whitespace-nowrap">
+                <span className="text-2xl font-bold tabular-nums text-white">{fact.value}</span>
+                {fact.hint && <span className="text-sm text-gray-400">{fact.hint}</span>}
+              </dd>
+            )}
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 };
 

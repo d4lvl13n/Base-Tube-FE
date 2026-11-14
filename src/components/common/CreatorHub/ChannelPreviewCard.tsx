@@ -1,5 +1,4 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Users, Video, Edit3, Trash2 } from 'lucide-react';
 import { Channel } from '../../../types/channel';
@@ -7,12 +6,19 @@ import EditChannelModal from '../../pages/CreatorHub/ChannelManagement/component
 import DeleteChannel from '../../pages/CreatorHub/ChannelManagement/components/DeleteChannel';
 import DOMPurify from 'dompurify';
 import { observeLayoutChanges } from '../../../utils/observeLayoutChanges';
+import { button, cx, surface } from '../../pages/CreatorHub/Business/businessStyles';
 
 interface ChannelPreviewCardProps {
   channel: Channel;
   onUpdate?: () => void;
   onDeleted?: () => void;
 }
+
+/** Icon actions over the cover: readable on any image, orange focus ring, no grey slab. */
+const coverAction = cx(
+  button.icon,
+  'h-9 w-9 border border-white/10 bg-black/60 text-gray-200 backdrop-blur-sm hover:bg-black/80 hover:text-white',
+);
 
 const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpdate, onDeleted }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -21,8 +27,8 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [descriptionOverflows, setDescriptionOverflows] = useState(false);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
-  
-  const coverImageUrl = channel.channel_image_url || 
+
+  const coverImageUrl = channel.channel_image_url ||
     (channel.channel_image_path
       ? channel.channel_image_path.startsWith('http')
         ? channel.channel_image_path
@@ -70,107 +76,95 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
 
   return (
     <>
-      <div className="w-full bg-black/50 rounded-xl p-3 sm:p-6">
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="bg-gray-900/30 rounded-xl border border-gray-800/30 backdrop-blur-sm overflow-hidden"
-        >
-          {/* Banner Image with Gradient Overlay */}
-          <div className="h-40 relative bg-gray-900">
-            {/* A cover that fails to load must leave a surface behind, not the
-                words "<name> cover" sitting on top of the channel title. */}
-            {coverFailed ? (
-              <div
-                data-testid="channel-cover-placeholder"
-                aria-hidden="true"
-                className="h-full w-full bg-gradient-to-br from-gray-800 via-gray-900 to-black"
-              />
-            ) : (
-              <img
-                src={coverImageUrl}
-                alt=""
-                aria-hidden="true"
-                onError={() => setCoverFailed(true)}
-                className="w-full h-full object-cover"
-              />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent">
-              {/* Channel Info Overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-0">
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-bold text-white mb-1">{channel.name}</h3>
-                    <p className="text-sm text-gray-300">@{channel.handle}</p>
-                    
-                    {/* Channel description - render HTML safely */}
-                    {channel.description && (
-                      <div className="mt-1 max-w-2xl">
-                        <div
-                          ref={descriptionRef}
-                          data-testid="channel-description"
-                          className={`overflow-hidden text-xs text-gray-400 sm:text-sm ${
-                            descriptionExpanded ? 'max-h-40 overflow-y-auto' : 'line-clamp-2'
-                          }`}
-                          dangerouslySetInnerHTML={sanitizeHTML(channel.description)}
-                          aria-label={createPlainText(channel.description)}
-                        />
-                        {(descriptionOverflows || descriptionExpanded) && (
-                          <button
-                            type="button"
-                            onClick={() => setDescriptionExpanded((open) => !open)}
-                            aria-expanded={descriptionExpanded}
-                            className="mt-0.5 text-xs text-[#fa7517] hover:underline
-                                       focus-visible:outline-none focus-visible:ring-2
-                                       focus-visible:ring-[#fa7517]/40"
-                          >
-                            {descriptionExpanded ? 'Less' : 'More'}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center space-x-1 sm:space-x-2 mt-2 sm:mt-0">
-                    <Link
-                      to={`/channel/${channel.handle}`}
-                      className="p-1.5 sm:p-2 hover:bg-[#fa7517]/10 rounded-lg transition-colors text-white hover:text-[#fa7517]"
-                      title="View Channel"
-                    >
-                      <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </Link>
-                    <button
-                      onClick={() => setIsEditModalOpen(true)}
-                      className="p-1.5 sm:p-2 hover:bg-[#fa7517]/10 rounded-lg transition-colors text-white hover:text-[#fa7517]"
-                      title="Edit Channel"
-                    >
-                      <Edit3 className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                    <button
-                      onClick={() => setShowDeleteDialog(true)}
-                      className="p-1.5 sm:p-2 hover:bg-red-900/10 rounded-lg transition-colors text-white hover:text-red-500"
-                      title="Delete Channel"
-                    >
-                      <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </button>
-                  </div>
+      <article className={cx(surface.card, 'w-full')}>
+        {/* Cover, with the channel's name and actions over it */}
+        <div className="relative h-44 bg-black sm:h-48">
+          {/* A cover that fails to load must leave a surface behind, not the
+              words "<name> cover" sitting on top of the channel title. */}
+          {coverFailed ? (
+            <div
+              data-testid="channel-cover-placeholder"
+              aria-hidden="true"
+              className="h-full w-full bg-gradient-to-br from-[#fa751710] via-black to-black"
+            />
+          ) : (
+            <img
+              src={coverImageUrl}
+              alt=""
+              aria-hidden="true"
+              onError={() => setCoverFailed(true)}
+              className="h-full w-full object-cover"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent">
+            <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+                <div className="min-w-0">
+                  <h3 className="truncate text-lg font-semibold tracking-tight text-white sm:text-xl">{channel.name}</h3>
+                  <p className="text-sm text-gray-300">@{channel.handle}</p>
+
+                  {/* Channel description - render HTML safely */}
+                  {channel.description && (
+                    <div className="mt-1 max-w-2xl">
+                      <div
+                        ref={descriptionRef}
+                        data-testid="channel-description"
+                        className={`overflow-hidden text-xs text-gray-300 sm:text-sm ${
+                          descriptionExpanded ? 'max-h-40 overflow-y-auto' : 'line-clamp-2'
+                        }`}
+                        dangerouslySetInnerHTML={sanitizeHTML(channel.description)}
+                        aria-label={createPlainText(channel.description)}
+                      />
+                      {(descriptionOverflows || descriptionExpanded) && (
+                        <button
+                          type="button"
+                          onClick={() => setDescriptionExpanded((open) => !open)}
+                          aria-expanded={descriptionExpanded}
+                          className="mt-0.5 rounded-sm text-xs text-[#fa7517] hover:text-[#ff8c3a]
+                                     focus-visible:outline-none focus-visible:ring-2
+                                     focus-visible:ring-[#fa7517]/50"
+                        >
+                          {descriptionExpanded ? 'Less' : 'More'}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Quick Stats */}
-                <div className="flex items-center flex-wrap gap-4 mt-2 text-xs sm:text-sm text-gray-300">
-                  <span className="flex items-center">
-                    <Users size={14} className="mr-1 text-[#fa7517]" />
-                    {(channel.subscribers_count ?? 0).toLocaleString()} subscribers
-                  </span>
-                  <span className="flex items-center">
-                    <Video size={14} className="mr-1 text-[#fa7517]" />
-                    {(channel.videos_count ?? 0).toLocaleString()} videos
-                  </span>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Link to={`/channel/${channel.handle}`} className={coverAction} title="View Channel">
+                    <ExternalLink className="h-4 w-4" />
+                  </Link>
+                  <button onClick={() => setIsEditModalOpen(true)} className={coverAction} title="Edit Channel">
+                    <Edit3 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteDialog(true)}
+                    className={cx(coverAction, 'hover:border-red-500/40 hover:text-red-300')}
+                    title="Delete Channel"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        </motion.div>
-      </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-gray-800/50 px-4 py-3 text-sm text-gray-300 sm:px-5">
+          <span className="flex items-center gap-1.5 tabular-nums">
+            <Users size={14} className="text-[#fa7517]" aria-hidden="true" />
+            {(channel.subscribers_count ?? 0).toLocaleString()} subscribers
+          </span>
+          <span className="flex items-center gap-1.5 tabular-nums">
+            <Video size={14} className="text-gray-500" aria-hidden="true" />
+            {/* `videos_count` is the PUBLIC count; the analytics
+                tables also list private and unlisted videos. */}
+            {(channel.videos_count ?? 0).toLocaleString()} public videos
+          </span>
+        </div>
+      </article>
 
       {/* Edit Modal */}
       <EditChannelModal
@@ -185,8 +179,8 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
 
       {/* Delete Dialog */}
       {showDeleteDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-          <div className="max-w-lg w-full">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-gray-800/70 bg-black p-5 shadow-[0_32px_80px_rgba(0,0,0,0.8)] sm:p-6">
             <DeleteChannel
               channelId={channel.id.toString()}
               channelName={channel.name}
@@ -198,7 +192,7 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
             />
             <button
               onClick={() => setShowDeleteDialog(false)}
-              className="mt-4 w-full px-4 py-2 bg-zinc-800 text-white rounded-md hover:bg-zinc-700"
+              className={cx(button.secondary, 'mt-4 w-full')}
             >
               Cancel
             </button>
@@ -209,4 +203,4 @@ const ChannelPreviewCard: React.FC<ChannelPreviewCardProps> = ({ channel, onUpda
   );
 };
 
-export default ChannelPreviewCard; 
+export default ChannelPreviewCard;

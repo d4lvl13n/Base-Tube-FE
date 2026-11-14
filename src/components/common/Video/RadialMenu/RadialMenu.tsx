@@ -5,6 +5,7 @@ import RadialMenuItem from './RadialMenuItem';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
 import { toast } from 'react-toastify';
 import { SharePopup } from '../../SharePopup/SharePopup';
+import { recordShareAction } from '../../../../api/shareApi';
 
 interface RadialMenuProps {
   videoId: string;
@@ -95,7 +96,10 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
       navigator.share({
         title: videoTitle,
         url: shareLink
-      }).catch(err => console.error('Error sharing via native API:', err));
+      })
+        // Resolved = the viewer picked a target; a cancel rejects and is not a share.
+        .then(() => { void recordShareAction(videoId, 'native'); })
+        .catch(err => console.error('Error sharing via native API:', err));
     } else {
       // For desktop or when native share is unavailable,
       // set the shareUrl and shareTitle and then open the SharePopup.

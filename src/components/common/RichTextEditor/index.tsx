@@ -80,7 +80,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   }
 
   return (
-    <div className="w-full rounded-lg border border-gray-800/30 bg-gray-900/50 overflow-hidden">
+    <div className="w-full overflow-hidden rounded-lg border border-gray-800 bg-black/40 transition-colors focus-within:border-[#fa7517]/40">
       <EditorMenuBar editor={editor} />
       <div className="p-4">
         <EditorContent editor={editor} />

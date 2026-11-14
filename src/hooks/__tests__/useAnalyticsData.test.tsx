@@ -2,7 +2,9 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import {
+  audienceReliableSince,
   invalidateChannelAnalytics,
+  useAudienceAvailability,
   useChannelInsights,
   useCreatorAnalytics
 } from '../useAnalyticsData';
@@ -54,18 +56,22 @@ jest.mock('../../api/channel', () => ({
 
 /** Queries whose key does NOT contain the period — they must not refetch. */
 const PERIOD_INDEPENDENT = [
-  'getSocialMetrics',
-  'getTopLikedContent',
-  'getTopSharedContent'
+  'getSocialMetrics'
 ] as const;
 
-/** Queries whose key contains the period — they must fetch the new key. */
+/**
+ * Queries whose key contains the period — they must fetch the new key.
+ * Top liked / top shared are period-scoped now (they used to be all-time under
+ * a "Last 7 days" selector). Demographics are not fetched at all unless asked
+ * for (the Audience tab is hidden).
+ */
 const PERIOD_DEPENDENT = [
   'getGrowthMetrics',
   'getEngagementTrends',
   'getTopComments',
   'getChannelWatchPatterns',
-  'getChannelDemographics'
+  'getTopLikedContent',
+  'getTopSharedContent'
 ] as const;
 
 const callCounts = () =>
@@ -118,8 +124,8 @@ const resetApi = () => {
     commentGrowth: [],
     shareGrowth: []
   });
-  mockApi.getTopLikedContent.mockReset().mockResolvedValue([]);
-  mockApi.getTopSharedContent.mockReset().mockResolvedValue([]);
+  mockApi.getTopLikedContent.mockReset().mockResolvedValue({ items: [], appliedPeriod: null });
+  mockApi.getTopSharedContent.mockReset().mockResolvedValue({ items: [], appliedPeriod: null });
   mockApi.getTopComments.mockReset().mockResolvedValue([]);
   mockApi.getChannelInsights.mockReset().mockResolvedValue({
     status: 'ready',
@@ -184,11 +190,12 @@ describe('useCreatorAnalytics — period changes', () => {
       expect(mockApi[name]).toHaveBeenCalledTimes(2);
     }
 
-    // Exactly six requests for one click on the selector: the 5 period-bearing
+    // Exactly seven requests for one click on the selector: the 6 period-bearing
     // queries plus the period watch-hours query (the all-time one keeps its
     // key). detailedViewMetrics is NOT among them — one response carries
     // last24h/last7d/last30d, so it is period-invariant and its key no longer
-    // contains the period.
+    // contains the period. Demographics are not among them either: nothing on
+    // this hook asks for them unless the Audience tab is shown.
     const after = callCounts();
     const delta = Object.fromEntries(
       Object.keys(after)
@@ -200,10 +207,11 @@ describe('useCreatorAnalytics — period changes', () => {
       getEngagementTrends: 1,
       getTopComments: 1,
       getChannelWatchPatterns: 1,
-      getChannelDemographics: 1,
+      getTopLikedContent: 1,
+      getTopSharedContent: 1,
       getChannelWatchHours: 1
     });
-    expect(totalCalls() - callsAfterMount).toBe(6);
+    expect(totalCalls() - callsAfterMount).toBe(7);
   });
 
   it('does not refetch the period-invariant view metrics', async () => {
@@ -418,7 +426,10 @@ describe('queryKeys.analytics is the single source of truth', () => {
 it('keeps ready metric loading flags false while unrelated demographics are pending', async () => {
   mockApi.getChannelDemographics.mockImplementation(() => new Promise(() => undefined));
   const { queryClient, wrapper } = makeWrapper();
-  const { result, unmount } = renderHook(() => useCreatorAnalytics('7d', '1'), { wrapper });
+  const { result, unmount } = renderHook(
+    () => useCreatorAnalytics('7d', '1', { includeDemographics: true }),
+    { wrapper }
+  );
   await waitFor(() => expect(result.current.growthMetrics).toBeDefined());
   expect(result.current.isLoading).toBe(true);
   expect(result.current.loading.demographics).toBe(true);
@@ -426,4 +437,65 @@ it('keeps ready metric loading flags false while unrelated demographics are pend
   expect(result.current.loading.detailedViewMetrics).toBe(false);
   expect(result.current.loading.engagementTrends).toBe(false);
   unmount(); queryClient.clear();
+});
+
+describe('the hidden Audience tab', () => {
+  it('does not fetch demographics unless asked to', async () => {
+    const { queryClient, wrapper } = makeWrapper();
+    const { result, unmount } = renderHook(() => useCreatorAnalytics('7d', '1'), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockApi.getChannelDemographics).not.toHaveBeenCalled();
+    expect(result.current.loading.demographics).toBe(false);
+    unmount(); queryClient.clear();
+  });
+
+  it('fetches them for the Audience tab', async () => {
+    const { queryClient, wrapper } = makeWrapper();
+    const { result, unmount } = renderHook(
+      () => useCreatorAnalytics('30d', '1', { includeDemographics: true }),
+      { wrapper }
+    );
+    await waitFor(() => expect(result.current.demographics).toBeDefined());
+    expect(mockApi.getChannelDemographics).toHaveBeenCalledWith('1', 'last30');
+    unmount(); queryClient.clear();
+  });
+
+  it('stays hidden until the API sends a measuredSince date', async () => {
+    const { queryClient, wrapper } = makeWrapper();
+    const { result, unmount } = renderHook(() => useAudienceAvailability('1'), { wrapper });
+    await waitFor(() => expect(mockApi.getChannelDemographics).toHaveBeenCalledTimes(1));
+    expect(result.current.measuredSince).toBeNull();
+    unmount(); queryClient.clear();
+
+    mockApi.getChannelDemographics.mockResolvedValue({
+      geoDistribution: [], deviceUsage: [], measuredSince: '2026-11-14T00:00:00.000Z'
+    });
+    const second = makeWrapper();
+    const view = renderHook(() => useAudienceAvailability('1'), { wrapper: second.wrapper });
+    await waitFor(() => expect(view.result.current.measuredSince).toBe('2026-11-14T00:00:00.000Z'));
+    view.unmount(); second.queryClient.clear();
+  });
+
+  it('accepts only a real date as the flag', () => {
+    expect(audienceReliableSince(undefined)).toBeNull();
+    expect(audienceReliableSince({ measuredSince: null })).toBeNull();
+    expect(audienceReliableSince({ measuredSince: '' })).toBeNull();
+    expect(audienceReliableSince({ measuredSince: 'soon' })).toBeNull();
+    expect(audienceReliableSince({ measuredSince: '2026-11-14' })).toBe('2026-11-14');
+  });
+});
+
+describe('top liked / top shared', () => {
+  it('ask for the selected period and expose the period the backend applied', async () => {
+    mockApi.getTopLikedContent.mockResolvedValue({ items: [{ id: '1' }], appliedPeriod: '7d' });
+    const { queryClient, wrapper } = makeWrapper();
+    const { result, unmount } = renderHook(() => useCreatorAnalytics('7d', '1'), { wrapper });
+    await waitFor(() => expect(result.current.topLikedContent).toHaveLength(1));
+    expect(mockApi.getTopLikedContent).toHaveBeenCalledWith('1', 5, '7d');
+    expect(mockApi.getTopSharedContent).toHaveBeenCalledWith('1', 5, '7d');
+    expect(result.current.topLikedAppliedPeriod).toBe('7d');
+    // Until its list arrives, the tag names the selected period.
+    expect(result.current.topSharedAppliedPeriod).toBe('7d');
+    unmount(); queryClient.clear();
+  });
 });

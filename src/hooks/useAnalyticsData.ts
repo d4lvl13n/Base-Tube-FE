@@ -26,6 +26,7 @@ import type {
   TopContentItem,
   TopSharedItem,
   TopComment,
+  RankedList,
 } from '../types/analytics';
 import type { InsightsPeriod } from '../types/insights';
 import type { InsightsResponse } from '../api/analytics';
@@ -80,64 +81,6 @@ export const invalidateChannelAnalytics = async (
   });
 };
 
-// ===========================================
-// ANALYTICS CONTEXT (SHARED)
-// ===========================================
-
-export const useAnalyticsContext = () => {
-  const queryClient = useQueryClient();
-  
-  const prefetchCreatorAnalytics = async (period: '7d' | '30d' = '7d', channelId?: string) => {
-    // Skip prefetching if no channelId is provided
-    if (!channelId) return;
-
-    await Promise.all([
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.analytics.channelMetric(channelId, 'channelWatchPatterns', period),
-        queryFn: () => getChannelWatchPatterns(channelId, period)
-      }),
-      queryClient.prefetchQuery({ 
-        queryKey: queryKeys.analytics.channelMetric(channelId, 'socialMetrics'), 
-        queryFn: () => getSocialMetrics(channelId) 
-      }),
-      queryClient.prefetchQuery({ 
-        queryKey: queryKeys.analytics.channelMetric(channelId, 'growthMetrics', period), 
-        queryFn: () => getGrowthMetrics(period, channelId) 
-      }),
-      queryClient.prefetchQuery({ 
-        queryKey: queryKeys.analytics.channelMetric(channelId, 'watchHours', period), 
-        queryFn: () => getChannelWatchHours(channelId, period)
-      }),
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.analytics.channelMetric(channelId, 'detailedViewMetrics'),
-        queryFn: () => getChannelViewMetrics(channelId, true)
-      }),
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.analytics.channelMetric(channelId, 'demographics', mapPeriodToDemographics(period)),
-        queryFn: () => getChannelDemographics(channelId, mapPeriodToDemographics(period))
-      }),
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.analytics.channelMetric(channelId, 'engagementTrends', period),
-        queryFn: () => getEngagementTrends(channelId, period)
-      }),
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.analytics.channelMetric(channelId, 'topLikedContent'),
-        queryFn: () => getTopLikedContent(channelId, 5)
-      }),
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.analytics.channelMetric(channelId, 'topSharedContent'),
-        queryFn: () => getTopSharedContent(channelId, 5)
-      }),
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.analytics.channelMetric(channelId, 'topComments', period),
-        queryFn: () => getTopComments(channelId, period, 5)
-      })
-    ]);
-  };
-
-  return { prefetchCreatorAnalytics };
-};
-
 // Period validation helper
 const validatePeriod = (period: string): '7d' | '30d' | 'all' => {
   if (period === '30d') return '30d';
@@ -156,10 +99,25 @@ const mapPeriodToDemographics = (period: '7d' | '30d' | 'all'): DemographicsPeri
 // CREATOR-FOCUSED ANALYTICS
 // ===========================================
 
+export interface CreatorAnalyticsOptions {
+  /**
+   * Fetch the audience demographics. Off by default: only the Audience tab
+   * reads them, and that tab is hidden until the backend says the numbers are
+   * reliable (see useAudienceAvailability). Every other tab used to fetch them
+   * on mount for nothing.
+   */
+  includeDemographics?: boolean;
+}
+
 /**
  * Hook for all creator analytics data associated with a specific channel
  */
-export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channelId?: string) => {
+export const useCreatorAnalytics = (
+  period: '7d' | '30d' | 'all' = '7d',
+  channelId?: string,
+  options: CreatorAnalyticsOptions = {}
+) => {
+  const includeDemographics = options.includeDemographics === true;
   const queryClient = useQueryClient();
   const validPeriod = validatePeriod(period);
   const demographicsPeriod = mapPeriodToDemographics(validPeriod);
@@ -215,11 +173,8 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
   // Channel demographics - Channel specific
   const demographics = useQuery<ChannelDemographics, Error>({
     queryKey: queryKeys.analytics.channelMetric(channelId, 'demographics', demographicsPeriod),
-    queryFn: () => {
-      console.log(`[Analytics] Fetching demographics for period ${demographicsPeriod}`);
-      return getChannelDemographics(channelId!, demographicsPeriod);
-    },
-    enabled: !!channelId,
+    queryFn: () => getChannelDemographics(channelId!, demographicsPeriod),
+    enabled: !!channelId && includeDemographics,
     ...ANALYTICS_QUERY_DEFAULTS
   });
 
@@ -235,12 +190,7 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
   const growthMetrics = useQuery<GrowthMetrics, Error>({
     queryKey: queryKeys.analytics.channelMetric(channelId, 'growthMetrics', validPeriod),
     queryFn: () => {
-      // Determine the period to pass to the API
-      // NOW: Pass 'all' directly if validPeriod is 'all'
-      const apiPeriod = validPeriod;
-      console.log(`[Analytics] Fetching growthMetrics for period ${apiPeriod}`);
-      // Call the API with the determined period ('7d', '30d', or 'all')
-      return getGrowthMetrics(apiPeriod, channelId!);
+      return getGrowthMetrics(validPeriod, channelId!);
     },
     enabled: !!channelId,
     ...ANALYTICS_QUERY_DEFAULTS
@@ -253,7 +203,6 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       if (!channelId) {
         throw new Error('Channel ID is required for watch hours');
       }
-      console.log('[Analytics] Fetching all-time watch hours');
       return getChannelWatchHours(channelId); // No period means all-time
     },
     enabled: !!channelId,
@@ -266,7 +215,6 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       if (!channelId) {
         throw new Error('Channel ID is required for watch hours');
       }
-      console.log(`[Analytics] Fetching watch hours for period ${validPeriod}`);
       // Use specific period for 7d/30d, otherwise use all-time
       return validPeriod === 'all' 
         ? getChannelWatchHours(channelId) 
@@ -279,34 +227,30 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
   // New engagement-related queries
   const engagementTrends = useQuery<EngagementTrends, Error>({
     queryKey: queryKeys.analytics.channelMetric(channelId, 'engagementTrends', validPeriod),
-    queryFn: () => {
-      console.log(`[Analytics] Fetching engagementTrends for channelId ${channelId} with period ${validPeriod}`);
-      return getEngagementTrends(channelId!, validPeriod);
-    },
+    queryFn: () => getEngagementTrends(channelId!, validPeriod),
     enabled: !!channelId,
     ...ANALYTICS_QUERY_DEFAULTS
   });
 
-  const topLikedContent = useQuery<TopContentItem[], Error>({
-    queryKey: queryKeys.analytics.channelMetric(channelId, 'topLikedContent'),
-    queryFn: () => getTopLikedContent(channelId!, 5),
+  // Period-keyed and period-scoped: these lists used to be all-time under a
+  // "Last 7 days" selector. `appliedPeriod` is what the backend says it used.
+  const topLikedContent = useQuery<RankedList<TopContentItem>, Error>({
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'topLikedContent', validPeriod),
+    queryFn: () => getTopLikedContent(channelId!, 5, validPeriod),
     enabled: !!channelId,
     ...ANALYTICS_QUERY_DEFAULTS
   });
 
-  const topSharedContent = useQuery<TopSharedItem[], Error>({
-    queryKey: queryKeys.analytics.channelMetric(channelId, 'topSharedContent'),
-    queryFn: () => getTopSharedContent(channelId!, 5),
+  const topSharedContent = useQuery<RankedList<TopSharedItem>, Error>({
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'topSharedContent', validPeriod),
+    queryFn: () => getTopSharedContent(channelId!, 5, validPeriod),
     enabled: !!channelId,
     ...ANALYTICS_QUERY_DEFAULTS
   });
 
   const topComments = useQuery<TopComment[], Error>({
     queryKey: queryKeys.analytics.channelMetric(channelId, 'topComments', validPeriod),
-    queryFn: () => {
-      console.log(`[Analytics] Fetching topComments for period ${validPeriod}`);
-      return getTopComments(channelId!, validPeriod, 5);
-    },
+    queryFn: () => getTopComments(channelId!, validPeriod, 5),
     enabled: !!channelId,
     ...ANALYTICS_QUERY_DEFAULTS
   });
@@ -315,13 +259,6 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
   // on EVERY analytics tab mount for the sole benefit of LikesAnalyticsTab,
   // which was never routed. Both are deleted; the API helpers and the routes
   // behind them are still available if a Likes tab is ever built.
-
-  // Add debugging logs
-  useEffect(() => {
-    if (channelId) {
-      console.log(`[Analytics] Period changed to ${validPeriod} for channelId ${channelId}`);
-    }
-  }, [validPeriod, channelId]);
 
   return {
     viewMetrics: viewMetrics.data,
@@ -337,16 +274,23 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
       formattedHours: allTimeWatchHours.data?.formattedHours ?? '0 hours',
       periodTotal: periodWatchHours.data?.totalWatchHours ?? 0,
       periodSeconds: periodWatchHours.data?.totalWatchSeconds,
-      trend: periodWatchHours.data?.trend ?? 0
+      accurateSince:
+        allTimeWatchHours.data?.watchTimeAccurateFrom ??
+        periodWatchHours.data?.watchTimeAccurateFrom ??
+        null
     },
     engagementTrends: engagementTrends.data,
-    topLikedContent: topLikedContent.data,
-    topSharedContent: topSharedContent.data,
+    topLikedContent: topLikedContent.data?.items,
+    topLikedAppliedPeriod: topLikedContent.data?.appliedPeriod ?? validPeriod,
+    topSharedContent: topSharedContent.data?.items,
+    topSharedAppliedPeriod: topSharedContent.data?.appliedPeriod ?? validPeriod,
     topComments: topComments.data,
     loading: {
       viewMetrics: viewMetrics.isLoading,
       detailedViewMetrics: detailedViewMetrics.isLoading,
       channelWatchPatterns: channelWatchPatterns.isLoading,
+      // isLoading is false for a disabled query, so this is only ever true on
+      // the Audience tab.
       demographics: demographics.isLoading,
       socialMetrics: socialMetrics.isLoading,
       growthMetrics: growthMetrics.isLoading,
@@ -388,28 +332,37 @@ export const useCreatorAnalytics = (period: '7d' | '30d' | 'all' = '7d', channel
 };
 
 /**
- * Individual hook for channel watch hours only (creator-focused)
+ * Whether the Audience tab may be shown for this channel.
+ *
+ * The tab is hidden because its numbers were wrong (cumulative per-country
+ * counters summed across days). The backend is rebuilding it; it comes back
+ * ONLY when the API answers with a `measuredSince` date. Until then the
+ * answer is "hidden".
+ *
+ * This is ONE request per channel per browser session (staleTime: Infinity),
+ * not one per tab mount and period as before — knowing whether the flag is
+ * there needs one answer from the API.
  */
-export const useChannelWatchHours = (channelId: string, period: '7d' | '30d' = '7d') => {
-  const query = useQuery<CreatorWatchHours, Error>({
-    queryKey: queryKeys.analytics.channelMetric(channelId, 'watchHours', period),
-    queryFn: () => {
-      if (!channelId) {
-        throw new Error('Channel ID is required for watch hours');
-      }
-      return getChannelWatchHours(channelId, period);
-    },
+export const useAudienceAvailability = (channelId?: string) => {
+  const query = useQuery<ChannelDemographics, Error>({
+    queryKey: queryKeys.analytics.channelMetric(channelId, 'demographicsAvailability'),
+    queryFn: () => getChannelDemographics(channelId!, 'last30'),
     enabled: !!channelId,
-    ...ANALYTICS_QUERY_DEFAULTS
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    retry: false
   });
+  return { measuredSince: audienceReliableSince(query.data) };
+};
 
-  return {
-    watchHours: query.data?.totalWatchHours ?? 0,
-    formattedHours: query.data?.formattedHours ?? '0 hours',
-    trend: query.data?.trend ?? 0,
-    isLoading: query.isLoading,
-    isError: query.isError
-  };
+/** The valid `measuredSince` date of a demographics response, or null. */
+export const audienceReliableSince = (
+  demographics: Pick<ChannelDemographics, 'measuredSince'> | null | undefined
+): string | null => {
+  const value = demographics?.measuredSince;
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  return Number.isNaN(Date.parse(value)) ? null : value;
 };
 
 // The viewer-facing useViewerAnalytics / useAnalyticsData hooks lived here.

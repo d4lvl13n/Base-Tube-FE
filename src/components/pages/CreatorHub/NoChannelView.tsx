@@ -1,42 +1,19 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Plus, Rocket, Shield, Coins } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { button, cx, heroGlow, sheen, surface } from './Business/businessStyles';
 
-const FeatureCard = ({ icon: Icon, title, description }: { 
-  icon: any, 
-  title: string, 
-  description: string 
+const FeatureCard = ({ icon: Icon, title, description }: {
+  icon: any,
+  title: string,
+  description: string
 }) => (
-  <motion.div 
-    whileHover={{ scale: 1.05 }}
-    className="p-3 sm:p-4 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm relative overflow-hidden"
-    style={{
-      boxShadow: `
-        0 0 20px 5px rgba(250, 117, 23, 0.1),
-        0 0 40px 10px rgba(250, 117, 23, 0.05),
-        inset 0 0 60px 15px rgba(250, 117, 23, 0.03)
-      `
-    }}
-  >
-    <div className="relative z-10">
-      <div className="p-2 bg-gray-900/50 rounded-lg w-fit">
-        <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-[#fa7517]" />
-      </div>
-      <h3 className="font-semibold text-white mt-2 sm:mt-3 text-sm sm:text-base">{title}</h3>
-      <p className="text-xs sm:text-sm text-gray-400 mt-1">{description}</p>
-    </div>
-    
-    {/* Gradient overlay */}
-    <div className="absolute inset-0 bg-gradient-to-br from-[#fa751708] to-transparent" />
-    
-    {/* Subtle glow effect on hover */}
-    <motion.div
-      className="absolute inset-0 bg-[#fa7517] opacity-0 blur-2xl transition-opacity duration-300"
-      initial={{ opacity: 0 }}
-      whileHover={{ opacity: 0.03 }}
-    />
-  </motion.div>
+  <div className={cx(surface.inset, 'p-4')}>
+    <Icon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+    <h3 className="mt-3 text-sm font-semibold text-white">{title}</h3>
+    <p className="mt-1 text-sm text-gray-400">{description}</p>
+  </div>
 );
 
 type NoChannelViewProps = {
@@ -44,15 +21,23 @@ type NoChannelViewProps = {
   description?: string;
   buttonText?: string;
   className?: string;
+  /** Where the one button goes. */
+  createPath?: string;
 };
 
+/**
+ * The hub before a channel exists: one card (the screen's one glow), what a
+ * channel gives you in three quiet tiles, and the one action.
+ */
 const NoChannelView: React.FC<NoChannelViewProps> = ({
   title = "Start Your Creator Journey",
   description = "Create your first channel to begin sharing your content and building your community in the Web3 space.",
   buttonText = "Create Your First Channel",
-  className = ""
+  className = "",
+  createPath = '/creator-hub/channels/new',
 }) => {
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
 
   const features = [
     {
@@ -73,36 +58,31 @@ const NoChannelView: React.FC<NoChannelViewProps> = ({
   ];
 
   return (
-    <div className={`max-w-5xl mx-auto p-4 sm:p-8 pt-16 ${className}`}>
-      <motion.div
-        className="p-4 sm:p-8 rounded-xl bg-black/50 border border-gray-800/30 backdrop-blur-sm relative overflow-hidden"
-        initial={{ opacity: 0, y: 20 }}
+    <div className={cx('mx-auto max-w-5xl px-4 pb-16 pt-24 md:px-6', className)}>
+      <motion.section
+        className={cx(surface.card, 'p-6 sm:p-10')}
+        style={heroGlow}
+        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        style={{
-          boxShadow: `
-            0 0 20px 5px rgba(250, 117, 23, 0.1),
-            0 0 40px 10px rgba(250, 117, 23, 0.05),
-            inset 0 0 60px 15px rgba(250, 117, 23, 0.03)
-          `
-        }}
+        transition={{ duration: 0.3 }}
       >
-        <div className="relative z-10">
+        <div className={sheen} aria-hidden="true" />
+        <div className="relative">
           {/* Header Section */}
-          <div className="text-center mb-8 sm:mb-12">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-900/50 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-[#fa7517]" />
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300 mb-2 sm:mb-4">
+          <div className="mb-8 text-center sm:mb-10">
+            <span className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-gray-800/70 bg-black/60 text-[#fa7517]">
+              <Plus className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
               {title}
             </h2>
-            <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto">
+            <p className="mx-auto mt-2 max-w-2xl text-base text-gray-400">
               {description}
             </p>
           </div>
 
           {/* Features Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+          <div className="mb-8 grid grid-cols-1 gap-3 sm:mb-10 sm:grid-cols-3">
             {features.map((feature) => (
               <FeatureCard key={feature.title} {...feature} />
             ))}
@@ -110,32 +90,19 @@ const NoChannelView: React.FC<NoChannelViewProps> = ({
 
           {/* CTA Button */}
           <div className="text-center">
-            <motion.button
-              onClick={() => navigate('/creator-hub/channels/new')}
-              className="inline-flex items-center px-6 py-3 sm:px-8 sm:py-4 bg-gradient-to-r from-[#fa7517] to-[#ff9a5a] 
-                text-black rounded-xl font-bold text-sm sm:text-base hover:from-[#ff8c3a] hover:to-[#ffad7d] 
-                transition-all shadow-lg shadow-orange-500/20 w-full sm:w-auto justify-center"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
+              type="button"
+              onClick={() => navigate(createPath)}
+              className={cx(button.primary, 'h-11 w-full px-6 text-base sm:w-auto')}
             >
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              <Plus className="h-4 w-4" aria-hidden="true" />
               {buttonText}
-            </motion.button>
+            </button>
           </div>
         </div>
-
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#fa751708] to-transparent" />
-        
-        {/* Subtle glow effect on hover */}
-        <motion.div
-          className="absolute inset-0 bg-[#fa7517] opacity-0 blur-2xl transition-opacity duration-300"
-          initial={{ opacity: 0 }}
-          whileHover={{ opacity: 0.03 }}
-        />
-      </motion.div>
+      </motion.section>
     </div>
   );
 };
 
-export default NoChannelView; 
+export default NoChannelView;

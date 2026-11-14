@@ -1,92 +1,56 @@
 /**
- * The Videos Management surface.
+ * The Videos Management list, in the Business / Analytics register
+ * (`Business/businessStyles.ts`): one translucent-black card on the hub's
+ * #09090B, hairline cool borders, sentence-case grey-400 headers, tabular
+ * figures, and orange only where something is on (selection, the public
+ * switch, the active filter). Nothing here paints a browser default (no native
+ * focus ring, no system checkbox, no OS select list).
  *
- * These are the Content Studio tokens — one bordered panel, hairline dividers,
- * `text-gray-100` for what you read and `text-gray-500` for what you glance
- * at, orange only where something is on. Nothing here paints a browser default
- * (no native focus ring, no system checkbox, no OS select list): a control the
- * operating system draws is a control we cannot make match the rest of the app.
+ * The exported names and shape are unchanged so every consumer keeps working;
+ * the values now come from the Business sheet.
  */
+import { button, empty, list, popover, surface, table } from '../../../Business/businessStyles';
+
 export const styles = {
-  /** The single panel the whole list lives in. */
-  panel: 'overflow-hidden rounded-xl border border-gray-800/60 bg-[#0f0f0f]',
+  /** The single card the whole list lives in. */
+  panel: surface.card,
 
   table: {
-    header: 'border-b border-gray-800/60',
-    headerCell: `
-      px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider
-      text-gray-500 whitespace-nowrap select-none
-    `,
-    row: 'group relative transition-colors duration-150 hover:bg-white/[0.02]',
-    cell: 'px-4 py-3 align-middle',
+    header: table.head,
+    headerCell: `${table.th} select-none`,
+    row: list.table.row,
+    cell: list.table.cell,
   },
 
   /** Hairlines between rows, in both layouts. */
-  divider: 'divide-y divide-gray-800/60',
+  divider: surface.divider,
 
-  title: `
-    truncate text-left text-sm text-gray-100 transition-colors
-    hover:text-[#fa7517] focus-visible:outline-none focus-visible:text-[#fa7517]
-  `,
-  preview: 'truncate text-xs text-gray-500',
-  stat: 'text-xs tabular-nums text-gray-400',
+  title: list.title,
+  preview: list.preview,
+  stat: list.stat,
 
   /**
    * Controls stay out of the way until you go looking for them, but they never
    * leave the tab order — and on a touch screen, where there is no hover to go
    * looking with, they are simply always there.
    */
-  revealed: `
-    opacity-0 transition-opacity duration-150
-    group-hover:opacity-100 group-focus-within:opacity-100
-    [&:focus-within]:opacity-100
-    [@media(pointer:coarse)]:opacity-100
-  `,
+  revealed: list.revealed,
 
-  actionButton: `
-    inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500
-    transition-colors hover:bg-white/5 hover:text-white
-    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/40
-    disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent
-    disabled:hover:text-gray-500
-  `,
+  actionButton: `${button.icon} disabled:hover:bg-transparent disabled:hover:text-gray-400`,
   actionIcon: 'h-4 w-4',
 
-  tooltip: `
-    z-50 rounded-md border border-gray-800/60 bg-[#0f0f0f] px-2.5 py-1.5
-    text-xs text-gray-200 shadow-xl
-  `,
+  tooltip: popover.panel,
+  /** Radix tooltip arrow, the panel's own black. */
+  tooltipArrow: 'fill-black',
 
-  dropdownMenu: {
-    content: `
-      z-50 min-w-[11rem] overflow-hidden rounded-lg border border-gray-800/60
-      bg-[#0f0f0f] p-1 shadow-2xl
-    `,
-    item: `
-      flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-sm
-      text-gray-300 outline-none transition-colors
-      data-[highlighted]:bg-white/5 data-[highlighted]:text-white
-    `,
-    dangerItem: `
-      flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-sm
-      text-red-400 outline-none transition-colors
-      data-[highlighted]:bg-red-500/10 data-[highlighted]:text-red-300
-    `,
-  },
+  dropdownMenu: list.dropdownMenu,
 
-  loadMore: {
-    wrapper: 'border-t border-gray-800/60 p-3 text-center',
-    button: `
-      inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-gray-400
-      transition-colors hover:bg-white/5 hover:text-white
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/40
-      disabled:cursor-not-allowed disabled:opacity-50
-    `,
-  },
+  loadMore: list.loadMore,
 
   emptyState: {
-    wrapper: 'flex flex-col items-center justify-center px-6 py-16 text-center',
-    title: 'text-sm font-medium text-gray-200',
-    subtitle: 'mt-1 text-sm text-gray-500',
+    wrapper: empty.wrapper,
+    icon: empty.icon,
+    title: empty.title,
+    subtitle: empty.body,
   },
 };

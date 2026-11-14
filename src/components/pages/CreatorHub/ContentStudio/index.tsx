@@ -1,7 +1,7 @@
 // src/components/pages/CreatorHub/ContentStudio/index.tsx
 
 import React, { useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
@@ -22,6 +22,7 @@ import { useUploadQueueContext } from '../../../../contexts/UploadQueueContext';
 import { describeUploadError } from '../../../upload/uploadCopy';
 import { formatBytes, phaseDetail, phaseLabel, uploadPhase } from '../../../upload/uploadPhase';
 import { summarizeEntries, summarySegments, type SummaryTone } from './summary';
+import { button, cx, empty, meter, surface, text } from '../Business/businessStyles';
 
 /** Files accepted in one selection — the client-side ceiling from contract 4. */
 const MAX_FILES = 50;
@@ -30,10 +31,10 @@ const ACCEPTED = '.mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo';
 
 /** Colour carries meaning here, so there are only four of them. */
 const TONE: Record<SummaryTone, string> = {
-  muted: 'text-gray-500',
+  muted: 'text-gray-400',
   active: 'text-[#fa7517]',
-  ready: 'text-green-500',
-  failed: 'text-red-400',
+  ready: 'text-emerald-300',
+  failed: 'text-red-300',
 };
 
 /**
@@ -114,15 +115,16 @@ export const ContentStudio: React.FC = () => {
   if (!selectedChannelId) {
     return (
       <Container>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">Content Studio</h1>
+        <h1 className={text.pageTitle}>Content Studio</h1>
         <div className="mt-16 flex flex-col items-center text-center">
-          <FileVideo className="mb-4 h-10 w-10 text-gray-700" aria-hidden="true" />
-          <h2 className="text-sm font-medium text-gray-200">No channel selected</h2>
-          <p className="mt-1 text-sm text-gray-500">Pick a channel to upload to.</p>
+          <span className={empty.icon}>
+            <FileVideo className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <h2 className={empty.title}>No channel selected</h2>
+          <p className={empty.body}>Pick a channel to upload to.</p>
           <Link
             to="/creator-hub/channels"
-            className="mt-6 inline-flex items-center gap-2 rounded-md bg-[#fa7517] px-3.5 py-2
-                       text-sm font-medium text-black transition-colors hover:bg-[#ff8c3a]"
+            className={cx(button.primary, 'mt-6')}
           >
             Select channel
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -138,8 +140,8 @@ export const ContentStudio: React.FC = () => {
           can do to the queue as a whole. */}
       <header className="flex items-start justify-between gap-6">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Content Studio</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className={text.pageTitle}>Content Studio</h1>
+          <p className={text.pageSubtitle}>
             Upload several videos at once — they keep going while you browse.
           </p>
         </div>
@@ -149,9 +151,7 @@ export const ContentStudio: React.FC = () => {
               type="button"
               aria-label={queue.paused ? 'Resume uploads' : 'Pause uploads'}
               onClick={() => queue.setPaused(!queue.paused)}
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-sm text-gray-400
-                         transition-colors hover:bg-white/5 hover:text-white
-                         focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600"
+              className={button.ghost}
             >
               {queue.paused ? (
                 <Play className="h-4 w-4" aria-hidden="true" />
@@ -165,9 +165,7 @@ export const ContentStudio: React.FC = () => {
             type="button"
             aria-label="Add videos"
             onClick={onChooseFiles}
-            className="inline-flex items-center gap-2 rounded-md bg-[#fa7517] px-3.5 py-2 text-sm
-                       font-medium text-black transition-colors hover:bg-[#ff8c3a]
-                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/60"
+            className={button.primary}
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             Add videos
@@ -203,7 +201,7 @@ export const ContentStudio: React.FC = () => {
             {segments.map((segment, index) => (
               <React.Fragment key={segment.key}>
                 {index > 0 && (
-                  <span aria-hidden="true" className="text-gray-700">
+                  <span aria-hidden="true" className="text-gray-600">
                     ·
                   </span>
                 )}
@@ -212,10 +210,10 @@ export const ContentStudio: React.FC = () => {
             ))}
           </p>
           {summary.transferComplete ? (
-            <p className="mt-2 text-xs text-gray-600">All transfers complete</p>
+            <p className="mt-2 text-xs text-gray-400">All transfers complete</p>
           ) : (
             <div
-              className="mt-2 h-[2px] w-full overflow-hidden bg-white/5"
+              className={cx(meter.track, 'mt-2')}
               role="progressbar"
               aria-label="Overall transfer"
               aria-valuemin={0}
@@ -223,7 +221,7 @@ export const ContentStudio: React.FC = () => {
               aria-valuenow={summary.transferPercent}
             >
               <div
-                className="h-full bg-[#fa7517] transition-[width] duration-300 ease-out"
+                className={meter.fill}
                 style={{ width: `${summary.transferPercent}%` }}
               />
             </div>
@@ -232,24 +230,24 @@ export const ContentStudio: React.FC = () => {
       )}
 
       {queue.actionError && (
-        <p className="mt-4 flex items-center gap-1.5 text-xs text-red-400" role="alert">
+        <p className="mt-4 flex items-center gap-1.5 text-xs text-red-300" role="alert">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           {describeUploadError(queue.actionError.code, queue.actionError.message)}
         </p>
       )}
       {queue.selectionNotice && (
-        <p className="mt-2 text-xs text-gray-500" role="status">
+        <p className="mt-2 text-xs text-gray-400" role="status">
           {queue.selectionNotice}
         </p>
       )}
       {queue.persistenceError && (
-        <p className="mt-2 text-xs text-yellow-500/80" role="status">
+        <p className="mt-2 text-xs text-amber-300" role="status">
           {queue.persistenceError}
         </p>
       )}
 
       {files.length > 0 && (
-        <ul className="mt-6 divide-y divide-gray-800/60 overflow-hidden rounded-lg border border-gray-800/60 bg-[#0f0f0f]">
+        <ul className={cx(surface.card, surface.divider, 'mt-6')}>
           <AnimatePresence initial={false}>
             {files.map((entry) => (
               <UploadRow
@@ -273,21 +271,19 @@ export const ContentStudio: React.FC = () => {
           className={`mt-8 rounded-xl border-2 border-dashed px-6 py-16 text-center transition-colors ${
             dragActive
               ? 'border-[#fa7517] bg-[#fa7517]/[0.06]'
-              : 'border-gray-800 hover:border-gray-700'
+              : 'border-gray-800 bg-black/40 hover:border-gray-700'
           }`}
         >
-          <UploadCloud className="mx-auto h-8 w-8 text-gray-600" aria-hidden="true" />
-          <p className="mt-4 text-sm font-medium text-gray-200">Drop videos here</p>
+          <UploadCloud className="mx-auto h-8 w-8 text-gray-500" aria-hidden="true" />
+          <p className="mt-4 text-base font-semibold text-white">Drop videos here</p>
           <button
             type="button"
             onClick={onChooseFiles}
-            className="mt-1 rounded text-sm text-[#fa7517] underline-offset-4 transition-colors
-                       hover:text-[#ff8c3a] hover:underline focus-visible:outline-none
-                       focus-visible:ring-1 focus-visible:ring-[#fa7517]/60"
+            className={cx(text.link, 'mt-1 text-sm underline-offset-4 hover:underline')}
           >
             or browse
           </button>
-          <p className="mt-4 text-xs text-gray-600">
+          <p className="mt-4 text-xs text-gray-400">
             MP4, MOV or AVI · up to 2 GB each · up to {MAX_FILES} at a time
           </p>
         </div>
@@ -297,14 +293,13 @@ export const ContentStudio: React.FC = () => {
           onDragOver={onDragOver}
           onDragLeave={() => setDragActive(false)}
           className={`mt-2 rounded-lg border border-dashed px-4 py-3 text-center transition-colors ${
-            dragActive ? 'border-[#fa7517] bg-[#fa7517]/[0.06]' : 'border-gray-800'
+            dragActive ? 'border-[#fa7517] bg-[#fa7517]/[0.06]' : 'border-gray-800 bg-black/40'
           }`}
         >
           <button
             type="button"
             onClick={onChooseFiles}
-            className="rounded text-xs text-gray-500 transition-colors hover:text-gray-300
-                       focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600"
+            className="rounded text-xs text-gray-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50"
           >
             Drop more videos here
           </button>
@@ -323,8 +318,8 @@ interface UploadRowProps {
 }
 
 const ROW_ACTION =
-  'rounded px-1 text-xs text-gray-500 transition-colors hover:text-white ' +
-  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600';
+  'inline-flex h-7 items-center rounded-md px-1.5 text-xs text-gray-400 transition-colors hover:bg-white/[0.04] hover:text-white ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fa7517]/50';
 
 export const UploadRow: React.FC<UploadRowProps> = ({
   entry,
@@ -333,25 +328,26 @@ export const UploadRow: React.FC<UploadRowProps> = ({
   onDismiss,
   onReselect,
 }) => {
+  const reduceMotion = useReducedMotion();
   const phase = uploadPhase(entry);
   const { label, percent } = phaseParts(entry);
   const text = percent ? `${label} ${percent}` : label;
 
   return (
     <motion.li
-      initial={{ opacity: 0, y: 8 }}
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      className="group relative flex h-14 items-center gap-3 px-4"
+      className="group relative flex h-14 items-center gap-3 px-4 transition-colors duration-150 hover:bg-white/[0.025]"
     >
-      <FileVideo className="h-4 w-4 shrink-0 text-gray-600" aria-hidden="true" />
+      <FileVideo className="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
 
       <div className="flex min-w-0 flex-1 items-baseline gap-2">
         <span className="truncate text-sm text-gray-100" title={entry.filename}>
           {entry.filename}
         </span>
-        <span className="shrink-0 text-xs text-gray-600">{formatBytes(entry.sizeBytes)}</span>
+        <span className="shrink-0 text-xs tabular-nums text-gray-400">{formatBytes(entry.sizeBytes)}</span>
       </div>
 
       {/* Actions stay out of the way until you go looking for them, but they
@@ -429,7 +425,7 @@ export const UploadRow: React.FC<UploadRowProps> = ({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
-        {phase === 'ready' && <Check className="h-3.5 w-3.5 text-green-500" aria-hidden="true" />}
+        {phase === 'ready' && <Check className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />}
         {phase === 'failed' && <X className="h-3.5 w-3.5 text-red-400" aria-hidden="true" />}
         {/* The cross-fade is keyed on the LABEL only. The percentage used to be
             part of the key, which remounted (and faded) the text on every
@@ -443,12 +439,12 @@ export const UploadRow: React.FC<UploadRowProps> = ({
             transition={{ duration: 0.15 }}
             className={`max-w-[16rem] truncate text-xs ${
               phase === 'ready'
-                ? 'text-green-500'
+                ? 'text-emerald-300'
                 : phase === 'failed'
-                  ? 'text-red-400'
+                  ? 'text-red-300'
                   : phase === 'uploading'
                     ? 'text-[#fa7517]'
-                    : 'text-gray-500'
+                    : 'text-gray-400'
             }`}
             title={text}
           >
@@ -464,7 +460,7 @@ export const UploadRow: React.FC<UploadRowProps> = ({
           has no honest percentage, so it pulses instead of claiming one. */}
       {phase === 'uploading' && (
         <div
-          className="absolute inset-x-0 bottom-0 h-[2px] bg-white/5"
+          className="absolute inset-x-0 bottom-0 h-[2px] bg-white/[0.06]"
           role="progressbar"
           aria-label={`Uploading ${entry.filename}`}
           aria-valuemin={0}
@@ -472,14 +468,14 @@ export const UploadRow: React.FC<UploadRowProps> = ({
           aria-valuenow={entry.progress}
         >
           <div
-            className="h-full bg-[#fa7517] transition-[width] duration-300 ease-out"
+            className="h-full bg-[#fa7517] transition-[width] duration-300 ease-out motion-reduce:transition-none"
             style={{ width: `${entry.progress}%` }}
           />
         </div>
       )}
       {phase === 'processing' && (
         <div
-          className="absolute inset-x-0 bottom-0 h-[2px] bg-white/5"
+          className="absolute inset-x-0 bottom-0 h-[2px] bg-white/[0.06]"
           role="progressbar"
           aria-label={`Processing ${entry.filename}`}
           aria-valuetext="Processing"

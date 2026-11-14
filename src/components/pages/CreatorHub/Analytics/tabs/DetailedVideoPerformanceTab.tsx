@@ -22,21 +22,20 @@ import {
 import { useDetailedVideoPerformance } from '../../../../../hooks/useDetailedVideoPerformance';
 import StatsCard from '../../../CreatorHub/StatsCard';
 import { Select } from '../../../../ui/Select';
-import { formatDuration } from '../../../../../utils/format';
-import Loader from '../../../../common/Loader';
+import { formatDuration as formatVideoLength } from '../../../../../utils/format';
+import {
+  OWN_REPLIES_NOTE,
+  formatDuration,
+  formatPercent,
+  pageWatchAverages,
+  percentOf,
+  accurateSinceNote,
+  joinNotes
+} from '../metrics';
 
-// Helper to format time duration in minutes and seconds
-const formatWatchTime = (seconds: number): string => {
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.round(seconds % 60);
-  return `${minutes}m ${remainingSeconds}s`;
-};
-
-// Calculate viewthrough rate (views to completion percentage)
-const calculateViewthroughRate = (avgPercentage: number): string => {
-  return `${avgPercentage.toFixed(1)}%`;
-};
+// The local formatWatchTime that lived here printed "37.3333s" (no rounding
+// below a minute). Every duration now goes through metrics.formatDuration:
+// "45 s", "1 min 30 s".
 
 // Format date in a more readable format
 const formatDate = (dateString: string): string => {
@@ -48,21 +47,26 @@ const formatDate = (dateString: string): string => {
   });
 };
 
-// Helper to get the period description
+// The period filters WHEN THE ACTIVITY HAPPENED (views, likes, comments in
+// the window), not when the video was published; the list is always the whole
+// catalogue.
 const getPeriodDescription = (period: string): string => {
   switch (period) {
     case '7d':
-      return 'Last 7 days';
+      return 'activity in the last 7 days';
     case '30d':
-      return 'Last 30 days';
+      return 'activity in the last 30 days';
     case '90d':
-      return 'Last 90 days';
+      return 'activity in the last 90 days';
     default:
-      return 'All time';
+      return 'all-time activity';
   }
 };
 
-export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ channelId }) => {
+export const DetailedVideoPerformanceTab: React.FC<{ channelId: string; channelName?: string }> = ({
+  channelId,
+  channelName
+}) => {
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filteredVideos, setFilteredVideos] = useState<any[]>([]);
@@ -70,6 +74,7 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
   
   // Use our custom hook with initial sort by creation date (newest first)
   const { 
+    data: performanceData,
     videos,
     pagination,
     isLoading,
@@ -145,27 +150,31 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
   // never rendered. Deleted.
   const pageViews = filteredVideos.reduce((sum, video) => sum + (video.views || 0), 0);
 
-  const avgRetention = filteredVideos.length > 0
-    ? (filteredVideos.reduce((sum, video) => sum + video.average_percentage_viewed, 0) / filteredVideos.length).toFixed(1)
-    : null;
-
-  const avgWatchDuration = filteredVideos.length > 0
-    ? filteredVideos.reduce((sum, video) => sum + video.average_watch_duration_seconds, 0) / filteredVideos.length
-    : 0;
+  // Weighted by views; videos with no views carry no weight. The old plain mean
+  // of per-video averages read 30 % for "60 % on 100 views + one unwatched video".
+  const pageAverages = pageWatchAverages(filteredVideos);
+  const noViewsOnPage = pageAverages.views <= 0;
+  const periodDescription = getPeriodDescription(period);
+  const publicVideoCount = performanceData?.videoCounts.public;
+  const catalogueNote = publicVideoCount !== undefined
+    ? `${publicVideoCount.toLocaleString()} of them are public — that is the number in the channel header. Not filtered by the period.`
+    : 'Not filtered by the period. The channel header counts public videos only.';
 
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold">Detailed Video Performance</h2>
-          <p className="text-gray-400">In-depth analytics for each video on your channel</p>
+          <p className="text-gray-400">
+            Every video of {channelName ? <span className="text-white">{channelName}</span> : 'this channel'}, with its own numbers
+          </p>
         </div>
 
         {/* Time Period Filter */}
         <div className="flex items-center gap-2">
           <div className="text-sm text-gray-400 flex items-center">
             <Filter className="w-4 h-4 mr-1" />
-            Publication Period:
+            Activity in:
           </div>
           <Select
             value={period}
@@ -184,31 +193,37 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
           icon={Play}
-          title="Total Videos"
+          title="All videos in this table"
           value={pagination?.total.toLocaleString() ?? '0'}
           loading={isLoading}
-          subtitle={`${getPeriodDescription(period)}`}
+          subtitle="Including private and unlisted videos"
+          note={catalogueNote}
         />
         <StatsCard
           icon={Eye}
           title="Views"
           value={pageViews.toLocaleString()}
           loading={isLoading}
-          subtitle="On this page"
+          subtitle={`Videos on this page, ${periodDescription}`}
         />
         <StatsCard
           icon={Timer}
           title="Avg. Watch Time"
-          value={formatWatchTime(avgWatchDuration)}
+          value={formatDuration(pageAverages.avgWatchSeconds)}
           loading={isLoading}
-          subtitle="On this page"
+          subtitle="Per view, videos on this page, weighted by views"
+          note={joinNotes(
+            noViewsOnPage && 'No video on this page has views in this period',
+            accurateSinceNote(performanceData?.watchTimeAccurateFrom)
+          )}
         />
         <StatsCard
           icon={Percent}
           title="Avg. % watched"
-          value={avgRetention === null ? '—' : `${avgRetention}%`}
+          value={formatPercent(pageAverages.avgPercentWatched)}
           loading={isLoading}
-          subtitle="On this page"
+          subtitle="Per view, videos on this page, weighted by views"
+          note={noViewsOnPage ? 'No video on this page has views in this period.' : 'Averaged over counted views (views that passed the view threshold).'}
         />
       </div>
 
@@ -218,7 +233,7 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
           <h3 className="text-xl font-semibold flex items-center">
             <List className="mr-2 text-[#fa7517]" /> Video Performance Metrics
             <span className="text-sm font-normal text-gray-400 ml-2">
-              ({getPeriodDescription(period)})
+              ({periodDescription})
             </span>
             <button 
               className="ml-2 text-xs text-gray-400 hover:text-white border border-gray-700 rounded-full h-5 w-5 flex items-center justify-center"
@@ -269,12 +284,12 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
         {showHelpTips && (
           <div className="mb-4 text-sm bg-black/30 p-3 rounded-lg text-gray-300">
             <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              <li><span className="text-white font-medium">Views:</span> Total number of times the video has been viewed</li>
-              <li><span className="text-white font-medium">Likes:</span> Total number of likes received</li>
-              <li><span className="text-white font-medium">Comments:</span> Total number of comments received</li>
-              <li><span className="text-white font-medium">Avg. Watch Time:</span> Average duration viewers watch the video</li>
-              <li><span className="text-white font-medium">Retention:</span> Average percentage of the video watched</li>
-              <li><span className="text-white font-medium">Published:</span> Date when the video was uploaded</li>
+              <li><span className="text-white font-medium">Views:</span> Counted views in the selected period (see “How views are counted” above).</li>
+              <li><span className="text-white font-medium">Likes:</span> Likes given in the selected period. The % is likes ÷ views in the same period; — when there were no views.</li>
+              <li><span className="text-white font-medium">Comments:</span> Comments posted in the selected period. {OWN_REPLIES_NOTE}</li>
+              <li><span className="text-white font-medium">Avg. watch time:</span> Average time played per counted view in the selected period.</li>
+              <li><span className="text-white font-medium">Avg. % watched:</span> Average share of the video played per counted view in the selected period.</li>
+              <li><span className="text-white font-medium">Uploaded:</span> The date the video was uploaded. The period does not filter on it.</li>
             </ul>
           </div>
         )}
@@ -301,7 +316,7 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
                 >
                   <div className="flex items-center justify-end">
                     <ThumbsUp className="w-3 h-3 mr-1" />
-                    <span>Likes</span> 
+                    <span title="Likes in the period, and likes ÷ views as a %">Likes (% of views)</span> 
                     {getSortIcon('likes')}
                   </div>
                 </th>
@@ -321,7 +336,7 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
                 >
                   <div className="flex items-center justify-end">
                     <Clock className="w-3 h-3 mr-1" />
-                    <span>Watch Time</span> 
+                    <span>Avg. watch time</span> 
                     {getSortIcon('average_watch_duration_seconds')}
                   </div>
                 </th>
@@ -331,7 +346,7 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
                 >
                   <div className="flex items-center justify-end">
                     <Percent className="w-3 h-3 mr-1" />
-                    <span>Retention</span> 
+                    <span>Avg. % watched</span> 
                     {getSortIcon('average_percentage_viewed')}
                   </div>
                 </th>
@@ -341,7 +356,7 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
                 >
                   <div className="flex items-center justify-end">
                     <Calendar className="w-3 h-3 mr-1" />
-                    <span>Published</span> 
+                    <span>Uploaded</span> 
                     {getSortIcon('createdAt')}
                   </div>
                 </th>
@@ -412,7 +427,7 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
                             </div>
                           </a>
                           <span className="text-xs text-gray-500 truncate max-w-[150px] md:max-w-[200px] block">
-                            {formatDuration(video.duration)}
+                            {formatVideoLength(video.duration)}
                           </span>
                         </div>
                       </div>
@@ -423,17 +438,17 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
                     <td className="py-4 px-2 text-right text-green-400">
                       {video.likes.toLocaleString()}
                       <span className="text-xs text-gray-500 ml-1">
-                        ({((video.likes / (video.views || 1)) * 100).toFixed(1)}%)
+                        ({formatPercent(percentOf(video.likes, video.views))})
                       </span>
                     </td>
                     <td className="py-4 px-2 text-right text-blue-400">
                       {video.comments.toLocaleString()}
                     </td>
                     <td className="py-4 px-2 text-right text-yellow-400">
-                      {formatWatchTime(video.average_watch_duration_seconds)}
+                      {video.views > 0 ? formatDuration(video.average_watch_duration_seconds) : '—'}
                     </td>
                     <td className="py-4 px-2 text-right">
-                      {calculateViewthroughRate(video.average_percentage_viewed)}
+                      {video.views > 0 ? formatPercent(video.average_percentage_viewed) : '—'}
                     </td>
                     <td className="py-4 px-2 text-right text-gray-400">
                       {formatDate(video.createdAt)}
@@ -497,9 +512,9 @@ export const DetailedVideoPerformanceTab: React.FC<{ channelId: string }> = ({ c
         {/* Table Legend */}
         <div className="mt-4 text-sm bg-black/30 p-3 rounded-lg text-gray-400">
           <p>
-            <span className="font-medium text-white">Video Performance Metrics</span> provide insights into how your content performs. 
-            Watch Time indicates how long viewers spend on your videos, while Retention shows what percentage of the video they typically watch.
-            Higher retention rates correlate with algorithm promotion and overall content health.
+            <span className="font-medium text-white">Video Performance Metrics</span> show {periodDescription} for every video on the channel,
+            including private and unlisted ones. Avg. watch time is the time played per counted view; Avg. % watched is the share of the video
+            played per counted view. A video with no views in the period shows — instead of 0.
           </p>
         </div>
       </div>

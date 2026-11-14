@@ -14,13 +14,16 @@ interface LineChartProps {
   xKey: string;
   yKey: string;
   color?: string;
+  /** What one point counts, for the tooltip ("Likes per day"). */
+  seriesName?: string;
 }
 
 export const LineChart: React.FC<LineChartProps> = ({
   data,
   xKey,
   yKey,
-  color = '#fa7517'
+  color = '#fa7517',
+  seriesName
 }) => {
   return (
     <div className="w-full h-[300px]">
@@ -43,8 +46,10 @@ export const LineChart: React.FC<LineChartProps> = ({
           <YAxis
             stroke="#666"
             tick={{ fill: '#666' }}
+            allowDecimals={false}
           />
           <Tooltip
+            formatter={seriesName ? (value) => [Number(value).toLocaleString(), seriesName] : undefined}
             contentStyle={{
               backgroundColor: '#111',
               border: '1px solid #333',

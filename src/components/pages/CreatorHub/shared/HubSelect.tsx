@@ -32,16 +32,16 @@ const HubSelect: React.FC<HubSelectProps> = ({ value, options, onChange, ariaLab
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
         aria-label={`${ariaLabel}: ${current?.label ?? placeholder}`}
-        className={`group inline-flex h-9 min-w-[11rem] items-center gap-2 rounded-md border border-gray-800/60 bg-white/5 px-3 text-sm
+        className={`group inline-flex h-9 min-w-[11rem] items-center gap-2 rounded-lg border border-gray-800 bg-black/40 px-3 text-sm
                     text-gray-100 outline-none transition-colors hover:border-gray-700 data-[state=open]:border-[#fa7517]/50
-                    focus-visible:border-[#fa7517]/40 focus-visible:ring-2 focus-visible:ring-[#fa7517]/20 ${className ?? ''}`}
+                    focus-visible:border-[#fa7517]/50 focus-visible:ring-2 focus-visible:ring-[#fa7517]/30 ${className ?? ''}`}
       >
         {current?.leading}
-        <span className={`min-w-0 flex-1 truncate text-left ${current ? '' : 'text-gray-500'}`}>
+        <span className={`min-w-0 flex-1 truncate text-left ${current ? '' : 'text-gray-400'}`}>
           {current?.label ?? placeholder}
         </span>
         <ChevronDown
-          className="h-4 w-4 shrink-0 text-gray-500 transition-transform duration-150 group-data-[state=open]:rotate-180"
+          className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-150 group-data-[state=open]:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
         />
       </DropdownMenu.Trigger>
@@ -51,8 +51,8 @@ const HubSelect: React.FC<HubSelectProps> = ({ value, options, onChange, ariaLab
           sideOffset={6}
           align="start"
           collisionPadding={16}
-          className="z-[70] min-w-[var(--radix-dropdown-menu-trigger-width)] max-w-[20rem] overflow-hidden rounded-xl border border-white/10
-                     bg-[#111113] p-1.5 shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
+          className="z-[70] min-w-[var(--radix-dropdown-menu-trigger-width)] max-w-[20rem] overflow-hidden rounded-xl border border-gray-800
+                     bg-black p-1.5 shadow-[0_24px_60px_rgba(0,0,0,0.7)]"
         >
           <div className="max-h-[min(340px,60vh)] overflow-y-auto">
             {options.map((option) => {

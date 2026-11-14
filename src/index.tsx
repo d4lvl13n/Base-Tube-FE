@@ -13,10 +13,14 @@ import { PlaybackProvider } from './contexts/PlaybackContext';
 import { DescriptionDockProvider } from './contexts/DescriptionDockContext';
 import { startBrowserPerformance } from './performance/browserPerformance';
 import { PerformanceRouteObserver } from './performance/PerformanceRouteObserver';
+import { captureAttributionOnArrival } from './utils/attribution';
 
 const PUBLISHABLE_KEY = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) throw new Error('Missing Clerk Publishable Key');
 window.Buffer = window.Buffer || Buffer;
+
+// Record where this visit came from before the router can rewrite the URL.
+captureAttributionOnArrival();
 
 // Public content renders while Clerk initializes. Private routes guard their own pending identity.
 ReactDOM.createRoot(document.getElementById('root')!).render(
