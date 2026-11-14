@@ -8,8 +8,9 @@ import ConfirmDialog from '../ManagePasses/ConfirmDialog';
 import { BusinessHeader, CopyButton, EmptyState, LinkField, Panel, SkeletonPanel } from '../Business/BusinessUi';
 import { button, cx, field, frame, meter, note, pillClass, table, text, type PillTone } from '../Business/businessStyles';
 
-/** Where the API answers. Same host as the site; the routes live under /v1. */
-const API_BASE = `${(process.env.REACT_APP_API_URL ?? 'https://beta.base.tube').replace(/\/+$/, '')}/v1`;
+/** Where the upload API answers. Its own address, set apart from the site's (REACT_APP_UPLOAD_API_URL). */
+const DEFAULT_UPLOAD_API = 'https://api.base.tube/v1';
+const API_BASE = (process.env.REACT_APP_UPLOAD_API_URL ?? DEFAULT_UPLOAD_API).replace(/\/+$/, '');
 
 /** The public documentation page, once it is published. */
 const DOCS_URL = process.env.REACT_APP_UPLOAD_API_DOCS_URL;
@@ -42,8 +43,8 @@ function dateText(iso: string | null): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-/** The CLI talks to beta.base.tube by default; any other server is named once, at login. */
-const LOGIN_COMMAND = API_BASE === 'https://beta.base.tube/v1' ? `${CLI} login` : `${CLI} login --api ${API_BASE}`;
+/** The CLI talks to api.base.tube by default; any other server is named once, at login. */
+const LOGIN_COMMAND = API_BASE === DEFAULT_UPLOAD_API ? `${CLI} login` : `${CLI} login --api ${API_BASE}`;
 const UPLOAD_COMMAND = `${CLI} upload video.mp4 --title "My video"`;
 
 const CommandStep: React.FC<{ step: number; title: string; command?: string }> = ({ step, title, command }) => (

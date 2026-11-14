@@ -70,7 +70,7 @@ Accepted video files: `.mp4`, `.mov`, `.avi`, up to 2 GB. Limits: 20 videos a da
 | Setting | Default |
 |---|---|
 | `BASETUBE_API_KEY` | Used instead of the saved key when set. |
-| `BASETUBE_API_URL` or `--api` | `https://beta.base.tube/v1` |
+| `BASETUBE_API_URL` or `--api` | `https://api.base.tube/v1` |
 | `BASETUBE_CONFIG_DIR` | `~/.config/basetube` (or `$XDG_CONFIG_HOME/basetube`) |
 
 Files the CLI writes, all inside that folder and readable only by you:

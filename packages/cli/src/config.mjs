@@ -13,7 +13,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { CliError, usageError } from './errors.mjs';
 
-export const DEFAULT_API = 'https://beta.base.tube/v1';
+export const DEFAULT_API = 'https://api.base.tube/v1';
 
 export function configDir(env) {
   if (env.BASETUBE_CONFIG_DIR) return env.BASETUBE_CONFIG_DIR;
@@ -80,7 +80,7 @@ export function normalizeApiBase(value) {
   try {
     url = new URL(value);
   } catch {
-    throw usageError(`Invalid API address: ${value}`, 'Use a full address such as https://beta.base.tube/v1.');
+    throw usageError(`Invalid API address: ${value}`, 'Use a full address such as https://api.base.tube/v1.');
   }
   if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
     throw usageError('The API address must be an http(s) address without credentials, query or fragment.');
