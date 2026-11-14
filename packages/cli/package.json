@@ -1,0 +1,28 @@
+{
+  "name": "basetube",
+  "version": "0.1.0",
+  "description": "Send videos to your Base.tube channel from a terminal or an AI agent (Claude Code, Codex).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "basetube": "bin/basetube.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "basetube",
+    "video",
+    "upload",
+    "cli"
+  ],
+  "homepage": "https://beta.base.tube",
+  "scripts": {
+    "test": "node --test test/cli.test.mjs"
+  }
+}
