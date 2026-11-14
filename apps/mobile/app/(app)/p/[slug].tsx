@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { api } from '../../../src/lib/client';
+import { isTieredPricing } from '@basetube/api';
+import { api, API_BASE_URL } from '../../../src/lib/client';
 import { theme } from '../../../src/theme';
 import { Button, ErrorText } from '../../../src/components/ui';
 import { AccentHairline, GlassCircleButton, Pill, Scrim } from '../../../src/components/primitives';
@@ -43,7 +44,10 @@ export default function PassDetailScreen() {
         withdrawal_version: sale?.withdrawal_version ?? FALLBACK_CONSENT_VERSION,
         terms_hash: sale?.terms_hash,
         withdrawal_hash: sale?.withdrawal_hash,
-      });
+      },
+      undefined,
+      // The price on the button: the server charges it or answers PRICE_CHANGED.
+      p!.price_cents);
       return session;
     },
     onSuccess: async (session) => {
@@ -72,6 +76,18 @@ export default function PassDetailScreen() {
   const supplyLine = p.supply_cap ? `${formatCount(p.minted_count ?? 0)} / ${formatCount(p.supply_cap)} minted` : 'Open edition';
   const owned = p.has_access;
   const blocked = p.can_purchase === false && !owned;
+  // A price that rises by tiers is bought on the website, which shows the
+  // price again if it moved before payment. This app version cannot (yet).
+  const tiered = isTieredPricing(p);
+  const pricing = p.pricing ?? null;
+  const tierLine =
+    tiered && pricing?.state === 'on_sale'
+      ? [
+          pricing.leftAtCurrentPrice != null ? `${formatCount(pricing.leftAtCurrentPrice)} left at this price` : null,
+          pricing.nextPriceCents != null ? `then ${formatPrice(pricing.nextPriceCents, p.currency)}` : null,
+        ].filter(Boolean).join('  ·  ')
+      : '';
+  const websiteUrl = p.checkout_url || `${API_BASE_URL}/p/${p.slug || p.id}`;
 
   return (
     <View style={styles.screen}>
@@ -93,6 +109,23 @@ export default function PassDetailScreen() {
         <View style={styles.body}>
           {p.description ? <Text style={styles.desc}>{p.description}</Text> : null}
 
+          {tiered && pricing ? (
+            <>
+              <Text style={styles.sectionTitle}>Prices</Text>
+              {tierLine ? <Text style={styles.tierLine}>{tierLine}</Text> : null}
+              {pricing.tiers.map((tier, i) => (
+                <View key={`tier-${i}`} style={styles.tierRow}>
+                  <Text style={[styles.tierText, tier.state === 'sold' && styles.tierSold, tier.state === 'current' && styles.tierCurrent]}>
+                    {formatCount(tier.size)} passes{tier.state === 'current' ? '  ·  now' : tier.state === 'sold' ? '  ·  sold' : ''}
+                  </Text>
+                  <Text style={[styles.tierText, tier.state === 'sold' && styles.tierSold, tier.state === 'current' && styles.tierCurrent]}>
+                    {formatPrice(tier.priceCents, p.currency)}
+                  </Text>
+                </View>
+              ))}
+            </>
+          ) : null}
+
           <Text style={styles.sectionTitle}>What's included</Text>
           {(p.videos ?? []).map((v) => (
             <View key={`pv-${v.id}`} style={styles.includeRow}>
@@ -113,7 +146,19 @@ export default function PassDetailScreen() {
         {owned ? (
           <Button label="Watch now" onPress={() => router.push(`/watch/${p.id}`)} />
         ) : blocked ? (
-          <Button label={p.purchase_block_reason || 'Unavailable'} onPress={() => {}} disabled />
+          <Button
+            label={pricing?.state === 'all_reserved' ? 'The last passes are in checkouts' : p.purchase_block_reason || 'Unavailable'}
+            onPress={() => {}}
+            disabled
+          />
+        ) : tiered ? (
+          <>
+            <Button
+              label={`Buy on base.tube · ${formatPrice(p.price_cents, p.currency, p.formatted_price)}`}
+              onPress={() => WebBrowser.openBrowserAsync(websiteUrl)}
+            />
+            <Text style={styles.ctaNote}>This pass's price rises by tiers. Open it on base.tube to buy it.</Text>
+          </>
         ) : (
           <>
             <Pressable style={styles.consentRow} onPress={() => setAcceptedTerms((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: acceptedTerms }}>
@@ -161,4 +206,9 @@ const styles = StyleSheet.create({
   consentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing(2.5), marginBottom: theme.spacing(2.5) },
   consentText: { flex: 1, color: theme.colors.textMuted, fontSize: 12, lineHeight: 17 },
   ctaNote: { color: theme.colors.textFaint, fontSize: 12, textAlign: 'center', marginTop: theme.spacing(2.5) },
+  tierLine: { color: theme.colors.textMuted, fontSize: 13, marginBottom: theme.spacing(2) },
+  tierRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: theme.spacing(1.5) },
+  tierText: { color: theme.colors.textMuted, fontSize: 14, fontVariant: ['tabular-nums'] },
+  tierCurrent: { color: theme.colors.text, fontWeight: '700' },
+  tierSold: { color: theme.colors.textFaint, textDecorationLine: 'line-through' },
 });

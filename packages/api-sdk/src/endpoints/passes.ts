@@ -48,17 +48,25 @@ export function createPassesApi(http: AxiosInstance) {
      * sentences (`pass.sale_consent`) and collect the ticks first.
      * HTTP 503 CONTENT_PASSES_DISABLED means new sales are closed; do not
      * automatically retry. Reads and access to existing purchases remain available.
+     *
+     * `expectedUnitPriceCents`: the unit price the client displayed. Optional on
+     * a one-price pass; REQUIRED on a tiered pass (`isTieredPricing`), else 409
+     * CLIENT_UPDATE_REQUIRED. When the price moved, 409 PRICE_CHANGED carries the
+     * new `error.details.pricing` and nothing is reserved: show the new price
+     * and let the buyer press Buy again.
      */
     async checkout(
       passId: string,
       consent: CheckoutConsent,
-      quantity?: number
+      quantity?: number,
+      expectedUnitPriceCents?: number | null
     ): Promise<CheckoutSessionResponse> {
       const res = await http.post<CheckoutSessionResponse>(
         `/api/v1/passes/${passId}/checkout`,
         {
           ...consent,
           ...(quantity != null ? { quantity } : {}),
+          ...(expectedUnitPriceCents != null ? { expectedUnitPriceCents } : {}),
         }
       );
       return res.data;

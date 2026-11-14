@@ -26,6 +26,10 @@ export interface PurchaseStatusData {
   txHash?: string | null;
   ownerAddress?: string | null;
   paymentType?: 'stripe' | 'crypto';
+  /** Tier of the pass's price grid this purchase took; null on one price (additive). */
+  priceTierIndex?: number | null;
+  /** When this purchase's passes can be listed for resale; null when it holds none (additive). */
+  resale?: import('./pass').PassResaleEligibility | null;
 }
 
 export interface ClaimResult {

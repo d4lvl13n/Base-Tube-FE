@@ -1,5 +1,5 @@
 import { AxiosError, AxiosAdapter, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { createBasetubeClient } from '../index';
+import { createBasetubeClient, isTieredPricing } from '../index';
 
 function makeAdapter(handler: (config: InternalAxiosRequestConfig) => { status: number; data?: unknown }) {
   const requests: InternalAxiosRequestConfig[] = [];
@@ -109,4 +109,47 @@ it('preserves the disabled-pass refusal without retrying checkout', async () => 
     response: { status: 503, data: { error: { code: 'CONTENT_PASSES_DISABLED' } } },
   });
   expect(calls).toBe(1);
+});
+
+describe('tiered pricing (additive)', () => {
+  const consent = { accepted_terms: true, accepted_withdrawal: true, terms_version: 'v1', withdrawal_version: 'v1' };
+
+  it('checkout sends the displayed unit price when given, and nothing otherwise', async () => {
+    const { adapter, requests } = makeAdapter(() => ({
+      status: 200,
+      data: { url: 'https://stripe.test', session_id: 'cs', unitPriceCents: 1000, quantity: 2, totalCents: 2000 },
+    }));
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+    await expect(client.passes.checkout('p1', consent, 2, 1000)).resolves.toMatchObject({ unitPriceCents: 1000, totalCents: 2000 });
+    expect(JSON.parse(String(requests[0].data))).toMatchObject({ quantity: 2, expectedUnitPriceCents: 1000 });
+    await client.passes.checkout('p1', consent, 1);
+    expect(JSON.parse(String(requests[1].data))).not.toHaveProperty('expectedUnitPriceCents');
+  });
+
+  it('a pass answer carries pricing; isTieredPricing tells a grid from one price', async () => {
+    const pricing = {
+      mode: 'tiered', state: 'on_sale', currentPriceCents: 500, leftAtCurrentPrice: 37, nextPriceCents: 1000, retryAfterSeconds: null,
+      tiers: [{ size: 200, priceCents: 500, state: 'current' }, { size: 200, priceCents: 1000, state: 'upcoming' }],
+    };
+    const { adapter } = makeAdapter(() => ({ status: 200, data: { id: 'p1', title: 'Pass', videos: [], price_cents: 500, pricing } }));
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+    const pass = await client.passes.getById('p1');
+    expect(pass.pricing?.leftAtCurrentPrice).toBe(37);
+    expect(isTieredPricing(pass)).toBe(true);
+    expect(isTieredPricing({ pricing: { ...pricing, mode: 'single', tiers: [] } as never })).toBe(false);
+    expect(isTieredPricing({})).toBe(false);
+  });
+
+  it('PRICE_CHANGED reaches the caller with the new pricing in error.details', async () => {
+    const adapter: AxiosAdapter = async (config) => {
+      throw new AxiosError('conflict', '409', config, {}, {
+        data: { success: false, error: { code: 'PRICE_CHANGED', message: 'The price is now EUR 10.', details: { unitPriceCents: 1000, maxQuantity: 4 } } },
+        status: 409, statusText: 'Conflict', headers: {}, config,
+      });
+    };
+    const client = createBasetubeClient({ baseUrl: 'https://api.test', adapter });
+    await expect(client.passes.checkout('p1', consent, 1, 500)).rejects.toMatchObject({
+      response: { status: 409, data: { error: { code: 'PRICE_CHANGED', details: { unitPriceCents: 1000 } } } },
+    });
+  });
 });
