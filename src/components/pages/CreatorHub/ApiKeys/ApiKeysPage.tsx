@@ -14,6 +14,12 @@ const API_BASE = `${(process.env.REACT_APP_API_URL ?? 'https://beta.base.tube').
 /** The public documentation page, once it is published. */
 const DOCS_URL = process.env.REACT_APP_UPLOAD_API_DOCS_URL;
 
+/** Where creators get the agent skill (Claude Code, Codex), once it is published. */
+const SKILL_URL = process.env.REACT_APP_AGENT_SKILL_URL;
+
+/** The command-line tool's npm package. */
+const CLI = 'npx basetube';
+
 /** What each permission lets a key do, in the creator's words. */
 const SCOPE_TEXT: Record<ApiKeyScope, { label: string; detail: string }> = {
   'videos:upload': { label: 'Upload videos', detail: 'Start and finish uploads.' },
@@ -36,15 +42,31 @@ function dateText(iso: string | null): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function firstVideoExample(): string {
-  return [
-    'export BASETUBE_API_KEY=bt_live_...   # your key',
-    `curl -s ${API_BASE}/me -H "Authorization: Bearer $BASETUBE_API_KEY"`,
-    '',
-    '# Send a video with the reference script (Node 18+):',
-    'node basetube-upload.mjs episode-12.mp4 --title "Episode 12"',
-  ].join('\n');
-}
+/** The CLI talks to beta.base.tube by default; any other server is named once, at login. */
+const LOGIN_COMMAND = API_BASE === 'https://beta.base.tube/v1' ? `${CLI} login` : `${CLI} login --api ${API_BASE}`;
+const UPLOAD_COMMAND = `${CLI} upload video.mp4 --title "My video"`;
+
+const CommandStep: React.FC<{ step: number; title: string; command?: string }> = ({ step, title, command }) => (
+  <li className="flex gap-3">
+    <span
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#fa7517]/50 bg-[#fa7517]/10 text-xs font-semibold text-[#fa7517]"
+      aria-hidden="true"
+    >
+      {step}
+    </span>
+    <div className="min-w-0 flex-1 space-y-2">
+      <p className="text-sm text-white">{title}</p>
+      {command && (
+        <div className="flex items-center gap-2">
+          <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-lg border border-gray-800 bg-black/60 px-3 py-2 font-mono text-xs text-gray-300">
+            {command}
+          </code>
+          <CopyButton text={command} label="Copy" what="Command" />
+        </div>
+      )}
+    </div>
+  </li>
+);
 
 // --- Create a key -------------------------------------------------------------------------
 
@@ -242,20 +264,33 @@ const ApiKeysPage: React.FC = () => {
                 </p>
               </Panel>
 
-              <Panel title="Send your first video" icon={KeyRound}>
-                <pre className="overflow-x-auto rounded-lg border border-gray-800 bg-black/60 p-3 font-mono text-xs leading-relaxed text-gray-300">
-                  {firstVideoExample()}
-                </pre>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <CopyButton text={firstVideoExample()} label="Copy example" what="Example" />
-                  {DOCS_URL && (
-                    <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={text.link}>
-                      Read the documentation
+              <Panel title="Send your first video" icon={KeyRound} subtitle="From a terminal, with Node.js 18 or newer.">
+                <ol className="space-y-4">
+                  <CommandStep step={1} title="Create a key below and copy it." />
+                  <CommandStep step={2} title="Sign in. Paste the key when asked." command={LOGIN_COMMAND} />
+                  <CommandStep step={3} title="Send a video." command={UPLOAD_COMMAND} />
+                </ol>
+                <p className={cx(text.note, 'mt-4')}>
+                  Using Claude Code or Codex?{' '}
+                  {SKILL_URL ? (
+                    <a href={SKILL_URL} target="_blank" rel="noopener noreferrer" className={text.link}>
+                      Install the Base.tube skill
                     </a>
+                  ) : (
+                    'They can run the same commands. Add --json for a machine-readable answer.'
                   )}
-                </div>
-                <p className={cx(text.note, 'mt-3')}>
-                  Videos sent with a key stay private until you make them public. API address: <code className="text-gray-300">{API_BASE}</code>
+                </p>
+                <p className={cx(text.note, 'mt-2')}>
+                  Videos sent with a key stay private until you make them public. API address for developers:{' '}
+                  <code className="text-gray-300">{API_BASE}</code>
+                  {DOCS_URL && (
+                    <>
+                      {' '}
+                      <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={text.link}>
+                        Read the documentation
+                      </a>
+                    </>
+                  )}
                 </p>
               </Panel>
             </div>
