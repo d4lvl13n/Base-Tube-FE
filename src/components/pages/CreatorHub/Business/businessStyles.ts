@@ -167,8 +167,8 @@ export const skeleton = {
 
 export const frame = {
   page: 'relative pt-24 pb-16 text-white',
-  /** The Analytics measure (channels, resources). */
-  wide: 'mx-auto max-w-7xl space-y-6 px-4 md:px-6',
+  /** Channels and resources: same fluid width as the Business screens. */
+  wide: 'mx-auto w-full max-w-[1600px] space-y-6 px-4 md:px-6',
   /**
    * Business screens and the pass pages only: fluid up to 1600 px, so a wide
    * monitor shows currencies, panels and tables side by side. Same side

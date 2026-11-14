@@ -64,7 +64,7 @@ const ChannelList = lazy(() => import('./components/pages/CreatorHub/ChannelMana
 const OnboardingModal = lazy(() => import('./components/pages/OnboardingModal'));
 const SignInWeb3 = lazy(() => import('./components/pages/SignInWeb3'));
 const OnboardingWeb3 = lazy(() => import('./components/pages/OnboardingWeb3'));
-const NFTSimulator = lazy(() => import('./components/pages/NftContentPass/NFTCPsimulator/NftContentPassSimulator'));
+const RevenueSimulatorPage = lazy(() => import('./components/pages/CreatorHub/RevenueSimulator/RevenueSimulatorPage'));
 const MonetizationInfo = lazy(() => import('./components/pages/CreatorHub/MonetizationInfo'));
 const Leaderboard = lazy(() => import('./components/pages/Leaderboard/Index'));
 const EmbedVideo = lazy(() => import('./components/pages/EmbedVideo'));
@@ -305,13 +305,10 @@ function App() {
                     element={<CreatorHubRoute element={<UploadEntry />} />}
                   />
                   <Route
-                    path="/creator-hub/nft-simulator"
-                    element={
-                      <CreatorHubRoute
-                        element={<NFTSimulator />}
-                      />
-                    }
+                    path="/creator-hub/revenue-simulator"
+                    element={<CreatorHubRoute element={<RevenueSimulatorPage />} />}
                   />
+                  <Route path="/creator-hub/nft-simulator" element={<Navigate to="/creator-hub/revenue-simulator" replace />} />
                   <Route
                     path="/creator-hub/monetization"
                     element={<MonetizationInfo />}

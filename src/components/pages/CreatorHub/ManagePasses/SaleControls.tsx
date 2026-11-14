@@ -66,6 +66,11 @@ export function useSaleActionFlow(pass: SaleSubject | null | undefined) {
     );
   }, [mutation, pass]);
 
+  // Opened on the next tick: when asked from a menu item, the menu closes first.
+  const requestPause = useCallback(() => {
+    window.setTimeout(() => setConfirmOpen(true), 0);
+  }, []);
+
   const dialog = pass ? (
     <ConfirmDialog
       open={confirmOpen}
@@ -79,7 +84,7 @@ export function useSaleActionFlow(pass: SaleSubject | null | undefined) {
     />
   ) : null;
 
-  return { control, pending, requestPause: () => setConfirmOpen(true), resume, dialog };
+  return { control, pending, requestPause, resume, dialog };
 }
 
 /** The pause / resume button of the pass page (nothing for a draft or a pause made by BaseTube). */

@@ -28,14 +28,15 @@ import StepDescription from './steps/StepDescription';
 import StepVideos from './steps/StepVideos';
 import StepReview from './steps/StepReview';
 import StepPublish from './steps/StepPublish';
+import RevenueSimulatorPanel, { SIMULATOR_PANEL_ROOM } from '../RevenueSimulator/RevenueSimulatorPanel';
 
 // The wizard's own chrome
 import WizardStepper from './WizardStepper';
 import YouTubeGateCard from './YouTubeGateCard';
 import SuccessScreen from './SuccessScreen';
 
-/** The wizard's measure: narrower than the management screens, one column of decisions. */
-const WIZARD_MEASURE = 'mx-auto max-w-5xl space-y-6 px-4 md:px-6';
+/** The wizard's measure: the same fluid width as the management screens. */
+const WIZARD_MEASURE = 'mx-auto w-full max-w-[1600px] space-y-6 px-4 md:px-6';
 
 const STEP_SLIDE = {
   initial: { opacity: 0, x: 12 },
@@ -66,6 +67,7 @@ const formatCurrency = (amount: number | undefined, currency: string | undefined
 const CreateContentPass: React.FC = () => {
   const prefersReducedMotion = useReducedMotion();
   const [step, setStep] = useState(1);
+  const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitSuccess, setIsSubmitSuccess] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -115,7 +117,8 @@ const CreateContentPass: React.FC = () => {
     formState: { errors }
   } = formMethods;
 
-  // const watchedFields = watch();
+  // The simulator panel reads the price and the number of passes as they are typed.
+  const [simulatorPrice, simulatorCap, simulatorCurrency] = watch(['price_cents', 'supply_cap', 'currency']);
 
   // Refetch YouTube status + creator videos when ?ytLinked=1 is present after OAuth callback
   useEffect(() => {
@@ -309,7 +312,7 @@ const CreateContentPass: React.FC = () => {
   const renderStepContent = () => {
     const props = { register, control, errors, watch, setValue, getValues };
     switch (step) {
-      case 1: return <StepBasic {...props} />;
+      case 1: return <StepBasic {...props} onOpenSimulator={() => setSimulatorOpen(true)} />;
       case 2: return <StepDescription control={control} errors={errors} setValue={setValue} watch={watch} />;
       case 3: return (
         <StepVideos
@@ -438,8 +441,17 @@ const CreateContentPass: React.FC = () => {
   }
 
   return (
-    <main className={frame.page}>
+    <main className={cx(frame.page, simulatorOpen && SIMULATOR_PANEL_ROOM)}>
       <TestnetModeBadge topOffsetPx={64} />
+      <RevenueSimulatorPanel
+        open={simulatorOpen}
+        onClose={() => setSimulatorOpen(false)}
+        linked={{
+          price: Number.isFinite(simulatorPrice) ? (simulatorPrice as number) / 100 : undefined,
+          cap: Number.isFinite(simulatorCap) ? (simulatorCap as number) : undefined,
+          currency: simulatorCurrency,
+        }}
+      />
       <div className={WIZARD_MEASURE}>
         <header>
           <div className="min-w-0">

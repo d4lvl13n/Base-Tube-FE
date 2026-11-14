@@ -28,6 +28,8 @@ interface StepBasicProps {
   control: Control<FormData>;
   watch: UseFormWatch<FormData>;
   setValue: UseFormSetValue<FormData>;
+  /** Opens the revenue simulator beside the form. */
+  onOpenSimulator: () => void;
 }
 
 const currencies = [
@@ -55,7 +57,7 @@ const intToDisplayValue = (value?: number) =>
 const prefixedInput = cx(wizardInput, 'pl-9');
 const leadingIcon = 'pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500';
 
-const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProps): JSX.Element => {
+const StepBasic = ({ register, errors, watch, setValue, control, onOpenSimulator }: StepBasicProps): JSX.Element => {
   const watchedFields = watch();
   const [priceInput, setPriceInput] = useState(() => centsToDisplayValue(watchedFields.price_cents));
   const [supplyCapInput, setSupplyCapInput] = useState(() => intToDisplayValue(watchedFields.supply_cap));
@@ -325,15 +327,10 @@ const StepBasic = ({ register, errors, watch, setValue, control }: StepBasicProp
           The price, the number of passes and the per-person limit are part of what you promise buyers. You check them before
           saving; they cannot change after the first sale.
         </p>
-        <a
-          href="/creator-hub/nft-simulator"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cx(text.link, 'inline-flex shrink-0 items-center gap-1.5 text-xs font-medium')}
-        >
+        <button type="button" onClick={onOpenSimulator} className={cx(text.link, 'inline-flex shrink-0 items-center gap-1.5 text-xs font-medium')}>
           <Calculator className="h-3.5 w-3.5" aria-hidden="true" />
           Open revenue simulator
-        </a>
+        </button>
       </div>
     </div>
   );

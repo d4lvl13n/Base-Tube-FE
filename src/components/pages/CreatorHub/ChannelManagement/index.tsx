@@ -11,7 +11,7 @@ import { EmptyState } from '../Business/BusinessUi';
 import { button, cx, frame, sheen, skeleton, surface, text } from '../Business/businessStyles';
 
 /** One channel reads in a narrower column than the Analytics measure. */
-const NARROW = 'mx-auto max-w-4xl space-y-6 px-4 md:px-6';
+const NARROW = 'mx-auto w-full max-w-[1600px] space-y-6 px-4 md:px-6';
 
 const ChannelManagement: React.FC = () => {
   const navigate = useNavigate();

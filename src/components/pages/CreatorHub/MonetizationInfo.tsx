@@ -49,7 +49,7 @@ const faqItems = [
   },
   {
     question: "How do I determine the right price and supply for my pass?",
-    answer: "Our Revenue Simulator can help you find the optimal price point and supply cap based on your audience size and engagement. Generally, more exclusive passes (lower supply) can command higher prices, but the best strategy depends on your specific audience and content."
+    answer: "The Content Pass revenue simulator can help you find the optimal price point and supply cap based on your audience size and engagement. Generally, more exclusive passes (lower supply) can command higher prices, but the best strategy depends on your specific audience and content."
   }
 ];
 
@@ -79,7 +79,7 @@ const MonetizationInfo: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mx-auto max-w-7xl pt-24"
+          className="mx-auto w-full max-w-[1600px] pt-24"
         >
             {/* Premium Hero Section */}
             <div className="relative overflow-hidden rounded-3xl bg-black mx-4 mb-16">
@@ -151,7 +151,7 @@ const MonetizationInfo: React.FC = () => {
                       <Star className="w-5 h-5" />
                       {PASSES_ENABLED ? 'Create Your First Pass' : 'Coming Soon'}
                     </motion.button>
-                    <Link to="/creator-hub/nft-simulator">
+                    <Link to="/creator-hub/revenue-simulator">
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -435,14 +435,14 @@ const MonetizationInfo: React.FC = () => {
                   Try our simulator to get customized revenue projections.
                 </p>
                 
-              <Link to="/creator-hub/nft-simulator">
+              <Link to="/creator-hub/revenue-simulator">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                     className="flex items-center gap-2 mx-auto px-6 py-3 bg-black/40 border border-gray-700 hover:border-gray-600 text-white rounded-xl font-medium transition-colors"
                 >
                   <Calculator className="w-5 h-5" />
-                    Try the Revenue Simulator
+                    Try the Content Pass revenue simulator
                 </motion.button>
               </Link>
               </section>

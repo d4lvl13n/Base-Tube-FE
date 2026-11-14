@@ -342,7 +342,7 @@ const VideoUpload: React.FC = () => {
   const transferring = phase === 'uploading';
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pb-16 pt-16">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col px-6 pb-16 pt-16">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-white">Upload a video</h1>
         <p className="mt-1 text-sm text-gray-500">

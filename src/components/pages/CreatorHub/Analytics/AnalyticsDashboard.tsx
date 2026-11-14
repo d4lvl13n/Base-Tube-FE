@@ -93,7 +93,7 @@ const AnalyticsDashboard: React.FC = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="max-w-7xl mx-auto space-y-8"
+      className="mx-auto w-full max-w-[1600px] space-y-8"
     >
       <div className="mb-12">
         <ChannelPreviewCard channel={selectedChannel} />

@@ -112,7 +112,8 @@ export const RowActions: React.FC<RowActionsProps> = ({
         <Pencil className={styles.actionIcon} aria-hidden="true" />
       </IconAction>
 
-      <DropdownMenu.Root>
+      {/* Not modal: see PassRowActions (a dialog opened from a modal menu left the page locked). */}
+      <DropdownMenu.Root modal={false}>
         <DropdownMenu.Trigger asChild>
           <button type="button" aria-label="More actions" className={styles.actionButton}>
             <MoreHorizontal className={styles.actionIcon} aria-hidden="true" />

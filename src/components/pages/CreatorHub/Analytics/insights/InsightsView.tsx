@@ -586,7 +586,7 @@ export const InsightsView: React.FC<InsightsViewProps> = ({
   const packagingFailed = insights?.partial?.includes('packaging') ?? false;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6" data-testid="insights-card">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6" data-testid="insights-card">
       <Header
         channelName={channelName}
         insights={insights}

@@ -72,7 +72,10 @@ export const PassRowActions: React.FC<{ pass: Pass; /** The business API's row f
         </Tooltip.Portal>
       </Tooltip.Root>
 
-      <DropdownMenu.Root>
+      {/* Not modal: a modal menu locks the page's pointer events, and a dialog
+          opened from one of its items (another copy of the same Radix layer)
+          left that lock on after closing: rows stopped answering the mouse. */}
+      <DropdownMenu.Root modal={false}>
         <DropdownMenu.Trigger asChild>
           <button type="button" aria-label="More actions" className={list.actionButton}>
             <MoreHorizontal className={list.actionIcon} aria-hidden="true" />

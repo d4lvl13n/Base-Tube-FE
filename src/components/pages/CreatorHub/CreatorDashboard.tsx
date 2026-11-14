@@ -88,7 +88,7 @@ const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
     <motion.div
       initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mx-auto max-w-7xl p-8 pt-24"
+      className="mx-auto w-full max-w-[1600px] p-8 pt-24"
     >
       <div className="mb-12">
         <h1 className="mb-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
