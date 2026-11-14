@@ -180,6 +180,8 @@ export type CryptoDirectBuyResult = UseMutationResult<
     accessPollTimeoutMs?: number;
     accessPollIntervalMs?: number;
     consent?: import('../constants/passConsent').SaleConsentPayload;
+    /** The unit price on screen (tiered pricing contract). */
+    expectedUnitPriceCents?: number | null;
   }
 > & {
   phase: CryptoPurchasePhase;
@@ -306,7 +308,16 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       status?: OnchainPurchaseStatus;
     },
     Error,
-    { quantity: number; validSeconds?: number; confirmations?: number; accessPollTimeoutMs?: number; accessPollIntervalMs?: number; consent?: import('../constants/passConsent').SaleConsentPayload }
+    {
+      quantity: number;
+      validSeconds?: number;
+      confirmations?: number;
+      accessPollTimeoutMs?: number;
+      accessPollIntervalMs?: number;
+      consent?: import('../constants/passConsent').SaleConsentPayload;
+      /** The unit price on screen: the server reserves at it or answers PRICE_CHANGED. */
+      expectedUnitPriceCents?: number | null;
+    }
   >({
     mutationFn: async ({
       quantity = 1,
@@ -314,6 +325,7 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
       accessPollTimeoutMs = 60_000,
       accessPollIntervalMs = 2500,
       consent,
+      expectedUnitPriceCents,
     }) => {
       setErrorMessage(null);
       setHardConflict(false);
@@ -332,6 +344,7 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
         onchainPassApi.getCryptoQuote(passId, {
           buyer: address,
           quantity,
+          ...(expectedUnitPriceCents != null ? { expectedUnitPriceCents } : {}),
           ...(consent ?? {}),
         });
       let quote: Awaited<ReturnType<typeof requestQuote>>;
@@ -407,6 +420,25 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
 
       setPhase('awaiting-signature');
 
+      let hash: `0x${string}`;
+      if (quote.payment_mode === 'transfer') {
+        // A price that rises by tiers: ONE plain USDC transfer of exactly the
+        // checkout's amount to the pass (no approve, no lock purchase). The
+        // backend verifies it on confirm and issues the key.
+        if (!quote.pay_to || !quote.amount) throw new Error('The checkout did not say where to pay.');
+        try { console.log('[CryptoPay] paying by transfer', { to: quote.pay_to, amount: quote.amount, quantity: qty }); } catch {}
+        const transferData = encodeFunctionData({
+          abi: ERC20_ABI,
+          functionName: 'transfer',
+          args: [quote.pay_to as `0x${string}`, BigInt(quote.amount)],
+        });
+        hash = await activeWalletClient.sendTransaction({
+          account: address as `0x${string}`,
+          to: usdc,
+          data: transferData,
+          chain: targetChain,
+        });
+      } else {
       // 1. Ensure the Lock can pull the USDC key price.
       const allowance = (await pubClient.readContract({
         address: usdc,
@@ -441,12 +473,13 @@ export const useCryptoDirectBuy = (passId?: string | null): CryptoDirectBuyResul
         functionName: 'purchase',
         args: [values, recipients, zeros, zeros, emptyData],
       });
-      const hash = await activeWalletClient.sendTransaction({
+      hash = await activeWalletClient.sendTransaction({
         account: address as `0x${string}`,
         to: lockAddress,
         data,
         chain: targetChain,
       });
+      }
       try { console.log('[CryptoPay] tx submitted', { hash }); } catch {}
       setPhase('tx-pending');
       const explorerUrl = getExplorerTxUrl(hash as string, desiredChainId);

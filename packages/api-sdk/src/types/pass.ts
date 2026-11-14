@@ -59,8 +59,7 @@ export type PassCheckoutPriceCode =
   | 'PRICE_CHANGED'
   | 'QUANTITY_SPANS_PRICE_TIERS'
   | 'PASS_ALL_RESERVED'
-  | 'CLIENT_UPDATE_REQUIRED'
-  | 'CRYPTO_UNAVAILABLE_FOR_TIERED_PRICE';
+  | 'CLIENT_UPDATE_REQUIRED';
 
 /**
  * True when the pass sells at a price that rises by tiers. A client that

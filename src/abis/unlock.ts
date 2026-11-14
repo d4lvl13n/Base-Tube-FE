@@ -2,8 +2,9 @@ import { parseAbi } from 'viem';
 
 /**
  * Minimal Unlock PublicLock (v14) + ERC-20 ABIs for the crypto purchase flow.
- * The buy is: USDC.approve(lock, keyPrice) → Lock.purchase(...) (legacy v14 sig,
- * paid in USDC so msg.value = 0).
+ * One price: USDC.approve(lock, keyPrice) → Lock.purchase(...) (legacy v14 sig,
+ * paid in USDC so msg.value = 0). A price that rises by tiers: ONE plain
+ * USDC.transfer(pay_to, amount); BaseTube then issues the key.
  */
 export const PUBLIC_LOCK_ABI = parseAbi([
   'function purchase(uint256[] _values, address[] _recipients, address[] _referrers, address[] _keyManagers, bytes[] _data) payable returns (uint256[])',
@@ -13,6 +14,7 @@ export const PUBLIC_LOCK_ABI = parseAbi([
 
 export const ERC20_ABI = parseAbi([
   'function approve(address spender, uint256 amount) returns (bool)',
+  'function transfer(address to, uint256 amount) returns (bool)',
   'function allowance(address owner, address spender) view returns (uint256)',
   'function balanceOf(address account) view returns (uint256)',
   'function decimals() view returns (uint8)',

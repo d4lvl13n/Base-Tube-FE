@@ -118,6 +118,17 @@ export interface CryptoQuote {
   key_price: string;        // USDC raw units (6 decimals)
   quantity?: number;
   chain_id: number;
+  /**
+   * 'lock_purchase' (one price): approve + the lock's purchase, as before.
+   * 'transfer' (price rises by tiers): send exactly `amount` USDC to `pay_to`
+   * in ONE plain transfer, then confirm with its hash; BaseTube issues the key.
+   */
+  payment_mode?: 'lock_purchase' | 'transfer';
+  pay_to?: string;
+  /** USDC raw units (6 decimals): unit price × quantity. */
+  amount?: string;
+  unitPriceCents?: number;
+  totalCents?: number;
 }
 
 // ---- Pending Purchases (Stripe purchases awaiting wallet mint) ----

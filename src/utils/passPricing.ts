@@ -309,9 +309,6 @@ export const ALL_RESERVED_TEXT = "The last passes are in someone's checkout. Try
 export const priceChangedText = (unitPriceCents: number, currency: string): string =>
   `The price is now ${priceText(unitPriceCents, currency)}.`;
 
-/** Why the crypto option is not offered on a tiered pass. */
-export const CRYPTO_NOT_FOR_TIERED_TEXT = 'This pass is paid by card: its price rises by tiers, and crypto checkout uses one fixed price.';
-
 /** The price a client displays and sends back as `expectedUnitPriceCents`. */
 export const displayedUnitPrice = (pricing: PassPricingDto, fallbackCents: number | undefined): number | null =>
   pricing.state === 'on_sale' ? pricing.currentPriceCents ?? fallbackCents ?? null : null;
