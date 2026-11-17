@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useChannelOverview } from '../../hooks/useChannelOverview';
+import { useChannelOverview, type ChannelVideoSort } from '../../hooks/useChannelOverview';
 import { useContentPrefetch } from '../../hooks/useContentPrefetch';
 import { useContentReady } from '../../performance/useContentReady';
 import { useParams } from 'react-router-dom';
@@ -20,7 +20,8 @@ const ChannelDetailPage: React.FC = () => {
   const { identifier } = useParams<{ identifier: string }>();
   
   const [activeTab, setActiveTab] = useState('videos');
-  const overview = useChannelOverview(identifier);
+  const [sort, setSort] = useState<ChannelVideoSort>('newest');
+  const overview = useChannelOverview(identifier, 24, sort);
   const { channel, videos } = overview;
   const isChannelLoading = overview.isLoading;
   const channelError = overview.error && !channel;
@@ -85,6 +86,14 @@ const ChannelDetailPage: React.FC = () => {
               <div className="p-6">
                 {activeTab === 'videos' && (
                   <>
+                    <div role="group" aria-label="Sort channel videos" className="flex flex-wrap gap-2 mb-6">
+                      {([['newest', 'Latest'], ['most_viewed', 'Most viewed'], ['oldest', 'Oldest']] as const).map(([value, label]) => (
+                        <button key={value} type="button" aria-pressed={sort === value} onClick={() => setSort(value)}
+                          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${sort === value ? 'bg-white text-black' : 'bg-gray-800 text-white hover:bg-gray-700'}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                     {videoError && (
                       <div role="alert" className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 backdrop-blur-sm">
                         <p className="text-red-400">{videoError}</p>

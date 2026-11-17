@@ -113,3 +113,39 @@ it('does not let a late channel response replace the next route', async () => {
   expect(result.current.channel?.id).toBe(8);
   unmount(); client.clear();
 });
+
+it.each(['most_viewed', 'oldest'] as const)('sorts the full channel server-side by %s on both first and subsequent pages', async sort => {
+  (getChannelOverview as jest.Mock).mockResolvedValue(overview);
+  (getChannelVideos as jest.Mock).mockImplementation((_id, page, query) => Promise.resolve({
+    data: [{ id: page === 1 ? 99 : 98, title: query.sort }],
+    pagination: { total: 2, page, limit: 1, totalPages: 2 },
+  }));
+  const { client, wrapper } = setup();
+  const { result, unmount } = renderHook(() => useChannelOverview('creator.base', 1, sort), { wrapper });
+  await waitFor(() => expect(result.current.videos.map(v => v.id)).toEqual([99]));
+  expect(getChannelVideos).toHaveBeenCalledWith(7, 1, { limit: 1, sort }, expect.any(AbortSignal));
+  await act(async () => { await result.current.fetchNextPage(); });
+  expect(getChannelVideos).toHaveBeenLastCalledWith(7, 2, { limit: 1, sort }, expect.any(AbortSignal));
+  await waitFor(() => expect(result.current.videos.map(v => v.id)).toEqual([99, 98]));
+  expect(result.current.hasNextPage).toBe(false);
+  expect(channelOverviewOptions('creator.base', 1, sort).queryKey).not.toEqual(channelOverviewOptions('creator.base', 1, 'newest').queryKey);
+  unmount(); client.clear();
+});
+
+it('resets pagination on sort changes and ignores the cancelled previous sort response', async () => {
+  const pending = deferred<any>();
+  (getChannelOverview as jest.Mock).mockResolvedValue(overview);
+  (getChannelVideos as jest.Mock).mockImplementation((_id, page, query) => query.sort === 'most_viewed' ? pending.promise : Promise.resolve({
+    data: [{ id: 3, title: 'Oldest' }], pagination: { total: 1, page, limit: 1, totalPages: 1 },
+  }));
+  const { client, wrapper } = setup();
+  const { result, rerender, unmount } = renderHook(({ sort }: { sort: 'most_viewed' | 'oldest' }) => useChannelOverview('creator.base', 1, sort), { wrapper, initialProps: { sort: 'most_viewed' } });
+  await waitFor(() => expect(getChannelVideos).toHaveBeenCalled());
+  const signal = (getChannelVideos as jest.Mock).mock.calls[0][3] as AbortSignal;
+  rerender({ sort: 'oldest' });
+  await waitFor(() => expect(result.current.videos.map(v => v.id)).toEqual([3]));
+  expect(signal.aborted).toBe(true);
+  await act(async () => { pending.resolve({ data: [{ id: 99 }], pagination: { total: 1, page: 1, limit: 1, totalPages: 1 } }); });
+  expect(result.current.videos.map(v => v.id)).toEqual([3]);
+  unmount(); client.clear();
+});

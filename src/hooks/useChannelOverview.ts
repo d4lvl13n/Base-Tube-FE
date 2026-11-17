@@ -1,22 +1,29 @@
 import { useMemo } from 'react';
 import { infiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query';
 import type { InfiniteData, QueryClient } from '@tanstack/react-query';
-import { getChannelOverview, getChannelVideos } from '../api/channel';
+import { getChannelOverview, getChannelVideos, type ChannelVideoQuery } from '../api/channel';
 import type { Channel, ChannelOverview, ChannelVideosResponse } from '../types/channel';
+
+export type ChannelVideoSort = NonNullable<ChannelVideoQuery['sort']>;
 
 interface OverviewPage extends Omit<ChannelOverview, 'channel'> { channel?: Channel; }
 interface PageRequest { page: number; channelId?: number; limit: number; }
 const boundedLimit = (value: number) => Number.isFinite(value) ? Math.min(24, Math.max(1, Math.trunc(value))) : 12;
 
-export function channelOverviewOptions(identifier: string | number, requestedLimit = 12) {
+export function channelOverviewOptions(identifier: string | number, requestedLimit = 12, sort: ChannelVideoSort = 'newest') {
   const limit = boundedLimit(requestedLimit);
   return infiniteQueryOptions({
-    queryKey: ['channel-overview', String(identifier), limit],
+    queryKey: ['channel-overview', String(identifier), limit, sort],
     initialPageParam: { page: 1, limit } as PageRequest,
     queryFn: async ({ pageParam, signal }): Promise<OverviewPage> => {
-      if (pageParam.page === 1) return getChannelOverview(identifier, limit, signal);
+      if (pageParam.page === 1) {
+        const first = await getChannelOverview(identifier, limit, signal);
+        if (sort === 'newest') return first;
+        const sorted = await getChannelVideos(first.channel.id, 1, { limit, sort }, signal);
+        return { ...first, videos: sorted.data, pagination: sorted.pagination };
+      }
       if (!pageParam.channelId) throw new Error('Missing channel for next page');
-      const response: ChannelVideosResponse = await getChannelVideos(pageParam.channelId, pageParam.page, { limit: pageParam.limit }, signal);
+      const response: ChannelVideosResponse = await getChannelVideos(pageParam.channelId, pageParam.page, { limit: pageParam.limit, ...(sort === 'newest' ? {} : { sort }) }, signal);
       return { videos: response.data, pagination: response.pagination };
     },
     getNextPageParam: (lastPage, pages): PageRequest | undefined => {
@@ -31,8 +38,8 @@ export function channelOverviewOptions(identifier: string | number, requestedLim
   });
 }
 
-export function useChannelOverview(identifier?: string, limit = 12) {
-  const query = useInfiniteQuery({ ...channelOverviewOptions(identifier ?? '', limit), enabled: Boolean(identifier) });
+export function useChannelOverview(identifier?: string, limit = 12, sort: ChannelVideoSort = 'newest') {
+  const query = useInfiniteQuery({ ...channelOverviewOptions(identifier ?? '', limit, sort), enabled: Boolean(identifier) });
   const channel = query.data?.pages[0]?.channel;
   const videos = useMemo(() => query.data?.pages.flatMap(page => page.videos) ?? [], [query.data]);
   return { ...query, channel, videos };
